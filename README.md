@@ -11,21 +11,21 @@ Install once, point at your workspace root, route every task through the cheapes
 ## Install
 
 ```bash
-pip install tier-route
+pip install greedy-token
 # or editable: pip install -e .
 # or from git: pip install git+https://github.com/svasenkov/llm-opt.git
 ```
 
-PyPI: **`tier-route`**. CLI command: `llm-opt`.
+PyPI: **`greedy-token`**. CLI command: `llm-opt`.
 
 ### PyPI publish (maintainer)
 
-1. Create project **tier-route** on [pypi.org](https://pypi.org/manage/projects/)
+1. Create project **greedy-token** on [pypi.org](https://pypi.org/manage/projects/)
 2. Add trusted publisher: Owner `svasenkov`, repo `llm-opt`, workflow `publish.yml`
 3. Publish: GitHub → Releases → re-run workflow or new tag
 
 ```bash
-pip install tier-route
+pip install greedy-token
 ```
 
 ## Workspace root
