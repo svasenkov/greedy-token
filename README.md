@@ -11,21 +11,21 @@ Install once, point at your workspace root, route every task through the cheapes
 ## Install
 
 ```bash
-pip install llm-opt-cli
+pip install llm-optimizer
 # or editable: pip install -e .
 # or from git: pip install git+https://github.com/svasenkov/llm-opt.git
 ```
 
-PyPI package name is **`llm-opt-cli`** (`llm-opt` on PyPI is taken by another project). CLI command: `llm-opt`.
+PyPI: **`llm-optimizer`**. CLI command: `llm-opt`.
 
 ### PyPI publish (maintainer)
 
-1. Create project **llm-opt-cli** on [pypi.org](https://pypi.org/manage/projects/)
+1. Create project **llm-optimizer** on [pypi.org](https://pypi.org/manage/projects/)
 2. Add trusted publisher: Owner `svasenkov`, repo `llm-opt`, workflow `publish.yml`
 3. Publish: GitHub → Releases → publish `v0.2.0` (or newer tag)
 
 ```bash
-pip install llm-opt-cli
+pip install llm-optimizer
 ```
 
 ## Workspace root
