@@ -11,9 +11,12 @@ Install once, point at your workspace root, route every task through the cheapes
 ## Install
 
 ```bash
-pip install -e .
-# or: pip install git+https://github.com/svasenkov/llm-opt.git
+pip install llm-opt-cli
+# or editable: pip install -e .
+# or from git: pip install git+https://github.com/svasenkov/llm-opt.git
 ```
+
+PyPI package name is **`llm-opt-cli`** (`llm-opt` on PyPI is taken by another project). CLI command: `llm-opt`.
 
 ## Workspace root
 
