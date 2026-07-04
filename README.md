@@ -1,9 +1,9 @@
-# llm-opt
+# greedy-token
 
 Route dev tasks through **tool → python → ollama → RAG** before escalating to Cursor/Claude.
 
 ```
-Your task  →  llm-opt  →  rg/jq | scripts | Ollama | docs/rag | Cursor
+Your task  →  greedy-token  →  rg/jq | scripts | Ollama | docs/rag | Cursor
 ```
 
 Install once, point at your workspace root, route every task through the cheapest tier that can handle it.
@@ -13,44 +13,38 @@ Install once, point at your workspace root, route every task through the cheapes
 ```bash
 pip install greedy-token
 # or editable: pip install -e .
-# or from git: pip install git+https://github.com/svasenkov/llm-opt.git
+# or from git: pip install git+https://github.com/svasenkov/greedy-token.git
 ```
-
-PyPI: **`greedy-token`**. CLI command: `llm-opt`.
 
 ### PyPI publish (maintainer)
 
 1. Create project **greedy-token** on [pypi.org](https://pypi.org/manage/projects/)
-2. Add trusted publisher: Owner `svasenkov`, repo `llm-opt`, workflow `publish.yml`
+2. Add trusted publisher: Owner `svasenkov`, repo `greedy-token`, workflow `publish.yml`
 3. Publish: GitHub → Releases → re-run workflow or new tag
-
-```bash
-pip install greedy-token
-```
 
 ## Workspace root
 
-`llm-opt` runs against a project directory (monorepo, app repo, etc.):
+`greedy-token` runs against a project directory (monorepo, app repo, etc.):
 
 ```bash
-export LLM_OPT_ROOT=/path/to/your-workspace
+export GREEDY_TOKEN_ROOT=/path/to/your-workspace
 ```
 
-Auto-detect works when the workspace has `docs/phase-manifest.json` and `scripts/check-meta-sync.sh` (e.g. [zero-design-system](https://github.com/svasenkov/zero-design-system)). Otherwise set `LLM_OPT_ROOT` explicitly.
+Auto-detect works when the workspace has `docs/phase-manifest.json` and `scripts/check-meta-sync.sh` (e.g. [zero-design-system](https://github.com/svasenkov/zero-design-system)). Otherwise set `GREEDY_TOKEN_ROOT` explicitly.
 
 ## Commands
 
 | Command | Purpose |
 |---------|---------|
-| `llm-opt route "…"` | Recommend: tool \| python \| ollama \| rag \| cursor + scoring |
-| `llm-opt estimate "…"` | Token-aware estimate: complexity, est_tokens, tier scan |
-| `llm-opt run "…" [--execute]` | Route + dry-run / **read-only** execute |
-| `llm-opt scripts --list` | List workspace script wrappers |
-| `llm-opt scripts --run ID [--execute]` | Dry-run / execute read-only wrapper |
-| `llm-opt audit-context` | Size of always-on rules/skills (tokens) |
-| `llm-opt tokens PATH…` | Count tokens in files/directories |
-| `llm-opt rag QUERY` | Search chunks in `docs/rag/` |
-| `llm-opt compress` | Short prompt version (stdin; `--ollama` for LLM) |
+| `greedy-token route "…"` | Recommend: tool \| python \| ollama \| rag \| cursor + scoring |
+| `greedy-token estimate "…"` | Token-aware estimate: complexity, est_tokens, tier scan |
+| `greedy-token run "…" [--execute]` | Route + dry-run / **read-only** execute |
+| `greedy-token scripts --list` | List workspace script wrappers |
+| `greedy-token scripts --run ID [--execute]` | Dry-run / execute read-only wrapper |
+| `greedy-token audit-context` | Size of always-on rules/skills (tokens) |
+| `greedy-token tokens PATH…` | Count tokens in files/directories |
+| `greedy-token rag QUERY` | Search chunks in `docs/rag/` |
+| `greedy-token compress` | Short prompt version (stdin; `--ollama` for LLM) |
 
 ## Tier order
 
@@ -63,19 +57,19 @@ First matching tier wins. Ollama is **optional** — if unavailable, the tier is
 ## Examples
 
 ```bash
-llm-opt route "find baseUrl"
+greedy-token route "find baseUrl"
 # → tool (rg)
 
-llm-opt estimate "refactor header layout"
+greedy-token estimate "refactor header layout"
 # → cursor, complexity=high
 
-llm-opt route "batch inventory template-project"
+greedy-token route "batch inventory template-project"
 # → ollama
 
-llm-opt route "sync phase-manifest and skills-map"
+greedy-token route "sync phase-manifest and skills-map"
 # → python
 
-llm-opt route "ADR 002 baseUrl pattern"
+greedy-token route "ADR 002 baseUrl pattern"
 # → rag
 ```
 
@@ -83,7 +77,7 @@ llm-opt route "ADR 002 baseUrl pattern"
 
 | Var | Default |
 |-----|---------|
-| `LLM_OPT_ROOT` | auto-detect or required |
+| `GREEDY_TOKEN_ROOT` | auto-detect or required |
 | `OLLAMA_URL` | `http://localhost:11434` |
 | `OLLAMA_MODEL` | `qwen2.5-coder:14b` |
 
@@ -93,7 +87,7 @@ Read-only only: `rg`, `jq`, `check-meta-sync.sh`. Rsync/migrate/ollama — dry-r
 
 ## Route config
 
-`src/llm_optimizer/config/routes.yaml` — customize patterns and commands for your workspace.
+`src/greedy_token/config/routes.yaml` — customize patterns and commands for your workspace.
 
 ## License
 

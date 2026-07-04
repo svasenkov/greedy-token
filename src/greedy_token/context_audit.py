@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from llm_optimizer.paths import find_monorepo_root
-from llm_optimizer.tokens import TokenEstimate, count_file, format_size_table
+from greedy_token.paths import find_monorepo_root
+from greedy_token.tokens import TokenEstimate, count_file, format_size_table
 
 
 @dataclass

@@ -3,15 +3,15 @@ from __future__ import annotations
 import argparse
 import sys
 
-from llm_optimizer.context_audit import audit_context, render_audit
-from llm_optimizer.estimator import estimate_task, format_estimate
-from llm_optimizer.executors import execute_plan, plan_run
-from llm_optimizer.paths import find_monorepo_root
-from llm_optimizer.prompt_compress import compress_prompt, format_dual
-from llm_optimizer.rag_search import format_hits, search_rag
-from llm_optimizer.router import format_decision, route_task
-from llm_optimizer.tokens import TokenEstimate, collect_paths, count_file, format_size_table
-from llm_optimizer.wrappers import WRAPPERS, ollama_status_line, resolve_wrapper_command
+from greedy_token.context_audit import audit_context, render_audit
+from greedy_token.estimator import estimate_task, format_estimate
+from greedy_token.executors import execute_plan, plan_run
+from greedy_token.paths import find_monorepo_root
+from greedy_token.prompt_compress import compress_prompt, format_dual
+from greedy_token.rag_search import format_hits, search_rag
+from greedy_token.router import format_decision, route_task
+from greedy_token.tokens import TokenEstimate, collect_paths, count_file, format_size_table
+from greedy_token.wrappers import WRAPPERS, ollama_status_line, resolve_wrapper_command
 
 
 def cmd_route(args: argparse.Namespace) -> int:
@@ -143,7 +143,7 @@ def cmd_scripts(args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="llm-opt",
+        prog="greedy-token",
         description="Task orchestrator: tool | Python | Ollama | RAG | Cursor",
     )
     sub = p.add_subparsers(dest="command", required=True)

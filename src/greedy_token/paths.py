@@ -5,12 +5,12 @@ from pathlib import Path
 
 
 def find_monorepo_root(start: Path | None = None) -> Path:
-    env = os.environ.get("LLM_OPT_ROOT")
+    env = os.environ.get("GREEDY_TOKEN_ROOT")
     if env:
         root = Path(env).expanduser().resolve()
         if root.is_dir():
             return root
-        raise SystemExit(f"LLM_OPT_ROOT is not a directory: {root}")
+        raise SystemExit(f"GREEDY_TOKEN_ROOT is not a directory: {root}")
 
     here = (start or Path(__file__)).resolve()
     for parent in [here, *here.parents]:
@@ -20,7 +20,7 @@ def find_monorepo_root(start: Path | None = None) -> Path:
             return parent
 
     raise SystemExit(
-        "Cannot find monorepo root. Set LLM_OPT_ROOT=/path/to/zero-design-system"
+        "Cannot find monorepo root. Set GREEDY_TOKEN_ROOT=/path/to/zero-design-system"
     )
 
 

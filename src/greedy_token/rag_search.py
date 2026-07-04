@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from llm_optimizer.paths import find_monorepo_root
+from greedy_token.paths import find_monorepo_root
 
 
 @dataclass

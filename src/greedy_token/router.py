@@ -4,9 +4,9 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from llm_optimizer.paths import find_monorepo_root, load_routes_config
-from llm_optimizer.tokens import count_tokens
-from llm_optimizer.wrappers import ollama_available, wrapper_for_command
+from greedy_token.paths import find_monorepo_root, load_routes_config
+from greedy_token.tokens import count_tokens
+from greedy_token.wrappers import ollama_available, wrapper_for_command
 
 TIER_ORDER = ("tool", "python", "ollama", "rag", "cursor")
 
@@ -148,7 +148,7 @@ def _token_estimate_for_route(
             "Read docs/rag chunk(s) — small context vs full agent chat.",
         )
 
-    from llm_optimizer.context_audit import audit_context
+    from greedy_token.context_audit import audit_context
 
     rules_tokens = sum(i.estimate.tokens for i in audit_context(root) if i.always_on)
     return (
@@ -329,12 +329,12 @@ def format_decision(decision: RouteDecision, task: str, root: Path) -> str:
             cmd = f"cd {root} && {cmd}"
         lines.append(f"Command: {cmd}")
         if decision.read_only:
-            lines.append("Execute: read-only (llm-opt run --execute OK)")
+            lines.append("Execute: read-only (greedy-token run --execute OK)")
         else:
             lines.append("Execute: not read-only — dry-run only; run script manually")
     if decision.target == "rag" and decision.domains:
         lines.append(f"RAG domains: {', '.join(decision.domains)}")
-        lines.append(f"Try: llm-opt rag \"{task}\"")
+        lines.append(f"Try: greedy-token rag \"{task}\"")
     if decision.target == "cursor":
         lines.append("→ Новый Cursor-чат; skill из docs/skills-map.md если есть.")
     return "\n".join(lines)

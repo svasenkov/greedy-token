@@ -4,10 +4,10 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from llm_optimizer.paths import find_monorepo_root
-from llm_optimizer.rag_search import format_hits, search_rag
-from llm_optimizer.router import RouteDecision
-from llm_optimizer.wrappers import wrapper_for_command
+from greedy_token.paths import find_monorepo_root
+from greedy_token.rag_search import format_hits, search_rag
+from greedy_token.router import RouteDecision
+from greedy_token.wrappers import wrapper_for_command
 
 
 @dataclass
@@ -66,7 +66,7 @@ def plan_run(decision: RouteDecision, task: str, root: Path | None = None) -> Ru
             dry_run_output=(
                 "Open new Cursor chat.\n"
                 f"Task: {task}\n"
-                "Before paste: llm-opt audit-context && llm-opt rag \"<topic>\""
+                "Before paste: greedy-token audit-context && greedy-token rag \"<topic>\""
             ),
             executable=False,
         )

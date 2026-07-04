@@ -153,4 +153,4 @@ cursor_fallback:
   message: |
     Нет точного match — скорее всего Cursor/Claude.
     Проверь: один чат = одна зона (agent-scope.mdc).
-    Перед чатом: llm-opt audit-context && llm-opt rag "<topic>".
+    Перед чатом: greedy-token audit-context && greedy-token rag "<topic>".

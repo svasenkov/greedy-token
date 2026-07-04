@@ -3,10 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from llm_optimizer.context_audit import audit_context
-from llm_optimizer.router import RouteDecision, route_task, route_task_all_tiers
-from llm_optimizer.tokens import count_tokens
-from llm_optimizer.wrappers import ollama_available, ollama_status_line
+from greedy_token.context_audit import audit_context
+from greedy_token.router import RouteDecision, route_task, route_task_all_tiers
+from greedy_token.tokens import count_tokens
+from greedy_token.wrappers import ollama_available, ollama_status_line
 
 
 TIER_ORDER = ("tool", "python", "ollama", "rag", "cursor")
