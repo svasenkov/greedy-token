@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llm-opt"
+version = "0.2.0"
+description = "Route dev tasks through tool → python → ollama → RAG before escalating to Cursor"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Stanislav Vasenkov" }]
+keywords = ["cli", "llm", "cursor", "token-optimization", "rag", "ollama"]
+dependencies = [
+  "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+tiktoken = ["tiktoken>=0.7"]
+
+[project.scripts]
+llm-opt = "llm_optimizer.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/svasenkov/llm-opt"
+Repository = "https://github.com/svasenkov/llm-opt"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+llm_optimizer = ["config/*.yaml"]

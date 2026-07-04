@@ -1,0 +1,156 @@
+# Task routing — aligned with docs/migration-prompts.md § Token economy rules
+#
+# Tier order (tool-first): tool → python → ollama → rag → cursor
+# First matching tier wins (best score within tier).
+
+routes:
+  - id: tool-rg-search
+    target: tool
+    tool: rg
+    read_only: true
+    patterns:
+      - find
+      - search for
+      - grep
+      - where is
+      - locate
+      - look for
+    note: "0 tokens — ripgrep before RAG/Cursor"
+
+  - id: tool-jq-manifest
+    target: tool
+    tool: jq
+    read_only: true
+    patterns:
+      - jq
+      - json field
+      - parse json
+      - phase-manifest json
+    json_path: docs/phase-manifest.json
+    jq_filter: .
+    note: "Structured JSON lookup — jq, 0 LLM"
+
+  - id: python-rsync
+    target: python
+    read_only: false
+    patterns:
+      - rsync
+      - migrate
+      - phase1-rsync
+      - mechanical copy
+      - bulk copy
+    command: ./scripts/migrate/phase1-rsync.sh
+    note: "0 tokens — shell rsync"
+
+  - id: python-meta-sync
+    target: python
+    read_only: true
+    patterns:
+      - check-meta-sync
+      - meta sync
+      - phase-manifest
+      - skills-map sync
+    command: ./scripts/check-meta-sync.sh
+    note: "Meta validation without LLM"
+
+  - id: python-gen-env
+    target: python
+    read_only: false
+    patterns:
+      - gen-env-configs
+      - env config generate
+      - properties sync script
+    command: python stacks/java-spring/scripts/gen-env-configs.py
+    note: "Deterministic config generation"
+
+  - id: ollama-inventory
+    target: ollama
+    read_only: false
+    patterns:
+      - batch inventory
+      - classify files
+      - file inventory
+      - migration inventory
+      - apply-inventory
+    command: ./scripts/ollama/batch-inventory.sh
+    note: "Bulk classify via local LLM"
+
+  - id: ollama-audit-skill
+    target: ollama
+    read_only: false
+    patterns:
+      - audit skill
+      - skill audit
+      - review skill md
+    command: ./scripts/ollama/audit-skill.sh
+    note: "Skill quality audit — Ollama, not Cursor"
+
+  - id: ollama-rag-draft
+    target: ollama
+    read_only: false
+    patterns:
+      - draft rag
+      - rag chunk draft
+      - batch rag
+      - ollama chunk
+    command: null
+    note: "Draft RAG chunks via scripts/ollama/ — never one-by-one in Cursor"
+
+  - id: rag-e2e-config
+    target: rag
+    patterns:
+      - e2e config
+      - -d flag
+      - testconfig
+      - env profile
+      - baseurl
+      - base url
+      - healthcheck
+      - gradle -d
+    domains: [e2e]
+    note: "Lookup docs/rag/e2e/e2e-config-keys.md, cfg-*"
+
+  - id: rag-e2e-patterns
+    target: rag
+    patterns:
+      - page object
+      - po locator
+      - selenide
+      - test pyramid
+      - test layer
+      - allure attach
+      - ci workflow
+      - allurerc
+    domains: [e2e, e2e-header]
+    note: "e2e patterns — read chunk, don't re-derive in chat"
+
+  - id: rag-stacks
+    target: rag
+    patterns:
+      - stack template
+      - openapi contract
+      - pyramid-map
+      - flows/login
+    domains: [stacks]
+    note: "stacks/_contract + docs/rag/stacks/"
+
+  - id: cursor-wiring
+    target: cursor
+    patterns:
+      - implement
+      - refactor
+      - fix bug
+      - add component
+      - header layout
+      - spring backend
+      - wiring
+      - architecture
+      - new feature
+      - e2e test class
+    note: "One chat = one zone; use skill if listed"
+
+cursor_fallback:
+  message: |
+    Нет точного match — скорее всего Cursor/Claude.
+    Проверь: один чат = одна зона (agent-scope.mdc).
+    Перед чатом: llm-opt audit-context && llm-opt rag "<topic>".
