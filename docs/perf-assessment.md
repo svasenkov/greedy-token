@@ -94,13 +94,19 @@ Wins 1 and 2 are implemented in this branch:
   instead of `rglob("*")` walking everything (including `.git`) and filtering afterwards.
   Verified to return the identical file set on the test monorepo.
 
-Results (same machine/corpus):
+Results (same machine/corpus, medians of 5 runs via `bench/bench.py`; stress — 1 run):
 
-| Command | Before | After |
-|---|---:|---:|
-| `tokens .` (whole monorepo) | 19.8 s | **9.8 s (2.0x)** |
-| `tokens .cursor/rules` | 0.198 s | 0.190 s |
-| `audit-context` | 0.212 s | 0.191 s |
-| cold start / route / rag / estimate | — | unchanged |
+| Command | Before | After | Speedup |
+|---|---:|---:|---:|
+| `tokens .` (whole monorepo, stress) | 19.81 s | **9.78 s** | **2.0x** |
+| `audit-context` | 0.212 s | 0.191 s | 1.1x |
+| `tokens .cursor/rules` | 0.198 s | 0.190 s | 1.04x |
+| `estimate "refactor header layout"` | 0.281 s | 0.257 s | ~1.1x |
+| `--help` (cold start) | 0.083 s | 0.087 s | — (noise) |
+| `route "find baseUrl"` | 0.202 s | 0.204 s | — (not touched) |
+| `rag "e2e baseUrl healthCheck"` | 0.087 s | 0.087 s | — (not touched) |
+
+On small inputs the win is bounded by fixed costs (interpreter start ~0.08 s + tiktoken
+encoder init ~0.13 s); the batch path pays off proportionally to corpus size.
 
 Output parity: `tokens .cursor/rules` and `audit-context` byte-identical before/after.
