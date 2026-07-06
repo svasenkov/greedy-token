@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from greedy_token.paths import find_monorepo_root
-from greedy_token.tokens import TokenEstimate, count_file, format_size_table
+from greedy_token.tokens import TokenEstimate, count_files, format_size_table
 
 
 @dataclass
@@ -26,19 +26,23 @@ def audit_context(root: Path | None = None) -> list[ContextItem]:
         ("docs/migration-prompts.md", "doc", False),
     ]
 
+    found: list[tuple[Path, str, bool]] = []
     for pattern, kind, always_on in globs:
         for path in sorted(root.glob(pattern)):
             if not path.is_file():
                 continue
-            rel = str(path.relative_to(root))
-            items.append(
-                ContextItem(
-                    path=rel,
-                    kind=kind,
-                    always_on=always_on,
-                    estimate=count_file(path),
-                )
+            found.append((path, kind, always_on))
+
+    estimates = count_files([f[0] for f in found])
+    for (path, kind, always_on), estimate in zip(found, estimates):
+        items.append(
+            ContextItem(
+                path=str(path.relative_to(root)),
+                kind=kind,
+                always_on=always_on,
+                estimate=estimate,
             )
+        )
 
     return items
 
