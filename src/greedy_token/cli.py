@@ -10,7 +10,7 @@ from greedy_token.paths import find_monorepo_root
 from greedy_token.prompt_compress import compress_prompt, format_dual
 from greedy_token.rag_search import format_hits, search_rag
 from greedy_token.router import format_decision, route_task
-from greedy_token.tokens import TokenEstimate, collect_paths, count_file, format_size_table
+from greedy_token.tokens import TokenEstimate, collect_paths, count_files, format_size_table
 from greedy_token.wrappers import WRAPPERS, ollama_status_line, resolve_wrapper_command
 
 
@@ -60,12 +60,12 @@ def cmd_tokens(args: argparse.Namespace) -> int:
     if not paths:
         print("No files found.", file=sys.stderr)
         return 1
+    estimates = count_files(paths)
     rows = []
     total_chars = 0
     total_tokens = 0
     method = "heuristic/4"
-    for p in paths:
-        est = count_file(p)
+    for p, est in zip(paths, estimates):
         rel = str(p.relative_to(root)) if p.is_relative_to(root) else str(p)
         rows.append((rel, est))
         total_chars += est.chars

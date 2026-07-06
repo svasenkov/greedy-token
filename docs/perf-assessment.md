@@ -80,3 +80,27 @@ Revisit the language question only if greedy-token grows an actual hot loop in P
 (e.g. its own tokenizer or fuzzy matcher over large corpora). In that case the sensible
 shape is the hybrid from the discussion: Python API + Rust core via PyO3 — not C++23/SIMD,
 which targets a problem this tool does not have.
+
+## Applied optimizations (this branch)
+
+Wins 1 and 2 are implemented in this branch:
+
+- `tokens.count_texts` / `count_files`: one `encode_ordinary_batch(num_threads=cpu_count)`
+  call instead of a per-file Python loop; `cmd_tokens` and `audit_context` switched to it.
+  `encode_ordinary` also removes the old silent fallback to the chars/4 heuristic for
+  files containing special-token text like `<|endoftext|>` (they are now counted as
+  normal text instead).
+- `tokens.collect_paths`: `os.walk` with in-place pruning of `skip_dirs` + one final sort,
+  instead of `rglob("*")` walking everything (including `.git`) and filtering afterwards.
+  Verified to return the identical file set on the test monorepo.
+
+Results (same machine/corpus):
+
+| Command | Before | After |
+|---|---:|---:|
+| `tokens .` (whole monorepo) | 19.8 s | **9.8 s (2.0x)** |
+| `tokens .cursor/rules` | 0.198 s | 0.190 s |
+| `audit-context` | 0.212 s | 0.191 s |
+| cold start / route / rag / estimate | — | unchanged |
+
+Output parity: `tokens .cursor/rules` and `audit-context` byte-identical before/after.
