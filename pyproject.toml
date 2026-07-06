@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "greedy-token"
-version = "0.2.1"
-description = "Route dev tasks through tool → python → ollama → RAG before escalating to Cursor"
+version = "0.2.2"
+description = "Route dev tasks through tool → python → ollama → RAG before escalating to Claude, ChatGPT, Codex, Cursor, etc."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Stanislav Vasenkov" }]
-keywords = ["cli", "llm", "cursor", "token-optimization", "rag", "ollama"]
+keywords = ["cli", "llm", "cursor", "claude", "chatgpt", "codex", "token-optimization", "rag", "ollama"]
 dependencies = [
   "PyYAML>=6.0",
   "tiktoken>=0.7",

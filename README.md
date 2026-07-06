@@ -1,6 +1,6 @@
 # greedy-token
 
-Route dev tasks through **tool → python → ollama → RAG** before escalating to Cursor/Claude.
+Route dev tasks through **tool → python → ollama → RAG** before escalating to Claude / ChatGPT / Codex / Cursor / etc.
 
 ```
 Your task  →  greedy-token  →  rg/jq | scripts | Ollama | docs/rag | Cursor
