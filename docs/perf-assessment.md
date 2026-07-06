@@ -74,7 +74,8 @@ sort instead of `rglob` with per-directory `sorted` on `Path` objects.
    → 2x on large corpora (measured).
 2. `collect_paths`: `os.walk` + single sort → additional ~2 s on large corpora (estimated
    from profile).
-3. Lazy-import `urllib.request` in `wrappers` → ~19 ms off cold start (optional).
+3. Lazy-import `urllib.request` in `wrappers` and `prompt_compress` → ~15 ms off cold start
+   (measured: `import greedy_token.cli` 51 ms → 36 ms).
 
 Revisit the language question only if greedy-token grows an actual hot loop in Python
 (e.g. its own tokenizer or fuzzy matcher over large corpora). In that case the sensible
@@ -110,3 +111,8 @@ On small inputs the win is bounded by fixed costs (interpreter start ~0.08 s + t
 encoder init ~0.13 s); the batch path pays off proportionally to corpus size.
 
 Output parity: `tokens .cursor/rules` and `audit-context` byte-identical before/after.
+
+## Dev install (monorepo)
+
+`projects/greedy-token-home/dev/scripts/install.sh` now runs `pip install -e greedy-token[tiktoken]`
+so local dev always gets exact token counts, not the chars/4 heuristic fallback.

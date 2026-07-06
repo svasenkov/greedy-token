@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import urllib.request
 
 
 DUAL_VERSION_RULE = """
@@ -52,6 +51,8 @@ def compress_heuristic(text: str) -> str:
 
 
 def compress_ollama(text: str) -> str:
+    import urllib.request
+
     url = os.environ.get("OLLAMA_URL", "http://localhost:11434")
     model = os.environ.get("OLLAMA_MODEL", "qwen2.5-coder:14b")
     system = (
