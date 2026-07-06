@@ -114,5 +114,5 @@ Output parity: `tokens .cursor/rules` and `audit-context` byte-identical before/
 
 ## Dev install (monorepo)
 
-`projects/greedy-token-home/dev/scripts/install.sh` now runs `pip install -e greedy-token[tiktoken]`
-so local dev always gets exact token counts, not the chars/4 heuristic fallback.
+`projects/greedy-token-home/dev/scripts/install.sh` runs editable `pip install -e greedy-token`.
+Since v0.2.1 `tiktoken` is a required dependency — same install path for dev and PyPI users.

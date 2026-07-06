@@ -8,7 +8,7 @@ Your task  →  greedy-token  →  rg/jq | scripts | Ollama | docs/rag | Cursor
 
 ## Cursor vs greedy-token (token comparison)
 
-Measured with `greedy-token audit-context` and `greedy-token estimate` against [zero-design-system](https://github.com/svasenkov/zero-design-system) (heuristic `chars÷4`; order of magnitude, not API billing).
+Measured with `greedy-token audit-context` and `greedy-token estimate` against [zero-design-system](https://github.com/svasenkov/zero-design-system) (tiktoken `cl100k_base`; order of magnitude, not API billing).
 
 ### Cursor context overhead (every new chat)
 
@@ -52,6 +52,10 @@ pip install greedy-token
 # or editable: pip install -e .
 # or from git: pip install git+https://github.com/svasenkov/greedy-token.git
 ```
+
+`tiktoken` (exact BPE counts via `cl100k_base`) is a required dependency. If install fails
+on an unsupported platform, use a Python version with a prebuilt `tiktoken` wheel or install
+from source with a Rust toolchain.
 
 ### PyPI publish (maintainer)
 
