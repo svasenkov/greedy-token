@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "greedy-token"
-version = "0.4.1"
+version = "0.4.2"
 description = "Route dev tasks through tool → python → ollama → RAG before escalating to Claude, ChatGPT, Codex, Cursor, etc."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 license = { text = "MIT" }
 authors = [{ name = "Stanislav Vasenkov" }]
 keywords = ["cli", "llm", "cursor", "claude", "chatgpt", "codex", "token-optimization", "rag", "ollama"]
@@ -32,4 +32,7 @@ Repository = "https://github.com/svasenkov/greedy-token"
 where = ["src"]
 
 [tool.setuptools.package-data]
-greedy_token = ["config/*.yaml"]
+greedy_token = ["config/*.yaml", "static/icon.png", "static/icon.svg"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

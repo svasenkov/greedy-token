@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
-import os
 import re
+
+from greedy_token.settings import get_ollama_settings
 
 
 DUAL_VERSION_RULE = """
@@ -53,8 +54,9 @@ def compress_heuristic(text: str) -> str:
 def compress_ollama_detail(text: str) -> tuple[str, int | None]:
     import urllib.request
 
-    url = os.environ.get("OLLAMA_URL", "http://localhost:11434")
-    model = os.environ.get("OLLAMA_MODEL", "qwen2.5-coder:14b")
+    settings = get_ollama_settings()
+    url = settings.url
+    model = settings.model
     system = (
         "Сожми промпт для Cursor-агента. "
         + DUAL_VERSION_RULE

@@ -1,158 +1,225 @@
 # greedy-token
 
-Route dev tasks through **tool → python → ollama → RAG** before escalating to Claude / ChatGPT / Codex / Cursor / etc.
+Route dev tasks through **tool → python → ollama → rag → cursor** before burning agent context.
+
+**Русская версия:** [README-RU.md](README-RU.md)
 
 ```
-Your task  →  greedy-token  →  rg/jq | scripts | Ollama | docs/rag | Cursor
+Your task  →  greedy-token  →  rg | scripts | Ollama | docs/rag | pipeline | Cursor
 ```
 
-## Cursor vs greedy-token (token comparison)
+## What it does
 
-Measured with `greedy-token audit-context` and `greedy-token estimate` against [zero-design-system](https://github.com/svasenkov/zero-design-system) (tiktoken `cl100k_base`; order of magnitude, not API billing).
+| Layer | When | LLM cost |
+|-------|------|----------|
+| **tool** (rg) | find / grep / search | ~0 |
+| **python** | scripts, meta-sync, gen-env | ~0 |
+| **ollama** | bulk classify, skill audit | local only |
+| **rag** | lookup in `docs/rag/` | small read |
+| **cursor** | wiring, refactor, architecture | full agent chat |
 
-### Cursor context overhead (every new chat)
+**Tier order:** first match wins. Ollama is skipped when unavailable.
 
-| Context | Tokens | Charged when |
-|---------|-------:|--------------|
-| Always-on rules (`.cursor/rules/*.mdc`) | 2,524 | every chat |
-| Skills on disk (`.cursor/skills/*/SKILL.md`) | 26,386 | if agent loads skill |
-| Sampled docs (`CONTEXT.md`, `migration-prompts.md`) | 3,349 | if referenced |
-| **Sampled set total** | **32,259** | full agent context |
-| Naive agent baseline (`rules + 6k overhead + task`) | ~8,530 | default Cursor path |
+## Scope & roadmap
 
-Rules ≥ 1024 tokens → stable prefix is cache-friendly for Claude API prompt caching.
+Today the happy path is **Cursor + Ollama + monorepo**. CLI and MCP are IDE-agnostic; paid APIs and alternate local runtimes are **not** wired yet.
 
-### Task routing: naive Cursor vs greedy-token
+**Full matrix (✅ / ❌ / 🔜) + acceptance criteria + GitHub issues:** [docs/ROADMAP.md](docs/ROADMAP.md) · [docs/ROADMAP-RU.md](docs/ROADMAP-RU.md)
 
-| Task | Naive Cursor | greedy-token route | Est. tokens | Saved vs Cursor | Savings | Command |
-|------|-------------:|--------------------|------------:|----------------:|--------:|---------|
-| `какой -D flag для baseUrl в e2e config` | ~8,534 | **rag** (95%) | 1,810 | ~6,724 | ~79% | `greedy-token rag "baseUrl -D flag"` |
-| `ADR 002 baseUrl pattern` | ~8,530 | **rag** (61%) | 1,806 | ~6,724 | ~79% | `greedy-token rag "ADR 002 baseUrl"` |
-| `find baseUrl in e2e properties` | ~8,532 | **tool** (59%) | 0 | ~8,532 | ~100% | `greedy-token run "…" --execute` → `rg` |
-| `sync phase-manifest и skills-map` | ~8,532 | **python** (65%) | 0 | ~8,532 | ~100% | `greedy-token scripts --run check-meta-sync --execute` |
-| `rsync template-project в monorepo` | ~8,533 | **python** (60%) | 0 | ~8,533 | ~100% | dry-run script; run manually |
-| `batch inventory template-project` | ~8,532 | **ollama** (66%) | 0 cloud | ~8,532 | ~100% cloud | `scripts/ollama/batch-inventory.sh` (local LLM) |
-| `refactor header layout and wire nav links` | ~8,535 | **cursor** (82%) | 8,535 | 0 | — | new Cursor chat + skill from `docs/skills-map.md` |
-
-**Tier order:** `tool (rg/jq) → python → ollama → rag → cursor` — first match wins. Ollama tier is skipped when unavailable.
-
-**Takeaway:** lookup / search / sync / bulk tasks save **~6.7k–8.5k tokens per request**; wiring and architecture correctly stay on Cursor.
-
-```bash
-greedy-token audit-context                    # your workspace overhead
-greedy-token estimate "your task here"        # route + savings before opening a chat
-```
-
-Install once, point at your workspace root, route every task through the cheapest tier that can handle it.
+| Area | ✅ today | 🔜 v0.5+ |
+|------|----------|----------|
+| Executors | `tool`, `python`, `ollama`, `rag` | `cloud_llm`, `openai_compat` local |
+| Agent host | Cursor MCP + token baseline | Claude Desktop, Continue |
+| Config | `OLLAMA_URL` / `OLLAMA_MODEL` | `local_llm.provider`, `cloud_llm.provider` |
 
 ## Install
 
+**Python 3.12+** (CI and PyPI builds use 3.12).
+
 ```bash
 pip install greedy-token
-# or editable: pip install -e .
-# or from git: pip install git+https://github.com/svasenkov/greedy-token.git
+# with Cursor MCP server:
+pip install "greedy-token[mcp]"
+# editable (monorepo):
+cd projects/greedy-token-home/dev && ./scripts/install.sh
 ```
-
-`tiktoken` (exact BPE counts via `cl100k_base`) is a required dependency. If install fails
-on an unsupported platform, use a Python version with a prebuilt `tiktoken` wheel or install
-from source with a Rust toolchain.
-
-### PyPI publish (maintainer)
-
-1. Create project **greedy-token** on [pypi.org](https://pypi.org/manage/projects/)
-2. Add trusted publisher: Owner `svasenkov`, repo `greedy-token`, workflow `publish.yml`
-3. Publish: GitHub → Releases → re-run workflow or new tag
-
-## Workspace root
-
-`greedy-token` runs against a project directory (monorepo, app repo, etc.):
 
 ```bash
-export GREEDY_TOKEN_ROOT=/path/to/your-workspace
+export GREEDY_TOKEN_ROOT=/path/to/workspace   # auto-detect in zero-design-system
 ```
 
-Auto-detect works when the workspace has `docs/phase-manifest.json` and `scripts/check-meta-sync.sh` (e.g. [zero-design-system](https://github.com/svasenkov/zero-design-system)). Otherwise set `GREEDY_TOKEN_ROOT` explicitly.
+## Cursor integration (recommended)
 
-## Commands
+Monorepo ships ready-made wiring:
+
+| File | Role |
+|------|------|
+| `.cursor/mcp.json` | MCP server config |
+| `.cursor/mcp/greedy-token.sh` | launcher (venv + `rg` path fix) |
+| `.cursor/rules/token-economy.mdc` | agent uses MCP before built-in Grep |
+| `.cursor/hooks.json` | `sessionStart` — token economy hint |
+
+**Setup:** install → **Settings → MCP → greedy-token → Enable → Refresh** → new Agent chat.
+
+Expected: **5 MCP tools** (including `greedy_token_pipeline`).
+
+## MCP tools
+
+| Tool | Purpose |
+|------|---------|
+| `greedy_token_search` | Ripgrep: `query` + optional `path` |
+| `greedy_token_rag` | Search `docs/rag/` chunks |
+| `greedy_token_route` | Recommend tier + token footer |
+| `greedy_token_pipeline` | Multi-step chain (python → ollama → rag) |
+| `greedy_token_usage` | Aggregate savings from `~/.greedy-token/usage.jsonl` |
+
+Every tool response ends with a **Token economy** block — show it to the user.
+
+### Pipeline (multi-step)
+
+```text
+pipeline: meta-audit configurator-boolean
+```
+
+or:
+
+```text
+pipeline: check-meta-sync then audit-skill configurator-boolean
+```
+
+Named recipes (`pipeline --list`):
+
+| Recipe | Steps |
+|--------|-------|
+| `meta-audit` | python → ollama |
+| `meta-rag` | python → rag |
+| `search-rag` | rg → rag |
+
+Footer includes **per-step savings** table:
+
+```text
+Per-step savings (if each step were a separate naive Cursor chat):
+   #  step                   executor     ms   spent  baseline     saved  billing
+   1  check-meta-sync        python       83       0     9,487     9,487  local script
+   2  audit-skill            ollama     2698   2,507     9,499     6,992  local Ollama
+
+Saved by executor (sum of per-step savings):
+  python (script)              steps=1  spent ~0      saved ~9,487
+  ollama (local LLM)           steps=1  spent ~2,507  saved ~6,992
+```
+
+## CLI commands
 
 | Command | Purpose |
 |---------|---------|
-| `greedy-token route "…"` | Recommend: tool \| python \| ollama \| rag \| cursor + scoring |
-| `greedy-token estimate "…"` | Token-aware estimate: complexity, est_tokens, tier scan |
-| `greedy-token run "…" [--execute]` | Route + dry-run / **read-only** execute |
-| `greedy-token scripts --list` | List workspace script wrappers |
-| `greedy-token scripts --run ID [--execute]` | Dry-run / execute read-only wrapper |
-| `greedy-token audit-context` | Size of always-on rules/skills (tokens) |
-| `greedy-token tokens PATH…` | Count tokens in files/directories |
-| `greedy-token rag QUERY` | Search chunks in `docs/rag/` |
-| `greedy-token compress` | Short prompt version (stdin; `--ollama` for LLM) |
-| `greedy-token report [--since 7d] [--json]` | Aggregate usage telemetry |
+| `greedy-token route "…"` | Recommend tier + scoring |
+| `greedy-token estimate "…"` | Token-aware estimate + tier scan |
+| `greedy-token run "…" [--execute]` | Route + dry-run / read-only execute |
+| `greedy-token pipeline "…" [--execute]` | Multi-step pipeline |
+| `greedy-token pipeline --list` | Named pipeline recipes |
+| `greedy-token rag QUERY` | Search `docs/rag/` |
+| `greedy-token scripts --list` | Workspace script wrappers |
+| `greedy-token scripts --run ID [--execute]` | Run wrapper |
+| `greedy-token audit-context` | Rules/skills token audit |
+| `greedy-token tokens PATH…` | Count tokens in paths |
+| `greedy-token compress` | Short prompt (stdin; `--ollama`) |
+| `greedy-token report [--since 7d]` | Usage telemetry aggregate |
+| `greedy-token config [--init] [--export]` | Ollama URL/model settings |
+| `greedy-token-mcp` | Start MCP server (stdio) |
 
-Global flag: `--no-log` disables telemetry for one invocation.
+Global: `--no-log` disables telemetry for one invocation.
 
-## Usage telemetry (v0.3)
+> **Pipeline execute:** MCP `greedy_token_pipeline` and CLI `greedy-token pipeline` are **dry-run** by default. Pass `execute=true` (MCP) or `--execute` (CLI) to run allowlisted steps.
 
-Commands `route`, `estimate`, `run`, `rag`, `compress`, and `scripts --run` append one JSONL line per invocation.
+## Testing
 
-| Variable | Default |
-|----------|---------|
-| `GREEDY_TOKEN_LOG` | `~/.greedy-token/usage.jsonl` |
-| `GREEDY_TOKEN_LOG=0` | disable logging |
+Requires **Python 3.12+** (same as CI).
 
 ```bash
-greedy-token estimate "find baseUrl"
-greedy-token route "sync phase-manifest"
-greedy-token report --since 7d
-greedy-token report --since 24h --json
-greedy-token --no-log estimate "find baseUrl"   # skip log for this run
+cd projects/greedy-token-home/dev && ./scripts/install.sh
+source .venv/bin/activate
+cd ../greedy-token
+python -m pytest tests/ -v
 ```
 
-Each event records: tier, `est_tokens`, `cursor_baseline`, `cursor_saved`, `tier_scan`, `token_counter_method` (tiktoken), and `duration_ms`.
-
-**Note:** counts are tiktoken estimates vs naive Cursor chat — not Cursor/Anthropic API billing. Ollama local token usage is recorded when the API returns `eval_count`.
-
-## Tier order
-
-```
-tool (rg/jq) → python → ollama → rag → cursor
-```
-
-First matching tier wins. Ollama is **optional** — if unavailable, the tier is skipped.
+Optional integration tests (real monorepo files) run when the checkout includes `stacks/java-spring/`; set `GREEDY_TOKEN_ROOT` to override the workspace root.
 
 ## Examples
 
 ```bash
-greedy-token route "find baseUrl"
-# → tool (rg)
+# Search (0 LLM tokens)
+greedy-token run "find baseUrl in configurator-option-presets.html" --execute
 
-greedy-token estimate "refactor header layout"
-# → cursor, complexity=high
+# RAG lookup
+greedy-token rag "baseUrl -D flag"
 
-greedy-token route "batch inventory template-project"
-# → ollama
+# Ollama tier
+greedy-token route "audit skill configurator-boolean"
 
-greedy-token route "sync phase-manifest and skills-map"
-# → python
+# Pipeline dry-run
+greedy-token pipeline "pipeline: meta-audit configurator-boolean"
 
-greedy-token route "ADR 002 baseUrl pattern"
-# → rag
+# Pipeline execute (python + ollama)
+greedy-token pipeline "check-meta-sync then audit-skill configurator-boolean" --execute
+
+# Savings report
+greedy-token report --since 7d
 ```
+
+## Token economy footer
+
+Single-tool responses include:
+
+- **This call** — executor, spent, billing (local vs cloud)
+- **Cursor baseline** — rules + task + overhead
+- **Saved vs naive Cursor chat**
+
+Pipeline adds **per-step** baseline / spent / saved and **saved by executor**.
+
+> **Note:** MCP executor steps are local/cheap. Agent chat wrapper (rules + your message + reply) still uses Cursor tokens.
+
+## Usage telemetry
+
+Log file: `~/.greedy-token/usage.jsonl` (disable: `GREEDY_TOKEN_LOG=0`).
+
+Each event: tier, `est_tokens`, `cursor_baseline`, `cursor_saved`, `duration_ms`.
+
+Pipeline logs **one event per step**. When the log exceeds `GREEDY_TOKEN_LOG_MAX_BYTES` (default 5 MiB), it rotates to `usage.jsonl.1`, `.2`, …; `report` reads the active log and archives.
 
 ## Environment
 
 | Var | Default |
 |-----|---------|
 | `GREEDY_TOKEN_ROOT` | auto-detect or required |
-| `OLLAMA_URL` | `http://localhost:11434` |
-| `OLLAMA_MODEL` | `qwen2.5-coder:14b` |
+| `OLLAMA_URL` | from config or `http://localhost:11434` |
+| `OLLAMA_MODEL` | from config or `qwen2.5-coder:7b-instruct-q4_K_M` |
+| `GREEDY_TOKEN_LOG` | `~/.greedy-token/usage.jsonl` |
+| `GREEDY_TOKEN_LOG_MAX_BYTES` | `5242880` (5 MiB) |
+| `GREEDY_TOKEN_LOG_MAX_FILES` | `5` rotated archives |
 
-## `--execute`
+## Ollama config
 
-Read-only only: `rg`, `jq`, `check-meta-sync.sh`. Rsync/migrate/ollama — dry-run; run manually.
+Priority (low → high): defaults → `~/.greedy-token/config.yaml` → `$GREEDY_TOKEN_ROOT/.greedy-token.yaml` → `OLLAMA_*` env.
 
-## Route config
+```bash
+greedy-token config init
+greedy-token config init --model llama3.2 --url http://192.168.1.10:11434
+greedy-token config
+eval "$(greedy-token config --export)"
+```
 
-`src/greedy_token/config/routes.yaml` — customize patterns and commands for your workspace.
+## Routing config
+
+| File | Purpose |
+|------|---------|
+| `src/greedy_token/config/routes.yaml` | Task routing patterns |
+| `src/greedy_token/config/pipelines.yaml` | Named pipeline recipes |
+
+## `--execute` safety
+
+Auto-execute (read-only or stdout-only): `rg`, `jq`, `check-meta-sync`, pipeline steps in allowlist.
+
+Rsync / migrate / batch-inventory — dry-run only unless run manually.
 
 ## License
 

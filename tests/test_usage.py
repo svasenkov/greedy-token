@@ -15,25 +15,16 @@ from greedy_token.usage import (
     format_report,
     load_events,
     logging_enabled,
+    log_archive_paths,
+    max_log_bytes,
     parse_since,
+    rotate_log_if_needed,
 )
 
 
 @pytest.fixture
 def log_file(tmp_path: Path) -> Path:
     return tmp_path / "usage.jsonl"
-
-
-@pytest.fixture
-def sample_root(tmp_path: Path) -> Path:
-    (tmp_path / "docs").mkdir()
-    (tmp_path / "docs" / "phase-manifest.json").write_text("{}", encoding="utf-8")
-    (tmp_path / "scripts").mkdir()
-    (tmp_path / "scripts" / "check-meta-sync.sh").write_text("#!/bin/sh\n", encoding="utf-8")
-    rules = tmp_path / ".cursor" / "rules"
-    rules.mkdir(parents=True)
-    (rules / "test.mdc").write_text("rule content", encoding="utf-8")
-    return tmp_path
 
 
 def test_append_event(log_file: Path) -> None:
@@ -44,7 +35,7 @@ def test_append_event(log_file: Path) -> None:
     assert json.loads(lines[0])["cmd"] == "route"
 
 
-def test_build_route_event_truncates_task(sample_root: Path) -> None:
+def test_build_route_event_truncates_task(minimal_workspace: Path) -> None:
     long_task = "x" * 600
     decision = RouteDecision(
         target="tool",
@@ -63,7 +54,7 @@ def test_build_route_event_truncates_task(sample_root: Path) -> None:
     event = build_route_event(
         cmd="estimate",
         task=long_task,
-        root=sample_root,
+        root=minimal_workspace,
         decision=decision,
         tier_scan=[],
     )
@@ -73,7 +64,7 @@ def test_build_route_event_truncates_task(sample_root: Path) -> None:
     assert "tier_scan" in event
 
 
-def test_cursor_saved_tool(sample_root: Path) -> None:
+def test_cursor_saved_tool(minimal_workspace: Path) -> None:
     decision = RouteDecision(
         target="tool",
         route_id="tool-rg-search",
@@ -86,17 +77,17 @@ def test_cursor_saved_tool(sample_root: Path) -> None:
         est_tokens=0,
         rationale="search",
     )
-    saved = cursor_saved_for(sample_root, "find baseUrl", 0, decision.target)
+    saved = cursor_saved_for(minimal_workspace, "find baseUrl", 0, decision.target)
     assert saved > 0
 
 
-def test_cursor_saved_cursor(sample_root: Path) -> None:
-    saved = cursor_saved_for(sample_root, "refactor header", 8000, "cursor")
+def test_cursor_saved_cursor(minimal_workspace: Path) -> None:
+    saved = cursor_saved_for(minimal_workspace, "refactor header", 8000, "cursor")
     assert saved == 0
 
 
-def test_cursor_baseline_includes_overhead(sample_root: Path) -> None:
-    baseline = cursor_baseline(sample_root, "task")
+def test_cursor_baseline_includes_overhead(minimal_workspace: Path) -> None:
+    baseline = cursor_baseline(minimal_workspace, "task")
     assert baseline >= 6000
 
 
@@ -182,3 +173,62 @@ def test_append_failure(monkeypatch: pytest.MonkeyPatch, capsys) -> None:
     append_event({"cmd": "route"}, path=Path("/tmp/x/usage.jsonl"))
     err = capsys.readouterr().err
     assert "usage log write failed" in err
+
+
+def test_rotate_log_when_over_limit(log_file: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GREEDY_TOKEN_LOG_MAX_BYTES", "80")
+    monkeypatch.setenv("GREEDY_TOKEN_LOG_MAX_FILES", "3")
+    log_file.write_text('{"cmd":"old","ts":"2026-07-07T00:00:00Z"}\n' * 3, encoding="utf-8")
+    assert rotate_log_if_needed(log_file) is True
+    assert log_file.with_name("usage.jsonl.1").is_file()
+    assert not log_file.exists() or log_file.stat().st_size == 0
+
+
+def test_rotate_log_keeps_archives(log_file: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GREEDY_TOKEN_LOG_MAX_BYTES", "40")
+    monkeypatch.setenv("GREEDY_TOKEN_LOG_MAX_FILES", "2")
+    log_file.write_text('{"cmd":"a","ts":"2026-07-07T00:00:00Z"}\n' * 2, encoding="utf-8")
+    rotate_log_if_needed(log_file)
+    log_file.write_text('{"cmd":"b","ts":"2026-07-07T01:00:00Z"}\n' * 2, encoding="utf-8")
+    rotate_log_if_needed(log_file)
+    assert log_file.with_name("usage.jsonl.1").is_file()
+    assert log_file.with_name("usage.jsonl.2").is_file()
+    assert not log_file.with_name("usage.jsonl.3").exists()
+
+
+def test_load_events_reads_archives(log_file: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    archive = log_file.with_name("usage.jsonl.1")
+    archive.write_text(
+        '{"cmd":"archived","ts":"2026-07-07T00:00:00Z","selected_tier":"tool"}\n',
+        encoding="utf-8",
+    )
+    log_file.write_text(
+        '{"cmd":"current","ts":"2026-07-07T01:00:00Z","selected_tier":"rag"}\n',
+        encoding="utf-8",
+    )
+    events, skipped = load_events(log_file)
+    cmds = {e["cmd"] for e in events}
+    assert cmds == {"archived", "current"}
+    assert skipped == 0
+
+
+def test_append_rotates_before_write(log_file: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GREEDY_TOKEN_LOG_MAX_BYTES", "60")
+    log_file.write_text('{"cmd":"fill","ts":"2026-07-07T00:00:00Z"}\n' * 2, encoding="utf-8")
+    append_event({"cmd": "new", "ts": "2026-07-07T02:00:00Z"}, path=log_file)
+    assert log_file.with_name("usage.jsonl.1").is_file()
+    lines = log_file.read_text(encoding="utf-8").strip().splitlines()
+    assert len(lines) == 1
+    assert json.loads(lines[0])["cmd"] == "new"
+
+
+def test_log_archive_paths_order(log_file: Path) -> None:
+    paths = log_archive_paths(log_file, max_files=3)
+    assert paths[0] == log_file
+    assert paths[1].name == "usage.jsonl.1"
+    assert paths[2].name == "usage.jsonl.2"
+
+
+def test_max_log_bytes_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GREEDY_TOKEN_LOG_MAX_BYTES", "1024")
+    assert max_log_bytes() == 1024

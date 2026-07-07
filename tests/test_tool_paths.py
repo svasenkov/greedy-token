@@ -23,8 +23,10 @@ def test_resolve_rg_finds_cursor_bundle(monkeypatch: pytest.MonkeyPatch) -> None
     assert found.name == "rg"
 
 
-def test_search_code_works_without_path_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    root = Path("/Users/stanislav/zero-design-system")
+def test_search_code_works_without_path_env(
+    monkeypatch: pytest.MonkeyPatch,
+    monorepo_root: Path,
+) -> None:
     cursor_rg = Path(
         "/Applications/Cursor.app/Contents/Resources/app/node_modules/@vscode/ripgrep/bin/rg"
     )
@@ -32,6 +34,6 @@ def test_search_code_works_without_path_env(monkeypatch: pytest.MonkeyPatch) -> 
         pytest.skip("Cursor bundled rg not installed")
 
     monkeypatch.setenv("PATH", "")
-    out = search_code("baseUrl", root, path="configurator-option-presets.html")
+    out = search_code("baseUrl", monorepo_root, path="configurator-option-presets.html")
     assert "command not found" not in out.text.lower()
     assert "configurator-option-presets.html" in out.text

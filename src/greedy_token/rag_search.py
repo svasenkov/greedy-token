@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
 
 from greedy_token.paths import find_monorepo_root
+from greedy_token.rag_index import IndexedChunk, get_indexed_chunks
 
 
 @dataclass
@@ -22,36 +22,14 @@ def _tokenize(text: str) -> set[str]:
     return {t for t in re.findall(r"[a-z0-9_-]{2,}", text.lower())}
 
 
-def _load_manifest(root: Path) -> list[dict]:
-    manifest = root / "docs" / "rag" / "manifest.jsonl"
-    if not manifest.is_file():
-        return []
-    rows = []
-    for line in manifest.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if line:
-            rows.append(json.loads(line))
-    return rows
-
-
-def _score_chunk(query_tokens: set[str], body: str, meta: dict) -> float:
-    body_tokens = _tokenize(body)
-    meta_blob = " ".join(
-        [
-            meta.get("id", ""),
-            meta.get("domain", ""),
-            " ".join(meta.get("tags") or []),
-            Path(meta.get("path", "")).stem,
-        ]
-    )
-    meta_tokens = _tokenize(meta_blob)
-    overlap = query_tokens & (body_tokens | meta_tokens)
+def _score_indexed(query_tokens: set[str], chunk: IndexedChunk) -> float:
+    overlap = query_tokens & (chunk.body_tokens | chunk.meta_tokens)
     if not overlap:
         return 0.0
-    # Weight title/id matches higher
     score = len(overlap) * 1.0
+    chunk_id = chunk.meta.get("id", "").lower()
     for tok in overlap:
-        if tok in meta.get("id", "").lower():
+        if tok in chunk_id:
             score += 2.0
     return score
 
@@ -68,32 +46,32 @@ def search_rag(
     if not query_tokens:
         return []
 
+    scored: list[tuple[float, IndexedChunk]] = []
+    for chunk in get_indexed_chunks(root):
+        if domains and chunk.domain not in domains:
+            continue
+        score = _score_indexed(query_tokens, chunk)
+        if score > 0:
+            scored.append((score, chunk))
+
+    scored.sort(key=lambda pair: -pair[0])
     hits: list[RagHit] = []
-    for meta in _load_manifest(root):
-        if domains and meta.get("domain") not in domains:
-            continue
-        rel = meta.get("path", "")
+    for score, chunk in scored[:limit]:
+        rel = chunk.rel_path
+        meta = chunk.meta
         chunk_path = root / rel
-        if not chunk_path.is_file():
-            continue
         body = chunk_path.read_text(encoding="utf-8", errors="replace")
-        score = _score_chunk(query_tokens, body, meta)
-        if score <= 0:
-            continue
-        excerpt = _excerpt(body, query_tokens)
         hits.append(
             RagHit(
                 chunk_id=meta.get("id", rel),
                 path=rel,
-                domain=meta.get("domain", ""),
+                domain=chunk.domain,
                 score=score,
-                excerpt=excerpt,
+                excerpt=_excerpt(body, query_tokens),
                 body=body,
             )
         )
-
-    hits.sort(key=lambda h: -h.score)
-    return hits[:limit]
+    return hits
 
 
 def _excerpt(body: str, query_tokens: set[str], max_len: int = 320) -> str:

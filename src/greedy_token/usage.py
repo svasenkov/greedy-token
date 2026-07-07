@@ -16,6 +16,8 @@ from greedy_token.wrappers import WRAPPERS
 SCHEMA_VERSION = 1
 TASK_MAX_LEN = 500
 DEFAULT_LOG = Path.home() / ".greedy-token" / "usage.jsonl"
+DEFAULT_MAX_LOG_BYTES = 5 * 1024 * 1024
+DEFAULT_MAX_ROTATED = 5
 
 _log_dir_ready = False
 
@@ -205,10 +207,50 @@ def build_compress_event(
     return event
 
 
+def max_log_bytes() -> int:
+    raw = os.environ.get("GREEDY_TOKEN_LOG_MAX_BYTES", "").strip()
+    if raw.isdigit():
+        return max(1, int(raw))
+    return DEFAULT_MAX_LOG_BYTES
+
+
+def max_rotated_files() -> int:
+    raw = os.environ.get("GREEDY_TOKEN_LOG_MAX_FILES", "").strip()
+    if raw.isdigit():
+        return max(1, int(raw))
+    return DEFAULT_MAX_ROTATED
+
+
+def log_archive_paths(path: Path, *, max_files: int | None = None) -> list[Path]:
+    """Active log first, then .1, .2, … (newest archive to oldest)."""
+    limit = max_files if max_files is not None else max_rotated_files()
+    archives = [path.with_name(f"{path.name}.{i}") for i in range(1, limit + 1)]
+    return [path, *archives]
+
+
+def rotate_log_if_needed(path: Path) -> bool:
+    """Rotate usage.jsonl when it exceeds GREEDY_TOKEN_LOG_MAX_BYTES. Returns True if rotated."""
+    if not path.is_file():
+        return False
+    if path.stat().st_size < max_log_bytes():
+        return False
+    limit = max_rotated_files()
+    oldest = path.with_name(f"{path.name}.{limit}")
+    if oldest.is_file():
+        oldest.unlink()
+    for i in range(limit, 0, -1):
+        src = path if i == 1 else path.with_name(f"{path.name}.{i - 1}")
+        dst = path.with_name(f"{path.name}.{i}")
+        if src.is_file():
+            src.rename(dst)
+    return True
+
+
 def append_event(event: dict, *, path: Path | None = None) -> None:
     target = path or log_path()
     try:
         _ensure_log_dir(target)
+        rotate_log_if_needed(target)
         line = json.dumps(event, ensure_ascii=False, separators=(",", ":"))
         with target.open("a", encoding="utf-8") as fh:
             fh.write(line + "\n")
@@ -240,33 +282,43 @@ def parse_since(value: str) -> datetime:
         ) from exc
 
 
+def _parse_event_ts(event: dict) -> datetime | None:
+    ts_raw = event.get("ts", "")
+    if not ts_raw:
+        return None
+    try:
+        ts = datetime.fromisoformat(ts_raw.replace("Z", "+00:00"))
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        return ts
+    except ValueError:
+        return None
+
+
 def load_events(path: Path, *, since: datetime | None = None) -> tuple[list[dict], int]:
-    if not path.is_file():
-        return [], 0
     events: list[dict] = []
     skipped = 0
-    with path.open(encoding="utf-8") as fh:
-        for line in fh:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                event = json.loads(line)
-            except json.JSONDecodeError:
-                skipped += 1
-                continue
-            if since is not None:
-                ts_raw = event.get("ts", "")
+    for log_file in log_archive_paths(path):
+        if not log_file.is_file():
+            continue
+        with log_file.open(encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
                 try:
-                    ts = datetime.fromisoformat(ts_raw.replace("Z", "+00:00"))
-                    if ts.tzinfo is None:
-                        ts = ts.replace(tzinfo=timezone.utc)
-                    if ts < since:
-                        continue
-                except ValueError:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
                     skipped += 1
                     continue
-            events.append(event)
+                if since is not None:
+                    ts = _parse_event_ts(event)
+                    if ts is None:
+                        skipped += 1
+                        continue
+                    if ts < since:
+                        continue
+                events.append(event)
     return events, skipped
 
 

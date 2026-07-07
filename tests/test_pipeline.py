@@ -3,8 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from greedy_token.pipeline import format_pipeline_footer, parse_pipeline, run_pipeline
 
 
@@ -34,11 +32,10 @@ def test_parse_custom_chain() -> None:
     assert steps[1].args == "baseUrl -D flag"
 
 
-def test_pipeline_dry_run() -> None:
-    root = Path("/Users/stanislav/zero-design-system")
+def test_pipeline_dry_run(minimal_workspace: Path) -> None:
     result = run_pipeline(
         "check-meta-sync then rag baseUrl",
-        root,
+        minimal_workspace,
         execute=False,
     )
     assert len(result.steps) == 2
@@ -47,24 +44,22 @@ def test_pipeline_dry_run() -> None:
     assert not result.steps[0].executed
 
 
-def test_format_pipeline_footer_has_by_executor() -> None:
-    root = Path("/Users/stanislav/zero-design-system")
+def test_format_pipeline_footer_has_by_executor(minimal_workspace: Path) -> None:
     result = run_pipeline(
         "check-meta-sync then rag baseUrl",
-        root,
+        minimal_workspace,
         execute=False,
     )
-    footer = format_pipeline_footer(result, root)
+    footer = format_pipeline_footer(result, minimal_workspace)
     assert "Per-step savings" in footer
     assert "Saved by executor" in footer
     assert "Saved vs naive Cursor chat" in footer
 
 
 @patch("greedy_token.pipeline._run_step")
-def test_pipeline_stops_on_error(mock_run) -> None:
+def test_pipeline_stops_on_error(mock_run, minimal_workspace: Path) -> None:
     from greedy_token.pipeline import PipelineStep, StepResult
 
-    root = Path("/Users/stanislav/zero-design-system")
     ok_step = StepResult(
         step=PipelineStep("check-meta-sync", "python", "meta", command="echo"),
         ok=True,
@@ -84,6 +79,6 @@ def test_pipeline_stops_on_error(mock_run) -> None:
         executed=True,
     )
     mock_run.side_effect = [ok_step, fail_step]
-    result = run_pipeline("meta-audit configurator-boolean", root, execute=True)
+    result = run_pipeline("meta-audit configurator-boolean", minimal_workspace, execute=True)
     assert result.stopped_early
     assert len(result.steps) == 2

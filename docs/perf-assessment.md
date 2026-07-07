@@ -1,6 +1,6 @@
 # Performance assessment: should greedy-token leave Python?
 
-**Date:** 2026-07-06 · **Branch:** `perf-assessment` · **Machine:** Apple M2 Max (12 cores), macOS 26.5, Python 3.14.0, tiktoken 0.13.0
+**Date:** 2026-07-06 · **Machine:** Apple M2 Max (12 cores), macOS 26.5, Python 3.12, tiktoken 0.13.0
 **Workspace:** zero-design-system monorepo (3,223 text files, ~98 MB, 64.8M tokens)
 **Repro:** `python bench/bench.py --runs 5 [--stress]`
 
@@ -82,9 +82,9 @@ Revisit the language question only if greedy-token grows an actual hot loop in P
 shape is the hybrid from the discussion: Python API + Rust core via PyO3 — not C++23/SIMD,
 which targets a problem this tool does not have.
 
-## Applied optimizations (this branch)
+## Applied optimizations (merged)
 
-Wins 1 and 2 are implemented in this branch:
+Wins 1 and 2 are implemented in `tokens.py`:
 
 - `tokens.count_texts` / `count_files`: one `encode_ordinary_batch(num_threads=cpu_count)`
   call instead of a per-file Python loop; `cmd_tokens` and `audit_context` switched to it.
