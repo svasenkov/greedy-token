@@ -9,6 +9,7 @@ from pathlib import Path
 
 from greedy_token.estimator import cursor_baseline, cursor_saved_for
 from greedy_token.router import RouteDecision, route_task_all_tiers
+from greedy_token.settings import get_ollama_settings
 from greedy_token.tokens import count_tokens
 from greedy_token.wrappers import WRAPPERS
 
@@ -77,7 +78,7 @@ def executor_from_decision(decision: RouteDecision) -> dict:
             return {"kind": "script", "script_id": wrapper.id}
         return {"kind": "script"}
     if target == "ollama":
-        model = os.environ.get("OLLAMA_MODEL", "qwen2.5-coder:14b")
+        model = get_ollama_settings().model
         return {"kind": "ollama", "model": model, "eval_tokens": None}
     if target == "rag":
         return {"kind": "rag"}
@@ -244,27 +245,28 @@ def load_events(path: Path, *, since: datetime | None = None) -> tuple[list[dict
         return [], 0
     events: list[dict] = []
     skipped = 0
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            event = json.loads(line)
-        except json.JSONDecodeError:
-            skipped += 1
-            continue
-        if since is not None:
-            ts_raw = event.get("ts", "")
+    with path.open(encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
             try:
-                ts = datetime.fromisoformat(ts_raw.replace("Z", "+00:00"))
-                if ts.tzinfo is None:
-                    ts = ts.replace(tzinfo=timezone.utc)
-                if ts < since:
-                    continue
-            except ValueError:
+                event = json.loads(line)
+            except json.JSONDecodeError:
                 skipped += 1
                 continue
-        events.append(event)
+            if since is not None:
+                ts_raw = event.get("ts", "")
+                try:
+                    ts = datetime.fromisoformat(ts_raw.replace("Z", "+00:00"))
+                    if ts.tzinfo is None:
+                        ts = ts.replace(tzinfo=timezone.utc)
+                    if ts < since:
+                        continue
+                except ValueError:
+                    skipped += 1
+                    continue
+            events.append(event)
     return events, skipped
 
 

@@ -4,22 +4,16 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from greedy_token.context_audit import audit_context
-from greedy_token.router import RouteDecision, route_task, route_task_all_tiers
+from greedy_token.router import (
+    BASE_CURSOR_OVERHEAD,
+    COMPLEXITY_BY_TARGET,
+    RouteDecision,
+    route_task,
+    route_task_all_tiers,
+)
+from greedy_token.tool_paths import root_cd_prefix
 from greedy_token.tokens import count_tokens
 from greedy_token.wrappers import ollama_available, ollama_status_line
-
-
-TIER_ORDER = ("tool", "python", "ollama", "rag", "cursor")
-
-COMPLEXITY_BY_TARGET = {
-    "tool": "low",
-    "python": "low",
-    "ollama": "medium",
-    "rag": "low",
-    "cursor": "high",
-}
-
-BASE_CURSOR_OVERHEAD = 6000
 
 
 @dataclass
@@ -78,7 +72,7 @@ def format_estimate(estimate: TaskEstimate, task: str, root: Path) -> str:
     if d.matched:
         lines.append(f"Matched: {', '.join(d.matched)}")
     if d.command:
-        cmd = d.command if d.command.startswith("cd ") else f"cd {root} && {d.command}"
+        cmd = d.command if d.command.startswith("cd ") else f"{root_cd_prefix(root)} {d.command}"
         lines.append(f"Command: {cmd}")
     baseline = cursor_baseline(root, task)
     target = d.target

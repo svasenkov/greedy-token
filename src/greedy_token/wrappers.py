@@ -1,9 +1,15 @@
 from __future__ import annotations
 
 import json
-import os
+import time
 from dataclasses import dataclass
 from pathlib import Path
+
+from greedy_token.settings import get_ollama_settings
+from greedy_token.tool_paths import root_cd_prefix, shell_args
+
+OLLAMA_PROBE_TTL = 3.0
+_ollama_probe_cache: dict[str, tuple[float, bool]] = {}
 
 
 @dataclass(frozen=True)
@@ -87,30 +93,40 @@ def resolve_wrapper_command(wrapper_id: str, root: Path, *, extra_args: str = ""
     if not script.is_file():
         raise FileNotFoundError(f"Script not found: {script}")
     rel = wrapper.path
+    prefix = root_cd_prefix(root)
     if rel.endswith(".py"):
-        base = f"cd {root} && python {rel}"
+        base = f"{prefix} python {rel}"
     else:
-        base = f"cd {root} && ./{rel}"
-    return f"{base} {extra_args}".strip()
+        base = f"{prefix} ./{rel}"
+    args = shell_args(extra_args)
+    return f"{base} {args}".strip() if args else base
 
 
 def ollama_available(url: str | None = None, timeout: float = 2.0) -> bool:
     import urllib.error
     import urllib.request
 
-    base = url or os.environ.get("OLLAMA_URL", "http://localhost:11434")
+    base = (url or get_ollama_settings().url).rstrip("/")
+    now = time.monotonic()
+    cached = _ollama_probe_cache.get(base)
+    if cached is not None and now - cached[0] < OLLAMA_PROBE_TTL:
+        return cached[1]
+
     try:
-        req = urllib.request.Request(f"{base.rstrip('/')}/api/tags")
+        req = urllib.request.Request(f"{base}/api/tags")
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             json.load(resp)
-        return True
+        ok = True
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError):
-        return False
+        ok = False
+    _ollama_probe_cache[base] = (now, ok)
+    return ok
 
 
 def ollama_status_line() -> str:
-    url = os.environ.get("OLLAMA_URL", "http://localhost:11434")
-    model = os.environ.get("OLLAMA_MODEL", "qwen2.5-coder:14b")
+    settings = get_ollama_settings()
+    url = settings.url
+    model = settings.model
     if ollama_available(url):
         return f"Ollama: available ({url}, model={model})"
     return f"Ollama: unavailable ({url}) — ollama routes need local server or skip to cursor"

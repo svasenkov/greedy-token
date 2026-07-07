@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import re
 import subprocess
 import time
@@ -23,7 +22,9 @@ from greedy_token.code_search import search_code
 from greedy_token.paths import find_monorepo_root
 from greedy_token.rag_search import format_hits, search_rag
 from greedy_token.router import RouteDecision
+from greedy_token.settings import get_ollama_settings
 from greedy_token.tokens import count_tokens
+from greedy_token.tool_paths import SCRIPT_TIMEOUT
 from greedy_token.usage import append_event, build_route_event
 from greedy_token.wrappers import WRAPPERS, ollama_available, resolve_wrapper_command
 
@@ -312,7 +313,7 @@ def _run_step(step: PipelineStep, root: Path, *, execute: bool) -> StepResult:
         else:
             output = f"(dry-run) search {query!r}" + (f" in {path}" if path else "")
         duration_ms = int((time.perf_counter() - t0) * 1000)
-        est = 0 if not execute else 0
+        est = 0
         return StepResult(
             step=step,
             ok=True,
@@ -376,13 +377,26 @@ def _run_step(step: PipelineStep, root: Path, *, execute: bool) -> StepResult:
         )
 
     if can_run:
-        proc = subprocess.run(
-            step.command,
-            shell=True,
-            capture_output=True,
-            text=True,
-            cwd=root,
-        )
+        try:
+            proc = subprocess.run(
+                step.command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                cwd=root,
+                timeout=SCRIPT_TIMEOUT,
+            )
+        except subprocess.TimeoutExpired:
+            duration_ms = int((time.perf_counter() - t0) * 1000)
+            return StepResult(
+                step=step,
+                ok=False,
+                exit_code=124,
+                output=f"Step timed out after {SCRIPT_TIMEOUT}s: {step.command}",
+                duration_ms=duration_ms,
+                est_tokens=0,
+                executed=True,
+            )
         output = (proc.stdout or "") + (proc.stderr or "")
         exit_code = proc.returncode
         executed = True
@@ -453,6 +467,7 @@ def _log_pipeline(result: PipelineResult, root: Path) -> None:
                 duration_ms=step_result.duration_ms,
                 executed=True,
                 est_tokens_override=step_result.est_tokens,
+                tier_scan=[],
             )
         )
 
@@ -492,7 +507,7 @@ def format_pipeline_footer(result: PipelineResult, root: Path) -> str:
     baseline = breakdown.total
     total_spent = result.total_est_tokens
     saved = max(0, baseline - total_spent)
-    model = os.environ.get("OLLAMA_MODEL", "qwen2.5-coder:14b")
+    model = get_ollama_settings(root).model
     step_rows = compute_step_savings(result, root)
 
     lines = [

@@ -7,13 +7,18 @@ import time
 
 from greedy_token.context_audit import audit_context, render_audit
 from greedy_token.estimator import estimate_task, format_estimate
-from greedy_token.executors import execute_plan, execute_task, plan_run
-from greedy_token.estimator import cursor_baseline, cursor_saved_for
+from greedy_token.executors import execute_task, plan_run
 from greedy_token.paths import find_monorepo_root
 from greedy_token.pipeline import format_pipeline_response, list_pipelines, run_pipeline
 from greedy_token.prompt_compress import compress_prompt_detail, format_dual
 from greedy_token.rag_search import format_hits, search_rag
 from greedy_token.router import format_decision, route_task
+from greedy_token.settings import (
+    apply_ollama_env,
+    format_config,
+    format_shell_export,
+    init_user_config,
+)
 from greedy_token.tokens import TokenEstimate, collect_paths, count_files, count_tokens, format_size_table
 from greedy_token.usage import (
     aggregate_events,
@@ -31,6 +36,8 @@ from greedy_token.wrappers import WRAPPERS, ollama_status_line, resolve_wrapper_
 
 
 from greedy_token.budget import rag_est_tokens
+
+COMPRESS_MAX_BYTES = 256 * 1024
 
 
 def cmd_route(args: argparse.Namespace) -> int:
@@ -184,7 +191,14 @@ def cmd_rag(args: argparse.Namespace) -> int:
 
 def cmd_compress(args: argparse.Namespace) -> int:
     t0 = time.perf_counter()
-    text = sys.stdin.read()
+    text = sys.stdin.read(COMPRESS_MAX_BYTES + 1)
+    if len(text) > COMPRESS_MAX_BYTES:
+        print(
+            f"Prompt too large (>{COMPRESS_MAX_BYTES // 1024} KiB). "
+            "Split or trim before compress.",
+            file=sys.stderr,
+        )
+        return 1
     if not text.strip():
         print("Read prompt from stdin.", file=sys.stderr)
         return 1
@@ -239,7 +253,16 @@ def cmd_scripts(args: argparse.Namespace) -> int:
                 return 1
             import subprocess
 
-            proc = subprocess.run(cmd, shell=True)
+            from greedy_token.tool_paths import SCRIPT_TIMEOUT
+
+            try:
+                proc = subprocess.run(cmd, shell=True, timeout=SCRIPT_TIMEOUT)
+            except subprocess.TimeoutExpired:
+                print(
+                    f"Script timed out after {SCRIPT_TIMEOUT}s.",
+                    file=sys.stderr,
+                )
+                return 124
             code = proc.returncode
             executed = True
         else:
@@ -274,6 +297,24 @@ def cmd_report(args: argparse.Namespace) -> int:
         print(json.dumps(summary.to_dict(), indent=2, ensure_ascii=False))
     else:
         print(format_report(summary))
+    return 0
+
+
+def cmd_config(args: argparse.Namespace) -> int:
+    root = find_monorepo_root()
+    if args.init:
+        try:
+            path = init_user_config(url=args.url, model=args.model, force=args.force)
+        except FileExistsError as exc:
+            print(exc, file=sys.stderr)
+            return 1
+        print(f"Created {path}")
+        print()
+    settings = apply_ollama_env(root)
+    if args.export:
+        print(format_shell_export(settings, root=root))
+        return 0
+    print(format_config(settings, root=root))
     return 0
 
 
@@ -360,6 +401,18 @@ def build_parser() -> argparse.ArgumentParser:
     rep.add_argument("--json", action="store_true", help="JSON output")
     rep.set_defaults(func=cmd_report)
 
+    cfg = sub.add_parser("config", help="Show or init Ollama URL/model settings")
+    cfg.add_argument("--init", action="store_true", help="Create ~/.greedy-token/config.yaml")
+    cfg.add_argument("--url", help="Ollama URL for --init")
+    cfg.add_argument("--model", help="Ollama model for --init")
+    cfg.add_argument("--force", action="store_true", help="Overwrite existing user config")
+    cfg.add_argument(
+        "--export",
+        action="store_true",
+        help="Print shell exports (export OLLAMA_URL=...)",
+    )
+    cfg.set_defaults(func=cmd_config)
+
     pipe = sub.add_parser("pipeline", help="Multi-step python/ollama/rag pipeline")
     pipe.add_argument("task", nargs="?", default="", help="Pipeline task or recipe")
     pipe.add_argument("--list", action="store_true", help="List named pipelines")
@@ -381,5 +434,10 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.command != "config":
+        try:
+            apply_ollama_env(find_monorepo_root())
+        except SystemExit:
+            pass
     code = args.func(args)
     raise SystemExit(code)

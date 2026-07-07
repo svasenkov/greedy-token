@@ -7,13 +7,10 @@ from pathlib import Path
 from greedy_token.paths import find_monorepo_root
 from greedy_token.rag_search import format_hits, search_rag
 from greedy_token.router import RouteDecision, route_task
+from greedy_token.tool_paths import RG_TIMEOUT, SCRIPT_TIMEOUT, root_cd_prefix
 from greedy_token.wrappers import wrapper_for_command
 
-JUNK_TOOL_PATH_FRAGMENTS = (
-    ".cursor/hooks/",
-    "greedy-token-route.sh",
-    "greedy-token-home/dev/README",
-)
+from greedy_token.tool_output import filter_tool_output
 
 
 @dataclass
@@ -45,7 +42,7 @@ def plan_run(decision: RouteDecision, task: str, root: Path | None = None) -> Ru
         )
 
     if target == "python" and decision.command:
-        cmd = f"cd {root} && {decision.command}"
+        cmd = f"{root_cd_prefix(root)} {decision.command}"
         wrapper = wrapper_for_command(decision.command)
         read_only = decision.read_only or (wrapper.read_only if wrapper else False)
         return RunPlan(
@@ -56,7 +53,7 @@ def plan_run(decision: RouteDecision, task: str, root: Path | None = None) -> Ru
         )
 
     if target == "ollama" and decision.command:
-        cmd = f"cd {root} && {decision.command}"
+        cmd = f"{root_cd_prefix(root)} {decision.command}"
         return RunPlan(
             decision=decision,
             command=cmd,
@@ -102,24 +99,20 @@ def execute_plan(plan: RunPlan) -> tuple[int, str]:
             f"Dry-run:\n{plan.dry_run_output}\n\n"
             "Run the script manually if side effects are intended."
         )
+    timeout = RG_TIMEOUT if plan.decision.target == "tool" else SCRIPT_TIMEOUT
     proc = subprocess.run(
         plan.command,
         shell=True,
         capture_output=True,
         text=True,
+        timeout=timeout,
     )
     out = (proc.stdout or "") + (proc.stderr or "")
     return proc.returncode, out or plan.dry_run_output
 
 
 def _filter_tool_output(output: str) -> str:
-    lines: list[str] = []
-    for line in output.splitlines():
-        if any(fragment in line for fragment in JUNK_TOOL_PATH_FRAGMENTS):
-            continue
-        if line.strip():
-            lines.append(line)
-    return "\n".join(lines).strip()
+    return filter_tool_output(output)
 
 
 def _tool_output_weak(output: str, exit_code: int) -> bool:

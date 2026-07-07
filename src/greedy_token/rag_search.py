@@ -15,6 +15,7 @@ class RagHit:
     domain: str
     score: float
     excerpt: str
+    body: str | None = None
 
 
 def _tokenize(text: str) -> set[str]:
@@ -87,6 +88,7 @@ def search_rag(
                 domain=meta.get("domain", ""),
                 score=score,
                 excerpt=excerpt,
+                body=body,
             )
         )
 

@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
+import base64
 import time
+from importlib import resources
+from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
+from mcp.types import Icon
 
 from greedy_token.budget import format_savings_lines, rag_est_tokens, wrap_mcp_response
 from greedy_token.code_search import search_code
 from greedy_token.estimator import estimate_task
 from greedy_token.paths import find_monorepo_root
+from greedy_token.settings import apply_ollama_env
 from greedy_token.pipeline import format_pipeline_response, list_pipelines, run_pipeline
 from greedy_token.rag_search import format_hits, search_rag
 from greedy_token.router import format_decision, route_task
@@ -25,7 +30,32 @@ MCP_INSTRUCTIONS = (
     "Example: pipeline: meta-audit configurator-boolean"
 )
 
-mcp = FastMCP("greedy-token", instructions=MCP_INSTRUCTIONS)
+
+def mcp_icons() -> list[Icon]:
+    """MCP server icon (SEP-973) for Cursor / MCP Inspector."""
+    static_dir = Path(__file__).resolve().parent / "static"
+    pkg_static = resources.files("greedy_token.static")
+
+    for name, mime in (("icon.png", "image/png"), ("icon.svg", "image/svg+xml")):
+        icon_path = static_dir / name
+        if icon_path.is_file():
+            payload = icon_path.read_bytes() if mime == "image/png" else icon_path.read_text(encoding="utf-8").encode("utf-8")
+        else:
+            resource = pkg_static.joinpath(name)
+            payload = resource.read_bytes() if mime == "image/png" else resource.read_text(encoding="utf-8").encode("utf-8")
+        encoded = base64.b64encode(payload).decode("ascii")
+        return [
+            Icon(
+                src=f"data:{mime};base64,{encoded}",
+                mimeType=mime,
+                sizes=["any"],
+            )
+        ]
+
+    raise FileNotFoundError("greedy_token static icon not found (icon.png or icon.svg)")
+
+
+mcp = FastMCP("greedy-token", instructions=MCP_INSTRUCTIONS, icons=mcp_icons())
 
 
 @mcp.tool()
@@ -124,12 +154,14 @@ def greedy_token_usage(since: str = "7d") -> str:
 
 
 @mcp.tool()
-def greedy_token_pipeline(task: str, execute: bool = True) -> str:
+def greedy_token_pipeline(task: str, execute: bool = False) -> str:
     """Run multi-step pipeline with unified token stats.
 
     Named: pipeline: meta-audit configurator-boolean
     Custom: pipeline: check-meta-sync then audit-skill configurator-boolean
     List recipes: pipeline: list
+
+    Set execute=true to run allowlisted steps (default: dry-run).
     """
     if task.strip().lower() in ("list", "help", "pipeline: list"):
         return list_pipelines()
@@ -139,6 +171,8 @@ def greedy_token_pipeline(task: str, execute: bool = True) -> str:
 
 
 def main() -> None:
+    root = find_monorepo_root()
+    apply_ollama_env(root)
     mcp.run()
 
 

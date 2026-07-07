@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from pathlib import Path
 
 from greedy_token.context_audit import audit_context
-from greedy_token.estimator import BASE_CURSOR_OVERHEAD, cursor_baseline, cursor_saved_for
+from greedy_token.estimator import cursor_baseline, cursor_saved_for
 from greedy_token.paths import find_monorepo_root
 from greedy_token.rag_search import RagHit
-from greedy_token.router import RouteDecision, route_task_all_tiers
+from greedy_token.router import BASE_CURSOR_OVERHEAD, RouteDecision, route_task_all_tiers
+from greedy_token.settings import get_ollama_settings
 from greedy_token.tokens import count_tokens
 from greedy_token.usage import append_event, build_route_event
 from greedy_token.wrappers import ollama_available
@@ -56,6 +56,9 @@ def cursor_baseline_breakdown(root: Path, task: str) -> CursorBaselineBreakdown:
 def rag_est_tokens(hits: list[RagHit], root: Path) -> int:
     total = 0
     for hit in hits:
+        if hit.body is not None:
+            total += count_tokens(hit.body).tokens
+            continue
         chunk_path = root / hit.path
         if chunk_path.is_file():
             total += count_tokens(
@@ -136,7 +139,7 @@ def _format_tier_alternatives(task: str, root: Path, selected: str) -> list[str]
         if tier == selected:
             suffix = "  ← this call"
         elif tier == "ollama":
-            model = os.environ.get("OLLAMA_MODEL", "qwen2.5-coder:14b")
+            model = get_ollama_settings().model
             if ollama_available():
                 suffix = f"  · {model}, 0 cloud"
             else:
@@ -181,7 +184,7 @@ def format_tool_footer(
     if tier in ("tool", "python"):
         lines.append("  Billing: local only — no Cursor cloud LLM for this step")
     elif tier == "ollama":
-        model = os.environ.get("OLLAMA_MODEL", "qwen2.5-coder:14b")
+        model = get_ollama_settings().model
         eval_note = f", ~{ollama_eval_tokens:,} eval tokens" if ollama_eval_tokens else ""
         lines.append(f"  Billing: local Ollama ({model}{eval_note}) — 0 cloud API tokens")
     elif tier == "rag":
@@ -232,6 +235,7 @@ def log_tool_usage(
     est_tokens_override: int | None = None,
     rag_hits: int | None = None,
     duration_ms: int | None = None,
+    tier_scan: list[dict] | None = None,
 ) -> None:
     append_event(
         build_route_event(
@@ -243,6 +247,7 @@ def log_tool_usage(
             rag_hits=rag_hits,
             duration_ms=duration_ms,
             executed=True,
+            tier_scan=tier_scan,
         )
     )
 
@@ -292,5 +297,6 @@ def wrap_mcp_response(
             est_tokens_override=est_tokens,
             rag_hits=rag_hits,
             duration_ms=duration_ms,
+            tier_scan=[],
         )
     return body.rstrip() + footer

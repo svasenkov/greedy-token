@@ -65,3 +65,21 @@ def sh_quote(value: str) -> str:
     if re.fullmatch(r"[\w@./:-]+", value):
         return value
     return "'" + value.replace("'", "'\"'\"'") + "'"
+
+
+def root_cd_prefix(root: Path) -> str:
+    """Shell-safe `cd <root> &&` for subprocess commands."""
+    return f"cd {sh_quote(str(root))} &&"
+
+
+def shell_args(extra_args: str) -> str:
+    """Quote extra CLI args as one shell token (safe suffix for script invocations)."""
+    text = extra_args.strip()
+    if not text:
+        return ""
+    return sh_quote(text)
+
+
+# Subprocess timeouts (seconds)
+RG_TIMEOUT = 30
+SCRIPT_TIMEOUT = 120

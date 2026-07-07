@@ -6,7 +6,7 @@ from pathlib import Path
 
 from greedy_token.paths import find_monorepo_root, load_routes_config
 from greedy_token.tokens import count_tokens
-from greedy_token.tool_paths import rg_path_for_shell
+from greedy_token.tool_paths import rg_path_for_shell, root_cd_prefix, sh_quote
 from greedy_token.wrappers import ollama_available, wrapper_for_command
 
 TIER_ORDER = ("tool", "python", "ollama", "rag", "cursor")
@@ -19,7 +19,7 @@ COMPLEXITY_BY_TARGET = {
     "cursor": "high",
 }
 
-CURSOR_BASE_OVERHEAD = 6000
+BASE_CURSOR_OVERHEAD = 6000
 RAG_READ_TOKENS = 1800
 
 
@@ -157,7 +157,8 @@ def _build_tool_command(route: dict, task: str, root: Path) -> str:
     if tool == "jq":
         path_hint = route.get("json_path") or "docs/phase-manifest.json"
         return (
-            f'cd {root} && jq -r \'{route.get("jq_filter", ".")}\' {path_hint}'
+            f"{root_cd_prefix(root)} jq -r '{route.get('jq_filter', '.')}' "
+            f"{sh_quote(path_hint)}"
         )
     globs = route.get("globs") or [
         "!.git/**",
@@ -177,15 +178,9 @@ def _build_tool_command(route: dict, task: str, root: Path) -> str:
     glob_flags = " ".join(f"-g {sh_quote(g)}" for g in globs)
     paths = " ".join(search_paths)
     return (
-        f"cd {root} && {rg_path_for_shell()} -n --max-columns 200 -F {sh_quote(query)} "
+        f"{root_cd_prefix(root)} {rg_path_for_shell()} -n --max-columns 200 -F {sh_quote(query)} "
         f"{glob_flags} --max-count {max_count} {paths}"
     )
-
-
-def sh_quote(value: str) -> str:
-    if re.fullmatch(r"[\w@./:-]+", value):
-        return value
-    return "'" + value.replace("'", "'\"'\"'") + "'"
 
 
 def _token_estimate_for_route(
@@ -219,7 +214,7 @@ def _token_estimate_for_route(
             )
         return (
             "medium",
-            task_tokens + CURSOR_BASE_OVERHEAD,
+            task_tokens + BASE_CURSOR_OVERHEAD,
             "Ollama unavailable — would fall back to Cursor for same task.",
         )
     if target == "rag":
@@ -234,7 +229,7 @@ def _token_estimate_for_route(
     rules_tokens = sum(i.estimate.tokens for i in audit_context(root) if i.always_on)
     return (
         complexity,
-        rules_tokens + task_tokens + CURSOR_BASE_OVERHEAD,
+        rules_tokens + task_tokens + BASE_CURSOR_OVERHEAD,
         "Wiring/architecture — requires Cursor agent chat with rules context.",
     )
 
@@ -407,7 +402,7 @@ def format_decision(decision: RouteDecision, task: str, root: Path) -> str:
     if decision.command:
         cmd = decision.command
         if not cmd.startswith("cd "):
-            cmd = f"cd {root} && {cmd}"
+            cmd = f"{root_cd_prefix(root)} {cmd}"
         lines.append(f"Command: {cmd}")
         if decision.read_only:
             lines.append("Execute: read-only (greedy-token run --execute OK)")

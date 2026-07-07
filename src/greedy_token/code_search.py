@@ -4,10 +4,9 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from greedy_token.executors import _filter_tool_output
+from greedy_token.tool_output import filter_tool_output
 from greedy_token.paths import find_monorepo_root
-from greedy_token.router import sh_quote
-from greedy_token.tool_paths import resolve_rg, rg_path_for_shell
+from greedy_token.tool_paths import RG_TIMEOUT, resolve_rg, rg_path_for_shell, root_cd_prefix, sh_quote
 
 DEFAULT_GLOBS = [
     "!.git/**",
@@ -114,7 +113,16 @@ def _python_search_tree(
 
 
 def _run_rg(cmd: str) -> tuple[int, str]:
-    proc = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    try:
+        proc = subprocess.run(
+            cmd,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=RG_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        return 124, f"Error: ripgrep timed out after {RG_TIMEOUT}s"
     out = (proc.stdout or "") + (proc.stderr or "")
     return proc.returncode, out
 
@@ -141,11 +149,11 @@ def search_code(
         if rg_bin:
             rel = sh_quote(scope)
             cmd = (
-                f"cd {sh_quote(str(root))} && {rg_path_for_shell()} -n --max-columns 200 -F "
+                f"{root_cd_prefix(root)} {rg_path_for_shell()} -n --max-columns 200 -F "
                 f"{sh_quote(query)} --max-count {limit} {rel}"
             )
             _, out = _run_rg(cmd)
-            filtered = _filter_tool_output(out)
+            filtered = filter_tool_output(out)
             if filtered and "command not found" not in filtered.lower():
                 return SearchResult(
                     text=f"Search: {query!r} in {scope}\n\n{filtered}",
@@ -176,26 +184,26 @@ def search_code(
             rel = resolved.relative_to(root) if resolved.is_relative_to(root) else resolved
             scope = str(rel)
             cmd = (
-                f"cd {sh_quote(str(root))} && {rg_path_for_shell()} -n --max-columns 200 -F "
+                f"{root_cd_prefix(root)} {rg_path_for_shell()} -n --max-columns 200 -F "
                 f"{sh_quote(query)} {glob_flags} --max-count {limit} {sh_quote(str(rel))}"
             )
         elif path:
             name = Path(path.strip()).name
             scope = f"*{name}*"
             cmd = (
-                f"cd {sh_quote(str(root))} && {rg_path_for_shell()} -n --max-columns 200 -F "
+                f"{root_cd_prefix(root)} {rg_path_for_shell()} -n --max-columns 200 -F "
                 f"{sh_quote(query)} {glob_flags} --max-count {limit} "
                 f"-g {sh_quote(f'*{name}*')} {' '.join(DEFAULT_PATHS)}"
             )
         else:
             scope = "workspace"
             cmd = (
-                f"cd {sh_quote(str(root))} && {rg_path_for_shell()} -n --max-columns 200 -F "
+                f"{root_cd_prefix(root)} {rg_path_for_shell()} -n --max-columns 200 -F "
                 f"{sh_quote(query)} {glob_flags} --max-count {limit} "
                 f"{' '.join(DEFAULT_PATHS)}"
             )
         _, out = _run_rg(cmd)
-        filtered = _filter_tool_output(out)
+        filtered = filter_tool_output(out)
         if filtered and "command not found" not in filtered.lower():
             return SearchResult(
                 text=f"Search: {query!r} in {scope}\n\n{filtered}",
