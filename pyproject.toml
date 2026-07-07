@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "greedy-token"
-version = "0.2.2"
+version = "0.4.1"
 description = "Route dev tasks through tool → python → ollama → RAG before escalating to Claude, ChatGPT, Codex, Cursor, etc."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -16,8 +16,13 @@ dependencies = [
   "tiktoken>=0.7",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+mcp = ["mcp>=1.0"]
+
 [project.scripts]
 greedy-token = "greedy_token.cli:main"
+greedy-token-mcp = "greedy_token.mcp:main"
 
 [project.urls]
 Homepage = "https://github.com/svasenkov/greedy-token"

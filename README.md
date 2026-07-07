@@ -86,6 +86,30 @@ Auto-detect works when the workspace has `docs/phase-manifest.json` and `scripts
 | `greedy-token tokens PATH…` | Count tokens in files/directories |
 | `greedy-token rag QUERY` | Search chunks in `docs/rag/` |
 | `greedy-token compress` | Short prompt version (stdin; `--ollama` for LLM) |
+| `greedy-token report [--since 7d] [--json]` | Aggregate usage telemetry |
+
+Global flag: `--no-log` disables telemetry for one invocation.
+
+## Usage telemetry (v0.3)
+
+Commands `route`, `estimate`, `run`, `rag`, `compress`, and `scripts --run` append one JSONL line per invocation.
+
+| Variable | Default |
+|----------|---------|
+| `GREEDY_TOKEN_LOG` | `~/.greedy-token/usage.jsonl` |
+| `GREEDY_TOKEN_LOG=0` | disable logging |
+
+```bash
+greedy-token estimate "find baseUrl"
+greedy-token route "sync phase-manifest"
+greedy-token report --since 7d
+greedy-token report --since 24h --json
+greedy-token --no-log estimate "find baseUrl"   # skip log for this run
+```
+
+Each event records: tier, `est_tokens`, `cursor_baseline`, `cursor_saved`, `tier_scan`, `token_counter_method` (tiktoken), and `duration_ms`.
+
+**Note:** counts are tiktoken estimates vs naive Cursor chat — not Cursor/Anthropic API billing. Ollama local token usage is recorded when the API returns `eval_count`.
 
 ## Tier order
 

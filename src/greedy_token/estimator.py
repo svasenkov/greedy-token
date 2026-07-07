@@ -32,9 +32,17 @@ class TaskEstimate:
     ollama_note: str | None = None
 
 
-def _cursor_baseline_tokens(root: Path) -> int:
+def cursor_baseline(root: Path, task: str) -> int:
     items = audit_context(root)
-    return sum(i.estimate.tokens for i in items if i.always_on)
+    rules = sum(i.estimate.tokens for i in items if i.always_on)
+    task_tokens = count_tokens(task).tokens
+    return rules + task_tokens + BASE_CURSOR_OVERHEAD
+
+
+def cursor_saved_for(root: Path, task: str, est_tokens: int, target: str) -> int:
+    if target == "cursor":
+        return 0
+    return max(0, cursor_baseline(root, task) - est_tokens)
 
 
 def estimate_task(task: str, root: Path) -> TaskEstimate:
@@ -42,14 +50,8 @@ def estimate_task(task: str, root: Path) -> TaskEstimate:
     complexity = decision.complexity or COMPLEXITY_BY_TARGET.get(decision.target, "medium")
     est_tokens = decision.est_tokens
     rationale = decision.rationale
-    cursor_saved = 0
+    cursor_saved = cursor_saved_for(root, task, est_tokens, decision.target)
     ollama_note: str | None = None
-
-    if decision.target != "cursor":
-        baseline = _cursor_baseline_tokens(root)
-        task_tokens = count_tokens(task).tokens
-        cursor_equiv = baseline + task_tokens + BASE_CURSOR_OVERHEAD
-        cursor_saved = max(0, cursor_equiv - est_tokens)
 
     if decision.target == "ollama" and not ollama_available():
         ollama_note = ollama_status_line()
@@ -78,8 +80,26 @@ def format_estimate(estimate: TaskEstimate, task: str, root: Path) -> str:
     if d.command:
         cmd = d.command if d.command.startswith("cd ") else f"cd {root} && {d.command}"
         lines.append(f"Command: {cmd}")
-    if estimate.cursor_saved > 0:
-        lines.append(f"Cursor tokens saved vs agent chat: ~{estimate.cursor_saved:,}")
+    baseline = cursor_baseline(root, task)
+    target = d.target
+    spent = estimate.est_tokens
+    spent_line = f"Spent (MCP executor, LLM tokens): ~{spent:,}"
+    if target in ("tool", "python"):
+        spent_line += "  (local — no cloud LLM)"
+    elif target == "ollama":
+        spent_line += "  (local Ollama — no cloud API tokens)"
+    elif target == "rag":
+        spent_line += "  (docs/rag chunks read into context)"
+    elif target == "cursor":
+        spent_line += "  (full agent path — same order as baseline)"
+    lines.extend(
+        [
+            "",
+            f"Baseline (naive agent chat):  ~{baseline:,}",
+            spent_line,
+            f"Saved:             ~{estimate.cursor_saved:,}  (= baseline − spent)",
+        ]
+    )
     if estimate.ollama_note:
         lines.append(f"Note: {estimate.ollama_note}")
     if d.target == "cursor":

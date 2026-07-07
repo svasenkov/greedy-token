@@ -50,7 +50,7 @@ def compress_heuristic(text: str) -> str:
     return short
 
 
-def compress_ollama(text: str) -> str:
+def compress_ollama_detail(text: str) -> tuple[str, int | None]:
     import urllib.request
 
     url = os.environ.get("OLLAMA_URL", "http://localhost:11434")
@@ -77,16 +77,29 @@ def compress_ollama(text: str) -> str:
     )
     with urllib.request.urlopen(req, timeout=120) as resp:
         data = json.load(resp)
-    return data["message"]["content"].strip()
+    content = data["message"]["content"].strip()
+    eval_tokens = data.get("eval_count")
+    return content, eval_tokens
+
+
+def compress_ollama(text: str) -> str:
+    content, _ = compress_ollama_detail(text)
+    return content
 
 
 def compress_prompt(text: str, *, use_ollama: bool = False) -> str:
+    short, _ = compress_prompt_detail(text, use_ollama=use_ollama)
+    return short
+
+
+def compress_prompt_detail(text: str, *, use_ollama: bool = False) -> tuple[str, int | None]:
     if use_ollama:
         try:
-            return compress_ollama(text)
+            return compress_ollama_detail(text)
         except Exception as exc:
-            return f"# Ollama failed ({exc}); heuristic fallback:\n\n{compress_heuristic(text)}"
-    return compress_heuristic(text)
+            fallback = compress_heuristic(text)
+            return f"# Ollama failed ({exc}); heuristic fallback:\n\n{fallback}", None
+    return compress_heuristic(text), None
 
 
 def format_dual(text: str, short: str) -> str:

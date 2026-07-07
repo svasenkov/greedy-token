@@ -16,6 +16,18 @@ routes:
       - locate
       - look for
     note: "0 tokens — ripgrep before RAG/Cursor"
+    globs:
+      - "!.git/**"
+      - "!node_modules/**"
+      - "!build/**"
+      - "!.venv/**"
+      - "!.cursor/hooks/**"
+    search_paths:
+      - projects
+      - docs
+      - stacks
+      - scripts
+      - generators
 
   - id: tool-jq-manifest
     target: tool

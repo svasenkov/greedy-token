@@ -1,0 +1,21 @@
+# Named pipelines — expand via: pipeline: meta-audit configurator-boolean
+# Or chain: check-meta-sync then audit-skill configurator-boolean
+
+pipelines:
+  meta-audit:
+    description: "Python meta check → Ollama skill audit"
+    steps:
+      - check-meta-sync
+      - "audit-skill {skill}"
+
+  meta-rag:
+    description: "Python meta check → RAG lookup"
+    steps:
+      - check-meta-sync
+      - "rag {query}"
+
+  search-rag:
+    description: "Ripgrep → RAG if useful context needed"
+    steps:
+      - "search {query} path={path}"
+      - "rag {query}"

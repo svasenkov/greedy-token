@@ -6,6 +6,7 @@ from pathlib import Path
 
 from greedy_token.paths import find_monorepo_root, load_routes_config
 from greedy_token.tokens import count_tokens
+from greedy_token.tool_paths import rg_path_for_shell
 from greedy_token.wrappers import ollama_available, wrapper_for_command
 
 TIER_ORDER = ("tool", "python", "ollama", "rag", "cursor")
@@ -53,21 +54,101 @@ def _score_patterns(text: str, patterns: list[str]) -> tuple[float, list[str]]:
     return score, matched
 
 
-def _extract_search_query(task: str) -> str:
-    text = task.strip()
-    for prefix in (
-        r"^find\s+",
-        r"^search\s+for\s+",
-        r"^grep\s+(for\s+)?",
-        r"^where\s+is\s+",
-        r"^locate\s+",
-        r"^look\s+for\s+",
-        r"^rg\s+",
-    ):
+SEARCH_PREFIXES = (
+    r"^find\s+",
+    r"^search\s+for\s+",
+    r"^grep\s+(for\s+)?",
+    r"^where\s+is\s+",
+    r"^locate\s+",
+    r"^look\s+for\s+",
+    r"^rg\s+",
+)
+
+# Filler stripped from "find X in Y Z" — keep identifiers (baseUrl), drop scope words.
+SEARCH_FILLER = frozenset(
+    {
+        "in",
+        "the",
+        "a",
+        "an",
+        "for",
+        "from",
+        "to",
+        "of",
+        "and",
+        "or",
+        "with",
+        "about",
+        "is",
+        "are",
+        "all",
+        "any",
+        "e2e",
+        "config",
+        "configuration",
+        "configurator",
+        "project",
+        "code",
+        "file",
+        "files",
+        "repo",
+        "workspace",
+        "where",
+        "в",
+        "для",
+        "из",
+        "по",
+        "где",
+        "найди",
+        "найти",
+    }
+)
+
+
+def _strip_search_prefix(text: str) -> str:
+    for prefix in SEARCH_PREFIXES:
         m = re.match(prefix, text, flags=re.IGNORECASE)
         if m:
-            return text[m.end() :].strip().strip('"').strip("'")
-    return text.strip().strip('"').strip("'")
+            return text[m.end() :].strip()
+    return text.strip()
+
+
+def _score_search_token(token: str) -> float:
+    score = min(len(token), 24)
+    if re.search(r"[a-z][A-Z]", token):
+        score += 12
+    if token.isupper() and len(token) > 2:
+        score += 6
+    if any(ch in token for ch in ".-_/"):
+        score += 4
+    if token.isdigit():
+        score -= 8
+    return score
+
+
+def _extract_search_query(task: str) -> str:
+    text = _strip_search_prefix(task.strip())
+    if not text:
+        return task.strip()
+
+    quoted = re.findall(r'["\']([^"\']+)["\']', text)
+    if quoted:
+        return quoted[0].strip()
+
+    text = text.strip('"').strip("'")
+
+    candidates: list[tuple[float, str]] = []
+    for token in re.findall(r"[\w@./:-]+", text):
+        key = token.lower()
+        if key in SEARCH_FILLER or len(token) < 2:
+            continue
+        candidates.append((_score_search_token(token), token))
+
+    if candidates:
+        candidates.sort(key=lambda item: (-item[0], -len(item[1]), item[1].lower()))
+        return candidates[0][1]
+
+    return text
 
 
 def _build_tool_command(route: dict, task: str, root: Path) -> str:
@@ -83,6 +164,7 @@ def _build_tool_command(route: dict, task: str, root: Path) -> str:
         "!node_modules/**",
         "!build/**",
         "!.venv/**",
+        "!.cursor/hooks/**",
     ]
     search_paths = route.get("search_paths") or [
         "projects",
@@ -90,13 +172,12 @@ def _build_tool_command(route: dict, task: str, root: Path) -> str:
         "stacks",
         "scripts",
         "generators",
-        ".cursor",
     ]
     max_count = route.get("max_count", 50)
     glob_flags = " ".join(f"-g {sh_quote(g)}" for g in globs)
     paths = " ".join(search_paths)
     return (
-        f"cd {root} && rg -n --max-columns 200 -F {sh_quote(query)} "
+        f"cd {root} && {rg_path_for_shell()} -n --max-columns 200 -F {sh_quote(query)} "
         f"{glob_flags} --max-count {max_count} {paths}"
     )
 
