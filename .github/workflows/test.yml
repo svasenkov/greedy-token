@@ -52,6 +52,9 @@ jobs:
       - name: Install
         run: python -m pip install -e ".[dev,mcp]"
 
+      - name: Install ripgrep
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+
       - name: Verify GHA ethalon sync
         run: bash ./scripts/check-github-workflows-sync.sh
 
