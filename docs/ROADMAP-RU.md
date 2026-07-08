@@ -20,7 +20,7 @@
 
 | Тема | Цель | Трекинг |
 |------|------|---------|
-| **mcp_hosts** (продолжение) | Claude Desktop / Continue — полный smoke | [#14](https://github.com/svasenkov/greedy-token/issues/14), [#15](https://github.com/svasenkov/greedy-token/issues/15) |
+| **mcp_hosts** (продолжение) | Continue — полный smoke | [#15](https://github.com/svasenkov/greedy-token/issues/15) |
 | **ci_headless** | greedy-token в CI: route/pipeline на self-hosted Ollama вместо «всё в Claude» | [#18](https://github.com/svasenkov/greedy-token/issues/18) |
 
 ## Платные / облако
@@ -78,9 +78,16 @@ local_llm:
 | Host | MCP tools | Token-economy rule | Статус | Issue |
 |------|:---------:|:------------------:|:------:|-------|
 | **Cursor** | ✅ | ✅ | ✅ | — |
-| **Claude Desktop** (MCP) | вероятно ✅ | — | ❌ 🔜 | [#14](https://github.com/svasenkov/greedy-token/issues/14) |
+| **Claude Desktop** (MCP) | вероятно ✅ | ✅ example | ✅ docs | [#14](https://github.com/svasenkov/greedy-token/issues/14) |
 | **VS Code + Continue** | — | — | ❌ | [#15](https://github.com/svasenkov/greedy-token/issues/15) |
 | **Только CLI** | — | — | ✅ | — |
+
+### MCP hosts — критерии
+
+- ✅ `docs/mcp-setup.md` — [mcp-setup-RU.md](mcp-setup-RU.md); Claude: [claude-desktop-setup-RU.md](claude-desktop-setup-RU.md)
+- ✅ Smoke checklist + автотест stdio: `tests/test_mcp_stdio.py`
+- ✅ Instructions для не-Cursor: [examples/claude/instructions.md](../examples/claude/instructions.md)
+- 🔜 Continue / VS Code — [#15](https://github.com/svasenkov/greedy-token/issues/15)
 
 ## CI / headless
 

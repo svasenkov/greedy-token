@@ -37,7 +37,7 @@
 | Зона | ✅ сейчас | 🔜 v0.5+ |
 |------|-----------|----------|
 | Executors | `tool`, `python`, `ollama`, `rag` | `cloud_llm`, `openai_compat` local |
-| Agent host | Cursor MCP + token baseline | Claude Desktop, Continue |
+| Agent host | Cursor MCP + token baseline | Claude Desktop docs, Continue |
 | Конфиг | `OLLAMA_URL` / `OLLAMA_MODEL` | `local_llm.provider`, `cloud_llm.provider` |
 
 ## Установка
@@ -78,6 +78,20 @@ cp examples/cursor/rules/token-economy.mdc .cursor/rules/token-economy.mdc
 Далее: **Settings → MCP → greedy-token → Enable → Refresh** → **новый** Agent chat.
 
 Должно быть **5 MCP tools**, включая `greedy_token_pipeline`.
+
+## Claude Desktop
+
+**Гайд:** [docs/claude-desktop-setup-RU.md](docs/claude-desktop-setup-RU.md) · [docs/claude-desktop-setup.md](docs/claude-desktop-setup.md)  
+**Все MCP-хосты:** [docs/mcp-setup-RU.md](docs/mcp-setup-RU.md)
+
+Starter kit:
+
+| Шаблон | Назначение |
+|--------|------------|
+| [`examples/claude/claude_desktop_config.fragment.json`](examples/claude/claude_desktop_config.fragment.json) | Вставить в `claude_desktop_config.json` |
+| [`examples/claude/instructions.md`](examples/claude/instructions.md) | Claude **Project → Custom instructions** |
+
+Тот же сервер `greedy-token-mcp`, что и в Cursor. Нужен **абсолютный** `GREEDY_TOKEN_ROOT` (нет `${workspaceFolder}`). После правки конфига — полный quit и relaunch Claude Desktop.
 
 ## MCP tools
 

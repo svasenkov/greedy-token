@@ -37,7 +37,7 @@ Today the happy path is **Cursor + Ollama + monorepo**. CLI and MCP are IDE-agno
 | Area | ✅ today | 🔜 v0.5+ |
 |------|----------|----------|
 | Executors | `tool`, `python`, `ollama`, `rag` | `cloud_llm`, `openai_compat` local |
-| Agent host | Cursor MCP + token baseline | Claude Desktop, Continue |
+| Agent host | Cursor MCP + token baseline | Claude Desktop docs, Continue |
 | Config | `OLLAMA_URL` / `OLLAMA_MODEL` | `local_llm.provider`, `cloud_llm.provider` |
 
 ## Install
@@ -78,6 +78,20 @@ cp examples/cursor/rules/token-economy.mdc .cursor/rules/token-economy.mdc
 Then: **Settings → MCP → greedy-token → Enable → Refresh** → **new** Agent chat.
 
 Expected: **5 MCP tools** (including `greedy_token_pipeline`).
+
+## Claude Desktop integration
+
+**Guide:** [docs/claude-desktop-setup.md](docs/claude-desktop-setup.md) · [docs/claude-desktop-setup-RU.md](docs/claude-desktop-setup-RU.md)  
+**All MCP hosts:** [docs/mcp-setup.md](docs/mcp-setup.md)
+
+Starter kit:
+
+| Template | Use |
+|----------|-----|
+| [`examples/claude/claude_desktop_config.fragment.json`](examples/claude/claude_desktop_config.fragment.json) | Merge into `claude_desktop_config.json` |
+| [`examples/claude/instructions.md`](examples/claude/instructions.md) | Claude **Project → Custom instructions** |
+
+Same `greedy-token-mcp` server as Cursor. Set **absolute** `GREEDY_TOKEN_ROOT` (Claude has no `${workspaceFolder}`). Fully quit and relaunch Claude Desktop after editing config.
 
 ## MCP tools
 

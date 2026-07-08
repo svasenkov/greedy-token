@@ -160,4 +160,4 @@ Hooks / custom launchers can be added later; MCP + rule are enough for beta test
 ## Related
 
 - Package README: [README.md](../README.md)
-- Roadmap (Claude Desktop / Continue): [ROADMAP.md](ROADMAP.md)
+- Roadmap (Continue / VS Code): [ROADMAP.md](ROADMAP.md)
