@@ -5,8 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from tests.pyramid_layers import layer_for_module
 from tests.ollama_stub import clear_ollama_probe_cache, install_ollama_scripts, ollama_stub_server
+from tests.pyramid_layers import layer_for_module
+from tests.testops_ids import TESTOPS_IDS
 
 
 def _discover_monorepo_root() -> Path | None:
@@ -97,11 +98,14 @@ def _greedy_token_root_env(monkeypatch: pytest.MonkeyPatch, minimal_workspace: P
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_runtest_setup(item: pytest.Item) -> None:
-    """Attach Allure label layer=* for TestOps pyramid (same key as Java @Layer)."""
+    """Attach Allure id + label layer=* for TestOps (5276)."""
     try:
         import allure
     except ImportError:
         return
+    testops_id = TESTOPS_IDS.get(item.nodeid)
+    if testops_id:
+        allure.dynamic.id(testops_id)
     module_name = item.module.__name__.rsplit(".", 1)[-1]
     layer = layer_for_module(module_name)
     if layer:

@@ -9,6 +9,7 @@ import pytest
 
 from greedy_token.rag_index import get_indexed_chunks, invalidate_rag_index
 from greedy_token.rag_search import search_rag
+from tests.allure_reporting import attach_json, attach_text
 
 pytestmark = [
     allure.epic("RAG"),
@@ -22,11 +23,15 @@ pytestmark = [
 @allure.title("RAG index caches manifest entries")
 def test_get_indexed_chunks_caches(minimal_workspace: Path) -> None:
     invalidate_rag_index()
-    first = get_indexed_chunks(minimal_workspace)
-    second = get_indexed_chunks(minimal_workspace)
-    assert first is second
-    assert len(first) == 1
-    assert first[0].meta["id"] == "test-baseurl"
+    with allure.step("Load indexed chunks twice"):
+        first = get_indexed_chunks(minimal_workspace)
+        second = get_indexed_chunks(minimal_workspace)
+        attach_json("first chunk", {"id": first[0].meta["id"], "count": len(first)})
+        attach_text("cache hit", str(first is second))
+    with allure.step("Verify cache returns same object"):
+        assert first is second
+        assert len(first) == 1
+        assert first[0].meta["id"] == "test-baseurl"
 
 
 @allure.story("Invalidation")
@@ -35,14 +40,18 @@ def test_index_invalidates_on_chunk_edit(minimal_workspace: Path) -> None:
     invalidate_rag_index()
     before = get_indexed_chunks(minimal_workspace)
     chunk = minimal_workspace / "docs/rag/e2e/test-chunk.md"
-    chunk.write_text(
-        chunk.read_text(encoding="utf-8") + "\nnewkeyword flag appears here.\n",
-        encoding="utf-8",
-    )
-    invalidate_rag_index(minimal_workspace)
-    after = get_indexed_chunks(minimal_workspace)
-    assert before is not after
-    assert "newkeyword" in after[0].body_tokens
+    with allure.step("Edit chunk file and reload index"):
+        chunk.write_text(
+            chunk.read_text(encoding="utf-8") + "\nnewkeyword flag appears here.\n",
+            encoding="utf-8",
+        )
+        invalidate_rag_index(minimal_workspace)
+        after = get_indexed_chunks(minimal_workspace)
+        attach_text("cache invalidated", str(before is not after))
+        attach_text("newkeyword in body", str("newkeyword" in after[0].body_tokens))
+    with allure.step("Verify index was rebuilt with new content"):
+        assert before is not after
+        assert "newkeyword" in after[0].body_tokens
 
 
 @allure.story("Token economy")
@@ -77,17 +86,23 @@ def test_search_reads_only_top_hits(minimal_workspace: Path) -> None:
         read_paths.append(str(self))
         return original_read_text(self, *args, **kwargs)
 
-    with patch.object(Path, "read_text", tracking_read_text):
-        hits = search_rag("sharedtoken", minimal_workspace, limit=1)
-
-    assert len(hits) == 1
-    assert len(read_paths) == 1
+    with allure.step("Search RAG with file read tracking"):
+        with patch.object(Path, "read_text", tracking_read_text):
+            hits = search_rag("sharedtoken", minimal_workspace, limit=1)
+        attach_text("read paths", "\n".join(read_paths))
+        attach_text("hit count", str(len(hits)))
+    with allure.step("Verify only top hit file was read"):
+        assert len(hits) == 1
+        assert len(read_paths) == 1
 
 
 @allure.story("Search")
 @allure.title("RAG search still finds baseUrl after index rebuild")
 def test_search_rag_still_finds_baseurl(minimal_workspace: Path) -> None:
-    invalidate_rag_index(minimal_workspace)
-    hits = search_rag("baseUrl -D flag", minimal_workspace, domains=["e2e"], limit=5)
-    assert len(hits) >= 1
-    assert hits[0].body is not None
+    with allure.step("Rebuild index and search for baseUrl"):
+        invalidate_rag_index(minimal_workspace)
+        hits = search_rag("baseUrl -D flag", minimal_workspace, domains=["e2e"], limit=5)
+        attach_json("hits", [{"chunk_id": h.chunk_id, "has_body": h.body is not None} for h in hits])
+    with allure.step("Verify baseUrl chunk is found with body"):
+        assert len(hits) >= 1
+        assert hits[0].body is not None

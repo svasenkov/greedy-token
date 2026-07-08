@@ -5,6 +5,7 @@ from pathlib import Path
 import allure
 import pytest
 
+from tests.allure_reporting import attach_text
 from tests.mcp_stdio_helpers import run_mcp, tool_text
 
 pytest.importorskip("mcp")
@@ -29,14 +30,17 @@ def test_mcp_stdio_lists_five_tools(minimal_workspace: Path) -> None:
         tools = await session.list_tools()
         return [t.name for t in tools.tools]
 
-    names = run_mcp(minimal_workspace, _list)
-    assert names == [
-        "greedy_token_route",
-        "greedy_token_rag",
-        "greedy_token_search",
-        "greedy_token_usage",
-        "greedy_token_pipeline",
-    ]
+    with allure.step("List MCP stdio tools"):
+        names = run_mcp(minimal_workspace, _list)
+        attach_text("tool names", "\n".join(names))
+    with allure.step("Verify five greedy-token tools are advertised"):
+        assert names == [
+            "greedy_token_route",
+            "greedy_token_rag",
+            "greedy_token_search",
+            "greedy_token_usage",
+            "greedy_token_pipeline",
+        ]
 
 
 @allure.story("Route tool")
@@ -48,10 +52,13 @@ def test_mcp_stdio_route_includes_token_economy(minimal_workspace: Path) -> None
             {"task": "find baseUrl in sample.js"},
         )
 
-    result = run_mcp(minimal_workspace, _call)
-    text = tool_text(result)
-    assert "Route: TOOL" in text
-    _assert_token_economy_footer(text)
+    with allure.step("Call greedy_token_route via MCP stdio"):
+        result = run_mcp(minimal_workspace, _call)
+        text = tool_text(result)
+        attach_text("route response", text)
+    with allure.step("Verify TOOL route and Token economy footer"):
+        assert "Route: TOOL" in text
+        _assert_token_economy_footer(text)
 
 
 @allure.story("Search tool")
@@ -63,10 +70,13 @@ def test_mcp_stdio_search_finds_match(minimal_workspace: Path) -> None:
             {"query": "baseUrl", "path": "sample.js"},
         )
 
-    result = run_mcp(minimal_workspace, _call)
-    text = tool_text(result)
-    assert "baseUrl" in text
-    _assert_token_economy_footer(text)
+    with allure.step("Call greedy_token_search via MCP stdio"):
+        result = run_mcp(minimal_workspace, _call)
+        text = tool_text(result)
+        attach_text("search response", text)
+    with allure.step("Verify baseUrl match and Token economy footer"):
+        assert "baseUrl" in text
+        _assert_token_economy_footer(text)
 
 
 @allure.story("RAG tool")
@@ -78,10 +88,13 @@ def test_mcp_stdio_rag_returns_hits(minimal_workspace: Path) -> None:
             {"query": "baseUrl -D flag", "domain": "e2e"},
         )
 
-    result = run_mcp(minimal_workspace, _call)
-    text = tool_text(result)
-    assert "RAG hits" in text or "test-baseurl" in text
-    _assert_token_economy_footer(text)
+    with allure.step("Call greedy_token_rag via MCP stdio"):
+        result = run_mcp(minimal_workspace, _call)
+        text = tool_text(result)
+        attach_text("rag response", text)
+    with allure.step("Verify RAG hits and Token economy footer"):
+        assert "RAG hits" in text or "test-baseurl" in text
+        _assert_token_economy_footer(text)
 
 
 @allure.story("Pipeline tool")
@@ -93,10 +106,13 @@ def test_mcp_stdio_pipeline_dry_run_footer(minimal_workspace: Path) -> None:
             {"task": "check-meta-sync then rag baseUrl", "execute": False},
         )
 
-    result = run_mcp(minimal_workspace, _call)
-    text = tool_text(result)
-    assert "Per-step savings" in text
-    assert "Saved vs naive Cursor chat" in text
+    with allure.step("Call greedy_token_pipeline dry-run via MCP stdio"):
+        result = run_mcp(minimal_workspace, _call)
+        text = tool_text(result)
+        attach_text("pipeline response", text)
+    with allure.step("Verify per-step savings footer"):
+        assert "Per-step savings" in text
+        assert "Saved vs naive Cursor chat" in text
 
 
 @allure.story("Usage tool")
@@ -108,7 +124,11 @@ def test_mcp_stdio_usage_empty_log(minimal_workspace: Path, tmp_path: Path) -> N
     async def _call(session):
         return await session.call_tool("greedy_token_usage", {"since": "7d"})
 
-    result = run_mcp(minimal_workspace, _call, log_path=log_file)
-    text = tool_text(result)
-    assert "No events since 7d" in text
-    assert f"Log: {log_file}" in text
+    with allure.step("Call greedy_token_usage with empty log via MCP stdio"):
+        result = run_mcp(minimal_workspace, _call, log_path=log_file)
+        text = tool_text(result)
+        attach_text("usage response", text)
+        attach_text("log path", str(log_file))
+    with allure.step("Verify empty log message"):
+        assert "No events since 7d" in text
+        assert f"Log: {log_file}" in text

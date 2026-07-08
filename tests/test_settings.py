@@ -16,6 +16,7 @@ from greedy_token.settings import (
     user_config_path,
     workspace_config_path,
 )
+from tests.allure_reporting import attach_json, attach_text
 
 pytestmark = [
     allure.epic("Configuration"),
@@ -34,10 +35,13 @@ def test_defaults_without_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
         "greedy_token.settings.user_config_path",
         lambda: tmp_path / "missing.yaml",
     )
-    settings = get_ollama_settings(tmp_path)
-    assert settings.url == DEFAULT_OLLAMA_URL
-    assert settings.model == DEFAULT_OLLAMA_MODEL
-    assert settings.source == "default"
+    with allure.step("Load Ollama settings without config files"):
+        settings = get_ollama_settings(tmp_path)
+        attach_json("settings", {"url": settings.url, "model": settings.model, "source": settings.source})
+    with allure.step("Verify default Ollama settings"):
+        assert settings.url == DEFAULT_OLLAMA_URL
+        assert settings.model == DEFAULT_OLLAMA_MODEL
+        assert settings.source == "default"
 
 
 @allure.story("Precedence")
@@ -45,10 +49,13 @@ def test_defaults_without_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 def test_workspace_config_overrides_user(tmp_path: Path) -> None:
     user_cfg = {"ollama": {"url": "http://user:11434", "model": "user-model"}}
     workspace_cfg = {"ollama": {"url": "http://workspace:11434", "model": "workspace-model"}}
-    settings = _resolve_ollama(user_cfg=user_cfg, workspace_cfg=workspace_cfg, root=tmp_path)
-    assert settings.url == "http://workspace:11434"
-    assert settings.model == "workspace-model"
-    assert settings.source == "workspace"
+    with allure.step("Resolve Ollama settings with user and workspace configs"):
+        settings = _resolve_ollama(user_cfg=user_cfg, workspace_cfg=workspace_cfg, root=tmp_path)
+        attach_json("settings", {"url": settings.url, "model": settings.model, "source": settings.source})
+    with allure.step("Verify workspace config takes precedence"):
+        assert settings.url == "http://workspace:11434"
+        assert settings.model == "workspace-model"
+        assert settings.source == "workspace"
 
 
 @allure.story("Precedence")
@@ -56,14 +63,17 @@ def test_workspace_config_overrides_user(tmp_path: Path) -> None:
 def test_env_overrides_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OLLAMA_URL", "http://env:11434")
     monkeypatch.setenv("OLLAMA_MODEL", "env-model")
-    settings = _resolve_ollama(
-        user_cfg={"ollama": {"url": "http://user:11434", "model": "user-model"}},
-        workspace_cfg={"ollama": {"url": "http://workspace:11434", "model": "workspace-model"}},
-        root=tmp_path,
-    )
-    assert settings.url == "http://env:11434"
-    assert settings.model == "env-model"
-    assert settings.source == "env"
+    with allure.step("Resolve Ollama settings with env overrides"):
+        settings = _resolve_ollama(
+            user_cfg={"ollama": {"url": "http://user:11434", "model": "user-model"}},
+            workspace_cfg={"ollama": {"url": "http://workspace:11434", "model": "workspace-model"}},
+            root=tmp_path,
+        )
+        attach_json("settings", {"url": settings.url, "model": settings.model, "source": settings.source})
+    with allure.step("Verify env vars take precedence"):
+        assert settings.url == "http://env:11434"
+        assert settings.model == "env-model"
+        assert settings.source == "env"
 
 
 @allure.story("User config")
@@ -71,11 +81,15 @@ def test_env_overrides_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
 def test_init_user_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     cfg_path = tmp_path / "config.yaml"
     monkeypatch.setattr("greedy_token.settings.user_config_path", lambda: cfg_path)
-    created = init_user_config(url="http://custom:11434", model="custom-model")
-    assert created == cfg_path
-    data = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
-    assert data["ollama"]["url"] == "http://custom:11434"
-    assert data["ollama"]["model"] == "custom-model"
+    with allure.step("Initialize user config file"):
+        created = init_user_config(url="http://custom:11434", model="custom-model")
+        attach_text("config path", str(created))
+        data = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
+        attach_json("config data", data)
+    with allure.step("Verify config file contents"):
+        assert created == cfg_path
+        assert data["ollama"]["url"] == "http://custom:11434"
+        assert data["ollama"]["model"] == "custom-model"
 
 
 @allure.story("Shell export")
@@ -83,14 +97,21 @@ def test_init_user_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
 def test_format_shell_export() -> None:
     from greedy_token.settings import OllamaSettings
 
-    out = format_shell_export(
-        OllamaSettings(url="http://localhost:11434", model="llama3", source="default")
-    )
-    assert 'export OLLAMA_URL="http://localhost:11434"' in out
-    assert 'export OLLAMA_MODEL="llama3"' in out
+    with allure.step("Format shell export for Ollama settings"):
+        out = format_shell_export(
+            OllamaSettings(url="http://localhost:11434", model="llama3", source="default")
+        )
+        attach_text("shell export", out)
+    with allure.step("Verify OLLAMA env exports"):
+        assert 'export OLLAMA_URL="http://localhost:11434"' in out
+        assert 'export OLLAMA_MODEL="llama3"' in out
 
 
 @allure.story("Paths")
 @allure.title("Workspace config path points to .greedy-token.yaml in root")
 def test_workspace_config_path(tmp_path: Path) -> None:
-    assert workspace_config_path(tmp_path) == tmp_path / ".greedy-token.yaml"
+    with allure.step("Resolve workspace config path"):
+        path = workspace_config_path(tmp_path)
+        attach_text("workspace config path", str(path))
+    with allure.step("Verify .greedy-token.yaml location"):
+        assert path == tmp_path / ".greedy-token.yaml"

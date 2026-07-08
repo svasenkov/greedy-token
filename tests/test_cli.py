@@ -6,6 +6,8 @@ import sys
 import allure
 import pytest
 
+from tests.allure_reporting import attach_text
+
 pytestmark = [
     allure.epic("CLI"),
     allure.parent_suite("CLI"),
@@ -17,42 +19,54 @@ pytestmark = [
 @allure.story("Help")
 @allure.title("CLI --help lists route command")
 def test_cli_help() -> None:
-    proc = subprocess.run(
-        [sys.executable, "-m", "greedy_token", "--help"],
-        capture_output=True,
-        text=True,
-    )
-    assert proc.returncode == 0
-    assert "route" in proc.stdout
+    with allure.step("Run greedy-token CLI --help"):
+        proc = subprocess.run(
+            [sys.executable, "-m", "greedy_token", "--help"],
+            capture_output=True,
+            text=True,
+        )
+        attach_text("stdout", proc.stdout)
+        attach_text("stderr", proc.stderr or "")
+    with allure.step("Verify help mentions route command"):
+        assert proc.returncode == 0
+        assert "route" in proc.stdout
 
 
 @allure.story("Pipeline")
 @allure.title("CLI pipeline --list shows named recipes")
 def test_cli_pipeline_list() -> None:
-    proc = subprocess.run(
-        [sys.executable, "-m", "greedy_token", "pipeline", "--list"],
-        capture_output=True,
-        text=True,
-    )
-    assert proc.returncode == 0
-    assert "meta-audit" in proc.stdout
+    with allure.step("Run greedy-token pipeline --list"):
+        proc = subprocess.run(
+            [sys.executable, "-m", "greedy_token", "pipeline", "--list"],
+            capture_output=True,
+            text=True,
+        )
+        attach_text("stdout", proc.stdout)
+        attach_text("stderr", proc.stderr or "")
+    with allure.step("Verify meta-audit recipe is listed"):
+        assert proc.returncode == 0
+        assert "meta-audit" in proc.stdout
 
 
 @allure.story("Route")
 @allure.title("CLI route recommends tool tier for find task")
 def test_cli_route_tool(minimal_workspace) -> None:
-    proc = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "greedy_token",
-            "--no-log",
-            "route",
-            "find baseUrl in sample.js",
-        ],
-        capture_output=True,
-        text=True,
-        env={**__import__("os").environ, "GREEDY_TOKEN_ROOT": str(minimal_workspace)},
-    )
-    assert proc.returncode == 0
-    assert "TOOL" in proc.stdout or "tool" in proc.stdout.lower()
+    with allure.step("Run greedy-token route for find task"):
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "greedy_token",
+                "--no-log",
+                "route",
+                "find baseUrl in sample.js",
+            ],
+            capture_output=True,
+            text=True,
+            env={**__import__("os").environ, "GREEDY_TOKEN_ROOT": str(minimal_workspace)},
+        )
+        attach_text("stdout", proc.stdout)
+        attach_text("stderr", proc.stderr or "")
+    with allure.step("Verify route recommends tool tier"):
+        assert proc.returncode == 0
+        assert "TOOL" in proc.stdout or "tool" in proc.stdout.lower()

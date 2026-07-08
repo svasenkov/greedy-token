@@ -7,6 +7,7 @@ import allure
 import pytest
 
 from greedy_token.pipeline import format_pipeline_footer, parse_pipeline, run_pipeline
+from tests.allure_reporting import attach_json, attach_text
 
 pytestmark = [
     allure.epic("Pipeline"),
@@ -19,118 +20,150 @@ pytestmark = [
 @allure.story("Named recipes")
 @allure.title("Parse meta-audit named pipeline recipe")
 def test_parse_named_pipeline_meta_audit() -> None:
-    steps = parse_pipeline("pipeline: meta-audit configurator-boolean")
-    assert len(steps) == 2
-    assert steps[0].step_id == "check-meta-sync"
-    assert steps[0].tier == "python"
-    assert steps[1].step_id == "audit-skill"
-    assert steps[1].tier == "ollama"
-    assert "configurator-boolean" in steps[1].args
+    with allure.step("Parse meta-audit pipeline recipe"):
+        steps = parse_pipeline("pipeline: meta-audit configurator-boolean")
+        attach_json("parsed steps", [{"step_id": s.step_id, "tier": s.tier, "args": s.args} for s in steps])
+    with allure.step("Verify two-step meta-audit chain"):
+        assert len(steps) == 2
+        assert steps[0].step_id == "check-meta-sync"
+        assert steps[0].tier == "python"
+        assert steps[1].step_id == "audit-skill"
+        assert steps[1].tier == "ollama"
+        assert "configurator-boolean" in steps[1].args
 
 
 @allure.story("Named recipes")
 @allure.title("Parse search-rag recipe and reuse query for RAG step")
 def test_parse_named_pipeline_search_rag_reuses_query() -> None:
-    steps = parse_pipeline("pipeline: search-rag baseUrl TestConfig")
-    assert len(steps) == 2
-    assert steps[0].step_id == "search"
-    assert steps[0].args == "baseUrl\tTestConfig"
-    assert steps[1].step_id == "rag"
-    assert steps[1].args == "baseUrl"
+    with allure.step("Parse search-rag pipeline recipe"):
+        steps = parse_pipeline("pipeline: search-rag baseUrl TestConfig")
+        attach_json("parsed steps", [{"step_id": s.step_id, "tier": s.tier, "args": s.args} for s in steps])
+    with allure.step("Verify search query is reused for RAG step"):
+        assert len(steps) == 2
+        assert steps[0].step_id == "search"
+        assert steps[0].args == "baseUrl\tTestConfig"
+        assert steps[1].step_id == "rag"
+        assert steps[1].args == "baseUrl"
 
 
 @allure.story("Custom chain")
 @allure.title("Parse custom then-chain pipeline syntax")
 def test_parse_custom_chain() -> None:
-    steps = parse_pipeline("check-meta-sync then rag baseUrl -D flag")
-    assert steps[0].step_id == "check-meta-sync"
-    assert steps[1].step_id == "rag"
-    assert steps[1].args == "baseUrl -D flag"
+    with allure.step("Parse custom then-chain pipeline"):
+        steps = parse_pipeline("check-meta-sync then rag baseUrl -D flag")
+        attach_json("parsed steps", [{"step_id": s.step_id, "tier": s.tier, "args": s.args} for s in steps])
+    with allure.step("Verify check-meta-sync and rag steps"):
+        assert steps[0].step_id == "check-meta-sync"
+        assert steps[1].step_id == "rag"
+        assert steps[1].args == "baseUrl -D flag"
 
 
 @allure.story("Execute")
 @allure.title("Pipeline execute runs search and RAG allowlisted steps")
 def test_pipeline_execute_search_and_rag(minimal_workspace: Path) -> None:
-    result = run_pipeline(
-        "search baseUrl\tsample.js then rag baseUrl -D flag",
-        minimal_workspace,
-        execute=True,
-    )
-    assert len(result.steps) == 2
-    assert all(sr.executed for sr in result.steps)
-    assert all(sr.ok for sr in result.steps)
-    assert "baseUrl" in result.steps[0].output
-    assert "RAG hits" in result.steps[1].output or "baseUrl" in result.steps[1].output
+    with allure.step("Execute search then RAG pipeline"):
+        result = run_pipeline(
+            "search baseUrl\tsample.js then rag baseUrl -D flag",
+            minimal_workspace,
+            execute=True,
+        )
+        attach_json("step results", [{"step_id": sr.step.step_id, "ok": sr.ok, "executed": sr.executed} for sr in result.steps])
+        attach_text("search output", result.steps[0].output)
+        attach_text("rag output", result.steps[1].output)
+    with allure.step("Verify both steps executed successfully"):
+        assert len(result.steps) == 2
+        assert all(sr.executed for sr in result.steps)
+        assert all(sr.ok for sr in result.steps)
+        assert "baseUrl" in result.steps[0].output
+        assert "RAG hits" in result.steps[1].output or "baseUrl" in result.steps[1].output
 
 
 @allure.story("Execute")
 @allure.title("Pipeline execute runs check-meta-sync wrapper script")
 def test_pipeline_execute_check_meta_sync(minimal_workspace: Path) -> None:
-    result = run_pipeline("check-meta-sync", minimal_workspace, execute=True)
-    assert len(result.steps) == 1
-    step = result.steps[0]
-    assert step.executed is True
-    assert step.ok is True
-    assert "check-meta-sync-ok" in step.output
+    with allure.step("Execute check-meta-sync pipeline"):
+        result = run_pipeline("check-meta-sync", minimal_workspace, execute=True)
+        attach_text("step output", result.steps[0].output)
+    with allure.step("Verify wrapper script succeeded"):
+        assert len(result.steps) == 1
+        step = result.steps[0]
+        assert step.executed is True
+        assert step.ok is True
+        assert "check-meta-sync-ok" in step.output
 
 
 @allure.story("Execute")
 @allure.title("Pipeline execute runs meta-audit Ollama step against HTTP stub")
 def test_pipeline_execute_meta_audit_with_ollama_stub(ollama_workspace: Path) -> None:
-    result = run_pipeline(
-        "meta-audit configurator-boolean",
-        ollama_workspace,
-        execute=True,
-    )
-    assert len(result.steps) == 2
-    assert not result.stopped_early
-    assert result.steps[0].executed and result.steps[0].ok
-    assert result.steps[1].executed and result.steps[1].ok
-    assert "check-meta-sync-ok" in result.steps[0].output
-    assert '"ok":true' in result.steps[1].output.replace(" ", "")
+    with allure.step("Execute meta-audit pipeline against Ollama stub"):
+        result = run_pipeline(
+            "meta-audit configurator-boolean",
+            ollama_workspace,
+            execute=True,
+        )
+        attach_json("step results", [{"step_id": sr.step.step_id, "ok": sr.ok, "executed": sr.executed} for sr in result.steps])
+        attach_text("check-meta-sync output", result.steps[0].output)
+        attach_text("audit-skill output", result.steps[1].output)
+    with allure.step("Verify both steps completed without early stop"):
+        assert len(result.steps) == 2
+        assert not result.stopped_early
+        assert result.steps[0].executed and result.steps[0].ok
+        assert result.steps[1].executed and result.steps[1].ok
+        assert "check-meta-sync-ok" in result.steps[0].output
+        assert '"ok":true' in result.steps[1].output.replace(" ", "")
 
 
 @allure.story("Execute")
 @allure.title("Pipeline execute skips Ollama step when server is unavailable")
 def test_pipeline_execute_skips_unavailable_ollama(minimal_workspace: Path) -> None:
-    with patch("greedy_token.pipeline.ollama_available", return_value=False):
-        result = run_pipeline(
-            "meta-audit configurator-boolean",
-            minimal_workspace,
-            execute=True,
-        )
-    assert result.stopped_early is True
-    assert result.steps[0].ok is True
-    assert result.steps[1].ok is False
-    assert "Ollama unavailable" in result.steps[1].output
+    with allure.step("Execute meta-audit with Ollama unavailable"):
+        with patch("greedy_token.pipeline.ollama_available", return_value=False):
+            result = run_pipeline(
+                "meta-audit configurator-boolean",
+                minimal_workspace,
+                execute=True,
+            )
+        attach_text("ollama step output", result.steps[1].output)
+        attach_text("stopped early", str(result.stopped_early))
+    with allure.step("Verify pipeline stops after Ollama failure"):
+        assert result.stopped_early is True
+        assert result.steps[0].ok is True
+        assert result.steps[1].ok is False
+        assert "Ollama unavailable" in result.steps[1].output
 
 
 @allure.story("Dry run")
 @allure.title("Pipeline dry-run does not execute allowlisted steps")
 def test_pipeline_dry_run(minimal_workspace: Path) -> None:
-    result = run_pipeline(
-        "check-meta-sync then rag baseUrl",
-        minimal_workspace,
-        execute=False,
-    )
-    assert len(result.steps) == 2
-    assert result.steps[0].step.tier == "python"
-    assert result.steps[1].step.tier == "rag"
-    assert not result.steps[0].executed
+    with allure.step("Dry-run check-meta-sync then rag pipeline"):
+        result = run_pipeline(
+            "check-meta-sync then rag baseUrl",
+            minimal_workspace,
+            execute=False,
+        )
+        attach_json("planned steps", [{"step_id": sr.step.step_id, "tier": sr.step.tier, "executed": sr.executed} for sr in result.steps])
+    with allure.step("Verify steps are planned but not executed"):
+        assert len(result.steps) == 2
+        assert result.steps[0].step.tier == "python"
+        assert result.steps[1].step.tier == "rag"
+        assert not result.steps[0].executed
 
 
 @allure.story("Token footer")
 @allure.title("Pipeline footer includes per-executor savings table")
 def test_format_pipeline_footer_has_by_executor(minimal_workspace: Path) -> None:
-    result = run_pipeline(
-        "check-meta-sync then rag baseUrl",
-        minimal_workspace,
-        execute=False,
-    )
-    footer = format_pipeline_footer(result, minimal_workspace)
-    assert "Per-step savings" in footer
-    assert "Saved by executor" in footer
-    assert "Saved vs naive Cursor chat" in footer
+    with allure.step("Format pipeline footer from dry-run result"):
+        result = run_pipeline(
+            "check-meta-sync then rag baseUrl",
+            minimal_workspace,
+            execute=False,
+        )
+        footer = format_pipeline_footer(result, minimal_workspace)
+        attach_text("pipeline footer", footer)
+    with allure.step("Verify per-executor savings sections"):
+        assert "Per-step savings" in footer
+        assert "Saved by executor" in footer
+        assert "Saved vs naive Cursor chat" in footer
 
 
 @patch("greedy_token.pipeline._run_step")
@@ -158,6 +191,9 @@ def test_pipeline_stops_on_error(mock_run, minimal_workspace: Path) -> None:
         executed=True,
     )
     mock_run.side_effect = [ok_step, fail_step]
-    result = run_pipeline("meta-audit configurator-boolean", minimal_workspace, execute=True)
-    assert result.stopped_early
-    assert len(result.steps) == 2
+    with allure.step("Execute pipeline with mocked failing step"):
+        result = run_pipeline("meta-audit configurator-boolean", minimal_workspace, execute=True)
+        attach_json("step results", [{"ok": sr.ok, "executed": sr.executed} for sr in result.steps])
+    with allure.step("Verify pipeline stops early on failure"):
+        assert result.stopped_early
+        assert len(result.steps) == 2
