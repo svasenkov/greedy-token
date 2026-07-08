@@ -16,6 +16,7 @@ LAYER_BY_MODULE: dict[str, str] = {
     "test_pyramid_layers": "unit",
     # component — module wiring, mocks, minimal_workspace fixtures
     "test_executors": "component",
+    "test_mcp_tools": "component",
     "test_pipeline": "component",
     "test_prompt_compress": "component",
     "test_rag_index": "component",
