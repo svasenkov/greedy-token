@@ -1,1 +1,0 @@
-Сделай правку baseUrl в configurator.

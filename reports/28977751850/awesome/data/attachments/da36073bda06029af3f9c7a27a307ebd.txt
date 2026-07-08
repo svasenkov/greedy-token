@@ -1,1 +1,0 @@
-cd '/tmp/pytest-of-runner/pytest-0/test_resolve_wrapper_command_q0/space root' && ./scripts/check-meta-sync.sh 'x; id'

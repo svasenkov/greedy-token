@@ -1,1 +1,0 @@
-Цель: поправить baseUrl. Контекст: configurator forms. Запрет: не трогать stacks.

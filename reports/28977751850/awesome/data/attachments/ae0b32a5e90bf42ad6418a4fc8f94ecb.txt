@@ -1,8 +1,0 @@
-RAG hits for: baseUrl
-
-1. [test-baseurl] score=3.0  (e2e)
-   docs/rag/e2e/test-chunk.md
-
-baseUrl is configured via -DbaseUrl flag in Gradle.
-
----

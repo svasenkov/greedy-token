@@ -1,1 +1,0 @@
-find baseUrl in sample.js

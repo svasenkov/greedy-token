@@ -1,4 +1,0 @@
-/tmp/pytest-of-runner/pytest-0/test_log_archive_paths_order0/usage.jsonl
-/tmp/pytest-of-runner/pytest-0/test_log_archive_paths_order0/usage.jsonl.1
-/tmp/pytest-of-runner/pytest-0/test_log_archive_paths_order0/usage.jsonl.2
-/tmp/pytest-of-runner/pytest-0/test_log_archive_paths_order0/usage.jsonl.3

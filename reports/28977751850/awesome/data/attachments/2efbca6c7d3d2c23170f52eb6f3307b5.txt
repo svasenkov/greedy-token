@@ -1,1 +1,0 @@
-cd /tmp/pytest-of-runner/pytest-0/test_route_find_goes_to_tool0 && /usr/bin/rg -n --max-columns 200 -F baseUrl -g '!.git/**' -g '!node_modules/**' -g '!build/**' -g '!.venv/**' -g '!.cursor/hooks/**' --max-count 50 projects docs stacks scripts generators

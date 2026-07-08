@@ -1,1 +1,0 @@
-/tmp/pytest-of-runner/pytest-0/test_workspace_config_path0/.greedy-token.yaml

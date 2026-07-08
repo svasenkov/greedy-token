@@ -1,8 +1,0 @@
-/tmp/pytest-of-runner/pytest-0/test_collect_paths_skips_git0/.cursor/rules/test.mdc
-/tmp/pytest-of-runner/pytest-0/test_collect_paths_skips_git0/.cursor/skills/configurator-boolean/SKILL.md
-/tmp/pytest-of-runner/pytest-0/test_collect_paths_skips_git0/docs/phase-manifest.json
-/tmp/pytest-of-runner/pytest-0/test_collect_paths_skips_git0/docs/rag/e2e/test-chunk.md
-/tmp/pytest-of-runner/pytest-0/test_collect_paths_skips_git0/docs/rag/manifest.jsonl
-/tmp/pytest-of-runner/pytest-0/test_collect_paths_skips_git0/projects/sample.js
-/tmp/pytest-of-runner/pytest-0/test_collect_paths_skips_git0/scripts/check-meta-sync.sh
-/tmp/pytest-of-runner/pytest-0/test_collect_paths_skips_git0/scripts/ollama/audit-skill.sh

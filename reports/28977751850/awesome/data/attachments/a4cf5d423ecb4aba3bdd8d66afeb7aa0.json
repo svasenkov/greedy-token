@@ -1,6 +1,0 @@
-{
-  "ollama": {
-    "url": "http://custom:11434",
-    "model": "custom-model"
-  }
-}

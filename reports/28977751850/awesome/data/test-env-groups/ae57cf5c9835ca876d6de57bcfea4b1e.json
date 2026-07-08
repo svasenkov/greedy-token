@@ -1,1 +1,0 @@
-{"id":"ae57cf5c9835ca876d6de57bcfea4b1e","fullName":"tests.test_cli_commands#test_cli_estimate_shows_tier_scan","name":"CLI estimate prints tier scan and token estimate","status":"passed","testResultsByEnv":{"default":"ec3fba08260495ce5fb4123229fd2507"}}

@@ -1,6 +1,0 @@
-[
-  {
-    "domain": "e2e",
-    "excerpt": "baseUrl is configured via -DbaseUrl flag in Gradle."
-  }
-]

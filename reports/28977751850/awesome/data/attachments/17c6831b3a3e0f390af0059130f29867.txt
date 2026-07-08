@@ -1,9 +1,0 @@
-No events since 7d.
----
-Session totals (this window)
-Saved vs naive Cursor (all events)
-  Baseline (naive agent chat):  ~0
-  Spent (MCP executor, LLM tokens): ~0  (sum across logged greedy-token calls)
-  Saved:             ~0  (= baseline − spent)
-
-Log: /tmp/pytest-of-runner/pytest-0/test_mcp_usage_empty_log0/usage.jsonl

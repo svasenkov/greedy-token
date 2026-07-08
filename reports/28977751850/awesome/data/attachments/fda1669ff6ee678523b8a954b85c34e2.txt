@@ -1,2 +1,0 @@
-.cursor/hooks/README.md:49:echo find baseUrl
-projects/foo.js:1:baseUrl
