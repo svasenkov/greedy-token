@@ -1,6 +1,6 @@
 # greedy-token
 
-**English:** [README.md](README.md)
+**English version:** [README.md](README.md)
 
 <img src="docs/greedy-cat.gif" alt="талисман greedy-token" width="240" />
 
