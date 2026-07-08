@@ -412,5 +412,5 @@ def format_decision(decision: RouteDecision, task: str, root: Path) -> str:
         lines.append(f"RAG domains: {', '.join(decision.domains)}")
         lines.append(f"Try: greedy-token rag \"{task}\"")
     if decision.target == "cursor":
-        lines.append("→ Новый Cursor-чат; skill из docs/skills-map.md если есть.")
+        lines.append("→ New Cursor chat; skill from docs/skills-map.md if available.")
     return "\n".join(lines)

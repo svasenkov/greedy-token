@@ -134,4 +134,4 @@ def test_format_estimate_cursor_route(minimal_workspace: Path) -> None:
         assert "Route: CURSOR" in text
         assert "Saved:             ~0" in text
         assert "full agent path" in text
-        assert "Новый Cursor-чат" in text
+        assert "New Cursor chat" in text

@@ -18,10 +18,10 @@ pytestmark = [
 @allure.title("Heuristic compression drops filler lines")
 def test_compress_heuristic_drops_filler_lines() -> None:
     text = (
-        "Цель: поправить baseUrl.\n"
-        "Контекст: configurator forms.\n"
-        "Можно использовать пример из docs.\n"
-        "Запрет: не трогать stacks."
+        "Goal: fix baseUrl.\n"
+        "Context: configurator forms.\n"
+        "Optional: use example from docs.\n"
+        "Constraint: do not touch stacks."
     )
     with allure.step("Compress prompt with heuristic"):
         attach_text("original prompt", text)
@@ -29,7 +29,7 @@ def test_compress_heuristic_drops_filler_lines() -> None:
         attach_text("compressed prompt", short)
     with allure.step("Verify filler lines are dropped"):
         assert "baseUrl" in short
-        assert "можно" not in short.lower()
+        assert "optional" not in short.lower()
         assert "stacks" in short
 
 
@@ -37,11 +37,11 @@ def test_compress_heuristic_drops_filler_lines() -> None:
 @allure.title("Prompt detail compression uses heuristic when Ollama disabled")
 def test_compress_prompt_detail_heuristic() -> None:
     with allure.step("Compress prompt detail without Ollama"):
-        short, eval_tokens = compress_prompt_detail("Сделай X.\nПочему: потому что.", use_ollama=False)
+        short, eval_tokens = compress_prompt_detail("Do X.\nWhy: because.", use_ollama=False)
         attach_text("compressed prompt", short)
         attach_text("eval_tokens", str(eval_tokens))
     with allure.step("Verify heuristic compression result"):
-        assert "Сделай X" in short
+        assert "Do X" in short
         assert eval_tokens is None
 
 
@@ -52,6 +52,6 @@ def test_format_dual_wraps_blocks() -> None:
         out = format_dual("long prompt", "short")
         attach_text("dual format output", out)
     with allure.step("Verify both prompt blocks are present"):
-        assert "**Промпт:**" in out
-        assert "**Короткая версия для агента:**" in out
+        assert "**Prompt:**" in out
+        assert "**Short version for agent:**" in out
         assert "short" in out

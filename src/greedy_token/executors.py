@@ -173,7 +173,7 @@ def execute_task(task: str, root: Path | None = None) -> TaskRunResult:
                 rag_out = _rag_fallback_output(task, root)
                 if rag_out:
                     note = (
-                        f"rg: нет полезных совпадений для «{_extract_query_note(task)}» "
+                        f"rg: no useful matches for «{_extract_query_note(task)}» "
                         f"→ fallback RAG\n\n"
                     )
                     return TaskRunResult(
@@ -188,10 +188,10 @@ def execute_task(task: str, root: Path | None = None) -> TaskRunResult:
                     exit_code=code,
                 )
             if filtered != out.strip():
-                note = f"rg (без .cursor/hooks):\n{filtered}\n"
+                note = f"rg (without .cursor/hooks):\n{filtered}\n"
                 rag_out = _rag_fallback_output(task, root)
                 if rag_out and len(filtered.splitlines()) < 3:
-                    note += f"\n---\nДополнительно RAG:\n\n{rag_out}"
+                    note += f"\n---\nAdditional RAG:\n\n{rag_out}"
                     return TaskRunResult(
                         decision=decision,
                         output=note,

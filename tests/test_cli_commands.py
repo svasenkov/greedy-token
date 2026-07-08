@@ -239,7 +239,7 @@ def test_cli_compress_stdin(minimal_workspace: Path) -> None:
             "compress",
             "--raw",
             workspace=minimal_workspace,
-            input_text="Сделай правку baseUrl в configurator.\n",
+            input_text="Fix baseUrl in configurator.\n",
         )
         attach_text("stdout", proc.stdout)
         attach_text("stderr", proc.stderr or "")

@@ -97,7 +97,7 @@ def format_estimate(estimate: TaskEstimate, task: str, root: Path) -> str:
     if estimate.ollama_note:
         lines.append(f"Note: {estimate.ollama_note}")
     if d.target == "cursor":
-        lines.append("→ Новый Cursor-чат; skill из docs/skills-map.md если есть.")
+        lines.append("→ New Cursor chat; skill from docs/skills-map.md if available.")
     lines.extend(["", "Tier scan:"])
     for tier, decision in route_task_all_tiers(task, root):
         if decision.matched:

@@ -42,7 +42,7 @@ def test_execute_task_tool_finds_baseurl(minimal_workspace: Path) -> None:
 @allure.title("Execute task on RAG route returns formatted doc hits")
 def test_execute_task_rag_route_returns_hits(minimal_workspace: Path) -> None:
     with allure.step("Execute RAG-routed documentation question"):
-        result = execute_task("какой -D flag для baseUrl", minimal_workspace)
+        result = execute_task("which -D flag for baseUrl", minimal_workspace)
         attach_text("output", result.output)
         attach_json("decision", {"target": result.decision.target, "used_rag_fallback": result.used_rag_fallback})
     with allure.step("Verify RAG hits in output"):

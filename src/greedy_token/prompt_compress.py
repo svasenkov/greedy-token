@@ -22,8 +22,11 @@ def compress_heuristic(text: str) -> str:
     drop_prefixes = (
         "можно",
         "желательно",
+        "optional",
+        "for example",
         "например",
         "пример",
+        "example",
         "ref:",
         "реф:",
     )
@@ -31,7 +34,7 @@ def compress_heuristic(text: str) -> str:
         low = ln.lower()
         if any(low.startswith(p) for p in drop_prefixes):
             continue
-        if re.match(r"^(почему|зачем|note:|примечание)", low):
+        if re.match(r"^(почему|зачем|why|because|note:|примечание)", low):
             continue
         keep.append(ln)
 
@@ -107,12 +110,12 @@ def compress_prompt_detail(text: str, *, use_ollama: bool = False) -> tuple[str,
 def format_dual(text: str, short: str) -> str:
     return "\n".join(
         [
-            "**Промпт:**",
+            "**Prompt:**",
             "```text",
             text.strip(),
             "```",
             "",
-            "**Короткая версия для агента:**",
+            "**Short version for agent:**",
             "```text",
             short.strip(),
             "```",

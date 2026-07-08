@@ -34,7 +34,7 @@ def test_route_find_goes_to_tool(minimal_workspace: Path) -> None:
 @allure.title("Route documentation question to RAG tier")
 def test_route_rag_question(minimal_workspace: Path) -> None:
     with allure.step("Route documentation question"):
-        decision = route_task("какой -D flag для baseUrl", minimal_workspace)
+        decision = route_task("which -D flag for baseUrl", minimal_workspace)
         attach_json("decision", {"target": decision.target, "route_id": decision.route_id})
     with allure.step("Verify RAG tier selection"):
         assert decision.target == "rag"
