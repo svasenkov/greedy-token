@@ -14,7 +14,7 @@ pytestmark = [
 
 
 @allure.story("SEP-973 icon")
-@allure.title("mcp_icons advertises PNG data URI for Cursor")
+@allure.title("MCP server icon advertises PNG data URI for Cursor")
 def test_mcp_icons_advertises_png_data_uri() -> None:
     icons = mcp_icons()
     assert len(icons) == 1

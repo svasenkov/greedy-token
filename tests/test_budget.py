@@ -83,7 +83,7 @@ def test_format_tool_footer_cursor_no_savings(minimal_workspace: Path) -> None:
 
 
 @allure.story("MCP response")
-@allure.title("wrap_mcp_response appends Token economy footer")
+@allure.title("MCP response wrapper appends Token economy footer")
 def test_wrap_mcp_response_appends_footer(minimal_workspace: Path) -> None:
     out = wrap_mcp_response(
         "result line",

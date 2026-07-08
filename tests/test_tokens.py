@@ -16,7 +16,7 @@ pytestmark = [
 
 
 @allure.story("tiktoken")
-@allure.title("count_tokens uses tiktoken or heuristic fallback")
+@allure.title("Token counter uses tiktoken or heuristic fallback")
 def test_count_tokens_uses_tiktoken() -> None:
     est = count_tokens("hello world")
     assert est.tokens > 0
@@ -25,7 +25,7 @@ def test_count_tokens_uses_tiktoken() -> None:
 
 
 @allure.story("Batch counting")
-@allure.title("count_texts batch matches individual count_tokens")
+@allure.title("Batch token count matches individual counter calls")
 def test_count_texts_batch_matches_single() -> None:
     texts = ["alpha", "beta gamma"]
     batch = count_texts(texts)
@@ -35,7 +35,7 @@ def test_count_texts_batch_matches_single() -> None:
 
 
 @allure.story("Path collection")
-@allure.title("collect_paths skips .git directories")
+@allure.title("Path collector skips .git directories")
 def test_collect_paths_skips_git(minimal_workspace: Path) -> None:
     from greedy_token.tokens import collect_paths
 

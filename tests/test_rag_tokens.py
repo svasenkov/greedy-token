@@ -18,7 +18,7 @@ pytestmark = [
 
 
 @allure.story("Token estimate")
-@allure.title("rag_est_tokens reuses hit body without re-reading files")
+@allure.title("RAG token estimate reuses hit body without re-reading files")
 def test_rag_est_tokens_reuses_body_without_reread(minimal_workspace: Path) -> None:
     hits = [
         RagHit(

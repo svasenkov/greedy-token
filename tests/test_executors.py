@@ -20,7 +20,7 @@ pytestmark = [
 @patch("greedy_token.executors.execute_plan")
 @patch("greedy_token.executors.route_task")
 @allure.story("RAG fallback")
-@allure.title("execute_task falls back to RAG when ripgrep output is empty")
+@allure.title("Task executor falls back to RAG when ripgrep output is empty")
 def test_execute_task_rag_fallback_on_weak_rg(
     mock_route,
     mock_execute,
@@ -49,7 +49,7 @@ def test_execute_task_rag_fallback_on_weak_rg(
 
 
 @allure.story("Cursor tier")
-@allure.title("execute_task returns empty output for cursor tier")
+@allure.title("Task executor returns empty output for cursor tier")
 def test_execute_task_cursor_returns_empty(minimal_workspace: Path) -> None:
     result = execute_task("refactor monolithic header shell layout", minimal_workspace)
     assert result.decision.target == "cursor"

@@ -19,7 +19,7 @@ pytestmark = [
 
 
 @allure.story("Workspace path")
-@allure.title("root_cd_prefix quotes paths with spaces")
+@allure.title("Workspace cd prefix quotes paths with spaces")
 def test_root_cd_prefix_quotes_spaces(tmp_path: Path) -> None:
     root = tmp_path / "my workspace"
     root.mkdir()
@@ -30,7 +30,7 @@ def test_root_cd_prefix_quotes_spaces(tmp_path: Path) -> None:
 
 
 @allure.story("Shell args")
-@allure.title("shell_args quotes shell metacharacters")
+@allure.title("Shell argument quoter escapes metacharacters")
 def test_shell_args_quotes_metacharacters() -> None:
     assert shell_args("foo; rm -rf /") == "'foo; rm -rf /'"
     assert shell_args("safe-name") == "safe-name"
@@ -38,7 +38,7 @@ def test_shell_args_quotes_metacharacters() -> None:
 
 
 @allure.story("Ripgrep command")
-@allure.title("build_tool_command quotes workspace root with spaces")
+@allure.title("Tool command builder quotes workspace root with spaces")
 def test_build_tool_command_quotes_root(tmp_path: Path) -> None:
     root = tmp_path / "repo with spaces"
     root.mkdir()
@@ -49,7 +49,7 @@ def test_build_tool_command_quotes_root(tmp_path: Path) -> None:
 
 
 @allure.story("Wrapper scripts")
-@allure.title("resolve_wrapper_command quotes root and extra args")
+@allure.title("Wrapper command resolver quotes root and extra args")
 def test_resolve_wrapper_command_quotes_root_and_args(tmp_path: Path) -> None:
     root = tmp_path / "space root"
     script_dir = root / "scripts"
@@ -83,7 +83,7 @@ def test_mcp_pipeline_dry_run_by_default(
 @patch("greedy_token.wrappers.json.load", return_value={"models": []})
 @patch("urllib.request.urlopen")
 @allure.story("Ollama probe")
-@allure.title("ollama_available caches successful probe result")
+@allure.title("Ollama availability probe caches successful result")
 def test_ollama_available_uses_cache(mock_urlopen, mock_json_load) -> None:
     from greedy_token.wrappers import _ollama_probe_cache, ollama_available
 

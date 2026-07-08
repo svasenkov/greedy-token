@@ -26,7 +26,7 @@ pytestmark = [
 
 
 @allure.story("Defaults")
-@allure.title("get_ollama_settings returns defaults when no config files")
+@allure.title("Ollama settings return defaults when no config files")
 def test_defaults_without_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.delenv("OLLAMA_URL", raising=False)
     monkeypatch.delenv("OLLAMA_MODEL", raising=False)
@@ -67,7 +67,7 @@ def test_env_overrides_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
 
 
 @allure.story("User config")
-@allure.title("init_user_config writes ~/.greedy-token/config.yaml")
+@allure.title("User config init writes ~/.greedy-token/config.yaml")
 def test_init_user_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     cfg_path = tmp_path / "config.yaml"
     monkeypatch.setattr("greedy_token.settings.user_config_path", lambda: cfg_path)
@@ -79,7 +79,7 @@ def test_init_user_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
 
 
 @allure.story("Shell export")
-@allure.title("format_shell_export emits OLLAMA_URL and OLLAMA_MODEL")
+@allure.title("Shell export emits OLLAMA_URL and OLLAMA_MODEL")
 def test_format_shell_export() -> None:
     from greedy_token.settings import OllamaSettings
 
@@ -91,6 +91,6 @@ def test_format_shell_export() -> None:
 
 
 @allure.story("Paths")
-@allure.title("workspace_config_path points to .greedy-token.yaml in root")
+@allure.title("Workspace config path points to .greedy-token.yaml in root")
 def test_workspace_config_path(tmp_path: Path) -> None:
     assert workspace_config_path(tmp_path) == tmp_path / ".greedy-token.yaml"

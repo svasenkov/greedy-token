@@ -42,14 +42,14 @@ def test_route_cursor_fallback(minimal_workspace: Path) -> None:
 
 @patch("greedy_token.router.ollama_available", return_value=False)
 @allure.story("Ollama availability")
-@allure.title("Route skips ollama tier when server is unavailable")
+@allure.title("Route skips Ollama tier when server is unavailable")
 def test_route_skips_unavailable_ollama(mock_ollama, minimal_workspace: Path) -> None:
     decision = route_task("audit skill configurator-boolean", minimal_workspace)
     assert decision.target != "ollama"
 
 
 @allure.story("Tier scan")
-@allure.title("route_task_all_tiers returns five executor rows")
+@allure.title("Full tier scan returns five executor rows")
 def test_route_task_all_tiers_has_five_rows(minimal_workspace: Path) -> None:
     tiers = route_task_all_tiers("find baseUrl", minimal_workspace)
     assert len(tiers) == 5

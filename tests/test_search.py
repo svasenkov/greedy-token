@@ -34,7 +34,7 @@ def test_extract_search_query(task: str, expected: str) -> None:
 
 
 @allure.story("Ripgrep command")
-@allure.title("build_tool_command uses identifier not full phrase")
+@allure.title("Tool command builder uses identifier not full phrase")
 def test_build_tool_command_uses_identifier_not_phrase(minimal_workspace: Path) -> None:
     cmd = _build_tool_command(
         {"tool": "rg"},
@@ -47,7 +47,7 @@ def test_build_tool_command_uses_identifier_not_phrase(minimal_workspace: Path) 
 
 
 @allure.story("Output filter")
-@allure.title("filter_tool_output drops .cursor/hooks paths")
+@allure.title("Tool output filter drops .cursor/hooks paths")
 def test_filter_tool_output_drops_hooks_readme() -> None:
     raw = ".cursor/hooks/README.md:49:echo find baseUrl\nprojects/foo.js:1:baseUrl"
     filtered = filter_tool_output(raw)
@@ -56,7 +56,7 @@ def test_filter_tool_output_drops_hooks_readme() -> None:
 
 
 @allure.story("Weak output")
-@allure.title("tool_output_weak detects empty ripgrep results")
+@allure.title("Weak tool output detector flags empty ripgrep results")
 def test_tool_output_weak_when_empty() -> None:
     assert _tool_output_weak("", 1) is True
     assert _tool_output_weak("projects/x:1:baseUrl", 0) is False

@@ -16,7 +16,7 @@ pytestmark = [
 
 
 @allure.story("Manifest search")
-@allure.title("search_rag finds baseUrl chunk in e2e domain")
+@allure.title("RAG search finds baseUrl chunk in e2e domain")
 def test_search_rag_finds_baseurl(minimal_workspace: Path) -> None:
     hits = search_rag("baseUrl -D flag", minimal_workspace, domains=["e2e"], limit=5)
     assert len(hits) >= 1
@@ -25,19 +25,19 @@ def test_search_rag_finds_baseurl(minimal_workspace: Path) -> None:
 
 
 @allure.story("Input validation")
-@allure.title("search_rag returns empty list for blank query")
+@allure.title("RAG search returns empty list for blank query")
 def test_search_rag_empty_query(minimal_workspace: Path) -> None:
     assert search_rag("", minimal_workspace) == []
 
 
 @allure.story("Missing manifest")
-@allure.title("search_rag returns empty when manifest is absent")
+@allure.title("RAG search returns empty when manifest is absent")
 def test_search_rag_no_manifest(tmp_path: Path) -> None:
     assert search_rag("anything", tmp_path) == []
 
 
 @allure.story("Formatting")
-@allure.title("format_hits reports no hits with manifest hint")
+@allure.title("RAG hit formatter reports no hits with manifest hint")
 def test_format_hits_empty() -> None:
     out = format_hits("missing", [])
     assert "No RAG hits" in out
@@ -45,7 +45,7 @@ def test_format_hits_empty() -> None:
 
 
 @allure.story("Formatting")
-@allure.title("format_hits includes chunk id and excerpt")
+@allure.title("RAG hit formatter includes chunk id and excerpt")
 def test_format_hits_includes_excerpt(minimal_workspace: Path) -> None:
     hits = search_rag("baseUrl", minimal_workspace, limit=1)
     out = format_hits("baseUrl", hits)

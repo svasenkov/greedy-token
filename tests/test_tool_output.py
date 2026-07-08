@@ -17,7 +17,7 @@ pytestmark = [
 
 
 @allure.story("Package version")
-@allure.title("Package __version__ matches pyproject.toml")
+@allure.title("Package version matches pyproject.toml")
 def test_version_matches_pyproject() -> None:
     pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
     text = pyproject.read_text(encoding="utf-8")
@@ -27,6 +27,6 @@ def test_version_matches_pyproject() -> None:
 
 
 @allure.story("Blank lines")
-@allure.title("filter_tool_output strips consecutive blank lines")
+@allure.title("Tool output filter strips consecutive blank lines")
 def test_filter_tool_output_strips_blank_lines() -> None:
     assert filter_tool_output("a\n\n\nb") == "a\nb"

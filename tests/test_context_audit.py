@@ -16,7 +16,7 @@ pytestmark = [
 
 
 @allure.story("Rules scan")
-@allure.title("audit_context discovers always-on Cursor rules")
+@allure.title("Context audit discovers always-on Cursor rules")
 def test_audit_context_finds_rules(minimal_workspace: Path) -> None:
     items = audit_context(minimal_workspace)
     kinds = {i.kind for i in items}
@@ -26,7 +26,7 @@ def test_audit_context_finds_rules(minimal_workspace: Path) -> None:
 
 
 @allure.story("Report rendering")
-@allure.title("render_audit includes totals section")
+@allure.title("Audit report includes totals section")
 def test_render_audit_includes_totals(minimal_workspace: Path) -> None:
     items = audit_context(minimal_workspace)
     out = render_audit(items)

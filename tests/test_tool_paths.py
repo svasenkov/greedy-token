@@ -17,7 +17,7 @@ pytestmark = [
 
 
 @allure.story("Cursor bundle")
-@allure.title("resolve_rg finds Cursor-bundled ripgrep binary")
+@allure.title("Ripgrep resolver finds Cursor-bundled binary")
 def test_resolve_rg_finds_cursor_bundle(monkeypatch: pytest.MonkeyPatch) -> None:
     cursor_rg = Path(
         "/Applications/Cursor.app/Contents/Resources/app/node_modules/@vscode/ripgrep/bin/rg"
@@ -33,7 +33,7 @@ def test_resolve_rg_finds_cursor_bundle(monkeypatch: pytest.MonkeyPatch) -> None
 
 
 @allure.story("Monorepo search")
-@allure.title("search_code works when PATH is empty but Cursor rg exists")
+@allure.title("Code search works when PATH is empty but Cursor rg exists")
 def test_search_code_works_without_path_env(
     monkeypatch: pytest.MonkeyPatch,
     monorepo_root: Path,

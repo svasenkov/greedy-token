@@ -29,7 +29,7 @@ def test_compress_heuristic_drops_filler_lines() -> None:
 
 
 @allure.story("Detail mode")
-@allure.title("compress_prompt_detail uses heuristic when Ollama disabled")
+@allure.title("Prompt detail compression uses heuristic when Ollama disabled")
 def test_compress_prompt_detail_heuristic() -> None:
     short, eval_tokens = compress_prompt_detail("Сделай X.\nПочему: потому что.", use_ollama=False)
     assert "Сделай X" in short
@@ -37,7 +37,7 @@ def test_compress_prompt_detail_heuristic() -> None:
 
 
 @allure.story("Dual format")
-@allure.title("format_dual wraps long and short prompt blocks")
+@allure.title("Dual-format output wraps long and short prompt blocks")
 def test_format_dual_wraps_blocks() -> None:
     out = format_dual("long prompt", "short")
     assert "**Промпт:**" in out
