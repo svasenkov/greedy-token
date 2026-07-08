@@ -1,1 +1,0 @@
-{"id":"e4447c53a4f54d23db4c648f94c06347","fullName":"tests.test_cli_commands#test_cli_pipeline_execute_search_rag","name":"CLI pipeline --execute runs search and RAG steps","status":"passed","testResultsByEnv":{"default":"ddf143e798011e00b06ddd7b701a4892"}}
