@@ -21,13 +21,10 @@ from greedy_token.router import format_decision, route_task
 from greedy_token.tokens import count_tokens
 from greedy_token.usage import aggregate_events, format_report, load_events, log_path, parse_since
 
+# Keep short: tool-map + exceptions live in alwaysApply rule (examples/cursor/rules/token-economy.mdc).
 MCP_INSTRUCTIONS = (
-    "Token economy for dev tasks. Before burning agent context use MCP tools. "
-    "Each tool response ends with a «Token economy» block: baseline, spent, saved (= baseline − spent), tier alternatives. "
-    "Always show the full Token economy block to the user when relaying tool results. "
-    "Executors: rg (0 LLM), python (0 LLM), ollama (local), rag (small read), cursor (full agent). "
-    "Use greedy_token_pipeline for multi-step chains (python → ollama → rag) with unified stats. "
-    "Example: pipeline: meta-audit configurator-boolean"
+    "Relay the full «Token economy» footer from every tool result. "
+    "Multi-step chains: greedy_token_pipeline (e.g. pipeline: meta-audit configurator-boolean)."
 )
 
 

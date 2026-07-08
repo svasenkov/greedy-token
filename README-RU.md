@@ -53,7 +53,7 @@ cd projects/greedy-token-home/dev && ./scripts/install.sh
 ```
 
 ```bash
-export GREEDY_TOKEN_ROOT=/path/to/workspace   # в zero-design-system определяется сам
+export GREEDY_TOKEN_ROOT=/path/to/workspace   # опционально; авто-detect при наличии маркеров
 ```
 
 ## Интеграция с Cursor
@@ -78,8 +78,6 @@ cp examples/cursor/rules/token-economy.mdc .cursor/rules/token-economy.mdc
 Далее: **Settings → MCP → greedy-token → Enable → Refresh** → **новый** Agent chat.
 
 Должно быть **5 MCP tools**, включая `greedy_token_pipeline`.
-
-Monorepo zero-design-system дополнительно использует venv-launcher и hooks — это описано в monorepo, для пользователей PyPI не нужно.
 
 ## MCP tools
 

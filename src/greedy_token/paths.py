@@ -20,7 +20,7 @@ def find_monorepo_root(start: Path | None = None) -> Path:
             return parent
 
     raise SystemExit(
-        "Cannot find monorepo root. Set GREEDY_TOKEN_ROOT=/path/to/zero-design-system"
+        "Cannot find workspace root. Set GREEDY_TOKEN_ROOT=/path/to/workspace"
     )
 
 

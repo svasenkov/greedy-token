@@ -1,7 +1,7 @@
 # Cursor setup (PyPI / any workspace)
 
 Use this when you install **greedy-token from PyPI** and wire it into **your own** Cursor project.  
-For the zero-design-system monorepo launcher (`greedy-token.sh` + hooks), see that repo’s `docs/token-economy/cursor.md`.
+If your host monorepo ships a custom launcher (`greedy-token.sh` + hooks), follow that repo’s docs instead.
 
 **Русская версия:** [cursor-setup-RU.md](cursor-setup-RU.md)
 
@@ -104,7 +104,10 @@ Expect: `greedy_token_pipeline` (dry-run by default — pass `execute=true` to r
 
 ## What the rule does
 
-`token-economy.mdc` is `alwaysApply: true`. It tells the agent to:
+`token-economy.mdc` is `alwaysApply: true` — **canonical** agent behavior (tool map + exceptions).  
+MCP server instructions stay short (footer relay + pipeline hint); do not duplicate the rule’s tool table there.
+
+The rule tells the agent to:
 
 - prefer MCP search/RAG/route/pipeline for lookups
 - show the **Token economy** block to you

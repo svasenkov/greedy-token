@@ -16,6 +16,13 @@ Track progress: [GitHub issues labeled `roadmap`](https://github.com/svasenkov/g
 | **cloud_llm** | Optional cheap cloud executor for bulk classify / audit (off agent chat) | [#3](https://github.com/svasenkov/greedy-token/issues/3) |
 | **mcp_hosts** | Document and test MCP beyond Cursor | [#14](https://github.com/svasenkov/greedy-token/issues/14), [#15](https://github.com/svasenkov/greedy-token/issues/15) |
 
+## v0.6 themes
+
+| Theme | Goal | Tracking |
+|-------|------|----------|
+| **mcp_hosts** (cont.) | Claude Desktop / Continue — full smoke | [#14](https://github.com/svasenkov/greedy-token/issues/14), [#15](https://github.com/svasenkov/greedy-token/issues/15) |
+| **ci_headless** | greedy-token in CI: route/pipeline to self-hosted Ollama instead of always-Claude jobs | [#18](https://github.com/svasenkov/greedy-token/issues/18) |
+
 ## Paid / cloud
 
 | Provider | Role | CLI | MCP | Cheap executor | Status | Issue |
@@ -86,18 +93,46 @@ local_llm:
 - Smoke checklist: 5 tools visible, `greedy_token_search` + `greedy_token_route` work
 - Optional: example rule file for non-Cursor agents (Continue custom instructions)
 
+## CI / headless
+
+Scenario: a company already burns Claude/Cursor in pipelines; they run Ollama (or openai_compat) on internal GPUs — greedy-token in the job routes bulk AI work to the local LLM instead of always-Claude.
+
+```text
+CI job → greedy-token CLI → rg | python | Ollama (internal) | RAG | cloud_llm (opt-in)
+```
+
+This is **not MCP inside Actions** — headless CLI (`route`, `pipeline --execute`, `report`). Remote `OLLAMA_URL` already works; missing pieces are docs, example workflows, and an explicit runner env contract.
+
+| CI host | Role | Status | Issue |
+|---------|------|:------:|-------|
+| **Self-hosted / VPN runner** + in-network Ollama | Primary target pattern | ❌ 🔜 | [#18](https://github.com/svasenkov/greedy-token/issues/18) |
+| **GitHub-hosted ephemeral** with no path to private Ollama | rg/python/rag or cloud_llm only | out of focus | — |
+| **Jenkins / GitLab CI** | Same CLI contract | ❌ 🔜 (examples) | [#18](https://github.com/svasenkov/greedy-token/issues/18) |
+
+### ci_headless — acceptance criteria
+
+- `docs/ci-setup.md`: env (`OLLAMA_URL` / `local_llm`, `GREEDY_TOKEN_ROOT`, telemetry), no Cursor MCP
+- Example workflow: GitHub Actions (self-hosted) + optional Jenkins snippet
+- Smoke: `route` + `pipeline … --execute` against remote Ollama from a clean runner image
+- Guidance: which task classes stay local vs escalate to `cloud_llm` / agent
+- Optional: `greedy-token report` in job summary / artifact
+
+Related: [#2](https://github.com/svasenkov/greedy-token/issues/2) (`local_llm`), [#3](https://github.com/svasenkov/greedy-token/issues/3) (`cloud_llm` as paid fallback).
+
 ## Out of scope (for now)
 
 - Replacing Cursor/Claude as primary coding agent
 - Hosted greedy-token SaaS
 - Fine-tuning or training models
+- Ephemeral public runners with no network path to corporate Ollama (without VPN/self-hosted)
 
 ## Changelog
 
 | Version | Focus |
 |---------|-------|
+| **v0.4.4** | Cursor-first README, mascot, shorter MCP instructions, CI/headless roadmap (#18) |
 | **v0.4.3** | Cursor starter kit (`examples/cursor/`) + setup docs for PyPI users |
 | **v0.4.2** | Security hardening, MCP dry-run default, CI pytest, log rotation, settings module |
 | **v0.4** | MCP pipeline, Ollama config, token economy footer |
 | **v0.5** | `local_llm` + `cloud_llm` providers (this roadmap) |
-| **v0.6** | IDE integrations beyond Cursor |
+| **v0.6** | IDE integrations beyond Cursor + **CI / headless** docs & examples ([#18](https://github.com/svasenkov/greedy-token/issues/18)) |

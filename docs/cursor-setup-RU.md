@@ -1,7 +1,7 @@
 # Настройка Cursor (PyPI / любой workspace)
 
 Инструкция для установки **greedy-token с PyPI** и подключения к **вашему** проекту в Cursor.  
-Для monorepo zero-design-system (launcher `greedy-token.sh` + hooks) — `docs/token-economy/cursor.md` в том репозитории.
+Если host-monorepo уже поставляет свой launcher (`greedy-token.sh` + hooks) — смотрите документацию того репозитория.
 
 **English:** [cursor-setup.md](cursor-setup.md)
 
@@ -104,7 +104,10 @@ pipeline: list
 
 ## Что делает rule
 
-`token-economy.mdc` с `alwaysApply: true`:
+`token-economy.mdc` с `alwaysApply: true` — **канон** поведения агента (таблица tools + исключения).  
+MCP server instructions остаются короткими (footer + pipeline); таблицу tools туда не дублировать.
+
+Rule говорит агенту:
 
 - для lookup предпочитает MCP (search / rag / route / pipeline)
 - показывает вам блок **Token economy**

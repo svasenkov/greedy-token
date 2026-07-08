@@ -20,7 +20,7 @@ def _discover_monorepo_root() -> Path | None:
 def monorepo_root(monkeypatch: pytest.MonkeyPatch) -> Path:
     root = _discover_monorepo_root()
     if root is None:
-        pytest.skip("monorepo root not found (zero-design-system checkout required)")
+        pytest.skip("monorepo root not found (parent workspace checkout required)")
     monkeypatch.setenv("GREEDY_TOKEN_ROOT", str(root))
     return root
 

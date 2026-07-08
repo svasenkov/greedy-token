@@ -1,7 +1,7 @@
 # Performance assessment: should greedy-token leave Python?
 
 **Date:** 2026-07-06 · **Machine:** Apple M2 Max (12 cores), macOS 26.5, Python 3.12, tiktoken 0.13.0
-**Workspace:** zero-design-system monorepo (3,223 text files, ~98 MB, 64.8M tokens)
+**Workspace:** sample monorepo checkout (3,223 text files, ~98 MB, 64.8M tokens)
 **Repro:** `python bench/bench.py --runs 5 [--stress]`
 
 ## Question
