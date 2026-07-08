@@ -1,0 +1,12 @@
+[
+  {
+    "step_id": "check-meta-sync",
+    "tier": "python",
+    "args": ""
+  },
+  {
+    "step_id": "audit-skill",
+    "tier": "ollama",
+    "args": ".cursor/skills/configurator-boolean/SKILL.md"
+  }
+]

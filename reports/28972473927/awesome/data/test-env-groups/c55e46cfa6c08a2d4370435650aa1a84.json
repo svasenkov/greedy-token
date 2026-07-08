@@ -1,1 +1,0 @@
-{"id":"c55e46cfa6c08a2d4370435650aa1a84","fullName":"tests.test_mcp_tools#test_mcp_pipeline_execute_true","name":"MCP pipeline passes execute=true to run allowlisted steps","status":"passed","testResultsByEnv":{"default":"070c957f762880ec244aca8e03b36959"}}

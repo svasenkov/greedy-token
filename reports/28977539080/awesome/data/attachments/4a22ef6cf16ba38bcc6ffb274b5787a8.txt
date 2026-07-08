@@ -1,0 +1,38 @@
+
+---
+Token economy — pipeline
+
+Per-step savings (if each step were a separate naive Cursor chat):
+   #  step                   executor     ms   spent  baseline     saved  billing
+   1  check-meta-sync        python        0       0     6,009     6,009  local script — no cloud LLM
+   2  rag                    rag           0       0     6,009     6,009  docs/rag chunks read into context
+
+Saved by executor (sum of per-step savings):
+  python (script)              steps=1  spent ~0  saved ~6,009
+  rag (docs/rag read)          steps=1  spent ~0  saved ~6,009
+
+Run log:
+  step                         tier         ms   tokens  status
+  check-meta-sync              python        0        0 OK (dry)
+  rag                          rag           0        0 OK (dry)
+
+Spent by executor:
+  python (script) (0 cloud LLM)    steps=1  ~0 tok
+  rag (docs/rag read)              steps=1  ~0 tok
+
+Pipeline total: 0.0 s · ~0 LLM tokens spent
+
+Combined naive Cursor chat (whole pipeline as one agent task)
+  Always-on rules: ~6
+  Task prompt:     ~6
+  Agent overhead:  ~6,000
+  Total (naive agent chat):  ~6,012
+
+Saved vs naive Cursor chat
+  Baseline (naive agent chat):  ~6,012
+  Spent (MCP executor, LLM tokens): ~0  (sum of pipeline steps)
+  Saved:             ~6,012  (= baseline − spent)
+
+Note: Per-step baseline assumes a separate agent chat per step (rules+overhead each time).
+Pipeline total baseline = one agent chat for the full pipeline task.
+Agent wrapper (MCP + reply) still uses Cursor tokens beyond executor rows.

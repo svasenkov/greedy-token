@@ -1,0 +1,4 @@
+Saved vs naive Cursor chat
+  Baseline (naive agent chat):  ~11,607
+  Spent (MCP executor, LLM tokens): ~0  (ripgrep on disk — no cloud LLM)
+  Saved:             ~11,607  (= baseline − spent)

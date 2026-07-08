@@ -1,0 +1,1 @@
+baseUrl is configured via -DbaseUrl flag in Gradle.

@@ -1,0 +1,19 @@
+Named pipelines:
+
+  meta-audit
+    Python meta check → Ollama skill audit
+    steps: check-meta-sync → audit-skill {skill}
+    usage: pipeline: meta-audit <args>
+
+  meta-rag
+    Python meta check → RAG lookup
+    steps: check-meta-sync → rag {query}
+    usage: pipeline: meta-rag <args>
+
+  search-rag
+    Ripgrep → RAG if useful context needed
+    steps: search {query} path={path} → rag {query}
+    usage: pipeline: search-rag <args>
+
+Custom chain:
+  pipeline: check-meta-sync then audit-skill configurator-boolean

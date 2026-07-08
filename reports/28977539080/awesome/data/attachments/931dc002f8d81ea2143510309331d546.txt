@@ -1,0 +1,1 @@
+cd '/tmp/pytest-of-runner/pytest-0/test_root_cd_prefix_quotes_spa0/my workspace' &&

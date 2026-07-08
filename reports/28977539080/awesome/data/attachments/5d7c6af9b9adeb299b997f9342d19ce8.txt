@@ -1,0 +1,18 @@
+Task: find baseUrl in sample.js
+Route: TOOL  (tool-rg-search, 59%)
+Complexity: low
+Est. Cursor tokens: 0
+Rationale: Mechanical search — ripgrep/jq, zero LLM tokens. 0 tokens — ripgrep before RAG/Cursor
+Matched: find
+Command: cd /tmp/pytest-of-runner/pytest-0/test_format_estimate_tool_rout0 && rg -n --max-columns 200 -F baseUrl -g '!.git/**' -g '!node_modules/**' -g '!build/**' -g '!.venv/**' -g '!.cursor/hooks/**' --max-count 50 projects docs stacks scripts generators
+
+Baseline (naive agent chat):  ~6,011
+Spent (MCP executor, LLM tokens): ~0  (local — no cloud LLM)
+Saved:             ~6,011  (= baseline − spent)
+
+Tier scan:
+  tool     tool-rg-search         complexity=low est=0 ← selected
+  python   —
+  ollama   —
+  rag      rag-e2e-config         complexity=low est=1,805
+  cursor   —

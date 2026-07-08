@@ -1,0 +1,30 @@
+
+---
+Token economy
+
+This call
+  Executor: cursor — Cursor agent loop
+  Route: cursor-wiring
+  Spent (MCP executor, LLM tokens): ~11,000  (full agent path — same order as baseline)
+  Billing: Cursor agent / cloud — full context + reply
+
+Cursor agent chat (naive — same task, no MCP tool)
+  Always-on rules: ~6
+  Task prompt:     ~4
+  Agent overhead:  ~6,000
+  Total (naive agent chat):  ~6,010
+
+Tier alternatives (estimated):
+  rg (local search)          ~     0  · 0 LLM
+  python (script)            ~     0  · 0 LLM
+  ollama (local LLM)         ~ 6,004  · unavailable (would fall back to cursor)
+  rag (docs/rag read)        ~ 1,804
+  cursor (agent / cloud)     ~ 6,010  ← this call
+
+Saved vs naive Cursor chat
+  Baseline (naive agent chat):  ~6,010
+  Spent (MCP executor, LLM tokens): ~11,000  (full agent path — same order as baseline)
+  Saved:             ~0  (= baseline − spent)
+
+Note: MCP in Agent chat still uses Cursor tokens for rules + your message +
+agent reply. Only the executor row above is local / cheap.

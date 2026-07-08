@@ -1,0 +1,23 @@
+Script wrappers (scripts/ollama | migrate | check-meta-sync):
+
+  check-meta-sync      [meta] read-only
+    scripts/check-meta-sync.sh
+    Meta validation — no LLM
+  batch-inventory      [ollama] writes +ollama
+    scripts/ollama/batch-inventory.sh
+    Bulk classify via local LLM
+  audit-skill          [ollama] writes +ollama
+    scripts/ollama/audit-skill.sh
+    Skill quality audit — Ollama
+  classify-file        [ollama] writes +ollama
+    scripts/ollama/classify-file.sh
+  phase1-rsync         [migrate] writes
+    scripts/migrate/phase1-rsync.sh
+    Mechanical rsync — use DRY=1 for preview
+  apply-inventory      [migrate] writes
+    scripts/migrate/apply-inventory.sh
+  gen-env-configs      [python] writes
+    stacks/java-spring/scripts/gen-env-configs.py
+    Deterministic config generation
+
+Ollama: unavailable (http://localhost:11434) — ollama routes need local server or skip to cursor

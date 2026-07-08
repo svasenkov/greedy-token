@@ -1,0 +1,4 @@
+Search: 'baseUrl' in projects/sample.js [python]
+(rg not in PATH — python file scan)
+
+/tmp/pytest-of-runner/pytest-0/test_search_code_finds_in_mini0/projects/sample.js:1:const baseUrl = 'http://localhost';

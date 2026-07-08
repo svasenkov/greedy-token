@@ -1,0 +1,5 @@
+Refusing --execute: route is not read-only.
+Dry-run:
+cd /tmp/pytest-of-runner/pytest-0/test_execute_plan_refuses_non_0 && ./scripts/ollama/audit-skill.sh  # pass args as needed
+
+Run the script manually if side effects are intended.

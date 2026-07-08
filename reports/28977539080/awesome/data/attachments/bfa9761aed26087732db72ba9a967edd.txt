@@ -1,0 +1,16 @@
+Created /tmp/pytest-of-runner/pytest-0/test_cli_config_init0/.greedy-token/config.yaml
+
+greedy-token Ollama settings
+
+  url:    http://localhost:11434
+  model:  test-model
+  source: user
+
+Config files (low → high priority):
+  1. defaults
+  2. /tmp/pytest-of-runner/pytest-0/test_cli_config_init0/.greedy-token/config.yaml
+  3. /tmp/pytest-of-runner/pytest-0/test_cli_config_init0/.greedy-token.yaml
+  4. OLLAMA_URL / OLLAMA_MODEL env
+
+Create user config:
+  greedy-token config init

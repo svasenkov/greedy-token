@@ -1,0 +1,1 @@
+cd /tmp/pytest-of-runner/pytest-0/test_build_tool_command_uses_i0 && rg -n --max-columns 200 -F baseUrl -g '!.git/**' -g '!node_modules/**' -g '!build/**' -g '!.venv/**' -g '!.cursor/hooks/**' --max-count 50 projects docs stacks scripts generators

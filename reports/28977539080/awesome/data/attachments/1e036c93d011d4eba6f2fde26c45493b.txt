@@ -1,0 +1,1 @@
+/tmp/pytest-of-runner/pytest-0/test_resolve_search_path_in_mi0/projects/sample.js

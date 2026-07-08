@@ -1,0 +1,10 @@
+[
+  {
+    "tokens": 1,
+    "method": "tiktoken/cl100k_base"
+  },
+  {
+    "tokens": 2,
+    "method": "tiktoken/cl100k_base"
+  }
+]

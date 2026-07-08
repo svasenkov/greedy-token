@@ -1,0 +1,12 @@
+[
+  {
+    "step_id": "search",
+    "ok": true,
+    "executed": true
+  },
+  {
+    "step_id": "rag",
+    "ok": true,
+    "executed": true
+  }
+]

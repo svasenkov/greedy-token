@@ -1,0 +1,12 @@
+[
+  {
+    "step_id": "search",
+    "tier": "tool",
+    "args": "baseUrl\tTestConfig"
+  },
+  {
+    "step_id": "rag",
+    "tier": "rag",
+    "args": "baseUrl"
+  }
+]

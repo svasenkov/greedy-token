@@ -1,0 +1,17 @@
+Task: explain quantum foam in repository layout
+Route: CURSOR  (cursor-fallback, 35%)
+Complexity: high
+Est. Cursor tokens: 6,012
+Rationale: Нет точного match — скорее всего Cursor/Claude.
+
+Baseline (naive agent chat):  ~6,012
+Spent (MCP executor, LLM tokens): ~6,012  (full agent path — same order as baseline)
+Saved:             ~0  (= baseline − spent)
+→ Новый Cursor-чат; skill из docs/skills-map.md если есть.
+
+Tier scan:
+  tool     —
+  python   —
+  ollama   —
+  rag      —
+  cursor   —

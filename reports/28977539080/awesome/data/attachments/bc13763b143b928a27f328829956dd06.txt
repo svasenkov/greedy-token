@@ -1,0 +1,1 @@
+Ollama unavailable (localhost:11434). Start Ollama and retry.

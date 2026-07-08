@@ -1,0 +1,10 @@
+rg: нет полезных совпадений для «baseUrl» → fallback RAG
+
+RAG hits for: find baseUrl in sample.js
+
+1. [test-baseurl] score=4.0  (e2e)
+   docs/rag/e2e/test-chunk.md
+
+baseUrl is configured via -DbaseUrl flag in Gradle.
+
+---

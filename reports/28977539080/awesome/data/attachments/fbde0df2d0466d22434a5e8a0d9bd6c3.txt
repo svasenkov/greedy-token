@@ -1,0 +1,5 @@
+rg: нет полезных совпадений для «missing-file.html» → fallback RAG
+
+RAG hits for: baseUrl
+
+1. chunk

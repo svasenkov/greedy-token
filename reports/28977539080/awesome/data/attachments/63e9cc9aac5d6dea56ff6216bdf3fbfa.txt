@@ -1,0 +1,6 @@
+Route: tool (tool-rg-search)
+Complexity: low  Est. tokens: 0
+
+cd /tmp/pytest-of-runner/pytest-0/test_cli_run_dry_run_shows_pla0 && rg -n --max-columns 200 -F baseUrl -g '!.git/**' -g '!node_modules/**' -g '!build/**' -g '!.venv/**' -g '!.cursor/hooks/**' --max-count 50 projects docs stacks scripts generators
+
+(read-only — add --execute to run)

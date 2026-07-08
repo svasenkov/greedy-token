@@ -1,0 +1,14 @@
+greedy-token Ollama settings
+
+  url:    http://localhost:11434
+  model:  qwen2.5-coder:7b-instruct-q4_K_M
+  source: default
+
+Config files (low → high priority):
+  1. defaults
+  2. /home/runner/.greedy-token/config.yaml
+  3. /tmp/pytest-of-runner/pytest-0/test_cli_config_shows_settings0/.greedy-token.yaml
+  4. OLLAMA_URL / OLLAMA_MODEL env
+
+Create user config:
+  greedy-token config init

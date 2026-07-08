@@ -1,0 +1,19 @@
+== greedy-token usage (since 7d) ==
+Events: 1
+
+By tier:
+  tier        count   est_tokens  saved_vs_cursor
+  tool            1            0            9,000
+
+Top routes:
+  tool-rg-search                  1
+
+Token counter: tiktoken/cl100k_base (1/1)
+---
+Session totals (this window)
+Saved vs naive Cursor (all events)
+  Baseline (naive agent chat):  ~9,600
+  Spent (MCP executor, LLM tokens): ~0  (sum across logged greedy-token calls)
+  Saved:             ~9,000  (= baseline − spent)
+
+Log: /tmp/pytest-of-runner/pytest-0/test_mcp_usage_aggregates_log0/usage.jsonl

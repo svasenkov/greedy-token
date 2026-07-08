@@ -1,0 +1,10 @@
+{
+  "events": 3,
+  "tool_count": 2,
+  "tool_saved": 18000,
+  "rag_est_tokens": 1800,
+  "top_route": [
+    "tool-rg-search",
+    2
+  ]
+}
