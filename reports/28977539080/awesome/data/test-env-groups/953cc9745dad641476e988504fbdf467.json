@@ -1,1 +1,0 @@
-{"id":"953cc9745dad641476e988504fbdf467","fullName":"tests.test_usage#test_aggregate_by_tier","name":"Event aggregator groups events by tier and route","status":"passed","testResultsByEnv":{"default":"ffcf6ce623aa0505d4cde92ab474a9d2"}}

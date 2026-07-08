@@ -1,0 +1,1 @@
+{"id":"75d8e921055efb9d60be8500cea22930","fullName":"tests.test_settings#test_workspace_config_path","name":"Workspace config path points to .greedy-token.yaml in root","status":"passed","testResultsByEnv":{"default":"2f7547143c50b4b01e28b13f8a97313a"}}

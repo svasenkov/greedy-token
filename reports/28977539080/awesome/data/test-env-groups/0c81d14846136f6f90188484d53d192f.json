@@ -1,1 +1,0 @@
-{"id":"0c81d14846136f6f90188484d53d192f","fullName":"tests.test_cli#test_cli_pipeline_list","name":"CLI pipeline --list shows named recipes","status":"passed","testResultsByEnv":{"default":"72f704fcfe27c9eea5cc0d30865c9d67"}}
