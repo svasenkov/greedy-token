@@ -34,10 +34,10 @@ while IFS= read -r action; do
     echo "ethalon uses action not listed in gha-actions.yaml: $action" >&2
     fail=1
   fi
-done < <(rg --no-filename -o 'uses: [^ ]+' "$ETHALON"/*.yml | sed 's/uses: //' | sort -u)
+done < <(grep -hoE 'uses: [^ ]+' "$ETHALON"/*.yml | sed 's/uses: //' | sort -u)
 
-gate_count=$(rg -o 'minTestsCount: [0-9]+' "$ROOT/allure/quality-gate.mjs" | awk '{print $2}')
-summary_count=$(rg -o 'minTestsCount: [0-9]+' "$ETHALON/test.yml" | tail -1 | awk '{print $2}')
+gate_count=$(grep -oE 'minTestsCount: [0-9]+' "$ROOT/allure/quality-gate.mjs" | awk '{print $2}')
+summary_count=$(grep -oE 'minTestsCount: [0-9]+' "$ETHALON/test.yml" | tail -1 | awk '{print $2}')
 if [[ "$gate_count" != "$summary_count" ]]; then
   echo "minTestsCount mismatch: quality-gate.mjs=$gate_count ethalon test.yml summary=$summary_count" >&2
   fail=1
