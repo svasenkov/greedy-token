@@ -3,7 +3,14 @@ from __future__ import annotations
 import subprocess
 import sys
 
+import allure
+import pytest
 
+pytestmark = [allure.epic("CLI"), allure.feature("greedy-token CLI")]
+
+
+@allure.story("Help")
+@allure.title("CLI --help lists route command")
 def test_cli_help() -> None:
     proc = subprocess.run(
         [sys.executable, "-m", "greedy_token", "--help"],
@@ -14,6 +21,8 @@ def test_cli_help() -> None:
     assert "route" in proc.stdout
 
 
+@allure.story("Pipeline")
+@allure.title("CLI pipeline --list shows named recipes")
 def test_cli_pipeline_list() -> None:
     proc = subprocess.run(
         [sys.executable, "-m", "greedy_token", "pipeline", "--list"],
@@ -24,6 +33,8 @@ def test_cli_pipeline_list() -> None:
     assert "meta-audit" in proc.stdout
 
 
+@allure.story("Route")
+@allure.title("CLI route recommends tool tier for find task")
 def test_cli_route_tool(minimal_workspace) -> None:
     proc = subprocess.run(
         [

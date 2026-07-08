@@ -2,10 +2,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import allure
+import pytest
+
 from greedy_token.budget import format_savings_lines, format_tool_footer, wrap_mcp_response
 from greedy_token.estimator import cursor_baseline
 
+pytestmark = [allure.epic("Token economy"), allure.feature("Token budget")]
 
+
+@allure.story("Savings footer")
+@allure.title("Format savings lines for MCP tool footer")
 def test_format_savings_lines() -> None:
     lines = format_savings_lines(
         baseline=11607,
@@ -22,6 +29,8 @@ def test_format_savings_lines() -> None:
     ]
 
 
+@allure.story("Tool footer")
+@allure.title("Tool footer includes detailed token breakdown")
 def test_format_tool_footer_detailed_breakdown(minimal_workspace: Path) -> None:
     task = "search: baseUrl in configurator-option-presets.html"
     footer = format_tool_footer(
@@ -51,6 +60,8 @@ def test_format_tool_footer_detailed_breakdown(minimal_workspace: Path) -> None:
     assert f"~{baseline:,}" in footer
 
 
+@allure.story("Tool footer")
+@allure.title("Cursor tier footer shows zero savings")
 def test_format_tool_footer_cursor_no_savings(minimal_workspace: Path) -> None:
     task = "refactor header layout"
     footer = format_tool_footer(
@@ -66,6 +77,8 @@ def test_format_tool_footer_cursor_no_savings(minimal_workspace: Path) -> None:
     assert "Saved:             ~0" in footer
 
 
+@allure.story("MCP response")
+@allure.title("wrap_mcp_response appends Token economy footer")
 def test_wrap_mcp_response_appends_footer(minimal_workspace: Path) -> None:
     out = wrap_mcp_response(
         "result line",

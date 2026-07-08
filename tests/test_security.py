@@ -3,13 +3,18 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
+import allure
 import pytest
 
 from greedy_token.router import _build_tool_command
 from greedy_token.tool_paths import root_cd_prefix, shell_args
 from greedy_token.wrappers import resolve_wrapper_command
 
+pytestmark = [allure.epic("Security"), allure.feature("Shell quoting")]
 
+
+@allure.story("Workspace path")
+@allure.title("root_cd_prefix quotes paths with spaces")
 def test_root_cd_prefix_quotes_spaces(tmp_path: Path) -> None:
     root = tmp_path / "my workspace"
     root.mkdir()
@@ -19,12 +24,16 @@ def test_root_cd_prefix_quotes_spaces(tmp_path: Path) -> None:
     assert prefix.endswith(" &&")
 
 
+@allure.story("Shell args")
+@allure.title("shell_args quotes shell metacharacters")
 def test_shell_args_quotes_metacharacters() -> None:
     assert shell_args("foo; rm -rf /") == "'foo; rm -rf /'"
     assert shell_args("safe-name") == "safe-name"
     assert shell_args("two words") == "'two words'"
 
 
+@allure.story("Ripgrep command")
+@allure.title("build_tool_command quotes workspace root with spaces")
 def test_build_tool_command_quotes_root(tmp_path: Path) -> None:
     root = tmp_path / "repo with spaces"
     root.mkdir()
@@ -34,6 +43,8 @@ def test_build_tool_command_quotes_root(tmp_path: Path) -> None:
     assert f"cd '{root}'" in cmd or "cd '" in cmd
 
 
+@allure.story("Wrapper scripts")
+@allure.title("resolve_wrapper_command quotes root and extra args")
 def test_resolve_wrapper_command_quotes_root_and_args(tmp_path: Path) -> None:
     root = tmp_path / "space root"
     script_dir = root / "scripts"
@@ -46,6 +57,8 @@ def test_resolve_wrapper_command_quotes_root_and_args(tmp_path: Path) -> None:
 
 
 @patch("greedy_token.mcp.run_pipeline")
+@allure.story("MCP safety")
+@allure.title("MCP pipeline tool is dry-run by default")
 def test_mcp_pipeline_dry_run_by_default(
     mock_run,
     minimal_workspace: Path,
@@ -64,6 +77,8 @@ def test_mcp_pipeline_dry_run_by_default(
 
 @patch("greedy_token.wrappers.json.load", return_value={"models": []})
 @patch("urllib.request.urlopen")
+@allure.story("Ollama probe")
+@allure.title("ollama_available caches successful probe result")
 def test_ollama_available_uses_cache(mock_urlopen, mock_json_load) -> None:
     from greedy_token.wrappers import _ollama_probe_cache, ollama_available
 

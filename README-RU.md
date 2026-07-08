@@ -170,7 +170,7 @@ npx --yes allure@3.13.0 generate build/allure-results --config allurerc.mjs -o b
 
 Интеграционные тесты (реальные файлы monorepo) запускаются, если в checkout есть `stacks/java-spring/`. `GREEDY_TOKEN_ROOT` переопределяет корень workspace.
 
-Слои пирамиды (`unit` / `component` / `integration`) — label `layer` в `tests/pyramid_layers.py` (как Java `@Layer` и mapping в TestOps).
+Слои пирамиды (`unit` / `component` / `integration`) — label `layer` в `tests/pyramid_layers.py` (как Java `@Layer` и mapping в TestOps). Человекочитаемые имена — `@allure.title` / `@feature` / `@story` / `@epic` на каждом тесте (аналог `@DisplayName` / `@Feature`).
 
 ## Примеры
 

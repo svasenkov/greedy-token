@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import allure
 import pytest
 
 from greedy_token.estimator import cursor_baseline, cursor_saved_for
@@ -21,12 +22,16 @@ from greedy_token.usage import (
     rotate_log_if_needed,
 )
 
+pytestmark = [allure.epic("Token economy"), allure.feature("Usage telemetry")]
+
 
 @pytest.fixture
 def log_file(tmp_path: Path) -> Path:
     return tmp_path / "usage.jsonl"
 
 
+@allure.story("Event logging")
+@allure.title("append_event writes JSON line to usage log")
 def test_append_event(log_file: Path) -> None:
     event = {"v": SCHEMA_VERSION, "cmd": "route", "task": "find baseUrl"}
     append_event(event, path=log_file)
@@ -35,6 +40,8 @@ def test_append_event(log_file: Path) -> None:
     assert json.loads(lines[0])["cmd"] == "route"
 
 
+@allure.story("Route events")
+@allure.title("build_route_event truncates long task strings")
 def test_build_route_event_truncates_task(minimal_workspace: Path) -> None:
     long_task = "x" * 600
     decision = RouteDecision(
@@ -64,6 +71,8 @@ def test_build_route_event_truncates_task(minimal_workspace: Path) -> None:
     assert "tier_scan" in event
 
 
+@allure.story("Savings estimate")
+@allure.title("cursor_saved_for reports savings for tool tier")
 def test_cursor_saved_tool(minimal_workspace: Path) -> None:
     decision = RouteDecision(
         target="tool",
@@ -81,16 +90,22 @@ def test_cursor_saved_tool(minimal_workspace: Path) -> None:
     assert saved > 0
 
 
+@allure.story("Savings estimate")
+@allure.title("cursor_saved_for is zero for cursor tier")
 def test_cursor_saved_cursor(minimal_workspace: Path) -> None:
     saved = cursor_saved_for(minimal_workspace, "refactor header", 8000, "cursor")
     assert saved == 0
 
 
+@allure.story("Baseline")
+@allure.title("cursor_baseline includes agent overhead tokens")
 def test_cursor_baseline_includes_overhead(minimal_workspace: Path) -> None:
     baseline = cursor_baseline(minimal_workspace, "task")
     assert baseline >= 6000
 
 
+@allure.story("Aggregation")
+@allure.title("aggregate_events groups events by tier and route")
 def test_aggregate_by_tier() -> None:
     events = [
         {
@@ -123,12 +138,16 @@ def test_aggregate_by_tier() -> None:
     assert summary.top_routes[0] == ("tool-rg-search", 2)
 
 
+@allure.story("Report")
+@allure.title("format_report handles empty event list")
 def test_format_report_empty() -> None:
     summary = aggregate_events([])
     text = format_report(summary)
     assert "No events yet" in text
 
 
+@allure.story("Logging toggle")
+@allure.title("maybe_append_event skips write when logging disabled")
 def test_logging_disabled(monkeypatch: pytest.MonkeyPatch, log_file: Path) -> None:
     from argparse import Namespace
 
@@ -144,6 +163,8 @@ def test_logging_disabled(monkeypatch: pytest.MonkeyPatch, log_file: Path) -> No
     assert not log_file.exists()
 
 
+@allure.story("Time filter")
+@allure.title("parse_since accepts relative and ISO date strings")
 def test_parse_since_variants() -> None:
     dt_7d = parse_since("7d")
     dt_24h = parse_since("24h")
@@ -153,6 +174,8 @@ def test_parse_since_variants() -> None:
     assert dt_iso.year == 2026
 
 
+@allure.story("Log loading")
+@allure.title("load_events skips malformed JSON lines")
 def test_load_events_skips_bad_lines(log_file: Path) -> None:
     log_file.write_text(
         '{"cmd":"route","ts":"2026-07-07T00:00:00Z","selected_tier":"tool"}\n'
@@ -165,6 +188,8 @@ def test_load_events_skips_bad_lines(log_file: Path) -> None:
     assert skipped == 1
 
 
+@allure.story("Error handling")
+@allure.title("append_event logs warning when write fails")
 def test_append_failure(monkeypatch: pytest.MonkeyPatch, capsys) -> None:
     def fail_open(*args, **kwargs):
         raise OSError("disk full")
@@ -175,6 +200,8 @@ def test_append_failure(monkeypatch: pytest.MonkeyPatch, capsys) -> None:
     assert "usage log write failed" in err
 
 
+@allure.story("Rotation")
+@allure.title("rotate_log_if_needed archives log when over size limit")
 def test_rotate_log_when_over_limit(log_file: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GREEDY_TOKEN_LOG_MAX_BYTES", "80")
     monkeypatch.setenv("GREEDY_TOKEN_LOG_MAX_FILES", "3")
@@ -184,6 +211,8 @@ def test_rotate_log_when_over_limit(log_file: Path, monkeypatch: pytest.MonkeyPa
     assert not log_file.exists() or log_file.stat().st_size == 0
 
 
+@allure.story("Rotation")
+@allure.title("rotate_log_if_needed respects GREEDY_TOKEN_LOG_MAX_FILES")
 def test_rotate_log_keeps_archives(log_file: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GREEDY_TOKEN_LOG_MAX_BYTES", "40")
     monkeypatch.setenv("GREEDY_TOKEN_LOG_MAX_FILES", "2")
@@ -196,6 +225,8 @@ def test_rotate_log_keeps_archives(log_file: Path, monkeypatch: pytest.MonkeyPat
     assert not log_file.with_name("usage.jsonl.3").exists()
 
 
+@allure.story("Archives")
+@allure.title("load_events reads current log and rotated archives")
 def test_load_events_reads_archives(log_file: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     archive = log_file.with_name("usage.jsonl.1")
     archive.write_text(
@@ -212,6 +243,8 @@ def test_load_events_reads_archives(log_file: Path, monkeypatch: pytest.MonkeyPa
     assert skipped == 0
 
 
+@allure.story("Rotation")
+@allure.title("append_event rotates log before writing new event")
 def test_append_rotates_before_write(log_file: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GREEDY_TOKEN_LOG_MAX_BYTES", "60")
     log_file.write_text('{"cmd":"fill","ts":"2026-07-07T00:00:00Z"}\n' * 2, encoding="utf-8")
@@ -222,6 +255,8 @@ def test_append_rotates_before_write(log_file: Path, monkeypatch: pytest.MonkeyP
     assert json.loads(lines[0])["cmd"] == "new"
 
 
+@allure.story("Archives")
+@allure.title("log_archive_paths returns ordered archive paths")
 def test_log_archive_paths_order(log_file: Path) -> None:
     paths = log_archive_paths(log_file, max_files=3)
     assert paths[0] == log_file
@@ -229,6 +264,8 @@ def test_log_archive_paths_order(log_file: Path) -> None:
     assert paths[2].name == "usage.jsonl.2"
 
 
+@allure.story("Configuration")
+@allure.title("max_log_bytes reads GREEDY_TOKEN_LOG_MAX_BYTES env")
 def test_max_log_bytes_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GREEDY_TOKEN_LOG_MAX_BYTES", "1024")
     assert max_log_bytes() == 1024

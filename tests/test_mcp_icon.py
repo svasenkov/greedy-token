@@ -1,8 +1,15 @@
 from __future__ import annotations
 
+import allure
+import pytest
+
 from greedy_token.mcp import mcp_icons
 
+pytestmark = [allure.epic("MCP"), allure.feature("Server icon")]
 
+
+@allure.story("SEP-973 icon")
+@allure.title("mcp_icons advertises PNG data URI for Cursor")
 def test_mcp_icons_advertises_png_data_uri() -> None:
     icons = mcp_icons()
     assert len(icons) == 1

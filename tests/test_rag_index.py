@@ -4,12 +4,17 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
+import allure
 import pytest
 
 from greedy_token.rag_index import get_indexed_chunks, invalidate_rag_index
 from greedy_token.rag_search import search_rag
 
+pytestmark = [allure.epic("RAG"), allure.feature("RAG index")]
 
+
+@allure.story("Cache")
+@allure.title("get_indexed_chunks caches manifest entries")
 def test_get_indexed_chunks_caches(minimal_workspace: Path) -> None:
     invalidate_rag_index()
     first = get_indexed_chunks(minimal_workspace)
@@ -19,6 +24,8 @@ def test_get_indexed_chunks_caches(minimal_workspace: Path) -> None:
     assert first[0].meta["id"] == "test-baseurl"
 
 
+@allure.story("Invalidation")
+@allure.title("Index invalidates when chunk file is edited")
 def test_index_invalidates_on_chunk_edit(minimal_workspace: Path) -> None:
     invalidate_rag_index()
     before = get_indexed_chunks(minimal_workspace)
@@ -33,6 +40,8 @@ def test_index_invalidates_on_chunk_edit(minimal_workspace: Path) -> None:
     assert "newkeyword" in after[0].body_tokens
 
 
+@allure.story("Token economy")
+@allure.title("search_rag reads only top-ranked chunk files")
 def test_search_reads_only_top_hits(minimal_workspace: Path) -> None:
     rag = minimal_workspace / "docs/rag"
     manifest_lines = []
@@ -70,6 +79,8 @@ def test_search_reads_only_top_hits(minimal_workspace: Path) -> None:
     assert len(read_paths) == 1
 
 
+@allure.story("Search")
+@allure.title("search_rag still finds baseUrl after index rebuild")
 def test_search_rag_still_finds_baseurl(minimal_workspace: Path) -> None:
     invalidate_rag_index(minimal_workspace)
     hits = search_rag("baseUrl -D flag", minimal_workspace, domains=["e2e"], limit=5)

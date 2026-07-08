@@ -1,14 +1,18 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
+import allure
 import pytest
 
 from greedy_token.code_search import search_code
 from greedy_token.tool_paths import resolve_rg
 
+pytestmark = [allure.epic("Code search"), allure.feature("Ripgrep resolution")]
 
+
+@allure.story("Cursor bundle")
+@allure.title("resolve_rg finds Cursor-bundled ripgrep binary")
 def test_resolve_rg_finds_cursor_bundle(monkeypatch: pytest.MonkeyPatch) -> None:
     cursor_rg = Path(
         "/Applications/Cursor.app/Contents/Resources/app/node_modules/@vscode/ripgrep/bin/rg"
@@ -23,6 +27,8 @@ def test_resolve_rg_finds_cursor_bundle(monkeypatch: pytest.MonkeyPatch) -> None
     assert found.name == "rg"
 
 
+@allure.story("Monorepo search")
+@allure.title("search_code works when PATH is empty but Cursor rg exists")
 def test_search_code_works_without_path_env(
     monkeypatch: pytest.MonkeyPatch,
     monorepo_root: Path,
