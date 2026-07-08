@@ -1,4 +1,4 @@
-# Runnable copy of .github/_ethalon/test.yml — edit ethalon first, then cp.
+# Ethalon: pytest + Allure 3 + TestOps. Runnable: .github/workflows/test.yml (keep in sync).
 name: Test
 
 on:

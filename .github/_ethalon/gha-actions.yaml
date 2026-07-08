@@ -1,0 +1,16 @@
+# Pinned GitHub Actions (SSOT)
+
+Aligned with monorepo `generators/ethalon/tests-java/.github/_ethalon/`  
+(RAG: `docs/rag/e2e/ci-workflow-ethalon.md` in zero-design-system).
+
+| Key | Action | Used in |
+|-----|--------|---------|
+| `checkout` | `actions/checkout@v7` | test, publish |
+| `setup-python` | `actions/setup-python@v6` | test, publish |
+| `setup-node` | `actions/setup-node@v6` | test |
+| `setup-allurectl` | `allure-framework/setup-allurectl@v1` | test |
+| `gh-pages` | `peaceiris/actions-gh-pages@v4` | test |
+| `pypi-publish` | `pypa/gh-action-pypi-publish@release/v1` | publish |
+
+**Rule:** bump versions here first, then sync `_ethalon/*.yml` → `.github/workflows/`.  
+Do not edit runnable workflows without updating this file and `_ethalon/`.

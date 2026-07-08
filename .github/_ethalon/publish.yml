@@ -1,4 +1,4 @@
-# Runnable copy of .github/_ethalon/publish.yml — edit ethalon first, then cp.
+# Ethalon: PyPI publish on release. Runnable: .github/workflows/publish.yml (keep in sync).
 name: Publish to PyPI
 
 on:
