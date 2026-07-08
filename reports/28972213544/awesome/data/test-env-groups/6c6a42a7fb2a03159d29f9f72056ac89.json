@@ -1,1 +1,0 @@
-{"id":"6c6a42a7fb2a03159d29f9f72056ac89","fullName":"tests.test_cli_commands#test_cli_report_json","name":"CLI report --json returns aggregate summary JSON","status":"passed","testResultsByEnv":{"default":"a672834f4b12e744c7250a464e2af1e7"}}
