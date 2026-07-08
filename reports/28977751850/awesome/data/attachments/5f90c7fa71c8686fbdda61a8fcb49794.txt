@@ -1,0 +1,3 @@
+Search: 'baseUrl' in projects/sample.js
+
+1:const baseUrl = 'http://localhost';

@@ -1,1 +1,0 @@
-{"id":"281c84c9da903405865211a70653a4af","fullName":"tests.test_executors#test_execute_task_tool_finds_baseurl","name":"Execute task runs ripgrep and returns matches without RAG fallback","status":"failed","testResultsByEnv":{"default":"932349366e83acb64156bb5e6e41bfc8"}}

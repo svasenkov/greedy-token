@@ -1,0 +1,5 @@
+Route: tool (tool-rg-search)
+Complexity: low  Est. tokens: 0
+
+projects/sample.js:1:const baseUrl = 'http://localhost';
+docs/rag/e2e/test-chunk.md:1:baseUrl is configured via -DbaseUrl flag in Gradle.

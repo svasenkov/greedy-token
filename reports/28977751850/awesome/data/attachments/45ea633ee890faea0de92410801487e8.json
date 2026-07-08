@@ -1,0 +1,22 @@
+[
+  {
+    "tier": "tool",
+    "label": "RouteDecision(target='tool', route_id='tool-rg-search', confidence=0.594, matched=['find'], command=\"cd /tmp/pytest-of-runner/pytest-0/test_route_task_all_tiers_has_0 && /usr/bin/rg -n --max-columns 200 -F baseUrl -g '!.git/**' -g '!node_modules/**' -g '!build/**' -g '!.venv/**' -g '!.cursor/hooks/**' --max-count 50 projects docs stacks scripts generators\", note='0 tokens — ripgrep before RAG/Cursor', domains=[], complexity='low', est_tokens=0, rationale='Mechanical search — ripgrep/jq, zero LLM tokens. 0 tokens — ripgrep before RAG/Cursor', read_only=True, tool='rg')"
+  },
+  {
+    "tier": "python",
+    "label": "RouteDecision(target='python', route_id='python-none', confidence=0.0, matched=[], command=None, note='', domains=[], complexity='low', est_tokens=0, rationale='No pattern match in tier.', read_only=False, tool=None)"
+  },
+  {
+    "tier": "ollama",
+    "label": "RouteDecision(target='ollama', route_id='ollama-none', confidence=0.0, matched=[], command=None, note='', domains=[], complexity='medium', est_tokens=6002, rationale='No pattern match in tier.', read_only=False, tool=None)"
+  },
+  {
+    "tier": "rag",
+    "label": "RouteDecision(target='rag', route_id='rag-e2e-config', confidence=0.612, matched=['baseurl'], command=None, note='Lookup docs/rag/e2e/e2e-config-keys.md, cfg-*', domains=['e2e'], complexity='low', est_tokens=1802, rationale='Read docs/rag chunk(s) — small context vs full agent chat. Lookup docs/rag/e2e/e2e-config-keys.md, cfg-*', read_only=False, tool=None)"
+  },
+  {
+    "tier": "cursor",
+    "label": "RouteDecision(target='cursor', route_id='cursor-fallback', confidence=0.35, matched=[], command=None, note='', domains=[], complexity='high', est_tokens=6008, rationale='Нет точного match — скорее всего Cursor/Claude.', read_only=False, tool=None)"
+  }
+]

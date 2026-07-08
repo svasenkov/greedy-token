@@ -1,0 +1,33 @@
+Search: 'baseUrl' in projects/sample.js
+
+1:const baseUrl = 'http://localhost';
+---
+Token economy
+
+This call
+  Executor: rg — ripgrep on disk
+  Route: mcp-search
+  Duration: 4 ms
+  Spent (MCP executor, LLM tokens): ~0  (ripgrep on disk — no cloud LLM)
+  Billing: local only — no Cursor cloud LLM for this step
+
+Cursor agent chat (naive — same task, no MCP tool)
+  Always-on rules: ~6
+  Task prompt:     ~6
+  Agent overhead:  ~6,000
+  Total (naive agent chat):  ~6,012
+
+Tier alternatives (estimated):
+  rg (local search)          ~     0  ← this call
+  python (script)            ~     0  · 0 LLM
+  ollama (local LLM)         ~ 6,006  · unavailable (would fall back to cursor)
+  rag (docs/rag read)        ~ 1,806
+  cursor (agent / cloud)     ~ 6,012
+
+Saved vs naive Cursor chat
+  Baseline (naive agent chat):  ~6,012
+  Spent (MCP executor, LLM tokens): ~0  (ripgrep on disk — no cloud LLM)
+  Saved:             ~6,012  (= baseline − spent)
+
+Note: MCP in Agent chat still uses Cursor tokens for rules + your message +
+agent reply. Only the executor row above is local / cheap.

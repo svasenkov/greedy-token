@@ -1,0 +1,5 @@
+projects/sample-1.js:1:const baseUrl = 'http://localhost/1';
+projects/sample.js:1:const baseUrl = 'http://localhost';
+projects/sample-0.js:1:const baseUrl = 'http://localhost/0';
+projects/sample-2.js:1:const baseUrl = 'http://localhost/2';
+docs/rag/e2e/test-chunk.md:1:baseUrl is configured via -DbaseUrl flag in Gradle.
