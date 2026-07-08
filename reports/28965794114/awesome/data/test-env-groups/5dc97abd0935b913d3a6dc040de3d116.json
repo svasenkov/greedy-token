@@ -1,0 +1,1 @@
+{"id":"5dc97abd0935b913d3a6dc040de3d116","fullName":"tests.test_tool_paths#test_resolve_rg_finds_cursor_bundle","name":"Ripgrep resolver finds Cursor-bundled binary","status":"skipped","testResultsByEnv":{"default":"780e667bddc7b4365b506a3a7821adf1"}}
