@@ -31,6 +31,7 @@ LAYER_BY_MODULE: dict[str, str] = {
     "test_cli_commands": "integration",
     "test_code_search": "integration",
     "test_tool_paths": "integration",
+    "test_mcp_stdio": "e2e",
 }
 
 PYRAMID_LAYERS = ("unit", "component", "integration", "api", "e2e", "manual")
