@@ -1,0 +1,1 @@
+{"id":"d4076ac774a5fef0658089f323e5dde8","fullName":"tests.test_usage#test_load_events_skips_bad_lines","name":"Event loader skips malformed JSON lines","status":"passed","testResultsByEnv":{"default":"1cd48aec0d5a75ee6da4166c4f51b3e2"}}

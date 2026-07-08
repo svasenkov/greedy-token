@@ -1,0 +1,1 @@
+{"id":"72817648c9165fd7c86f53983d3f6bf9","fullName":"tests.test_pipeline#test_pipeline_dry_run","name":"Pipeline dry-run does not execute allowlisted steps","status":"passed","testResultsByEnv":{"default":"9e3cec1b63cfa66478390d8dab2a5fd5"}}
