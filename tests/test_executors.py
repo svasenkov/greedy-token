@@ -20,6 +20,12 @@ pytestmark = [
 @allure.story("Tool tier")
 @allure.title("Execute task runs ripgrep and returns matches without RAG fallback")
 def test_execute_task_tool_finds_baseurl(minimal_workspace: Path) -> None:
+    projects = minimal_workspace / "projects"
+    for idx in range(3):
+        (projects / f"sample-{idx}.js").write_text(
+            f"const baseUrl = 'http://localhost/{idx}';\n",
+            encoding="utf-8",
+        )
     with allure.step("Execute find task via tool tier"):
         result = execute_task("find baseUrl in sample.js", minimal_workspace)
         attach_text("output", result.output)

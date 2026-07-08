@@ -236,13 +236,18 @@ def test_load_events_skips_bad_lines(log_file: Path) -> None:
 
 @allure.story("Error handling")
 @allure.title("Usage log append logs warning when write fails")
-def test_append_failure(monkeypatch: pytest.MonkeyPatch, capsys) -> None:
-    def fail_open(*args, **kwargs):
-        raise OSError("disk full")
+def test_append_failure(monkeypatch: pytest.MonkeyPatch, capsys, tmp_path: Path) -> None:
+    target = tmp_path / "usage.jsonl"
+    original_open = Path.open
 
-    monkeypatch.setattr("builtins.open", fail_open)
+    def guarded_open(self: Path, *args, **kwargs):
+        if self.resolve() == target.resolve():
+            raise OSError("disk full")
+        return original_open(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", guarded_open)
     with allure.step("Attempt append with failing file write"):
-        append_event({"cmd": "route"}, path=Path("/tmp/x/usage.jsonl"))
+        append_event({"cmd": "route"}, path=target)
         err = capsys.readouterr().err
         attach_text("stderr", err)
     with allure.step("Verify write failure warning"):
