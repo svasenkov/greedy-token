@@ -149,16 +149,20 @@ Global: `--no-log` disables telemetry for one invocation.
 
 ## Testing
 
-Requires **Python 3.12+** (same as CI).
+Requires **Python 3.12+** (same as CI). GitHub Actions runs **pytest + Allure 3** (quality gate, GitHub Pages report; optional TestOps upload when repo vars are set).
 
 ```bash
 cd projects/greedy-token-home/dev && ./scripts/install.sh
 source .venv/bin/activate
 cd ../greedy-token
-python -m pytest tests/ -v
+python -m pytest tests/ -v --alluredir=build/allure-results
+npx --yes allure@3.13.0 quality-gate build/allure-results --config allurerc.mjs
+npx --yes allure@3.13.0 generate build/allure-results --config allurerc.mjs -o build/allure-report
 ```
 
 Optional integration tests (real monorepo files) run when the checkout includes `stacks/java-spring/`; set `GREEDY_TOKEN_ROOT` to override the workspace root.
+
+**TestOps:** project [5276](https://allure.autotests.cloud/project/5276) on `allure.autotests.cloud`. CI uploads when repo secret `ALLURE_TOKEN` is set (`ALLURE_PROJECT_ID` defaults to `5276`, override via repo variable).
 
 ## Examples
 

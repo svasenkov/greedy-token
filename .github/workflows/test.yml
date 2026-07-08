@@ -5,18 +5,177 @@ on:
     branches: [main, master]
   pull_request:
 
+permissions:
+  contents: write
+
+env:
+  ALLURE_VERSION: "3.13.0"
+  ALLURE_ENDPOINT: ${{ vars.ALLURE_ENDPOINT || 'https://allure.autotests.cloud' }}
+  # TestOps: https://allure.autotests.cloud/project/5276
+  ALLURE_PROJECT_ID: ${{ vars.ALLURE_PROJECT_ID || '5276' }}
+
 jobs:
   test:
+    name: pytest + Allure 3
     runs-on: ubuntu-latest
+    env:
+      ALLURE_RESULTS: build/allure-results
+      REPORT_ID: ${{ github.run_id }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Load Allure history
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          ref: gh-pages
+          path: gh-pages
+          sparse-checkout: history.jsonl
+          sparse-checkout-cone-mode: false
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Restore Allure history
+        run: |
+          if [ -f gh-pages/history.jsonl ]; then
+            cp gh-pages/history.jsonl history.jsonl
+          fi
+
       - name: Install
         run: python -m pip install -e ".[dev,mcp]"
 
       - name: Pytest
-        run: python -m pytest tests/ -v
+        run: |
+          set +e
+          python -m pytest tests/ -v --alluredir="${ALLURE_RESULTS}"
+          echo "TEST_EXIT=$?" >> "$GITHUB_ENV"
+          set -e
+
+      - name: Allure environment
+        if: always() && hashFiles('build/allure-results/**') != ''
+        run: |
+          cat >> "${ALLURE_RESULTS}/environment.properties" <<EOF
+          Framework=pytest
+          Python=3.12
+          Repository=${{ github.repository }}
+          Run=${{ github.run_number }}
+          EOF
+
+      - name: Install allurectl
+        if: secrets.ALLURE_TOKEN != ''
+        continue-on-error: true
+        id: setup-allurectl
+        uses: allure-framework/setup-allurectl@v1
+        with:
+          allure-endpoint: ${{ env.ALLURE_ENDPOINT }}
+          allure-token: ${{ secrets.ALLURE_TOKEN }}
+          allure-project-id: ${{ env.ALLURE_PROJECT_ID }}
+
+      - name: Allure 3 quality gate
+        if: always() && hashFiles('build/allure-results/**') != ''
+        run: |
+          set +e
+          npx --yes "allure@${ALLURE_VERSION}" quality-gate "${ALLURE_RESULTS}" --config allurerc.mjs
+          echo "QUALITY_GATE_EXIT=$?" >> "$GITHUB_ENV"
+          set -e
+
+      - name: Upload results to Allure TestOps
+        if: always() && steps.setup-allurectl.outcome == 'success' && hashFiles('build/allure-results/**') != ''
+        continue-on-error: true
+        id: testops-upload
+        env:
+          ALLURE_PROJECT_ID: ${{ env.ALLURE_PROJECT_ID }}
+        run: |
+          set +e
+          export ALLURE_LAUNCH_NAME="greedy-token — ${GITHUB_REPOSITORY} #${GITHUB_RUN_NUMBER}"
+          allurectl upload "${ALLURE_RESULTS}" 2>&1 | tee allurectl-upload.log
+          UPLOAD_EXIT=${PIPESTATUS[0]}
+          echo "TESTOPS_UPLOAD_EXIT=${UPLOAD_EXIT}" >> "$GITHUB_ENV"
+          if [ "$UPLOAD_EXIT" -eq 0 ]; then
+            LAUNCH_URL=$(grep -Eo 'https://[^ ]+/launch/[0-9]+' allurectl-upload.log | head -1 || true)
+            if [ -n "$LAUNCH_URL" ]; then
+              echo "TESTOPS_LAUNCH_URL=${LAUNCH_URL}" >> "$GITHUB_ENV"
+            fi
+          fi
+          set -e
+
+      - name: Generate Allure 3 report
+        if: always() && hashFiles('build/allure-results/**') != ''
+        id: allure-report
+        continue-on-error: true
+        run: |
+          cat > "${ALLURE_RESULTS}/executor.json" <<EOF
+          {
+            "reportName": "Run #${{ github.run_number }}",
+            "buildOrder": ${{ github.run_number }},
+            "reportUrl": "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/reports/${REPORT_ID}/index.html",
+            "buildUrl": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          }
+          EOF
+          npx --yes "allure@${ALLURE_VERSION}" generate "${ALLURE_RESULTS}" \
+            --config allurerc.mjs \
+            --output build/allure-report
+
+      - name: Prepare GitHub Pages
+        if: always() && steps.allure-report.outcome == 'success' && hashFiles('build/allure-report/index.html') != ''
+        run: |
+          mkdir -p pages/reports/${REPORT_ID}
+          cp -r build/allure-report/. "pages/reports/${REPORT_ID}/"
+          if [ -f history.jsonl ]; then
+            cp history.jsonl pages/history.jsonl
+          elif [ -f build/allure-report/history.jsonl ]; then
+            cp build/allure-report/history.jsonl pages/history.jsonl
+          fi
+          echo "${REPORT_ID}" > pages/latest-run-id.txt
+          touch pages/.nojekyll
+
+      - name: Deploy Allure report to GitHub Pages
+        if: always() && hashFiles('pages/reports/**/index.html') != ''
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: pages
+          enable_jekyll: false
+
+      - name: Job summary
+        if: always()
+        run: |
+          REPORT_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/reports/${REPORT_ID}/index.html"
+          echo "## greedy-token Tests" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- [GitHub Actions run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f build/allure-report/index.html ]; then
+            echo "- [Allure 3 report](${REPORT_URL})" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Allure 3 report: _not generated (no results or generation error)_" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ -n "${TESTOPS_LAUNCH_URL:-}" ]; then
+            echo "- [Allure TestOps launch](${TESTOPS_LAUNCH_URL})" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${TESTOPS_UPLOAD_EXIT:-}" != "" ] && [ "${TESTOPS_UPLOAD_EXIT}" != "0" ]; then
+            echo "- Allure TestOps upload: _failed (check ALLURE_TOKEN secret)_" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "- TestOps project: [5276](https://allure.autotests.cloud/project/5276)" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${QUALITY_GATE_EXIT:-}" = "0" ]; then
+            echo "- Allure 3 quality gate: passed (\`maxFailures: 0\`, \`minTestsCount: 80\`)" >> "$GITHUB_STEP_SUMMARY"
+          elif [ -n "${QUALITY_GATE_EXIT:-}" ]; then
+            echo "- Allure 3 quality gate: **failed** (exit ${QUALITY_GATE_EXIT})" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Fail if tests or quality gate failed
+        if: >-
+          always() &&
+          (env.TEST_EXIT != '0' ||
+           (env.QUALITY_GATE_EXIT != '' && env.QUALITY_GATE_EXIT != '0'))
+        run: |
+          if [ "${TEST_EXIT}" != "0" ]; then
+            exit "${TEST_EXIT}"
+          fi
+          exit "${QUALITY_GATE_EXIT}"

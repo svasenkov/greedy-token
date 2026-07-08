@@ -155,13 +155,17 @@ Saved by executor (sum of per-step savings):
 
 ## Тесты
 
-Нужен **Python 3.12+** (как в CI).
+Нужен **Python 3.12+** (как в CI). GitHub Actions: **pytest + Allure 3** (quality gate, отчёт на GitHub Pages; upload в TestOps при наличии `ALLURE_TOKEN`).
+
+**TestOps:** проект [5276](https://allure.autotests.cloud/project/5276). Секрет `ALLURE_TOKEN` в настройках репо; `ALLURE_PROJECT_ID` по умолчанию `5276`.
 
 ```bash
 cd projects/greedy-token-home/dev && ./scripts/install.sh
 source .venv/bin/activate
 cd ../greedy-token
-python -m pytest tests/ -v
+python -m pytest tests/ -v --alluredir=build/allure-results
+npx --yes allure@3.13.0 quality-gate build/allure-results --config allurerc.mjs
+npx --yes allure@3.13.0 generate build/allure-results --config allurerc.mjs -o build/allure-report
 ```
 
 Интеграционные тесты (реальные файлы monorepo) запускаются, если в checkout есть `stacks/java-spring/`. `GREEDY_TOKEN_ROOT` переопределяет корень workspace.
