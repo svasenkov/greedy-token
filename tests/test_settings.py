@@ -17,7 +17,12 @@ from greedy_token.settings import (
     workspace_config_path,
 )
 
-pytestmark = [allure.epic("Configuration"), allure.feature("Ollama settings")]
+pytestmark = [
+    allure.epic("Configuration"),
+    allure.parent_suite("Configuration"),
+    allure.feature("Ollama settings"),
+    allure.suite("Ollama settings"),
+]
 
 
 @allure.story("Defaults")

@@ -8,7 +8,12 @@ import pytest
 from greedy_token import __version__
 from greedy_token.tool_output import filter_tool_output
 
-pytestmark = [allure.epic("Tool output"), allure.feature("Output filtering")]
+pytestmark = [
+    allure.epic("Tool output"),
+    allure.parent_suite("Tool output"),
+    allure.feature("Output filtering"),
+    allure.suite("Output filtering"),
+]
 
 
 @allure.story("Package version")

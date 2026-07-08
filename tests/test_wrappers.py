@@ -7,7 +7,12 @@ import pytest
 
 from greedy_token.wrappers import WRAPPERS, ollama_available, resolve_wrapper_command
 
-pytestmark = [allure.epic("Script wrappers"), allure.feature("Workspace scripts")]
+pytestmark = [
+    allure.epic("Script wrappers"),
+    allure.parent_suite("Script wrappers"),
+    allure.feature("Workspace scripts"),
+    allure.suite("Workspace scripts"),
+]
 
 
 @allure.story("Registry")

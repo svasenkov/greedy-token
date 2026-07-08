@@ -5,7 +5,12 @@ import pytest
 
 from greedy_token.prompt_compress import compress_heuristic, compress_prompt_detail, format_dual
 
-pytestmark = [allure.epic("Prompt compression"), allure.feature("Heuristic compress")]
+pytestmark = [
+    allure.epic("Prompt compression"),
+    allure.parent_suite("Prompt compression"),
+    allure.feature("Heuristic compress"),
+    allure.suite("Heuristic compress"),
+]
 
 
 @allure.story("Heuristic")

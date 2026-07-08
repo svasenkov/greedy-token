@@ -9,7 +9,12 @@ import pytest
 from greedy_token.budget import rag_est_tokens
 from greedy_token.rag_search import RagHit
 
-pytestmark = [allure.epic("Token economy"), allure.feature("RAG token estimate")]
+pytestmark = [
+    allure.epic("Token economy"),
+    allure.parent_suite("Token economy"),
+    allure.feature("RAG token estimate"),
+    allure.suite("RAG token estimate"),
+]
 
 
 @allure.story("Token estimate")

@@ -8,7 +8,12 @@ import pytest
 
 from greedy_token.executors import execute_task
 
-pytestmark = [allure.epic("Routing"), allure.feature("Task execution")]
+pytestmark = [
+    allure.epic("Routing"),
+    allure.parent_suite("Routing"),
+    allure.feature("Task execution"),
+    allure.suite("Task execution"),
+]
 
 
 @patch("greedy_token.executors._rag_fallback_output")

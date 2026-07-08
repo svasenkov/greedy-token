@@ -6,7 +6,12 @@ import sys
 import allure
 import pytest
 
-pytestmark = [allure.epic("CLI"), allure.feature("greedy-token CLI")]
+pytestmark = [
+    allure.epic("CLI"),
+    allure.parent_suite("CLI"),
+    allure.feature("greedy-token CLI"),
+    allure.suite("greedy-token CLI"),
+]
 
 
 @allure.story("Help")

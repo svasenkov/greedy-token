@@ -7,7 +7,12 @@ import pytest
 
 from greedy_token.tokens import count_texts, count_tokens
 
-pytestmark = [allure.epic("Token economy"), allure.feature("Token counting")]
+pytestmark = [
+    allure.epic("Token economy"),
+    allure.parent_suite("Token economy"),
+    allure.feature("Token counting"),
+    allure.suite("Token counting"),
+]
 
 
 @allure.story("tiktoken")

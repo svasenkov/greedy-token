@@ -9,7 +9,12 @@ from greedy_token.executors import _tool_output_weak
 from greedy_token.router import _build_tool_command, _extract_search_query
 from greedy_token.tool_output import filter_tool_output
 
-pytestmark = [allure.epic("Routing"), allure.feature("Tool search helpers")]
+pytestmark = [
+    allure.epic("Routing"),
+    allure.parent_suite("Routing"),
+    allure.feature("Tool search helpers"),
+    allure.suite("Tool search helpers"),
+]
 
 
 @pytest.mark.parametrize(

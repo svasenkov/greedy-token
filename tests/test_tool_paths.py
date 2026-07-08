@@ -8,7 +8,12 @@ import pytest
 from greedy_token.code_search import search_code
 from greedy_token.tool_paths import resolve_rg
 
-pytestmark = [allure.epic("Code search"), allure.feature("Ripgrep resolution")]
+pytestmark = [
+    allure.epic("Code search"),
+    allure.parent_suite("Code search"),
+    allure.feature("Ripgrep resolution"),
+    allure.suite("Ripgrep resolution"),
+]
 
 
 @allure.story("Cursor bundle")

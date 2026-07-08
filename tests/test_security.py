@@ -10,7 +10,12 @@ from greedy_token.router import _build_tool_command
 from greedy_token.tool_paths import root_cd_prefix, shell_args
 from greedy_token.wrappers import resolve_wrapper_command
 
-pytestmark = [allure.epic("Security"), allure.feature("Shell quoting")]
+pytestmark = [
+    allure.epic("Security"),
+    allure.parent_suite("Security"),
+    allure.feature("Shell quoting"),
+    allure.suite("Shell quoting"),
+]
 
 
 @allure.story("Workspace path")

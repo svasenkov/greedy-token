@@ -8,7 +8,12 @@ import pytest
 from greedy_token.budget import format_savings_lines, format_tool_footer, wrap_mcp_response
 from greedy_token.estimator import cursor_baseline
 
-pytestmark = [allure.epic("Token economy"), allure.feature("Token budget")]
+pytestmark = [
+    allure.epic("Token economy"),
+    allure.parent_suite("Token economy"),
+    allure.feature("Token budget"),
+    allure.suite("Token budget"),
+]
 
 
 @allure.story("Savings footer")

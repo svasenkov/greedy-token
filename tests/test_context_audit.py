@@ -7,7 +7,12 @@ import pytest
 
 from greedy_token.context_audit import audit_context, render_audit
 
-pytestmark = [allure.epic("Token economy"), allure.feature("Context audit")]
+pytestmark = [
+    allure.epic("Token economy"),
+    allure.parent_suite("Token economy"),
+    allure.feature("Context audit"),
+    allure.suite("Context audit"),
+]
 
 
 @allure.story("Rules scan")

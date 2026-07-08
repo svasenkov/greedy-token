@@ -162,7 +162,7 @@ npx --yes allure@3.13.0 generate build/allure-results --config allurerc.mjs -o b
 
 Optional integration tests (real monorepo files) run when the checkout includes `stacks/java-spring/`; set `GREEDY_TOKEN_ROOT` to override the workspace root.
 
-**TestOps:** project [5276](https://allure.autotests.cloud/project/5276) on `allure.autotests.cloud`. CI uploads when repo secret `ALLURE_TOKEN` is set (`ALLURE_PROJECT_ID` defaults to `5276`, override via repo variable). Pyramid layers (`unit` / `component` / `integration`) are set via Allure label `layer` in `tests/pyramid_layers.py` — same keys as Java `@Layer` and TestOps mappings. Human-readable names use `@allure.title` / `@allure.feature` / `@allure.story` / `@allure.epic` on each test (JUnit `@DisplayName` / `@Feature` equivalent).
+**TestOps:** project [5276](https://allure.autotests.cloud/project/5276) on `allure.autotests.cloud`. CI uploads when repo secret `ALLURE_TOKEN` is set (`ALLURE_PROJECT_ID` defaults to `5276`, override via repo variable). Pyramid layers (`unit` / `component` / `integration`) are set via Allure label `layer` in `tests/pyramid_layers.py` — same keys as Java `@Layer` and TestOps mappings. Human-readable names use `@allure.title` / `@allure.feature` / `@allure.story` / `@allure.epic` on each test, and `@allure.parent_suite` / `@allure.suite` on each module (`pytestmark`) for TestOps folder names — JUnit `@DisplayName` / `@Feature` equivalent.
 
 ## Examples
 

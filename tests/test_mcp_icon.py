@@ -5,7 +5,12 @@ import pytest
 
 from greedy_token.mcp import mcp_icons
 
-pytestmark = [allure.epic("MCP"), allure.feature("Server icon")]
+pytestmark = [
+    allure.epic("MCP"),
+    allure.parent_suite("MCP"),
+    allure.feature("Server icon"),
+    allure.suite("Server icon"),
+]
 
 
 @allure.story("SEP-973 icon")

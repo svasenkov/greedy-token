@@ -10,7 +10,12 @@ import pytest
 from greedy_token.rag_index import get_indexed_chunks, invalidate_rag_index
 from greedy_token.rag_search import search_rag
 
-pytestmark = [allure.epic("RAG"), allure.feature("RAG index")]
+pytestmark = [
+    allure.epic("RAG"),
+    allure.parent_suite("RAG"),
+    allure.feature("RAG index"),
+    allure.suite("RAG index"),
+]
 
 
 @allure.story("Cache")

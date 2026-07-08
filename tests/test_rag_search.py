@@ -7,7 +7,12 @@ import pytest
 
 from greedy_token.rag_search import format_hits, search_rag
 
-pytestmark = [allure.epic("RAG"), allure.feature("RAG search")]
+pytestmark = [
+    allure.epic("RAG"),
+    allure.parent_suite("RAG"),
+    allure.feature("RAG search"),
+    allure.suite("RAG search"),
+]
 
 
 @allure.story("Manifest search")

@@ -8,7 +8,12 @@ import pytest
 
 from greedy_token.pipeline import format_pipeline_footer, parse_pipeline, run_pipeline
 
-pytestmark = [allure.epic("Pipeline"), allure.feature("Multi-step chains")]
+pytestmark = [
+    allure.epic("Pipeline"),
+    allure.parent_suite("Pipeline"),
+    allure.feature("Multi-step chains"),
+    allure.suite("Multi-step chains"),
+]
 
 
 @allure.story("Named recipes")

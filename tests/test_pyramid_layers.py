@@ -7,7 +7,12 @@ import pytest
 
 from tests.pyramid_layers import LAYER_BY_MODULE
 
-pytestmark = [allure.epic("Test infrastructure"), allure.feature("Pyramid layers")]
+pytestmark = [
+    allure.epic("Test infrastructure"),
+    allure.parent_suite("Test infrastructure"),
+    allure.feature("Pyramid layers"),
+    allure.suite("Pyramid layers"),
+]
 
 
 @allure.story("Module mapping")

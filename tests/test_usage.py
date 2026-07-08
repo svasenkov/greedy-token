@@ -22,7 +22,12 @@ from greedy_token.usage import (
     rotate_log_if_needed,
 )
 
-pytestmark = [allure.epic("Token economy"), allure.feature("Usage telemetry")]
+pytestmark = [
+    allure.epic("Token economy"),
+    allure.parent_suite("Token economy"),
+    allure.feature("Usage telemetry"),
+    allure.suite("Usage telemetry"),
+]
 
 
 @pytest.fixture

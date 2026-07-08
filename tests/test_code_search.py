@@ -7,7 +7,12 @@ import pytest
 
 from greedy_token.code_search import resolve_search_path, search_code
 
-pytestmark = [allure.epic("Code search"), allure.feature("Search path resolution")]
+pytestmark = [
+    allure.epic("Code search"),
+    allure.parent_suite("Code search"),
+    allure.feature("Search path resolution"),
+    allure.suite("Search path resolution"),
+]
 
 
 @allure.story("Monorepo")

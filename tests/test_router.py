@@ -8,7 +8,12 @@ import pytest
 
 from greedy_token.router import route_task, route_task_all_tiers
 
-pytestmark = [allure.epic("Routing"), allure.feature("Task router")]
+pytestmark = [
+    allure.epic("Routing"),
+    allure.parent_suite("Routing"),
+    allure.feature("Task router"),
+    allure.suite("Task router"),
+]
 
 
 @allure.story("Tool tier")
