@@ -151,7 +151,7 @@ Global: `--no-log` disables telemetry for one invocation.
 
 Requires **Python 3.12+** (same as CI). GitHub Actions runs **pytest + Allure 3** (quality gate, GitHub Pages report; optional TestOps upload when repo vars are set).
 
-**CI ethalon:** `.github/_ethalon/` (action pins in `gha-actions.yaml`) → runnable `.github/workflows/`. Same pattern as monorepo `tests-java/.github/_ethalon/`.
+**CI ethalon:** `.github/_ethalon/` (action pins in `gha-actions.yaml`) → runnable `.github/workflows/`. Same pattern as monorepo `tests-java/.github/_ethalon/`. Sync: `./scripts/sync-github-workflows.sh`; CI runs `./scripts/check-github-workflows-sync.sh` before pytest.
 
 ```bash
 cd projects/greedy-token-home/dev && ./scripts/install.sh

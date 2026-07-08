@@ -21,11 +21,11 @@ GHA **does not** run files under `_ethalon/`.
 After editing ethalon:
 
 ```bash
-cp .github/_ethalon/test.yml .github/workflows/test.yml
-cp .github/_ethalon/publish.yml .github/workflows/publish.yml
+./scripts/sync-github-workflows.sh
+./scripts/check-github-workflows-sync.sh   # also runs in CI before pytest
 ```
 
-Bump `actions/*` versions in `_ethalon/gha-actions.yaml` first, then apply to all ethalon YAMLs.
+Bump `actions/*` versions in `_ethalon/gha-actions.yaml` first, then apply to all ethalon YAMLs, then sync.
 
 ## Quality gate count
 
