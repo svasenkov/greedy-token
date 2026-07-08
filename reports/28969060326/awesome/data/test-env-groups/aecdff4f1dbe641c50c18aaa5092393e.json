@@ -1,1 +1,0 @@
-{"id":"aecdff4f1dbe641c50c18aaa5092393e","fullName":"tests.test_cli_commands#test_cli_run_dry_run_shows_plan","name":"CLI run dry-run prints plan without executing","status":"passed","testResultsByEnv":{"default":"07c60a58aadfca9c3b24d97caa700a20"}}
