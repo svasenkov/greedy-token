@@ -7,6 +7,7 @@ LAYER_BY_MODULE: dict[str, str] = {
     # unit — pure logic, no subprocess / external IO
     "test_budget": "unit",
     "test_context_audit": "unit",
+    "test_estimator": "unit",
     "test_mcp_icon": "unit",
     "test_rag_tokens": "unit",
     "test_router": "unit",
@@ -27,6 +28,7 @@ LAYER_BY_MODULE: dict[str, str] = {
     "test_wrappers": "component",
     # integration — subprocess CLI, real rg, monorepo checkout
     "test_cli": "integration",
+    "test_cli_commands": "integration",
     "test_code_search": "integration",
     "test_tool_paths": "integration",
 }
