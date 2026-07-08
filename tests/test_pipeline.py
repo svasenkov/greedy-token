@@ -75,6 +75,22 @@ def test_pipeline_execute_check_meta_sync(minimal_workspace: Path) -> None:
 
 
 @allure.story("Execute")
+@allure.title("Pipeline execute runs meta-audit Ollama step against HTTP stub")
+def test_pipeline_execute_meta_audit_with_ollama_stub(ollama_workspace: Path) -> None:
+    result = run_pipeline(
+        "meta-audit configurator-boolean",
+        ollama_workspace,
+        execute=True,
+    )
+    assert len(result.steps) == 2
+    assert not result.stopped_early
+    assert result.steps[0].executed and result.steps[0].ok
+    assert result.steps[1].executed and result.steps[1].ok
+    assert "check-meta-sync-ok" in result.steps[0].output
+    assert '"ok":true' in result.steps[1].output.replace(" ", "")
+
+
+@allure.story("Execute")
 @allure.title("Pipeline execute skips Ollama step when server is unavailable")
 def test_pipeline_execute_skips_unavailable_ollama(minimal_workspace: Path) -> None:
     with patch("greedy_token.pipeline.ollama_available", return_value=False):

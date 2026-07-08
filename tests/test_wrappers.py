@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import allure
@@ -51,6 +52,14 @@ def test_ollama_available_true(mock_urlopen, mock_json_load) -> None:
     mock_resp.__enter__.return_value = mock_resp
     mock_urlopen.return_value = mock_resp
     assert ollama_available("http://localhost:11434") is True
+
+
+@allure.story("Ollama probe")
+@allure.title("Ollama availability returns true when stub /api/tags responds")
+def test_ollama_available_against_stub(ollama_stub: str) -> None:
+    from greedy_token.wrappers import ollama_available
+
+    assert ollama_available(ollama_stub) is True
 
 
 @patch("urllib.request.urlopen", side_effect=OSError("connection refused"))

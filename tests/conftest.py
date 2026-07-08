@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from tests.pyramid_layers import layer_for_module
+from tests.ollama_stub import clear_ollama_probe_cache, install_ollama_scripts, ollama_stub_server
 
 
 def _discover_monorepo_root() -> Path | None:
@@ -70,6 +71,23 @@ def minimal_workspace(tmp_path: Path) -> Path:
     (skill_dir / "SKILL.md").write_text("# configurator-boolean\n", encoding="utf-8")
 
     return tmp_path
+
+
+@pytest.fixture
+def ollama_stub(monkeypatch: pytest.MonkeyPatch) -> str:
+    clear_ollama_probe_cache()
+    with ollama_stub_server() as url:
+        monkeypatch.setenv("OLLAMA_URL", url)
+        monkeypatch.setenv("OLLAMA_MODEL", "stub-model")
+        clear_ollama_probe_cache()
+        yield url
+    clear_ollama_probe_cache()
+
+
+@pytest.fixture
+def ollama_workspace(minimal_workspace: Path, ollama_stub: str) -> Path:
+    install_ollama_scripts(minimal_workspace)
+    return minimal_workspace
 
 
 @pytest.fixture(autouse=True)
