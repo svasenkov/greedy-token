@@ -1,11 +1,21 @@
 # greedy-token
 
-Маршрутизация задач через **tool → python → ollama → rag → cursor** до того, как сгорят токены агента.
-
 **English:** [README.md](README.md)
 
+<p align="center">
+  <img src="docs/greedy-cat.gif" alt="талисман greedy-token" width="240" />
+</p>
+
+Вы работаете в **Cursor** — greedy-token стоит рядом с агентом (CLI + MCP), чтобы повседневные задачи не всегда открывали полный agent chat.
+
+Сначала пробует более дешёвые исполнители — **ripgrep → скрипты → локальный Ollama → docs/rag** — и только если этого мало, эскалирует в **ход Cursor-агента**. В каждом вызове — оценка **Token economy**: сколько сэкономлено относительно наивного полного чата.
+
 ```
-Задача  →  greedy-token  →  rg | scripts | Ollama | docs/rag | pipeline | Cursor
+В Cursor:  задача  →  greedy-token (MCP/CLI)
+                 ↓
+           сначала дешёвое:  rg | скрипты | Ollama | docs/rag | pipeline
+                 ↓
+           только если нужно:  agent chat в Cursor
 ```
 
 ## Зачем

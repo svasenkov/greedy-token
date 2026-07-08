@@ -1,11 +1,21 @@
 # greedy-token
 
-Route dev tasks through **tool → python → ollama → rag → cursor** before burning agent context.
-
 **Русская версия:** [README-RU.md](README-RU.md)
 
+<p align="center">
+  <img src="docs/greedy-cat.gif" alt="greedy-token mascot" width="240" />
+</p>
+
+You work in **Cursor** — greedy-token sits next to the agent (CLI + MCP) so everyday tasks don’t always open a full agent chat.
+
+It tries cheaper executors first — **ripgrep → scripts → local Ollama → docs/rag** — and only escalates to a **Cursor agent** turn when those aren’t enough. Each call shows a **Token economy** estimate of what you saved vs a naive full-context chat.
+
 ```
-Your task  →  greedy-token  →  rg | scripts | Ollama | docs/rag | pipeline | Cursor
+In Cursor:  your task  →  greedy-token (MCP/CLI)
+                 ↓
+           cheapest first:  rg | scripts | Ollama | docs/rag | pipeline
+                 ↓
+           only if needed:  Cursor agent chat
 ```
 
 ## What it does
