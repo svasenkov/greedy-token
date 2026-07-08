@@ -69,7 +69,7 @@ jobs:
           EOF
 
       - name: Install allurectl
-        if: secrets.ALLURE_TOKEN != ''
+        if: vars.ALLURE_PROJECT_ID != ''
         continue-on-error: true
         id: setup-allurectl
         uses: allure-framework/setup-allurectl@v1
