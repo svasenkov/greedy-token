@@ -50,18 +50,28 @@ export GREEDY_TOKEN_ROOT=/path/to/workspace   # в zero-design-system опред
 
 ## Интеграция с Cursor
 
-В monorepo уже лежит конфиг:
+**Полная инструкция (любой workspace / PyPI):** [docs/cursor-setup-RU.md](docs/cursor-setup-RU.md) · [docs/cursor-setup.md](docs/cursor-setup.md)
 
-| Файл | Роль |
-|------|------|
-| `.cursor/mcp.json` | MCP server |
-| `.cursor/mcp/greedy-token.sh` | launcher (venv + путь к `rg`) |
-| `.cursor/rules/token-economy.mdc` | агент вызывает MCP до встроенного Grep |
-| `.cursor/hooks.json` | `sessionStart` — подсказка про token economy |
+Starter kit в этом репозитории (скопируйте в свой проект):
 
-**Setup:** установить → **Settings → MCP → greedy-token → Enable → Refresh** → новый Agent chat.
+| Шаблон | Куда |
+|--------|------|
+| [`examples/cursor/mcp.json`](examples/cursor/mcp.json) | `.cursor/mcp.json` |
+| [`examples/cursor/rules/token-economy.mdc`](examples/cursor/rules/token-economy.mdc) | `.cursor/rules/token-economy.mdc` |
+
+```bash
+pip install "greedy-token[mcp]"
+mkdir -p .cursor/rules
+# из клона greedy-token или вставьте из доки:
+cp examples/cursor/mcp.json .cursor/mcp.json
+cp examples/cursor/rules/token-economy.mdc .cursor/rules/token-economy.mdc
+```
+
+Далее: **Settings → MCP → greedy-token → Enable → Refresh** → **новый** Agent chat.
 
 Должно быть **5 MCP tools**, включая `greedy_token_pipeline`.
+
+Monorepo zero-design-system дополнительно использует venv-launcher и hooks — это описано в monorepo, для пользователей PyPI не нужно.
 
 ## MCP tools
 

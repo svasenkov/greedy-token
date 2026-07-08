@@ -9,7 +9,11 @@ from greedy_token.tool_output import filter_tool_output
 
 
 def test_version_matches_pyproject() -> None:
-    assert __version__ == "0.4.2"
+    pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
+    text = pyproject.read_text(encoding="utf-8")
+    line = next(ln for ln in text.splitlines() if ln.startswith("version = "))
+    expected = line.split("=", 1)[1].strip().strip('"')
+    assert __version__ == expected
 
 
 def test_filter_tool_output_strips_blank_lines() -> None:

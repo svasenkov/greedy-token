@@ -50,18 +50,28 @@ export GREEDY_TOKEN_ROOT=/path/to/workspace   # auto-detect in zero-design-syste
 
 ## Cursor integration (recommended)
 
-Monorepo ships ready-made wiring:
+**Full guide (any workspace / PyPI):** [docs/cursor-setup.md](docs/cursor-setup.md) · [docs/cursor-setup-RU.md](docs/cursor-setup-RU.md)
 
-| File | Role |
-|------|------|
-| `.cursor/mcp.json` | MCP server config |
-| `.cursor/mcp/greedy-token.sh` | launcher (venv + `rg` path fix) |
-| `.cursor/rules/token-economy.mdc` | agent uses MCP before built-in Grep |
-| `.cursor/hooks.json` | `sessionStart` — token economy hint |
+Starter kit in this repo (copy into your project):
 
-**Setup:** install → **Settings → MCP → greedy-token → Enable → Refresh** → new Agent chat.
+| Template | Copy to |
+|----------|---------|
+| [`examples/cursor/mcp.json`](examples/cursor/mcp.json) | `.cursor/mcp.json` |
+| [`examples/cursor/rules/token-economy.mdc`](examples/cursor/rules/token-economy.mdc) | `.cursor/rules/token-economy.mdc` |
+
+```bash
+pip install "greedy-token[mcp]"
+mkdir -p .cursor/rules
+# from a greedy-token clone, or paste from the docs:
+cp examples/cursor/mcp.json .cursor/mcp.json
+cp examples/cursor/rules/token-economy.mdc .cursor/rules/token-economy.mdc
+```
+
+Then: **Settings → MCP → greedy-token → Enable → Refresh** → **new** Agent chat.
 
 Expected: **5 MCP tools** (including `greedy_token_pipeline`).
+
+The zero-design-system monorepo additionally uses a venv launcher + `sessionStart` hooks — that path is documented in the monorepo, not required for PyPI users.
 
 ## MCP tools
 

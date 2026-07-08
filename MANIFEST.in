@@ -1,0 +1,6 @@
+include LICENSE README.md README-RU.md pyproject.toml
+recursive-include docs *
+recursive-include examples *
+recursive-include src/greedy_token/config *
+recursive-include src/greedy_token/static *
+recursive-include tests *

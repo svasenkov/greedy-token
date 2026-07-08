@@ -85,6 +85,7 @@ local_llm:
 
 | Версия | Фокус |
 |--------|-------|
+| **v0.4.3** | Cursor starter kit (`examples/cursor/`) + setup-дока для пользователей PyPI |
 | **v0.4.2** | Security hardening, MCP dry-run default, CI pytest, log rotation, settings module |
 | **v0.4** | MCP pipeline, Ollama config, token economy footer |
 | **v0.5** | `local_llm` + `cloud_llm` providers |
