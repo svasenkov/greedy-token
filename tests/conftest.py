@@ -5,6 +5,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.pyramid_layers import layer_for_module
+
 
 def _discover_monorepo_root() -> Path | None:
     here = Path(__file__).resolve()
@@ -69,3 +71,16 @@ def minimal_workspace(tmp_path: Path) -> Path:
 @pytest.fixture(autouse=True)
 def _greedy_token_root_env(monkeypatch: pytest.MonkeyPatch, minimal_workspace: Path) -> None:
     monkeypatch.setenv("GREEDY_TOKEN_ROOT", str(minimal_workspace))
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_runtest_setup(item: pytest.Item) -> None:
+    """Attach Allure label layer=* for TestOps pyramid (same key as Java @Layer)."""
+    try:
+        import allure
+    except ImportError:
+        return
+    module_name = item.module.__name__.rsplit(".", 1)[-1]
+    layer = layer_for_module(module_name)
+    if layer:
+        allure.dynamic.label("layer", layer)

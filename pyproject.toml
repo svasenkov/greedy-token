@@ -36,3 +36,4 @@ greedy_token = ["config/*.yaml", "static/icon.png", "static/icon.svg"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+minversion = "8.0"
