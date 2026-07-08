@@ -48,6 +48,47 @@ def test_parse_custom_chain() -> None:
     assert steps[1].args == "baseUrl -D flag"
 
 
+@allure.story("Execute")
+@allure.title("Pipeline execute runs search and RAG allowlisted steps")
+def test_pipeline_execute_search_and_rag(minimal_workspace: Path) -> None:
+    result = run_pipeline(
+        "search baseUrl\tsample.js then rag baseUrl -D flag",
+        minimal_workspace,
+        execute=True,
+    )
+    assert len(result.steps) == 2
+    assert all(sr.executed for sr in result.steps)
+    assert all(sr.ok for sr in result.steps)
+    assert "baseUrl" in result.steps[0].output
+    assert "RAG hits" in result.steps[1].output or "baseUrl" in result.steps[1].output
+
+
+@allure.story("Execute")
+@allure.title("Pipeline execute runs check-meta-sync wrapper script")
+def test_pipeline_execute_check_meta_sync(minimal_workspace: Path) -> None:
+    result = run_pipeline("check-meta-sync", minimal_workspace, execute=True)
+    assert len(result.steps) == 1
+    step = result.steps[0]
+    assert step.executed is True
+    assert step.ok is True
+    assert "check-meta-sync-ok" in step.output
+
+
+@allure.story("Execute")
+@allure.title("Pipeline execute skips Ollama step when server is unavailable")
+def test_pipeline_execute_skips_unavailable_ollama(minimal_workspace: Path) -> None:
+    with patch("greedy_token.pipeline.ollama_available", return_value=False):
+        result = run_pipeline(
+            "meta-audit configurator-boolean",
+            minimal_workspace,
+            execute=True,
+        )
+    assert result.stopped_early is True
+    assert result.steps[0].ok is True
+    assert result.steps[1].ok is False
+    assert "Ollama unavailable" in result.steps[1].output
+
+
 @allure.story("Dry run")
 @allure.title("Pipeline dry-run does not execute allowlisted steps")
 def test_pipeline_dry_run(minimal_workspace: Path) -> None:

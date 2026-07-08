@@ -71,6 +71,18 @@ def test_mcp_pipeline_dry_run_includes_footer(minimal_workspace: Path) -> None:
 
 @patch("greedy_token.mcp.run_pipeline")
 @allure.story("Pipeline tool")
+@allure.title("MCP pipeline passes execute=true to run allowlisted steps")
+def test_mcp_pipeline_execute_true(mock_run, minimal_workspace: Path) -> None:
+    from greedy_token.pipeline import PipelineResult
+
+    mock_run.return_value = PipelineResult(task="t", steps=[])
+    greedy_token_pipeline("check-meta-sync then rag baseUrl", execute=True)
+    mock_run.assert_called_once()
+    assert mock_run.call_args.kwargs.get("execute") is True
+
+
+@patch("greedy_token.mcp.run_pipeline")
+@allure.story("Pipeline tool")
 @allure.title("MCP pipeline defaults to dry-run when execute is omitted")
 def test_mcp_pipeline_execute_false_by_default(mock_run, minimal_workspace: Path) -> None:
     from greedy_token.pipeline import PipelineResult

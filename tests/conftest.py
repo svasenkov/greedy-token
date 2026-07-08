@@ -32,7 +32,11 @@ def minimal_workspace(tmp_path: Path) -> Path:
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "phase-manifest.json").write_text("{}", encoding="utf-8")
     (tmp_path / "scripts").mkdir()
-    (tmp_path / "scripts" / "check-meta-sync.sh").write_text("#!/bin/sh\n", encoding="utf-8")
+    meta_sync = tmp_path / "scripts" / "check-meta-sync.sh"
+    meta_sync.write_text("#!/bin/sh\necho check-meta-sync-ok\n", encoding="utf-8")
+    meta_sync.chmod(0o755)
+    (tmp_path / "stacks").mkdir()
+    (tmp_path / "generators").mkdir()
     ollama_scripts = tmp_path / "scripts" / "ollama"
     ollama_scripts.mkdir(parents=True)
     (ollama_scripts / "audit-skill.sh").write_text("#!/bin/sh\necho audit\n", encoding="utf-8")

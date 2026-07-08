@@ -152,6 +152,34 @@ def test_cli_scripts_list(minimal_workspace: Path) -> None:
     assert "check-meta-sync" in proc.stdout
 
 
+@allure.story("Pipeline")
+@allure.title("CLI pipeline --execute runs search and RAG steps")
+def test_cli_pipeline_execute_search_rag(minimal_workspace: Path) -> None:
+    proc = _run_cli(
+        "pipeline",
+        "search baseUrl\tsample.js then rag baseUrl",
+        "--execute",
+        workspace=minimal_workspace,
+    )
+    assert proc.returncode == 0
+    assert "baseUrl" in proc.stdout
+    assert "RAG hits" in proc.stdout or "test-baseurl" in proc.stdout
+
+
+@allure.story("Scripts")
+@allure.title("CLI scripts --run check-meta-sync --execute runs wrapper")
+def test_cli_scripts_run_execute_check_meta_sync(minimal_workspace: Path) -> None:
+    proc = _run_cli(
+        "scripts",
+        "--run",
+        "check-meta-sync",
+        "--execute",
+        workspace=minimal_workspace,
+    )
+    assert proc.returncode == 0
+    assert "check-meta-sync-ok" in proc.stdout
+
+
 @allure.story("Compress")
 @allure.title("CLI compress reads stdin and prints short prompt")
 def test_cli_compress_stdin(minimal_workspace: Path) -> None:
