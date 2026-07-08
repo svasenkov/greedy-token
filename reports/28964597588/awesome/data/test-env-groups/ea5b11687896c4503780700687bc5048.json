@@ -1,1 +1,0 @@
-{"id":"ea5b11687896c4503780700687bc5048","fullName":"tests.test_rag_index#test_search_reads_only_top_hits","name":"search_rag reads only top-ranked chunk files","status":"passed","testResultsByEnv":{"default":"91ed7441304906bf8c42345c7fa9d931"}}

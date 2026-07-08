@@ -1,0 +1,1 @@
+{"id":"d4076ac774a5fef0658089f323e5dde8","fullName":"tests.test_usage#test_load_events_skips_bad_lines","name":"load_events skips malformed JSON lines","status":"passed","testResultsByEnv":{"default":"9ac473a0e8b1f99db5eb7691553525b2"}}

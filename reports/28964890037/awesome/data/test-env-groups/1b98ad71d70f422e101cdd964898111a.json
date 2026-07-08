@@ -1,0 +1,1 @@
+{"id":"1b98ad71d70f422e101cdd964898111a","fullName":"tests.test_executors#test_execute_task_cursor_returns_empty","name":"execute_task returns empty output for cursor tier","status":"passed","testResultsByEnv":{"default":"27f0bd4ee7e49f6fa60dc3157f3be9a8"}}

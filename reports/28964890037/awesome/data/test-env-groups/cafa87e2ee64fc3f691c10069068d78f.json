@@ -1,0 +1,1 @@
+{"id":"cafa87e2ee64fc3f691c10069068d78f","fullName":"tests.test_usage#test_append_event","name":"append_event writes JSON line to usage log","status":"passed","testResultsByEnv":{"default":"437fa256abc22704059efcfb92fc9b9e"}}

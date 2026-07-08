@@ -1,0 +1,1 @@
+{"id":"89a7ab892d429c7ce3f177fd008032b6","fullName":"tests.test_usage#test_rotate_log_keeps_archives","name":"rotate_log_if_needed respects GREEDY_TOKEN_LOG_MAX_FILES","status":"passed","testResultsByEnv":{"default":"2fdbe4b93fef637df71fc9ab5f7fe86b"}}

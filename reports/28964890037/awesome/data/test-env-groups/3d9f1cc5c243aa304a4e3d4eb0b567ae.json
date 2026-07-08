@@ -1,0 +1,1 @@
+{"id":"3d9f1cc5c243aa304a4e3d4eb0b567ae","fullName":"tests.test_usage#test_rotate_log_when_over_limit","name":"rotate_log_if_needed archives log when over size limit","status":"passed","testResultsByEnv":{"default":"7954c61050b7ab3184b486939333b0ab"}}

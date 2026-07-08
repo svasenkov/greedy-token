@@ -1,0 +1,1 @@
+{"id":"6fa3d9e40a5a6ddae17c15a9d83c1d3f","fullName":"tests.test_rag_search#test_format_hits_includes_excerpt","name":"format_hits includes chunk id and excerpt","status":"passed","testResultsByEnv":{"default":"06c68d30a9208276031e3c3cb4d9054e"}}
