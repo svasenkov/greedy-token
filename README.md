@@ -2,9 +2,7 @@
 
 **Русская версия:** [README-RU.md](README-RU.md)
 
-<p align="center">
-  <img src="docs/greedy-cat.gif" alt="greedy-token mascot" width="240" />
-</p>
+<img src="docs/greedy-cat.gif" alt="greedy-token mascot" width="240" />
 
 You work in **Cursor** — greedy-token sits next to the agent (CLI + MCP) so everyday tasks don’t always open a full agent chat.
 

@@ -2,9 +2,7 @@
 
 **English:** [README.md](README.md)
 
-<p align="center">
-  <img src="docs/greedy-cat.gif" alt="талисман greedy-token" width="240" />
-</p>
+<img src="docs/greedy-cat.gif" alt="талисман greedy-token" width="240" />
 
 Вы работаете в **Cursor** — greedy-token стоит рядом с агентом (CLI + MCP), чтобы повседневные задачи не всегда открывали полный agent chat.
 
