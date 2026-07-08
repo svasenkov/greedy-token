@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "greedy-token": {
+      "command": "/Users/stanislav/zero-design-system/projects/greedy-token-home/dev/.venv/bin/greedy-token-mcp",
+      "env": {
+        "GREEDY_TOKEN_ROOT": "/Users/stanislav/zero-design-system"
+      }
+    }
+  }
+}
