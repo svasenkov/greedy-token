@@ -20,7 +20,7 @@ Track progress: [GitHub issues labeled `roadmap`](https://github.com/svasenkov/g
 
 | Theme | Goal | Tracking |
 |-------|------|----------|
-| **mcp_hosts** (cont.) | Continue — full smoke | [#15](https://github.com/svasenkov/greedy-token/issues/15) |
+| **mcp_hosts** (cont.) | Claude Desktop / Continue — full smoke | [#14](https://github.com/svasenkov/greedy-token/issues/14), [#15](https://github.com/svasenkov/greedy-token/issues/15) |
 | **ci_headless** | greedy-token in CI: route/pipeline to self-hosted Ollama instead of always-Claude jobs | [#18](https://github.com/svasenkov/greedy-token/issues/18) |
 
 ## Paid / cloud
@@ -83,16 +83,15 @@ local_llm:
 | Host | MCP tools | Token-economy rule | Status | Issue |
 |------|:---------:|:------------------:|:------:|-------|
 | **Cursor** | ✅ | ✅ | ✅ | — |
-| **Claude Desktop** (MCP) | likely ✅ | ✅ example | ✅ docs | [#14](https://github.com/svasenkov/greedy-token/issues/14) |
+| **Claude Desktop** (MCP) | likely ✅ | — | ❌ 🔜 | [#14](https://github.com/svasenkov/greedy-token/issues/14) |
 | **VS Code + Continue** | — | — | ❌ | [#15](https://github.com/svasenkov/greedy-token/issues/15) |
 | **CLI only** (no IDE) | — | — | ✅ | — |
 
 ### MCP hosts — acceptance criteria
 
-- ✅ `docs/mcp-setup.md` with host-specific config snippets — [mcp-setup.md](mcp-setup.md); Claude: [claude-desktop-setup.md](claude-desktop-setup.md)
-- ✅ Smoke checklist: 5 tools visible, `greedy_token_search` + `greedy_token_route` work — [mcp-setup.md#smoke-checklist](mcp-setup.md#smoke-checklist); automated stdio: `tests/test_mcp_stdio.py`
-- ✅ Optional: example rule file for non-Cursor agents — [examples/claude/instructions.md](../examples/claude/instructions.md)
-- 🔜 Continue / VS Code — [#15](https://github.com/svasenkov/greedy-token/issues/15)
+- `docs/mcp-setup.md` with host-specific config snippets
+- Smoke checklist: 5 tools visible, `greedy_token_search` + `greedy_token_route` work
+- Optional: example rule file for non-Cursor agents (Continue custom instructions)
 
 ## CI / headless
 
