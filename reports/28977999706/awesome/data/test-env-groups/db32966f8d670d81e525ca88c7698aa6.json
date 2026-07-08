@@ -1,1 +1,0 @@
-{"id":"db32966f8d670d81e525ca88c7698aa6","fullName":"tests.test_pipeline#test_format_pipeline_footer_has_by_executor","name":"Pipeline footer includes per-executor savings table","status":"passed","testResultsByEnv":{"default":"8609c39c415e44a7d7d8f4ac4bffb7ea"}}

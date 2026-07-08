@@ -1,0 +1,1 @@
+{"id":"4071e58d9e26572dfebdb753a9c6a0b8","fullName":"tests.test_router#test_route_skips_unavailable_ollama","name":"Route skips Ollama tier when server is unavailable","status":"passed","testResultsByEnv":{"default":"e4d1ce8674b63348034fb0d74e1b4111"}}

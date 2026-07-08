@@ -1,0 +1,1 @@
+{"id":"c537a21721aef132756fc52a7512d6f1","fullName":"tests.test_cli_commands#test_cli_audit_context","name":"CLI audit-context renders rules token audit","status":"passed","testResultsByEnv":{"default":"b1e35698839c85b61a4db829304049fe"}}
