@@ -1,1 +1,0 @@
-{"id":"17f8863d238d0f610103ad20495f8d60","fullName":"tests.test_tool_paths#test_search_code_works_without_path_env","name":"Code search works when PATH is empty but Cursor rg exists","status":"skipped","testResultsByEnv":{"default":"d0366ac6571e0d33ec7446f3c95fd7e5"}}
