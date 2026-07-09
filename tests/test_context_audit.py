@@ -41,3 +41,26 @@ def test_render_audit_includes_totals(minimal_workspace: Path) -> None:
         assert "Cursor context audit" in out
         assert "Always-on rules" in out
         assert "TOTAL" in out
+
+
+@allure.story("Report rendering")
+@allure.title("Audit report shows cache hint when rules exceed threshold")
+def test_render_audit_cache_hint(minimal_workspace: Path) -> None:
+    rules = minimal_workspace / ".cursor" / "rules"
+    rules.mkdir(parents=True, exist_ok=True)
+    big = "x " * 600
+    for i in range(3):
+        (rules / f"big-{i}.mdc").write_text(big, encoding="utf-8")
+    out = render_audit(audit_context(minimal_workspace))
+    assert "cache-friendly" in out or "prompt-cache" in out
+
+
+@allure.story("Rules scan")
+@allure.title("audit_context skips non-file glob matches")
+def test_audit_context_skips_dirs(minimal_workspace: Path) -> None:
+    rules = minimal_workspace / ".cursor" / "rules"
+    (rules / "subdir").mkdir()
+    items = audit_context(minimal_workspace)
+    paths = {i.path for i in items}
+    assert not any("subdir" in p for p in paths)
+

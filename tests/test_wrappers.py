@@ -96,3 +96,47 @@ def test_ollama_available_false(mock_urlopen) -> None:
         attach_text("available", str(available))
     with allure.step("Verify Ollama is unavailable"):
         assert available is False
+
+
+@allure.story("Registry")
+@allure.title("wrapper_for_command resolves wrapper from command string")
+def test_wrapper_for_command() -> None:
+    from greedy_token.wrappers import wrapper_for_command
+
+    assert wrapper_for_command(None) is None
+    assert wrapper_for_command("echo noop") is None
+    w = wrapper_for_command("./scripts/check-meta-sync.sh")
+    assert w is not None
+    assert w.id == "check-meta-sync"
+
+
+@allure.story("Command resolution")
+@allure.title("resolve_wrapper_command builds python invocation for .py scripts")
+def test_resolve_wrapper_command_python_script(minimal_workspace: Path) -> None:
+    script = minimal_workspace / "scripts" / "demo.py"
+    script.write_text("print('ok')\n", encoding="utf-8")
+    from greedy_token.wrappers import ScriptWrapper, WRAPPERS
+
+    WRAPPERS["demo-py"] = ScriptWrapper(
+        id="demo-py",
+        path="scripts/demo.py",
+        category="demo",
+        read_only=True,
+        requires_ollama=False,
+        note="",
+    )
+    cmd = resolve_wrapper_command("demo-py", minimal_workspace, extra_args="--flag")
+    assert "python scripts/demo.py" in cmd
+    assert "--flag" in cmd
+    del WRAPPERS["demo-py"]
+
+
+@allure.story("Status")
+@allure.title("ollama_status_line reports unavailable when server is down")
+def test_ollama_status_line_unavailable() -> None:
+    from greedy_token.wrappers import ollama_status_line
+
+    with patch("greedy_token.wrappers.ollama_available", return_value=False):
+        line = ollama_status_line()
+    assert "unavailable" in line
+

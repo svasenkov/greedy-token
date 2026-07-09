@@ -165,14 +165,19 @@ Saved by executor (sum of per-step savings):
 cd projects/greedy-token-home/dev && ./scripts/install.sh
 source .venv/bin/activate
 cd ../greedy-token
-python -m pytest tests/ -v --alluredir=build/allure-results
+python -m coverage run -m pytest tests/ -v --alluredir=build/allure-results
+python -m coverage report --include='src/greedy_token/*'
 npx --yes allure@3.13.0 quality-gate build/allure-results --config allurerc.mjs
 npx --yes allure@3.13.0 generate build/allure-results --config allurerc.mjs -o build/allure-report
 ```
 
+**Coverage:** `fail_under = 100` для `src/greedy_token/` (`pyproject.toml`). CI на каждом push/PR: `coverage run` + `coverage report`.
+
+**Слайсы пирамиды:** модуль → `tests/pyramid_layers.py` → Allure label `layer` + pytest marker (`-m unit|component|integration|e2e`). В CI matrix job `pyramid` гоняет каждый слой отдельно.
+
 Интеграционные тесты (реальные файлы monorepo) запускаются, если в checkout есть `stacks/java-spring/`. `GREEDY_TOKEN_ROOT` переопределяет корень workspace.
 
-Слои пирамиды (`unit` / `component` / `integration`) — label `layer` в `tests/pyramid_layers.py` (как Java `@Layer` и mapping в TestOps). Человекочитаемые имена — `@allure.title` / `@feature` / `@story` / `@epic` на каждом тесте, `@allure.parent_suite` / `@allure.suite` на модуле (`pytestmark`) для папок в TestOps.
+Человекочитаемые имена в TestOps — `@allure.title` / `@feature` / `@story` / `@epic` на каждом тесте, `@allure.parent_suite` / `@allure.suite` на модуле (`pytestmark`).
 
 ## Примеры
 

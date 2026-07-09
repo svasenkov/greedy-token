@@ -41,3 +41,4 @@ def test_layer_mapping_counts() -> None:
         assert len(by_layer["unit"]) >= 5
         assert len(by_layer["component"]) >= 5
         assert len(by_layer["integration"]) >= 2
+        assert len(by_layer.get("e2e", [])) >= 1

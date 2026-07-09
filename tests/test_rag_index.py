@@ -106,3 +106,32 @@ def test_search_rag_still_finds_baseurl(minimal_workspace: Path) -> None:
     with allure.step("Verify baseUrl chunk is found with body"):
         assert len(hits) >= 1
         assert hits[0].body is not None
+
+
+@allure.story("Search")
+@allure.title("search_rag returns empty for token-less query")
+def test_search_rag_empty_query(minimal_workspace: Path) -> None:
+    assert search_rag("!!!", minimal_workspace) == []
+
+
+@allure.story("Format")
+@allure.title("format_hits reports no hits message")
+def test_format_hits_empty() -> None:
+    from greedy_token.rag_search import format_hits
+
+    out = format_hits("missing topic", [])
+    assert "No RAG hits" in out
+
+
+@allure.story("Index")
+@allure.title("RAG index handles missing manifest")
+def test_rag_index_missing_manifest() -> None:
+    from greedy_token.rag_index import _load_manifest_rows, invalidate_rag_index
+
+    isolated = Path("/tmp/greedy_token_rag_isolated")
+    isolated.mkdir(parents=True, exist_ok=True)
+    invalidate_rag_index(isolated)
+    assert _load_manifest_rows(isolated / "missing.jsonl") == []
+    chunks = get_indexed_chunks(isolated)
+    assert chunks == []
+

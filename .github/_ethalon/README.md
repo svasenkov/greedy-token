@@ -31,6 +31,14 @@ Bump `actions/*` versions in `_ethalon/gha-actions.yaml` first, then apply to al
 
 `minTestsCount` lives in `allure/quality-gate.mjs`. When it changes, update the job summary line in `_ethalon/test.yml` (search `minTestsCount`).
 
+## Coverage gate
+
+`fail_under = 100` in `pyproject.toml` `[tool.coverage.report]`. CI step **Coverage report** runs after pytest (`coverage run` → `coverage report`). Update the job summary line when the threshold changes.
+
+## Pyramid slices
+
+Matrix job `pyramid` runs `pytest -m <layer>` for `unit`, `component`, `integration`, `e2e`. Layer mapping: `tests/pyramid_layers.py`; pytest markers are auto-applied in `tests/conftest.py`.
+
 ## Monorepo alignment
 
 | Action | greedy-token | tests-java ethalon |

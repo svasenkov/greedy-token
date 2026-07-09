@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "greedy-token"
-version = "0.4.4"
+version = "0.4.5"
 description = "Token economy for Cursor: route tasks through rg, scripts, Ollama, and RAG before opening a full agent chat."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "allure-pytest>=2.16"]
+dev = ["pytest>=8.0", "allure-pytest>=2.16", "coverage>=7.0"]
 mcp = ["mcp>=1.0"]
 
 [project.scripts]
@@ -37,3 +37,24 @@ greedy_token = ["config/*.yaml", "static/icon.png", "static/icon.svg"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 minversion = "8.0"
+markers = [
+    "unit: pure logic, no subprocess or external IO",
+    "component: module wiring, mocks, minimal_workspace fixtures",
+    "integration: subprocess CLI, real rg, monorepo checkout",
+    "api: HTTP/API layer (reserved)",
+    "e2e: MCP stdio end-to-end",
+    "manual: manual tests (reserved)",
+]
+
+[tool.coverage.run]
+source = ["src/greedy_token"]
+branch = false
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+skip_empty = true
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+]

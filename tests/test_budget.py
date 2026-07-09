@@ -110,3 +110,57 @@ def test_wrap_mcp_response_appends_footer(minimal_workspace: Path) -> None:
     with allure.step("Verify footer is appended"):
         assert out.startswith("result line")
         assert "Token economy" in out
+
+
+@allure.story("RAG tokens")
+@allure.title("rag_est_tokens counts body and file paths")
+def test_rag_est_tokens(minimal_workspace: Path) -> None:
+    from greedy_token.budget import rag_est_tokens
+    from greedy_token.rag_search import RagHit
+
+    hits = [
+        RagHit("id1", "docs/rag/e2e/test-chunk.md", "e2e", 1.0, "excerpt", body="baseUrl text"),
+        RagHit("id2", "missing.md", "e2e", 1.0, "excerpt only"),
+    ]
+    total = rag_est_tokens(hits, minimal_workspace)
+    assert total > 0
+
+
+@allure.story("Spent hints")
+@allure.title("spent_hint covers all executor tiers")
+def test_spent_hint_all_tiers() -> None:
+    from greedy_token.budget import spent_hint
+
+    assert "ripgrep" in spent_hint("tool", 0, "rg")
+    assert "script" in spent_hint("python", 0)
+    assert "Ollama" in spent_hint("ollama", 100)
+    assert "docs/rag" in spent_hint("rag", 100)
+    assert "agent" in spent_hint("cursor", 100)
+    assert spent_hint("unknown", 0) == ""
+
+
+@allure.story("Tool footer")
+@allure.title("format_tool_footer covers ollama and rag billing lines")
+def test_format_tool_footer_ollama_rag(minimal_workspace: Path) -> None:
+    ollama_footer = format_tool_footer(
+        "audit skill",
+        minimal_workspace,
+        tier="ollama",
+        est_tokens=2500,
+        route_id="ollama-audit",
+        executor_sub="ollama",
+        ollama_eval_tokens=100,
+    )
+    assert "local Ollama" in ollama_footer
+
+    rag_footer = format_tool_footer(
+        "rag query",
+        minimal_workspace,
+        tier="rag",
+        est_tokens=1800,
+        route_id="mcp-rag",
+        executor_sub="rag",
+        rag_hits=3,
+    )
+    assert "docs/rag" in rag_footer
+

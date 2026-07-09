@@ -55,3 +55,48 @@ def test_format_dual_wraps_blocks() -> None:
         assert "**Prompt:**" in out
         assert "**Short version for agent:**" in out
         assert "short" in out
+
+
+@allure.story("Heuristic")
+@allure.title("Heuristic compression keeps short prompts unchanged")
+def test_compress_heuristic_short_unchanged() -> None:
+    text = "One line only."
+    assert compress_heuristic(text) == text
+
+
+@allure.story("Heuristic")
+@allure.title("Heuristic compression splits long sentences")
+def test_compress_heuristic_splits_long() -> None:
+    long = "Goal A. " + "detail " * 30 + ". Constraint B."
+    short = compress_heuristic(long)
+    assert "Goal A" in short
+    assert short.endswith(".")
+
+
+@allure.story("Ollama")
+@allure.title("compress_ollama_detail calls stub server")
+def test_compress_ollama_detail(ollama_stub: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    from greedy_token.prompt_compress import compress_ollama, compress_ollama_detail
+
+    monkeypatch.setenv("OLLAMA_URL", ollama_stub)
+    monkeypatch.setenv("OLLAMA_MODEL", "stub-model")
+    text = "Fix baseUrl in configurator forms."
+    short, eval_tokens = compress_ollama_detail(text)
+    assert short
+    assert compress_ollama(text) == short
+
+
+@allure.story("Ollama")
+@allure.title("compress_prompt_detail falls back on Ollama failure")
+def test_compress_prompt_ollama_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    from greedy_token.prompt_compress import compress_prompt, compress_prompt_detail
+
+    def boom(*args, **kwargs):
+        raise OSError("down")
+
+    monkeypatch.setattr("greedy_token.prompt_compress.compress_ollama_detail", boom)
+    short, tokens = compress_prompt_detail("Do X.\nWhy: because.", use_ollama=True)
+    assert "Ollama failed" in short
+    assert tokens is None
+    assert compress_prompt("Do X.", use_ollama=True).startswith("# Ollama failed")
+

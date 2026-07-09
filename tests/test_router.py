@@ -71,3 +71,61 @@ def test_route_task_all_tiers_has_five_rows(minimal_workspace: Path) -> None:
     with allure.step("Verify five executor rows in order"):
         assert len(tiers) == 5
         assert [t[0] for t in tiers] == ["tool", "python", "ollama", "rag", "cursor"]
+
+
+@allure.story("Format decision")
+@allure.title("format_decision includes command, domains, and cursor hint")
+def test_format_decision_full(minimal_workspace: Path) -> None:
+    from greedy_token.router import RouteDecision, format_decision
+
+    rag_decision = RouteDecision(
+        target="rag",
+        route_id="rag-lookup",
+        confidence=0.9,
+        matched=["rag"],
+        command=None,
+        note="extra note",
+        domains=["e2e"],
+        complexity="low",
+        est_tokens=100,
+        rationale="lookup docs",
+    )
+    rag_out = format_decision(rag_decision, "baseUrl flag", minimal_workspace)
+    assert "RAG domains" in rag_out
+    assert "greedy-token rag" in rag_out
+
+    tool_decision = RouteDecision(
+        target="tool",
+        route_id="tool-rg",
+        confidence=0.9,
+        matched=["find"],
+        command="rg needle",
+        note="",
+        domains=[],
+        complexity="low",
+        est_tokens=0,
+        rationale="search",
+        read_only=True,
+    )
+    tool_out = format_decision(tool_decision, "find needle", minimal_workspace)
+    assert "Command:" in tool_out
+    assert "read-only" in tool_out
+
+    cursor_out = format_decision(
+        RouteDecision(
+            target="cursor",
+            route_id="cursor-fallback",
+            confidence=0.3,
+            matched=[],
+            command=None,
+            note="",
+            domains=[],
+            complexity="high",
+            est_tokens=9000,
+            rationale="wiring",
+        ),
+        "refactor header",
+        minimal_workspace,
+    )
+    assert "New Cursor chat" in cursor_out
+

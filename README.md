@@ -157,10 +157,15 @@ Requires **Python 3.12+** (same as CI). GitHub Actions runs **pytest + Allure 3*
 cd projects/greedy-token-home/dev && ./scripts/install.sh
 source .venv/bin/activate
 cd ../greedy-token
-python -m pytest tests/ -v --alluredir=build/allure-results
+python -m coverage run -m pytest tests/ -v --alluredir=build/allure-results
+python -m coverage report --include='src/greedy_token/*'
 npx --yes allure@3.13.0 quality-gate build/allure-results --config allurerc.mjs
 npx --yes allure@3.13.0 generate build/allure-results --config allurerc.mjs -o build/allure-report
 ```
+
+**Coverage:** `fail_under = 100` on `src/greedy_token/` (see `[tool.coverage.report]` in `pyproject.toml`). CI runs `coverage run` + `coverage report` on every push/PR.
+
+**Pyramid slices:** layer per module in `tests/pyramid_layers.py` → Allure label `layer` + pytest marker (`-m unit|component|integration|e2e`). CI matrix job `pyramid` runs each slice separately.
 
 Optional integration tests (real monorepo files) run when the checkout includes `stacks/java-spring/`; set `GREEDY_TOKEN_ROOT` to override the workspace root.
 
