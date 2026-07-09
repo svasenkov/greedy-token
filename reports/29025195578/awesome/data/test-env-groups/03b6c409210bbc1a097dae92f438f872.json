@@ -1,1 +1,0 @@
-{"id":"03b6c409210bbc1a097dae92f438f872","fullName":"tests.test_cli_handlers#test_main_config_skips_ollama_env","name":"main skips apply_ollama_env for config subcommand","status":"passed","testResultsByEnv":{"default":"583ecce4ecb716aae679ae1a36a2dbcb"}}

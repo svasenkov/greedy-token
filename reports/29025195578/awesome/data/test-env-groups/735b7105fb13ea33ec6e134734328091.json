@@ -1,1 +1,0 @@
-{"id":"735b7105fb13ea33ec6e134734328091","fullName":"tests.test_rag_index#test_index_invalidates_on_chunk_edit","name":"Index invalidates when chunk file is edited","status":"passed","testResultsByEnv":{"default":"cbbe865198132aa3b8abf88a14d07f64"}}

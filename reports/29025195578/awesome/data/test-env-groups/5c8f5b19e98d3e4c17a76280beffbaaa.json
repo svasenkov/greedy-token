@@ -1,1 +1,0 @@
-{"id":"5c8f5b19e98d3e4c17a76280beffbaaa","fullName":"tests.test_cli_handlers#test_cmd_scripts_run_dry","name":"cmd_scripts --run dry-run prints command","status":"passed","testResultsByEnv":{"default":"e7340261f8da7a597a1c65e462e6f0dd"}}

@@ -1,1 +1,0 @@
-{"id":"c8b3e8cba0a5027f8d2a13ab616362d0","fullName":"tests.test_coverage_gaps#test_format_tool_footer_ollama_unavailable","name":"format_tool_footer marks unavailable Ollama in tier alternatives","status":"passed","testResultsByEnv":{"default":"4ab2054d1c27144389e1860d2bbd3a6e"}}
