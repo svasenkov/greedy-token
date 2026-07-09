@@ -33,7 +33,7 @@ Bump `actions/*` versions in `_ethalon/gha-actions.yaml` first, then apply to al
 
 ## Coverage gate
 
-`fail_under = 100` in `pyproject.toml` `[tool.coverage.report]`. CI step **Coverage report** runs after pytest (`coverage run` → `coverage report`). Update the job summary line when the threshold changes.
+`fail_under = 100` in `pyproject.toml` `[tool.coverage.report]` with `branch = true` in `[tool.coverage.run]`. CI on every push/PR: `coverage run` + `coverage report`.
 
 ## Pyramid slices
 

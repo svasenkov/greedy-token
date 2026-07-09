@@ -6,6 +6,7 @@ from __future__ import annotations
 LAYER_BY_MODULE: dict[str, str] = {
     # unit — pure logic, no subprocess / external IO
     "test_budget": "unit",
+    "test_branch_coverage": "unit",
     "test_cli_handlers": "unit",
     "test_context_audit": "unit",
     "test_estimator": "unit",

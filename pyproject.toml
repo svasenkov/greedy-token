@@ -48,7 +48,7 @@ markers = [
 
 [tool.coverage.run]
 source = ["src/greedy_token"]
-branch = false
+branch = true
 
 [tool.coverage.report]
 fail_under = 100

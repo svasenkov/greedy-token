@@ -149,7 +149,7 @@ Global: `--no-log` disables telemetry for one invocation.
 
 ## Testing
 
-Requires **Python 3.12+** (same as CI). GitHub Actions runs **pytest + Allure 3** (quality gate, GitHub Pages report; optional TestOps upload when repo vars are set).
+Requires **Python 3.12+** (same as CI). GitHub Actions runs **pytest + Allure 3** (quality gate, GitHub Pages report; optional TestOps upload when repo vars are set). Line and **branch** coverage on `src/greedy_token/` must stay at **100%** (`branch = true`, `fail_under = 100`).
 
 **CI ethalon:** `.github/_ethalon/` (action pins in `gha-actions.yaml`) → runnable `.github/workflows/`. Same pattern as monorepo `tests-java/.github/_ethalon/`. Sync: `./scripts/sync-github-workflows.sh`; CI runs `./scripts/check-github-workflows-sync.sh` before pytest.
 
@@ -163,7 +163,7 @@ npx --yes allure@3.13.0 quality-gate build/allure-results --config allurerc.mjs
 npx --yes allure@3.13.0 generate build/allure-results --config allurerc.mjs -o build/allure-report
 ```
 
-**Coverage:** `fail_under = 100` on `src/greedy_token/` (see `[tool.coverage.report]` in `pyproject.toml`). CI runs `coverage run` + `coverage report` on every push/PR.
+**Coverage:** `branch = true` and `fail_under = 100` on `src/greedy_token/` (see `[tool.coverage.run]` / `[tool.coverage.report]` in `pyproject.toml`). CI runs `coverage run` + `coverage report` on every push/PR.
 
 **Pyramid slices:** layer per module in `tests/pyramid_layers.py` → Allure label `layer` + pytest marker (`-m unit|component|integration|e2e`). CI matrix job `pyramid` runs each slice separately.
 

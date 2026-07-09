@@ -179,12 +179,12 @@ jobs:
           fi
           echo "- TestOps project: [5276](https://allure.autotests.cloud/project/5276)" >> "$GITHUB_STEP_SUMMARY"
           if [ "${QUALITY_GATE_EXIT:-}" = "0" ]; then
-            echo "- Allure 3 quality gate: passed (\`maxFailures: 0\`, \`minTestsCount: 275\`)" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Allure 3 quality gate: passed (\`maxFailures: 0\`, \`minTestsCount: 287\`)" >> "$GITHUB_STEP_SUMMARY"
           elif [ -n "${QUALITY_GATE_EXIT:-}" ]; then
             echo "- Allure 3 quality gate: **failed** (exit ${QUALITY_GATE_EXIT})" >> "$GITHUB_STEP_SUMMARY"
           fi
           if [ "${COVERAGE_EXIT:-}" = "0" ]; then
-            echo "- Line coverage: **100%** (\`src/greedy_token/\`, \`fail_under=100\`)" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Line coverage: **100%** (\`src/greedy_token/\`, lines + branches, \`fail_under=100\`)" >> "$GITHUB_STEP_SUMMARY"
           elif [ -n "${COVERAGE_EXIT:-}" ]; then
             echo "- Line coverage: **failed** (exit ${COVERAGE_EXIT})" >> "$GITHUB_STEP_SUMMARY"
           fi
