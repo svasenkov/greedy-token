@@ -1,0 +1,1 @@
+{"id":"4032b2ddd1f058c887390a9c7e8335ea","fullName":"tests.test_coverage_gaps#test_init_version_fallback","name":"__init__ falls back when package metadata is unavailable","status":"passed","testResultsByEnv":{"default":"f3af8933ce47a692acc19a4769b3fb35"}}

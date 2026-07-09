@@ -1,1 +1,0 @@
-{"id":"cf827acad4c3fea1b1e28c2447a99234","fullName":"tests.test_coverage_gaps#test_resolve_wrapper_missing_script","name":"resolve_wrapper_command raises when script file missing","status":"passed","testResultsByEnv":{"default":"82c488adb22401c22c58cdfb73cd52be"}}

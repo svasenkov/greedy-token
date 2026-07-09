@@ -1,1 +1,0 @@
-{"id":"6a4d592a4e18ee94bf605f0602c75864","fullName":"tests.test_tokens#test_collect_paths_skips_git","name":"Path collector skips .git directories","status":"passed","testResultsByEnv":{"default":"d3c10ec210af94e136fd1fe29c4ef70a"}}

@@ -1,0 +1,1 @@
+{"id":"fdfb486d3f08aa9256f9bb0bf71085ae","fullName":"tests.test_code_search#test_resolve_search_path_ambiguous_glob","name":"resolve_search_path returns None when multiple glob matches","status":"passed","testResultsByEnv":{"default":"a15a37978b0f92332fec4bef87081061"}}

@@ -1,1 +1,0 @@
-{"id":"e6bb8d71c359343749616c25f1b04cbf","fullName":"tests.test_settings#test_read_yaml_missing","name":"_read_yaml returns empty dict for missing file","status":"passed","testResultsByEnv":{"default":"c030bd84f84938be8e5699f26647c0d4"}}

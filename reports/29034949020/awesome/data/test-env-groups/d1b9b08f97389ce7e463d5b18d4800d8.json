@@ -1,0 +1,1 @@
+{"id":"d1b9b08f97389ce7e463d5b18d4800d8","fullName":"tests.test_cli_handlers#test_cmd_route","name":"cmd_route prints decision and returns zero","status":"passed","testResultsByEnv":{"default":"cc23fa2b735c6b0f2f992602c0610825"}}

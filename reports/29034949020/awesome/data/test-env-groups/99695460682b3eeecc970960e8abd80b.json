@@ -1,0 +1,1 @@
+{"id":"99695460682b3eeecc970960e8abd80b","fullName":"tests.test_paths#test_load_routes_config","name":"load_routes_config reads bundled routes.yaml","status":"passed","testResultsByEnv":{"default":"92b0015439fa8ee5a63088ab7ff93c5f"}}

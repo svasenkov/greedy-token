@@ -1,0 +1,1 @@
+{"id":"2c210fb8b974694d0119ca1ee98d510c","fullName":"tests.test_branch_coverage#test_tool_paths_empty_path_segment","name":"Branch gaps: rg candidates skip empty PATH segment","status":"passed","testResultsByEnv":{"default":"8f36923b88d268ae5847276880a5fbea"}}

@@ -1,0 +1,1 @@
+{"id":"72dd07909f8b716ef685b6d8735f16ea","fullName":"tests.test_coverage_gaps#test_collect_paths_broken_symlink","name":"collect_paths skips broken symlinks","status":"passed","testResultsByEnv":{"default":"a25cd7de3f2140fe0a02f9d75c0f21d0"}}
