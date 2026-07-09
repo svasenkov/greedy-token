@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import allure
 import pytest
+from allure_commons._allure import fixture as allure_fixture_wrapper
 
 from tests.ollama_stub import clear_ollama_probe_cache, install_ollama_scripts, ollama_stub_server
 from tests.pyramid_layers import layer_for_module
@@ -20,6 +22,25 @@ def _discover_monorepo_root() -> Path | None:
     return None
 
 
+def _humanize_fixture_teardown(fixture_name: str, finalizer_name: str | int) -> str:
+    suffix = str(finalizer_name)
+    if suffix in ("<lambda>", "1") or suffix.isdigit():
+        return f"Cleanup {fixture_name}"
+    return f"{fixture_name}::{suffix}"
+
+
+@pytest.hookimpl(hookwrapper=True, tryfirst=True)
+def pytest_fixture_setup(fixturedef, request):
+    """Rename pytest builtin finalizers (<lambda>, ::1) for readable Allure teardown."""
+    yield
+    fixture_name = getattr(fixturedef.func, "__allure_display_name__", fixturedef.argname)
+    for finalizer in getattr(fixturedef, "_finalizers", []):
+        if isinstance(finalizer, allure_fixture_wrapper):
+            raw = finalizer._name.split("::", 1)[-1]
+            finalizer._name = _humanize_fixture_teardown(fixture_name, raw)
+
+
+@allure.title("Monorepo workspace")
 @pytest.fixture
 def monorepo_root(monkeypatch: pytest.MonkeyPatch) -> Path:
     root = _discover_monorepo_root()
@@ -29,6 +50,7 @@ def monorepo_root(monkeypatch: pytest.MonkeyPatch) -> Path:
     return root
 
 
+@allure.title("Minimal workspace")
 @pytest.fixture
 def minimal_workspace(tmp_path: Path) -> Path:
     (tmp_path / "docs").mkdir()
@@ -74,6 +96,7 @@ def minimal_workspace(tmp_path: Path) -> Path:
     return tmp_path
 
 
+@allure.title("Ollama stub server")
 @pytest.fixture
 def ollama_stub(monkeypatch: pytest.MonkeyPatch) -> str:
     clear_ollama_probe_cache()
@@ -85,12 +108,27 @@ def ollama_stub(monkeypatch: pytest.MonkeyPatch) -> str:
     clear_ollama_probe_cache()
 
 
+@allure.title("Workspace with Ollama scripts")
 @pytest.fixture
 def ollama_workspace(minimal_workspace: Path, ollama_stub: str) -> Path:
     install_ollama_scripts(minimal_workspace)
     return minimal_workspace
 
 
+@allure.title("Clear local LLM env")
+@pytest.fixture(autouse=True)
+def _clear_local_llm_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    for key in (
+        "OLLAMA_URL",
+        "OLLAMA_MODEL",
+        "LOCAL_LLM_PROVIDER",
+        "LOCAL_LLM_URL",
+        "LOCAL_LLM_MODEL",
+    ):
+        monkeypatch.delenv(key, raising=False)
+
+
+@allure.title("Set GREEDY_TOKEN_ROOT")
 @pytest.fixture(autouse=True)
 def _greedy_token_root_env(monkeypatch: pytest.MonkeyPatch, minimal_workspace: Path) -> None:
     monkeypatch.setenv("GREEDY_TOKEN_ROOT", str(minimal_workspace))
