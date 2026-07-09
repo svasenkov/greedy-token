@@ -1,0 +1,1 @@
+{"id":"0f014709178c3611dd0c57a26762a4f8","fullName":"tests.test_paths#test_find_monorepo_root_not_found","name":"find_monorepo_root exits when markers are absent","status":"passed","testResultsByEnv":{"default":"f6d9de3b17b7e1d51c05fe0829d1e8e0"}}

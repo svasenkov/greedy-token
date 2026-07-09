@@ -1,0 +1,1 @@
+{"id":"91bc2ee070bdf2df8b722d489206b1fb","fullName":"tests.test_rag_search#test_format_hits_empty","name":"RAG hit formatter reports no hits with manifest hint","status":"passed","testResultsByEnv":{"default":"7ba378f1d6879e6b43a79cede5d89e87"}}

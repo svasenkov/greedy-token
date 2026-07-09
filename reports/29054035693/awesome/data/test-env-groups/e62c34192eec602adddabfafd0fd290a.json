@@ -1,0 +1,1 @@
+{"id":"e62c34192eec602adddabfafd0fd290a","fullName":"tests.test_wrappers#test_ollama_available_false","name":"Ollama availability returns false when server is down","status":"passed","testResultsByEnv":{"default":"ab68ff751a2481b742e18b4f720c6858"}}

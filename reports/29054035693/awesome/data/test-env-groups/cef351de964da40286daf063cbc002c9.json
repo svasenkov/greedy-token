@@ -1,0 +1,1 @@
+{"id":"cef351de964da40286daf063cbc002c9","fullName":"tests.test_cli_commands#test_cli_compress_stdin","name":"CLI compress reads stdin and prints short prompt","status":"passed","testResultsByEnv":{"default":"387e0528768c2897c89e06ad44af1406"}}
