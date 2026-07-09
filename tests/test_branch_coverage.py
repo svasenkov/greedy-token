@@ -377,3 +377,55 @@ def test_usage_branch_gaps(minimal_workspace: Path) -> None:
     assert "Top routes:" not in report
     assert "Token counter:" not in report
     assert "Events: 1" in report
+
+
+@allure.title("Branch gaps: Ollama-available paths and scoped rg fallback")
+def test_ci_linux_branch_gaps(minimal_workspace: Path) -> None:
+    from greedy_token.budget import _format_tier_alternatives
+    from greedy_token.estimator import estimate_task
+    from greedy_token.wrappers import ollama_status_line
+
+    with patch("greedy_token.budget.ollama_available", return_value=True):
+        tier_lines = _format_tier_alternatives(
+            "audit skill configurator-boolean",
+            minimal_workspace,
+            selected="tool",
+        )
+    assert any("0 cloud" in line for line in tier_lines)
+
+    ollama_decision = RouteDecision(
+        target="ollama",
+        route_id="ollama-audit",
+        confidence=1.0,
+        matched=["audit"],
+        command="./scripts/ollama/audit-skill.sh",
+        note="",
+        domains=[],
+        complexity="medium",
+        est_tokens=0,
+        rationale="Local Ollama",
+    )
+    with patch("greedy_token.estimator.route_task", return_value=ollama_decision):
+        with patch("greedy_token.estimator.ollama_available", return_value=False):
+            with patch(
+                "greedy_token.estimator.ollama_status_line",
+                return_value="Ollama: unavailable (test)",
+            ):
+                est = estimate_task("audit skill", minimal_workspace)
+    assert est.ollama_note == "Ollama: unavailable (test)"
+
+    with patch("greedy_token.wrappers.ollama_available", return_value=True):
+        available_line = ollama_status_line()
+    assert "available" in available_line
+
+    scoped = minimal_workspace / "projects" / "scoped-search.js"
+    scoped.write_text("needle_ci_branch\n", encoding="utf-8")
+    with patch("greedy_token.code_search.resolve_rg", return_value=Path("/usr/bin/rg")):
+        with patch("greedy_token.code_search._run_rg", return_value=(1, "")):
+            scoped_result = search_code(
+                "needle_ci_branch",
+                minimal_workspace,
+                path="projects/scoped-search.js",
+            )
+    assert scoped_result.engine == "python"
+    assert "python file scan" in scoped_result.text
