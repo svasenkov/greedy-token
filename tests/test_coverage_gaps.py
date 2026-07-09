@@ -29,7 +29,7 @@ def test_init_version_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr("importlib.metadata.version", boom)
     mod = importlib.reload(importlib.import_module("greedy_token"))
-    assert mod.__version__ == "0.4.6"
+    assert mod.__version__ == "0.5.0"
 
 
 @allure.title("__main__ entrypoint invokes cli.main when executed as script")
