@@ -1,1 +1,1 @@
-{"id":"f09423c8b3b696de00fa00624a2b75df","fullName":"tests.test_budget#test_format_tool_footer_cursor_no_savings","name":"Cursor tier footer shows zero savings","status":"passed","testResultsByEnv":{"default":"5011ec546bb02a35ef535f5e47758f9d"}}
+{"id":"f09423c8b3b696de00fa00624a2b75df","fullName":"tests.test_budget#test_format_tool_footer_cursor_no_savings","name":"Cursor tier footer shows zero savings","status":"passed","testResultsByEnv":{"default":"38a821ca01e5a1c177b348f8b6d3454e"}}

@@ -1,1 +1,1 @@
-{"id":"9d406585b00aadad42ed17c3c486047d","fullName":"tests.test_cli_handlers#test_main_raises_system_exit","name":"main raises SystemExit with handler return code","status":"passed","testResultsByEnv":{"default":"22ebcecf35a9d227f189927a85573f19"}}
+{"id":"9d406585b00aadad42ed17c3c486047d","fullName":"tests.test_cli_handlers#test_main_raises_system_exit","name":"main raises SystemExit with handler return code","status":"passed","testResultsByEnv":{"default":"42200cdcf574ee056ba5f3dd0c5a0522"}}

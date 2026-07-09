@@ -1,1 +1,1 @@
-{"id":"31610bde0e734830330ac72f6c00e1ac","fullName":"tests.test_coverage_gaps#test_mcp_icons_missing","name":"mcp_icons raises when static assets missing","status":"passed","testResultsByEnv":{"default":"a6450c26916fec8b652cc7ed0c045a1a"}}
+{"id":"31610bde0e734830330ac72f6c00e1ac","fullName":"tests.test_coverage_gaps#test_mcp_icons_missing","name":"mcp_icons raises when static assets missing","status":"passed","testResultsByEnv":{"default":"c43e211749c6596d6482ef8be662541f"}}

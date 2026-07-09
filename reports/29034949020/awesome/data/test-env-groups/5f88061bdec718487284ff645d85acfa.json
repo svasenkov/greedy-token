@@ -1,1 +1,1 @@
-{"id":"5f88061bdec718487284ff645d85acfa","fullName":"tests.test_mcp_tools#test_mcp_usage_empty_log","name":"MCP usage tool reports empty log gracefully","status":"passed","testResultsByEnv":{"default":"f669f13dfd52827a4f934314aefc1e0b"}}
+{"id":"5f88061bdec718487284ff645d85acfa","fullName":"tests.test_mcp_tools#test_mcp_usage_empty_log","name":"MCP usage tool reports empty log gracefully","status":"passed","testResultsByEnv":{"default":"468a6ae03fa0ecc0a4a7db6f6a6a4d21"}}

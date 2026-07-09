@@ -1,1 +1,1 @@
-{"id":"91bc2ee070bdf2df8b722d489206b1fb","fullName":"tests.test_rag_search#test_format_hits_empty","name":"RAG hit formatter reports no hits with manifest hint","status":"passed","testResultsByEnv":{"default":"c00b8dfc6ba6fb07bc856efb012b5124"}}
+{"id":"91bc2ee070bdf2df8b722d489206b1fb","fullName":"tests.test_rag_search#test_format_hits_empty","name":"RAG hit formatter reports no hits with manifest hint","status":"passed","testResultsByEnv":{"default":"c3df43b75e8698a574a1253c6253b749"}}

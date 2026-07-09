@@ -1,1 +1,1 @@
-{"id":"836948a7db5e8240b4eec9a9a76d5ad3","fullName":"tests.test_usage#test_cursor_saved_cursor","name":"Cursor savings is zero for cursor tier","status":"passed","testResultsByEnv":{"default":"5f17ee27bad99baef8b649178bcf78c9"}}
+{"id":"836948a7db5e8240b4eec9a9a76d5ad3","fullName":"tests.test_usage#test_cursor_saved_cursor","name":"Cursor savings is zero for cursor tier","status":"passed","testResultsByEnv":{"default":"3a73f4098b188fdbffb1e654a99eb150"}}
