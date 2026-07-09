@@ -1,0 +1,1 @@
+{"id":"deffb40317e8eb11dda49cc9d29f4927","fullName":"tests.test_code_search#test_resolve_search_path_empty","name":"resolve_search_path returns None for empty hint","status":"passed","testResultsByEnv":{"default":"0253dd76cec0c1a581bf8d0a5d7b72cf"}}

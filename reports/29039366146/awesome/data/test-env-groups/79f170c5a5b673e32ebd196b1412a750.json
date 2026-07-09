@@ -1,0 +1,1 @@
+{"id":"79f170c5a5b673e32ebd196b1412a750","fullName":"tests.test_wrappers#test_ollama_available_true","name":"Ollama availability returns true when /api/tags responds","status":"passed","testResultsByEnv":{"default":"b01a3c5c718e7f8a4af39277ac85c674"}}

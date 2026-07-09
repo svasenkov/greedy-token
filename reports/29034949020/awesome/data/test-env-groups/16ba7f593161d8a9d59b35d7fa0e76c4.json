@@ -1,1 +1,0 @@
-{"id":"16ba7f593161d8a9d59b35d7fa0e76c4","fullName":"tests.test_prompt_compress#test_compress_heuristic_short_unchanged","name":"Heuristic compression keeps short prompts unchanged","status":"passed","testResultsByEnv":{"default":"a301a1f085c35673d846d59561f10356"}}

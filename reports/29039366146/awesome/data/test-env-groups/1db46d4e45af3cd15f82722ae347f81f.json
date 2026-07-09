@@ -1,0 +1,1 @@
+{"id":"1db46d4e45af3cd15f82722ae347f81f","fullName":"tests.test_cli_handlers#test_main_tolerates_missing_root","name":"main tolerates missing workspace during apply_ollama_env","status":"passed","testResultsByEnv":{"default":"07ee073228a6a9220aa32f4bbee746c0"}}

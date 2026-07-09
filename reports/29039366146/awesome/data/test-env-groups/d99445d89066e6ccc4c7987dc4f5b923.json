@@ -1,0 +1,1 @@
+{"id":"d99445d89066e6ccc4c7987dc4f5b923","fullName":"tests.test_cli_handlers#test_cmd_config_init_exists","name":"cmd_config --init returns error when config exists","status":"passed","testResultsByEnv":{"default":"36b7d7c26be78e89213aac6d873dedbf"}}
