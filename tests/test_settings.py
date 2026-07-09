@@ -10,8 +10,9 @@ import yaml
 from greedy_token.settings import (
     DEFAULT_OLLAMA_MODEL,
     DEFAULT_OLLAMA_URL,
-    _resolve_ollama,
+    _resolve_cheap_llm,
     format_shell_export,
+    get_cheap_llm_settings,
     get_ollama_settings,
     init_user_config,
     user_config_path,
@@ -37,7 +38,7 @@ def test_defaults_without_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
         lambda: tmp_path / "missing.yaml",
     )
     with allure.step("Load Ollama settings without config files"):
-        settings = get_ollama_settings(tmp_path)
+        settings = get_cheap_llm_settings(tmp_path)
         attach_json("settings", {"url": settings.url, "model": settings.model, "source": settings.source})
     with allure.step("Verify default Ollama settings"):
         assert settings.url == DEFAULT_OLLAMA_URL
@@ -53,7 +54,7 @@ def test_workspace_config_overrides_user(tmp_path: Path, monkeypatch: pytest.Mon
     user_cfg = {"ollama": {"url": "http://user:11434", "model": "user-model"}}
     workspace_cfg = {"ollama": {"url": "http://workspace:11434", "model": "workspace-model"}}
     with allure.step("Resolve Ollama settings with user and workspace configs"):
-        settings = _resolve_ollama(user_cfg=user_cfg, workspace_cfg=workspace_cfg, root=tmp_path)
+        settings = _resolve_cheap_llm(user_cfg=user_cfg, workspace_cfg=workspace_cfg, root=tmp_path)
         attach_json("settings", {"url": settings.url, "model": settings.model, "source": settings.source})
     with allure.step("Verify workspace config takes precedence"):
         assert settings.url == "http://workspace:11434"
@@ -67,7 +68,7 @@ def test_env_overrides_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setenv("OLLAMA_URL", "http://env:11434")
     monkeypatch.setenv("OLLAMA_MODEL", "env-model")
     with allure.step("Resolve Ollama settings with env overrides"):
-        settings = _resolve_ollama(
+        settings = _resolve_cheap_llm(
             user_cfg={"ollama": {"url": "http://user:11434", "model": "user-model"}},
             workspace_cfg={"ollama": {"url": "http://workspace:11434", "model": "workspace-model"}},
             root=tmp_path,
@@ -91,8 +92,10 @@ def test_init_user_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
         attach_json("config data", data)
     with allure.step("Verify config file contents"):
         assert created == cfg_path
+        assert data["cheap_llm"]["url"] == "http://custom:11434"
+        assert data["cheap_llm"]["model"] == "custom-model"
+        assert data["cheap_llm"]["provider"] == "ollama"
         assert data["ollama"]["url"] == "http://custom:11434"
-        assert data["ollama"]["model"] == "custom-model"
 
 
 @allure.story("Shell export")
@@ -108,6 +111,7 @@ def test_format_shell_export() -> None:
     with allure.step("Verify OLLAMA env exports"):
         assert 'export OLLAMA_URL="http://localhost:11434"' in out
         assert 'export OLLAMA_MODEL="llama3"' in out
+        assert 'export CHEAP_LLM_PROVIDER="ollama"' in out
 
 
 @allure.story("Paths")
@@ -141,11 +145,17 @@ def test_read_yaml_non_dict(tmp_path: Path) -> None:
 @allure.story("Config display")
 @allure.title("format_config lists config file paths")
 def test_format_config(minimal_workspace: Path) -> None:
-    from greedy_token.settings import OllamaSettings, format_config
+    from greedy_token.settings import CheapLlmSettings, format_config
 
-    settings = OllamaSettings(url="http://localhost:11434", model="m", source="default")
+    settings = CheapLlmSettings(
+        provider="ollama",
+        url="http://localhost:11434",
+        model="m",
+        source="default",
+    )
     out = format_config(settings, root=minimal_workspace)
-    assert "greedy-token Ollama settings" in out
+    assert "greedy-token cheap LLM settings" in out
+    assert "provider:" in out
     assert ".greedy-token.yaml" in out
 
 
@@ -184,6 +194,17 @@ def test_example_workspace_config() -> None:
     from greedy_token.settings import example_workspace_config
 
     text = example_workspace_config()
-    assert "ollama:" in text
+    assert "cheap_llm:" in text
     assert DEFAULT_OLLAMA_URL in text
+
+
+@allure.story("Alias")
+@allure.title("get_ollama_settings returns url/model alias of cheap_llm settings")
+def test_get_ollama_settings_alias(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OLLAMA_URL", raising=False)
+    monkeypatch.delenv("OLLAMA_MODEL", raising=False)
+    settings = get_ollama_settings(tmp_path)
+    local = get_cheap_llm_settings(tmp_path)
+    assert settings.url == local.url
+    assert settings.model == local.model
 

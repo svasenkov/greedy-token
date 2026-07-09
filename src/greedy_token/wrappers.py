@@ -1,15 +1,21 @@
 from __future__ import annotations
 
-import json
-import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from greedy_token.settings import get_ollama_settings
+from greedy_token.cheap_llm import (
+    CHEAP_LLM_PROBE_TTL,
+    _cheap_llm_probe_cache,
+    clear_cheap_llm_probe_cache,
+    cheap_llm_available,
+    cheap_llm_status_line,
+)
+from greedy_token.settings import CheapLlmSettings, get_cheap_llm_settings
 from greedy_token.tool_paths import root_cd_prefix, shell_args
 
-OLLAMA_PROBE_TTL = 3.0
-_ollama_probe_cache: dict[str, tuple[float, bool]] = {}
+# Backward-compat aliases for tests and external callers
+OLLAMA_PROBE_TTL = CHEAP_LLM_PROBE_TTL
+_ollama_probe_cache = _cheap_llm_probe_cache
 
 
 @dataclass(frozen=True)
@@ -36,7 +42,7 @@ WRAPPERS: dict[str, ScriptWrapper] = {
         category="ollama",
         read_only=False,
         requires_ollama=True,
-        note="Bulk classify via local LLM",
+        note="Bulk classify via cheap LLM",
     ),
     "audit-skill": ScriptWrapper(
         id="audit-skill",
@@ -103,30 +109,16 @@ def resolve_wrapper_command(wrapper_id: str, root: Path, *, extra_args: str = ""
 
 
 def ollama_available(url: str | None = None, timeout: float = 2.0) -> bool:
-    import urllib.error
-    import urllib.request
-
-    base = (url or get_ollama_settings().url).rstrip("/")
-    now = time.monotonic()
-    cached = _ollama_probe_cache.get(base)
-    if cached is not None and now - cached[0] < OLLAMA_PROBE_TTL:
-        return cached[1]
-
-    try:
-        req = urllib.request.Request(f"{base}/api/tags")
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            json.load(resp)
-        ok = True
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError):
-        ok = False
-    _ollama_probe_cache[base] = (now, ok)
-    return ok
+    settings = get_cheap_llm_settings()
+    if url is not None:
+        settings = CheapLlmSettings(
+            provider=settings.provider,
+            url=url.rstrip("/"),
+            model=settings.model,
+            source=settings.source,
+        )
+    return cheap_llm_available(settings, timeout=timeout)
 
 
 def ollama_status_line() -> str:
-    settings = get_ollama_settings()
-    url = settings.url
-    model = settings.model
-    if ollama_available(url):
-        return f"Ollama: available ({url}, model={model})"
-    return f"Ollama: unavailable ({url}) — ollama routes need local server or skip to cursor"
+    return cheap_llm_status_line(get_cheap_llm_settings())

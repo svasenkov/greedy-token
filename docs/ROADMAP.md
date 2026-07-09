@@ -12,8 +12,8 @@ Track progress: [GitHub issues labeled `roadmap`](https://github.com/svasenkov/g
 
 | Theme | Goal | Tracking |
 |-------|------|----------|
-| **local_llm** | `provider: ollama \| openai_compat` — one config for Ollama and OpenAI-compatible servers | [#2](https://github.com/svasenkov/greedy-token/issues/2) |
-| **cloud_llm** | Optional cheap cloud executor for bulk classify / audit (off agent chat) | [#3](https://github.com/svasenkov/greedy-token/issues/3) |
+| **cheap_llm** | `provider: ollama \| openai_compat` — one config for Ollama and OpenAI-compatible servers | ✅ [#2](https://github.com/svasenkov/greedy-token/issues/2) (v0.5.0) |
+| **expensive_llm** | Metered agent / API path (Cursor today; optional paid agent APIs) — not bulk classify | [#3](https://github.com/svasenkov/greedy-token/issues/3) |
 | **mcp_hosts** | Document and test MCP beyond Cursor | [#14](https://github.com/svasenkov/greedy-token/issues/14), [#15](https://github.com/svasenkov/greedy-token/issues/15) |
 
 ## v0.6 themes
@@ -38,13 +38,11 @@ Track progress: [GitHub issues labeled `roadmap`](https://github.com/svasenkov/g
 
 `route` / `estimate` can recommend escalation to a paid agent; greedy-token does **not** call paid APIs as an executor today.
 
-### cloud_llm executor — acceptance criteria
+### expensive_llm path — acceptance criteria
 
-- Config: `cloud_llm.provider`, `api_key` env, `model`, optional `base_url`
-- Tier `cloud_llm` between `ollama` and `cursor` in `routes.yaml`
-- Scripts `audit-skill`, `classify-file`, `batch-inventory` can target cloud when Ollama unavailable
-- Token footer: real API token estimate + billing note (not Cursor baseline only)
-- Opt-in only — no silent cloud calls
+- Label in footers/docs: **expensive LLM** = full agent chat (Cursor) or metered agent API
+- Config (optional, v0.5+): `expensive_llm.provider`, `api_key` env, `model` for non-Cursor agent hosts
+- Opt-in only for any paid API calls — no silent spend
 
 ## Free / local
 
@@ -53,30 +51,32 @@ Track progress: [GitHub issues labeled `roadmap`](https://github.com/svasenkov/g
 | **Ollama** (localhost) | `/api/chat`, `/api/tags` | ✅ | ✅ | ✅ | — |
 | **Ollama** (remote `OLLAMA_URL`) | same | ✅ | ✅ | ✅ | — |
 | **Open models via Ollama** (Qwen, Llama, Mistral, …) | via Ollama | ✅ | ✅ | ✅ | — |
-| **LM Studio** | OpenAI `/v1/chat/completions` | — | — | ❌ 🔜 | [#4](https://github.com/svasenkov/greedy-token/issues/4) |
-| **llama.cpp server** | OpenAI-compatible | — | — | ❌ 🔜 | [#5](https://github.com/svasenkov/greedy-token/issues/5) |
-| **vLLM / TGI** | OpenAI-compatible | — | — | ❌ 🔜 | [#6](https://github.com/svasenkov/greedy-token/issues/6) |
+| **LM Studio** | OpenAI `/v1/chat/completions` | ✅ via `openai_compat` | ✅ | ✅ adapter · 🔜 docs | [#4](https://github.com/svasenkov/greedy-token/issues/4) |
+| **llama.cpp server** | OpenAI-compatible | ✅ via `openai_compat` | ✅ | ✅ adapter · 🔜 docs | [#5](https://github.com/svasenkov/greedy-token/issues/5) |
+| **vLLM / TGI** | OpenAI-compatible | ✅ via `openai_compat` | ✅ | ✅ adapter · 🔜 docs | [#6](https://github.com/svasenkov/greedy-token/issues/6) |
 | **MLX** (Apple Silicon) | native / via Ollama | partial | partial | ❌ 🔜 | [#7](https://github.com/svasenkov/greedy-token/issues/7) |
 | **GPT4All / Jan** | own local API | — | — | ❌ | [#8](https://github.com/svasenkov/greedy-token/issues/8) |
 
-### local_llm abstraction — acceptance criteria
+### cheap_llm abstraction — acceptance criteria
+
+**Shipped in v0.5.0** ([#2](https://github.com/svasenkov/greedy-token/issues/2)). Tier route id stays `ollama`.
 
 ```yaml
-# ~/.greedy-token/config.yaml (proposed)
-local_llm:
+# ~/.greedy-token/config.yaml
+cheap_llm:
   provider: ollama          # ollama | openai_compat
   url: http://localhost:11434
   model: qwen2.5-coder:7b-instruct-q4_K_M
-  # openai_compat only:
-  # api_key: optional
-  # base_url: http://localhost:1234/v1
+  # openai_compat example:
+  # provider: openai_compat
+  # url: http://localhost:1234   # /v1 appended if missing
 ```
 
-- `get_local_llm_settings()` replaces `get_ollama_settings()` (alias kept for compat)
-- Health check: `/api/tags` (ollama) or `GET /v1/models` (openai_compat)
-- Chat: `/api/chat` or `POST /v1/chat/completions`
-- `scripts/ollama/_common.sh` → generic `scripts/local-llm/_common.sh` or env-driven backend
-- Existing `OLLAMA_*` env vars remain aliases
+- ✅ `get_cheap_llm_settings()` replaces `get_ollama_settings()` (alias kept for compat)
+- ✅ Health check: `/api/tags` (ollama) or `GET /v1/models` (openai_compat)
+- ✅ Chat: `/api/chat` or `POST /v1/chat/completions`
+- ✅ `OLLAMA_*` / `ollama:` config remain aliases; `CHEAP_LLM_*` preferred
+- 🔜 Monorepo `scripts/ollama/_common.sh` → env-driven / `scripts/cheap-llm/` (consumer scripts; not package)
 
 ## IDE / MCP host
 
@@ -95,10 +95,10 @@ local_llm:
 
 ## CI / headless
 
-Scenario: a company already burns Claude/Cursor in pipelines; they run Ollama (or openai_compat) on internal GPUs — greedy-token in the job routes bulk AI work to the local LLM instead of always-Claude.
+Scenario: a company already burns Claude/Cursor in pipelines; they run Ollama (or openai_compat) on internal GPUs — greedy-token in the job routes bulk AI work to the cheap LLM instead of always-Claude.
 
 ```text
-CI job → greedy-token CLI → rg | python | Ollama (internal) | RAG | cloud_llm (opt-in)
+CI job → greedy-token CLI → rg | python | cheap_llm (Ollama/internal) | RAG | expensive_llm agent (opt-in)
 ```
 
 This is **not MCP inside Actions** — headless CLI (`route`, `pipeline --execute`, `report`). Remote `OLLAMA_URL` already works; missing pieces are docs, example workflows, and an explicit runner env contract.
@@ -106,18 +106,18 @@ This is **not MCP inside Actions** — headless CLI (`route`, `pipeline --execut
 | CI host | Role | Status | Issue |
 |---------|------|:------:|-------|
 | **Self-hosted / VPN runner** + in-network Ollama | Primary target pattern | ❌ 🔜 | [#18](https://github.com/svasenkov/greedy-token/issues/18) |
-| **GitHub-hosted ephemeral** with no path to private Ollama | rg/python/rag or cloud_llm only | out of focus | — |
+| **GitHub-hosted ephemeral** with no path to private Ollama | rg/python/rag or expensive_llm agent only | out of focus | — |
 | **Jenkins / GitLab CI** | Same CLI contract | ❌ 🔜 (examples) | [#18](https://github.com/svasenkov/greedy-token/issues/18) |
 
 ### ci_headless — acceptance criteria
 
-- `docs/ci-setup.md`: env (`OLLAMA_URL` / `local_llm`, `GREEDY_TOKEN_ROOT`, telemetry), no Cursor MCP
+- `docs/ci-setup.md`: env (`OLLAMA_URL` / `cheap_llm`, `GREEDY_TOKEN_ROOT`, telemetry), no Cursor MCP
 - Example workflow: GitHub Actions (self-hosted) + optional Jenkins snippet
 - Smoke: `route` + `pipeline … --execute` against remote Ollama from a clean runner image
-- Guidance: which task classes stay local vs escalate to `cloud_llm` / agent
+- Guidance: which task classes stay on cheap_llm vs escalate to expensive_llm / agent
 - Optional: `greedy-token report` in job summary / artifact
 
-Related: [#2](https://github.com/svasenkov/greedy-token/issues/2) (`local_llm`), [#3](https://github.com/svasenkov/greedy-token/issues/3) (`cloud_llm` as paid fallback).
+Related: [#2](https://github.com/svasenkov/greedy-token/issues/2) (`cheap_llm`), [#3](https://github.com/svasenkov/greedy-token/issues/3) (`expensive_llm`).
 
 ## Out of scope (for now)
 
@@ -130,9 +130,10 @@ Related: [#2](https://github.com/svasenkov/greedy-token/issues/2) (`local_llm`),
 
 | Version | Focus |
 |---------|-------|
+| **v0.5.0** | `cheap_llm` provider (`ollama` \| `openai_compat`); tier id `ollama` unchanged; `OLLAMA_*` compat |
 | **v0.4.4** | Cursor-first README, mascot, shorter MCP instructions, CI/headless roadmap (#18) |
 | **v0.4.3** | Cursor starter kit (`examples/cursor/`) + setup docs for PyPI users |
 | **v0.4.2** | Security hardening, MCP dry-run default, CI pytest, log rotation, settings module |
 | **v0.4** | MCP pipeline, Ollama config, token economy footer |
-| **v0.5** | `local_llm` + `cloud_llm` providers (this roadmap) |
+| **v0.5.x** | `expensive_llm` metered agent path ([#3](https://github.com/svasenkov/greedy-token/issues/3)) |
 | **v0.6** | IDE integrations beyond Cursor + **CI / headless** docs & examples ([#18](https://github.com/svasenkov/greedy-token/issues/18)) |

@@ -28,23 +28,34 @@ In Cursor:  your task  →  greedy-token (MCP/CLI)
 |-------|------|----------|
 | **tool** (rg) | find / grep / search | ~0 |
 | **python** | scripts, meta-sync, gen-env | ~0 |
-| **ollama** | bulk classify, skill audit | local only |
+| **ollama** | bulk classify, skill audit | cheap LLM |
 | **rag** | lookup in `docs/rag/` | small read |
-| **cursor** | wiring, refactor, architecture | full agent chat |
+| **cursor** | wiring, refactor, architecture | expensive LLM |
 
-**Tier order:** `TIER_ORDER` in `router.py` / `routes.yaml` — first pattern match wins within the walk `tool → python → ollama → rag → cursor`. Not every tier runs on every task. Ollama tier is skipped when the server is down.
+### Cheap vs expensive LLM
+
+Greedy-token uses **cheap** and **expensive** in footers and docs. It is about **where token budget goes**.
+
+| Label | What it means | Examples |
+|-------|----------------|----------|
+| **Cheap LLM** | Inference on **your** runtime (config `cheap_llm`); tier id `ollama` in routes; **0 Cursor/API meter** on that step | [Ollama](https://ollama.com) (native or remote `OLLAMA_URL`), LM Studio, llama.cpp, vLLM, TGI — anything via `cheap_llm.provider: ollama \| openai_compat` |
+| **Expensive LLM** | Full **agent chat** with rules, skills, overhead, and reply — what you pay Cursor (or similar) for | **Cursor** agent / Composer today; same bucket for **Claude**, **GPT**, **Copilot** when used as the main coding agent or future `expensive_llm` metered API |
+
+**Free tier** (`tool`, `python`, `rag`) = no LLM inference at all — ripgrep, scripts, reading `docs/rag/` chunks.
+
+**Tier order:** `TIER_ORDER` in `router.py` / `routes.yaml` — first pattern match wins within the walk `tool → python → ollama → rag → cursor`. Not every tier runs on every task. The cheap LLM tier is skipped when the configured runtime is unreachable.
 
 ## Scope & roadmap
 
-Today the happy path is **Cursor + Ollama + monorepo**. CLI and MCP are IDE-agnostic; paid APIs and alternate local runtimes are **not** wired yet.
+Today the happy path is **Cursor + Ollama + monorepo**. CLI and MCP are IDE-agnostic. **v0.5.0** ships `cheap_llm.provider: ollama | openai_compat` (tier id stays `ollama`). Paid agent APIs (`expensive_llm`) are still on the roadmap.
 
 **Full matrix (✅ / ❌ / 🔜) + acceptance criteria + GitHub issues:** [docs/ROADMAP.md](docs/ROADMAP.md) · [docs/ROADMAP-RU.md](docs/ROADMAP-RU.md)
 
-| Area | ✅ today | 🔜 v0.5+ |
-|------|----------|----------|
-| Executors | `tool`, `python`, `ollama`, `rag` | `cloud_llm`, `openai_compat` local |
+| Area | ✅ today (v0.5.0) | 🔜 next |
+|------|-------------------|---------|
+| Executors | `tool`, `python`, `ollama` (via `cheap_llm`), `rag` | `expensive_llm` agent path; paid bulk APIs |
 | Agent host | Cursor MCP + token baseline | Claude Desktop, Continue |
-| Config | `OLLAMA_URL` / `OLLAMA_MODEL` | `local_llm.provider`, `cloud_llm.provider` |
+| Config | `cheap_llm.provider` + `OLLAMA_*` / `ollama:` aliases | `expensive_llm.provider` |
 
 ## Install
 
@@ -122,12 +133,12 @@ Footer includes **per-step savings** table:
 ```text
 Per-step savings (if each step were a separate naive Cursor chat):
    #  step                   executor     ms   spent  baseline     saved  billing
-   1  check-meta-sync        python       83       0     9,487     9,487  local script
-   2  audit-skill            ollama     2698   2,507     9,499     6,992  local Ollama
+   1  check-meta-sync        python       83       0     9,487     9,487  script
+   2  audit-skill            ollama     2698   2,507     9,499     6,992  cheap LLM
 
 Saved by executor (sum of per-step savings):
   python (script)              steps=1  spent ~0      saved ~9,487
-  ollama (local LLM)           steps=1  spent ~2,507  saved ~6,992
+  ollama (cheap LLM)           steps=1  spent ~2,507  saved ~6,992
 ```
 
 ## CLI commands
@@ -203,13 +214,13 @@ greedy-token report --since 7d
 
 Single-tool responses include:
 
-- **This call** — executor, spent, billing (local vs cloud)
+- **This call** — executor, spent, billing (cheap vs expensive LLM)
 - **Cursor baseline** — rules + task + overhead
 - **Saved vs naive Cursor chat**
 
 Pipeline adds **per-step** baseline / spent / saved and **saved by executor**.
 
-> **Note:** MCP executor steps are local/cheap. Agent chat wrapper (rules + your message + reply) still uses Cursor tokens.
+> **Note:** MCP executor steps use cheap/free tiers. Agent chat wrapper (rules + your message + reply) still uses expensive LLM (Cursor tokens).
 
 ## Usage telemetry
 
@@ -224,21 +235,30 @@ Pipeline logs **one event per step**. When the log exceeds `GREEDY_TOKEN_LOG_MAX
 | Var | Default |
 |-----|---------|
 | `GREEDY_TOKEN_ROOT` | auto-detect or required |
-| `OLLAMA_URL` | from config or `http://localhost:11434` |
-| `OLLAMA_MODEL` | from config or `qwen2.5-coder:7b-instruct-q4_K_M` |
+| `CHEAP_LLM_PROVIDER` | from config or `ollama` (`ollama` \| `openai_compat`) |
+| `CHEAP_LLM_URL` / `OLLAMA_URL` | from config or `http://localhost:11434` |
+| `CHEAP_LLM_MODEL` / `OLLAMA_MODEL` | from config or `qwen2.5-coder:7b-instruct-q4_K_M` |
 | `GREEDY_TOKEN_LOG` | `~/.greedy-token/usage.jsonl` |
 | `GREEDY_TOKEN_LOG_MAX_BYTES` | `5242880` (5 MiB) |
 | `GREEDY_TOKEN_LOG_MAX_FILES` | `5` rotated archives |
 
-## Ollama config
+## Cheap LLM config
 
-Priority (low → high): defaults → `~/.greedy-token/config.yaml` → `$GREEDY_TOKEN_ROOT/.greedy-token.yaml` → `OLLAMA_*` env.
+Priority (low → high): defaults → `~/.greedy-token/config.yaml` → `$GREEDY_TOKEN_ROOT/.greedy-token.yaml` → `CHEAP_LLM_*` / `OLLAMA_*` env (`OLLAMA_*` = url/model aliases). Route tier id remains `ollama`.
 
 ```bash
 greedy-token config init
-greedy-token config init --model llama3.2 --url http://192.168.1.10:11434
+greedy-token config init --provider openai_compat --url http://localhost:1234 --model local-model
 greedy-token config
 eval "$(greedy-token config --export)"
+```
+
+```yaml
+# ~/.greedy-token/config.yaml
+cheap_llm:
+  provider: ollama          # or openai_compat
+  url: http://localhost:11434
+  model: qwen2.5-coder:7b-instruct-q4_K_M
 ```
 
 ## Routing config

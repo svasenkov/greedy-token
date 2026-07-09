@@ -694,7 +694,7 @@ def test_pipeline_and_rag_branches(minimal_workspace: Path, monkeypatch: pytest.
         ),
         minimal_workspace,
     )
-    assert "0 cloud" in footer
+    assert "cheap" in footer
 
 
 @allure.title("remaining prompt_compress rag_index rag_search usage mcp branches")

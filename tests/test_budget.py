@@ -33,7 +33,7 @@ def test_format_savings_lines() -> None:
         assert lines == [
             "Saved vs naive Cursor chat",
             "  Baseline (naive agent chat):  ~11,607",
-            "  Spent (MCP executor, LLM tokens): ~0  (ripgrep on disk — no cloud LLM)",
+            "  Spent (MCP executor, LLM tokens): ~0  (ripgrep on disk — 0 LLM spend)",
             "  Saved:             ~11,607  (= baseline − spent)",
         ]
 
@@ -60,12 +60,12 @@ def test_format_tool_footer_detailed_breakdown(minimal_workspace: Path) -> None:
         assert "Always-on rules:" in footer
         assert "Agent overhead:" in footer
         assert "Tier alternatives" in footer
-        assert "rg (local search)" in footer
-        assert "cursor (agent / cloud)" in footer
+        assert "rg (disk search)" in footer
+        assert "cursor (expensive LLM)" in footer
         assert "← this call" in footer
         assert "Baseline (naive agent chat):" in footer
         assert "Spent (MCP executor, LLM tokens):" in footer
-        assert "ripgrep on disk — no cloud LLM" in footer
+        assert "ripgrep on disk — 0 LLM spend" in footer
         assert "Saved:" in footer
         assert "(= baseline − spent)" in footer
         baseline = cursor_baseline(minimal_workspace, task)
@@ -133,9 +133,9 @@ def test_spent_hint_all_tiers() -> None:
 
     assert "ripgrep" in spent_hint("tool", 0, "rg")
     assert "script" in spent_hint("python", 0)
-    assert "Ollama" in spent_hint("ollama", 100)
+    assert "cheap LLM" in spent_hint("ollama", 100)
     assert "docs/rag" in spent_hint("rag", 100)
-    assert "agent" in spent_hint("cursor", 100)
+    assert "expensive LLM" in spent_hint("cursor", 100)
     assert spent_hint("unknown", 0) == ""
 
 
@@ -151,7 +151,7 @@ def test_format_tool_footer_ollama_rag(minimal_workspace: Path) -> None:
         executor_sub="ollama",
         ollama_eval_tokens=100,
     )
-    assert "local Ollama" in ollama_footer
+    assert "cheap LLM" in ollama_footer
 
     rag_footer = format_tool_footer(
         "rag query",

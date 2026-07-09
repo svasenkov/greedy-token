@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "greedy-token"
-version = "0.4.6"
+version = "0.5.0"
 description = "Token economy for Cursor: route tasks through rg, scripts, Ollama, and RAG before opening a full agent chat."
 readme = "README.md"
 requires-python = ">=3.12"

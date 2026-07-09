@@ -414,7 +414,7 @@ def format_report(summary: ReportSummary) -> str:
     for tier, stats in summary.by_tier.items():
         note = ""
         if tier == "ollama":
-            note = "  (local LLM)"
+            note = "  (cheap LLM)"
         lines.append(
             f"  {tier:<10} {stats.count:>6} {stats.est_tokens:>12,} "
             f"{stats.saved_vs_cursor:>16,}{note}"

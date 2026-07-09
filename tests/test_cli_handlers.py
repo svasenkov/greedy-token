@@ -24,7 +24,7 @@ pytestmark = [
 
 
 def _ns(**kwargs) -> Namespace:
-    defaults = {"no_log": True}
+    defaults = {"no_log": True, "provider": None}
     defaults.update(kwargs)
     return Namespace(**defaults)
 
@@ -242,7 +242,7 @@ def test_cmd_report_json(tmp_path: Path, minimal_workspace: Path, monkeypatch: p
 @allure.story("Config")
 @allure.title("cmd_config prints Ollama settings")
 def test_cmd_config_show(minimal_workspace: Path, capsys) -> None:
-    code = cli.cmd_config(_ns(init=False, url=None, model=None, force=False, export=False))
+    code = cli.cmd_config(_ns(init=False, url=None, model=None, provider=None, force=False, export=False))
     out = capsys.readouterr().out
     assert code == 0
     assert "url:" in out.lower() or "OLLAMA" in out
@@ -251,7 +251,7 @@ def test_cmd_config_show(minimal_workspace: Path, capsys) -> None:
 @allure.story("Config")
 @allure.title("cmd_config --export prints shell exports")
 def test_cmd_config_export(minimal_workspace: Path, capsys) -> None:
-    code = cli.cmd_config(_ns(init=False, url=None, model=None, force=False, export=True))
+    code = cli.cmd_config(_ns(init=False, url=None, model=None, provider=None, force=False, export=True))
     out = capsys.readouterr().out
     assert code == 0
     assert "export OLLAMA_URL" in out
@@ -262,7 +262,7 @@ def test_cmd_config_export(minimal_workspace: Path, capsys) -> None:
 def test_cmd_config_init(tmp_path: Path, minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
     cfg_path = tmp_path / "config.yaml"
     monkeypatch.setattr("greedy_token.settings.user_config_path", lambda: cfg_path)
-    code = cli.cmd_config(_ns(init=True, url="http://x:11434", model="m", force=False, export=False))
+    code = cli.cmd_config(_ns(init=True, url="http://x:11434", model="m", provider=None, force=False, export=False))
     out = capsys.readouterr().out
     assert code == 0
     assert cfg_path.is_file()
@@ -275,7 +275,7 @@ def test_cmd_config_init_exists(tmp_path: Path, minimal_workspace: Path, monkeyp
     cfg_path = tmp_path / "config.yaml"
     cfg_path.write_text("ollama:\n  url: x\n  model: y\n", encoding="utf-8")
     monkeypatch.setattr("greedy_token.settings.user_config_path", lambda: cfg_path)
-    code = cli.cmd_config(_ns(init=True, url=None, model=None, force=False, export=False))
+    code = cli.cmd_config(_ns(init=True, url=None, model=None, provider=None, force=False, export=False))
     err = capsys.readouterr().err
     assert code == 1
     assert "already exists" in err.lower()

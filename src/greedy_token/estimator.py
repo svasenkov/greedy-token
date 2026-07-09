@@ -79,13 +79,13 @@ def format_estimate(estimate: TaskEstimate, task: str, root: Path) -> str:
     spent = estimate.est_tokens
     spent_line = f"Spent (MCP executor, LLM tokens): ~{spent:,}"
     if target in ("tool", "python"):
-        spent_line += "  (local — no cloud LLM)"
+        spent_line += "  (0 LLM spend)"
     elif target == "ollama":
-        spent_line += "  (local Ollama — no cloud API tokens)"
+        spent_line += "  (cheap LLM — 0 API spend)"
     elif target == "rag":
         spent_line += "  (docs/rag chunks read into context)"
     elif target == "cursor":
-        spent_line += "  (full agent path — same order as baseline)"
+        spent_line += "  (expensive LLM — full agent path)"
     lines.extend(
         [
             "",

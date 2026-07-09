@@ -304,7 +304,12 @@ def cmd_config(args: argparse.Namespace) -> int:
     root = find_monorepo_root()
     if args.init:
         try:
-            path = init_user_config(url=args.url, model=args.model, force=args.force)
+            path = init_user_config(
+                url=args.url,
+                model=args.model,
+                provider=args.provider,
+                force=args.force,
+            )
         except FileExistsError as exc:
             print(exc, file=sys.stderr)
             return 1
@@ -377,7 +382,7 @@ def build_parser() -> argparse.ArgumentParser:
     rag.set_defaults(func=cmd_rag)
 
     c = sub.add_parser("compress", help="Short agent prompt from stdin")
-    c.add_argument("--ollama", action="store_true", help="Use local Ollama")
+    c.add_argument("--ollama", action="store_true", help="Use cheap LLM (Ollama / openai_compat)")
     c.add_argument("--raw", action="store_true", help="Print short text only")
     c.set_defaults(func=cmd_compress)
 
@@ -401,15 +406,20 @@ def build_parser() -> argparse.ArgumentParser:
     rep.add_argument("--json", action="store_true", help="JSON output")
     rep.set_defaults(func=cmd_report)
 
-    cfg = sub.add_parser("config", help="Show or init Ollama URL/model settings")
+    cfg = sub.add_parser("config", help="Show or init cheap LLM settings (Ollama / OpenAI-compatible)")
     cfg.add_argument("--init", action="store_true", help="Create ~/.greedy-token/config.yaml")
-    cfg.add_argument("--url", help="Ollama URL for --init")
-    cfg.add_argument("--model", help="Ollama model for --init")
+    cfg.add_argument("--url", help="Cheap LLM base URL for --init")
+    cfg.add_argument("--model", help="Cheap LLM model for --init")
+    cfg.add_argument(
+        "--provider",
+        choices=("ollama", "openai_compat"),
+        help="Cheap LLM provider for --init (default: ollama)",
+    )
     cfg.add_argument("--force", action="store_true", help="Overwrite existing user config")
     cfg.add_argument(
         "--export",
         action="store_true",
-        help="Print shell exports (export OLLAMA_URL=...)",
+        help="Print shell exports (CHEAP_LLM_* and OLLAMA_* aliases)",
     )
     cfg.set_defaults(func=cmd_config)
 

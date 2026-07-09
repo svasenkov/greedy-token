@@ -51,14 +51,14 @@ def test_resolve_wrapper_unknown_raises(minimal_workspace: Path) -> None:
             resolve_wrapper_command("no-such-wrapper", minimal_workspace)
 
 
-@patch("greedy_token.wrappers.json.load", return_value={"models": []})
+@patch("greedy_token.cheap_llm.json.load", return_value={"models": []})
 @patch("urllib.request.urlopen")
 @allure.story("Ollama probe")
 @allure.title("Ollama availability returns true when /api/tags responds")
 def test_ollama_available_true(mock_urlopen, mock_json_load) -> None:
-    from greedy_token.wrappers import _ollama_probe_cache
+    from greedy_token.cheap_llm import clear_cheap_llm_probe_cache
 
-    _ollama_probe_cache.clear()
+    clear_cheap_llm_probe_cache()
     mock_resp = MagicMock()
     mock_resp.__enter__.return_value = mock_resp
     mock_urlopen.return_value = mock_resp
@@ -87,9 +87,9 @@ def test_ollama_available_against_stub(ollama_stub: str) -> None:
 @allure.story("Ollama probe")
 @allure.title("Ollama availability returns false when server is down")
 def test_ollama_available_false(mock_urlopen) -> None:
-    from greedy_token.wrappers import _ollama_probe_cache
+    from greedy_token.cheap_llm import clear_cheap_llm_probe_cache
 
-    _ollama_probe_cache.clear()
+    clear_cheap_llm_probe_cache()
     with allure.step("Probe unreachable Ollama server"):
         attach_text("ollama url", "http://localhost:11434")
         available = ollama_available("http://localhost:11434")

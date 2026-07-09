@@ -10,25 +10,25 @@ from greedy_token.estimator import cursor_baseline, cursor_saved_for
 from greedy_token.paths import find_monorepo_root
 from greedy_token.rag_search import RagHit
 from greedy_token.router import BASE_CURSOR_OVERHEAD, RouteDecision, route_task_all_tiers
-from greedy_token.settings import get_ollama_settings
+from greedy_token.settings import get_cheap_llm_settings
 from greedy_token.tokens import count_tokens
 from greedy_token.usage import append_event, build_route_event
 from greedy_token.wrappers import ollama_available
 
 TIER_LABELS: dict[str, str] = {
-    "tool": "rg (local search)",
+    "tool": "rg (disk search)",
     "python": "python (script)",
-    "ollama": "ollama (local LLM)",
+    "ollama": "ollama (cheap LLM)",
     "rag": "rag (docs/rag read)",
-    "cursor": "cursor (agent / cloud)",
+    "cursor": "cursor (expensive LLM)",
 }
 
 EXECUTOR_SUB_LABELS: dict[str, str] = {
     "rg": "ripgrep on disk",
     "python": "python file/tree scan (rg unavailable)",
     "rag": "docs/rag chunk read",
-    "ollama": "local Ollama inference",
-    "cursor": "Cursor agent loop",
+    "ollama": "cheap LLM inference",
+    "cursor": "expensive LLM agent loop",
 }
 
 
@@ -78,14 +78,14 @@ def spent_hint(tier: str, spent: int, executor_sub: str | None = None) -> str:
     sub = executor_sub or tier
     if tier in ("tool", "python"):
         if sub == "rg":
-            return "ripgrep on disk — no cloud LLM"
-        return "local script — no cloud LLM"
+            return "ripgrep on disk — 0 LLM spend"
+        return "script — 0 LLM spend"
     if tier == "ollama":
-        return "local Ollama — no cloud API tokens"
+        return "cheap LLM — 0 API spend"
     if tier == "rag":
         return "docs/rag chunks read into context"
     if tier == "cursor":
-        return "full agent path — same order as baseline"
+        return "expensive LLM path — same order as baseline"
     return ""
 
 
@@ -139,11 +139,11 @@ def _format_tier_alternatives(task: str, root: Path, selected: str) -> list[str]
         if tier == selected:
             suffix = "  ← this call"
         elif tier == "ollama":
-            model = get_ollama_settings().model
+            llm = get_cheap_llm_settings()
             if ollama_available():
-                suffix = f"  · {model}, 0 cloud"
+                suffix = f"  · {llm.provider}/{llm.model}, cheap"
             else:
-                suffix = "  · unavailable (would fall back to cursor)"
+                suffix = "  · unavailable (would fall back to expensive LLM)"
         elif tier in ("tool", "python"):
             suffix = "  · 0 LLM"
         lines.append(f"  {label:<26} ~{est:>6,}{suffix}")
@@ -182,16 +182,18 @@ def format_tool_footer(
         lines.append(f"  Duration: {duration_ms} ms")
     lines.append(format_spent_line(est_tokens, tier=tier, executor_sub=sub, indent="  "))
     if tier in ("tool", "python"):
-        lines.append("  Billing: local only — no Cursor cloud LLM for this step")
+        lines.append("  Billing: free tier — not expensive LLM")
     elif tier == "ollama":
-        model = get_ollama_settings().model
+        llm = get_cheap_llm_settings()
         eval_note = f", ~{ollama_eval_tokens:,} eval tokens" if ollama_eval_tokens else ""
-        lines.append(f"  Billing: local Ollama ({model}{eval_note}) — 0 cloud API tokens")
+        lines.append(
+            f"  Billing: cheap LLM ({llm.provider}/{llm.model}{eval_note}) — not expensive path"
+        )
     elif tier == "rag":
         hit_note = f", {rag_hits} chunk(s)" if rag_hits is not None else ""
-        lines.append(f"  Billing: read docs/rag{hit_note} — small context vs full agent chat")
+        lines.append(f"  Billing: read docs/rag{hit_note} — small context vs expensive LLM chat")
     elif tier == "cursor":
-        lines.append("  Billing: Cursor agent / cloud — full context + reply")
+        lines.append("  Billing: expensive LLM (Cursor agent) — full context + reply")
 
     lines.extend(
         [
@@ -219,7 +221,7 @@ def format_tool_footer(
         [
             "",
             "Note: MCP in Agent chat still uses Cursor tokens for rules + your message +",
-            "agent reply. Only the executor row above is local / cheap.",
+            "agent reply. Only cheap LLM / rg / rag rows avoid the expensive LLM path.",
         ]
     )
 

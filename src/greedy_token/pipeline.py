@@ -22,7 +22,7 @@ from greedy_token.code_search import search_code
 from greedy_token.paths import find_monorepo_root
 from greedy_token.rag_search import format_hits, search_rag
 from greedy_token.router import RouteDecision
-from greedy_token.settings import get_ollama_settings
+from greedy_token.settings import get_cheap_llm_settings
 from greedy_token.tokens import count_tokens
 from greedy_token.tool_paths import SCRIPT_TIMEOUT
 from greedy_token.usage import append_event, build_route_event
@@ -365,12 +365,16 @@ def _run_step(step: PipelineStep, root: Path, *, execute: bool) -> StepResult:
         )
 
     if step.tier == "ollama" and not ollama_available():
+        llm = get_cheap_llm_settings(root)
         duration_ms = int((time.perf_counter() - t0) * 1000)
         return StepResult(
             step=step,
             ok=False,
             exit_code=1,
-            output="Ollama unavailable (localhost:11434). Start Ollama and retry.",
+            output=(
+                f"Cheap LLM unavailable ({llm.provider}, {llm.url}). "
+                "Start the runtime or use the expensive LLM path (Cursor)."
+            ),
             duration_ms=duration_ms,
             est_tokens=0,
             executed=False,
@@ -507,7 +511,7 @@ def format_pipeline_footer(result: PipelineResult, root: Path) -> str:
     baseline = breakdown.total
     total_spent = result.total_est_tokens
     saved = max(0, baseline - total_spent)
-    model = get_ollama_settings(root).model
+    llm = get_cheap_llm_settings(root)
     step_rows = compute_step_savings(result, root)
 
     lines = [
@@ -544,9 +548,9 @@ def format_pipeline_footer(result: PipelineResult, root: Path) -> str:
         count, tokens = by_tier[tier]
         note = TIER_LABELS.get(tier, tier)
         if tier == "ollama":
-            note += f" ({model}, 0 cloud)"
+            note += f" ({llm.provider}/{llm.model}, cheap)"
         elif tier in ("tool", "python"):
-            note += " (0 cloud LLM)"
+            note += " (0 LLM spend)"
         lines.append(f"  {note:<32} steps={count}  ~{tokens:,} tok")
 
     lines.extend(

@@ -117,7 +117,7 @@ def test_format_estimate_tool_route(minimal_workspace: Path) -> None:
         assert "Command:" in text
         assert "Baseline (naive agent chat):" in text
         assert "Saved:" in text
-        assert "local — no cloud LLM" in text
+        assert "0 LLM spend" in text
         assert "← selected" in text
 
 
@@ -133,5 +133,5 @@ def test_format_estimate_cursor_route(minimal_workspace: Path) -> None:
         assert est.decision.target == "cursor"
         assert "Route: CURSOR" in text
         assert "Saved:             ~0" in text
-        assert "full agent path" in text
+        assert "expensive LLM" in text
         assert "New Cursor chat" in text

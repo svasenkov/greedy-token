@@ -68,7 +68,7 @@ def test_budget_footer_branch_gaps(minimal_workspace: Path) -> None:
         route_id="cursor-x",
         executor_sub="cursor",
     )
-    assert "Billing: Cursor agent / cloud" in cursor_billing
+    assert "Billing: expensive LLM (Cursor agent)" in cursor_billing
 
     unknown_tier = format_tool_footer(
         "task",
@@ -205,10 +205,10 @@ def test_code_search_rg_fallback_branch(minimal_workspace: Path) -> None:
 @allure.title("Branch gaps: estimator cursor spent line")
 def test_estimator_cursor_spent_line(minimal_workspace: Path) -> None:
     for target, needle in (
-        ("python", "local — no cloud LLM"),
-        ("ollama", "local Ollama"),
+        ("python", "0 LLM spend"),
+        ("ollama", "cheap LLM"),
         ("rag", "docs/rag chunks"),
-        ("cursor", "full agent path"),
+        ("cursor", "expensive LLM"),
     ):
         est = TaskEstimate(
             decision=RouteDecision(
@@ -336,7 +336,7 @@ def test_router_branch_gaps(minimal_workspace: Path) -> None:
 @allure.title("Branch gaps: settings format_config without workspace path")
 def test_settings_format_config_no_workspace() -> None:
     text = format_config(root=None)
-    assert "greedy-token Ollama settings" in text
+    assert "greedy-token cheap LLM settings" in text
     assert "  3." not in text
 
 
@@ -391,7 +391,7 @@ def test_ci_linux_branch_gaps(minimal_workspace: Path) -> None:
             minimal_workspace,
             selected="tool",
         )
-    assert any("0 cloud" in line for line in tier_lines)
+    assert any("cheap" in line for line in tier_lines)
 
     ollama_decision = RouteDecision(
         target="ollama",

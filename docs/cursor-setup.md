@@ -9,7 +9,7 @@ If your host monorepo ships a custom launcher (`greedy-token.sh` + hooks), follo
 
 - **Python 3.12+**
 - Cursor with MCP enabled
-- Optional: [Ollama](https://ollama.com) for the local LLM tier
+- Optional: [Ollama](https://ollama.com) or any OpenAI-compatible server for the **cheap LLM** tier (config `cheap_llm`). See [README § Cheap vs expensive LLM](../README.md#cheap-vs-expensive-llm).
 
 ## 1. Install
 

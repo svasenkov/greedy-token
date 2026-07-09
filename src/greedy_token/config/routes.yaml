@@ -85,7 +85,7 @@ routes:
       - migration inventory
       - apply-inventory
     command: ./scripts/ollama/batch-inventory.sh
-    note: "Bulk classify via local LLM"
+    note: "Bulk classify via cheap LLM"
 
   - id: ollama-audit-skill
     target: ollama

@@ -129,7 +129,7 @@ def test_pipeline_execute_skips_unavailable_ollama(minimal_workspace: Path) -> N
         assert result.stopped_early is True
         assert result.steps[0].ok is True
         assert result.steps[1].ok is False
-        assert "Ollama unavailable" in result.steps[1].output
+        assert "Cheap LLM unavailable" in result.steps[1].output
 
 
 @allure.story("Dry run")

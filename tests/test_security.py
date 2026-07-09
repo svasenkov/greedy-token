@@ -101,14 +101,15 @@ def test_mcp_pipeline_dry_run_by_default(
         assert mock_run.call_args.kwargs.get("execute") is False
 
 
-@patch("greedy_token.wrappers.json.load", return_value={"models": []})
+@patch("greedy_token.cheap_llm.json.load", return_value={"models": []})
 @patch("urllib.request.urlopen")
 @allure.story("Ollama probe")
 @allure.title("Ollama availability probe caches successful result")
 def test_ollama_available_uses_cache(mock_urlopen, mock_json_load) -> None:
-    from greedy_token.wrappers import _ollama_probe_cache, ollama_available
+    from greedy_token.cheap_llm import _cheap_llm_probe_cache, clear_cheap_llm_probe_cache
+    from greedy_token.wrappers import ollama_available
 
-    _ollama_probe_cache.clear()
+    clear_cheap_llm_probe_cache()
     mock_resp = mock_urlopen.return_value.__enter__.return_value
     with allure.step("Probe Ollama twice with same URL"):
         ollama_available("http://localhost:11434")

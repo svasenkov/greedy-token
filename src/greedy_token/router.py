@@ -209,12 +209,12 @@ def _token_estimate_for_route(
             return (
                 complexity,
                 0,
-                "Local Ollama — bulk work off Cursor; 0 cloud agent tokens.",
+                "Cheap LLM — bulk work off expensive path; 0 API spend.",
             )
         return (
             "medium",
             task_tokens + BASE_CURSOR_OVERHEAD,
-            "Ollama unavailable — would fall back to Cursor for same task.",
+            "Cheap LLM unavailable — would fall back to expensive Cursor path.",
         )
     if target == "rag":
         return (
@@ -229,7 +229,7 @@ def _token_estimate_for_route(
     return (
         complexity,
         rules_tokens + task_tokens + BASE_CURSOR_OVERHEAD,
-        "Wiring/architecture — requires Cursor agent chat with rules context.",
+        "Wiring/architecture — requires expensive LLM (Cursor agent chat with rules context).",
     )
 
 

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import json
 import re
 
-from greedy_token.settings import get_ollama_settings
+from greedy_token.cheap_llm import cheap_llm_chat
+from greedy_token.settings import get_cheap_llm_settings
 
 
 DUAL_VERSION_RULE = """
@@ -55,36 +55,13 @@ def compress_heuristic(text: str) -> str:
 
 
 def compress_ollama_detail(text: str) -> tuple[str, int | None]:
-    import urllib.request
-
-    settings = get_ollama_settings()
-    url = settings.url
-    model = settings.model
+    settings = get_cheap_llm_settings()
     system = (
         "Сожми промпт для Cursor-агента. "
         + DUAL_VERSION_RULE
         + " Ответ — только короткий промпт, без пояснений."
     )
-    body = json.dumps(
-        {
-            "model": model,
-            "stream": False,
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user", "content": text.strip()},
-            ],
-        }
-    ).encode()
-    req = urllib.request.Request(
-        f"{url}/api/chat",
-        data=body,
-        headers={"Content-Type": "application/json"},
-    )
-    with urllib.request.urlopen(req, timeout=120) as resp:
-        data = json.load(resp)
-    content = data["message"]["content"].strip()
-    eval_tokens = data.get("eval_count")
-    return content, eval_tokens
+    return cheap_llm_chat(settings, system=system, user=text.strip())
 
 
 def compress_ollama(text: str) -> str:

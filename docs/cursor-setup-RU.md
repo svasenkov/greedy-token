@@ -9,7 +9,7 @@
 
 - **Python 3.12+**
 - Cursor с включённым MCP
-- Опционально: [Ollama](https://ollama.com) для локального LLM-tier
+- Опционально: [Ollama](https://ollama.com) или OpenAI-compatible сервер для **cheap LLM** tier (config `cheap_llm`). См. [README-RU § Cheap vs expensive LLM](../README-RU.md#cheap-vs-expensive-llm).
 
 ## 1. Установка
 

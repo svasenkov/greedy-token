@@ -17,6 +17,7 @@ LAYER_BY_MODULE: dict[str, str] = {
     "test_rag_tokens": "unit",
     "test_router": "unit",
     "test_settings": "unit",
+    "test_cheap_llm": "unit",
     "test_tokens": "unit",
     "test_tool_output": "unit",
     # component — module wiring, mocks, minimal_workspace fixtures

@@ -58,18 +58,34 @@ class _OllamaStubHandler(BaseHTTPRequestHandler):
         return
 
     def do_GET(self) -> None:
-        if urlparse(self.path).path == "/api/tags":
+        path = urlparse(self.path).path
+        if path == "/api/tags":
             self._send_json(200, {"models": [{"name": "stub-model"}]})
+            return
+        if path == "/v1/models":
+            self._send_json(200, {"data": [{"id": "stub-model"}]})
             return
         self.send_error(404)
 
     def do_POST(self) -> None:
-        if urlparse(self.path).path != "/api/chat":
-            self.send_error(404)
+        path = urlparse(self.path).path
+        if path == "/api/chat":
+            length = int(self.headers.get("Content-Length", 0))
+            self.rfile.read(length)
+            self._send_json(200, {"message": {"content": STUB_CHAT_RESPONSE}})
             return
-        length = int(self.headers.get("Content-Length", 0))
-        self.rfile.read(length)
-        self._send_json(200, {"message": {"content": STUB_CHAT_RESPONSE}})
+        if path == "/v1/chat/completions":
+            length = int(self.headers.get("Content-Length", 0))
+            self.rfile.read(length)
+            self._send_json(
+                200,
+                {
+                    "choices": [{"message": {"content": STUB_CHAT_RESPONSE}}],
+                    "usage": {"completion_tokens": 12},
+                },
+            )
+            return
+        self.send_error(404)
 
     def _send_json(self, status: int, payload: dict[str, Any]) -> None:
         body = json.dumps(payload).encode("utf-8")
@@ -92,9 +108,9 @@ def install_ollama_scripts(workspace: Path) -> None:
 
 
 def clear_ollama_probe_cache() -> None:
-    from greedy_token.wrappers import _ollama_probe_cache
+    from greedy_token.cheap_llm import clear_cheap_llm_probe_cache
 
-    _ollama_probe_cache.clear()
+    clear_cheap_llm_probe_cache()
 
 
 @contextmanager

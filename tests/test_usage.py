@@ -436,7 +436,7 @@ def test_format_report_with_events() -> None:
     summary.counter_methods = {"tiktoken/cl100k_base": 2}
     text = format_report(summary)
     assert "greedy-token usage" in text
-    assert "local LLM" in text
+    assert "cheap LLM" in text
     assert "malformed lines skipped" in text
 
 

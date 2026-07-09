@@ -115,15 +115,15 @@ def ollama_workspace(minimal_workspace: Path, ollama_stub: str) -> Path:
     return minimal_workspace
 
 
-@allure.title("Clear local LLM env")
+@allure.title("Clear cheap LLM env")
 @pytest.fixture(autouse=True)
-def _clear_local_llm_env(monkeypatch: pytest.MonkeyPatch) -> None:
+def _clear_cheap_llm_env(monkeypatch: pytest.MonkeyPatch) -> None:
     for key in (
         "OLLAMA_URL",
         "OLLAMA_MODEL",
-        "LOCAL_LLM_PROVIDER",
-        "LOCAL_LLM_URL",
-        "LOCAL_LLM_MODEL",
+        "CHEAP_LLM_PROVIDER",
+        "CHEAP_LLM_URL",
+        "CHEAP_LLM_MODEL",
     ):
         monkeypatch.delenv(key, raising=False)
 
