@@ -1,1 +1,0 @@
-{"id":"082dd5737a1a1c67eb0a495f1f9717f6","fullName":"tests.test_security#test_shell_args_quotes_metacharacters","name":"Shell argument quoter escapes metacharacters","status":"passed","testResultsByEnv":{"default":"4c95d5fee0cd4f95519543aeb09a135a"}}

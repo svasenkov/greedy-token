@@ -1,1 +1,0 @@
-{"id":"36e4a636890284eab6ada5f600b10ce2","fullName":"tests.test_tokens#test_collect_paths_skips_suffixes","name":"collect_paths skips binary suffixes and broken symlinks","status":"passed","testResultsByEnv":{"default":"eebaff9f75d31cb5648dacd8379206d0"}}
