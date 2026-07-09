@@ -1,0 +1,1 @@
+{"id":"c19e426bfecfc72bae8fb199ef3c7c00","fullName":"tests.test_settings#test_env_overrides_files","name":"OLLAMA_* env vars override config files","status":"passed","testResultsByEnv":{"default":"5534150d585b5db2d11dd19972dd1354"}}

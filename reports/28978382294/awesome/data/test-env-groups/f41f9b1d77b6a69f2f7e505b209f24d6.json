@@ -1,1 +1,0 @@
-{"id":"f41f9b1d77b6a69f2f7e505b209f24d6","fullName":"tests.test_settings#test_init_user_config","name":"User config init writes ~/.greedy-token/config.yaml","status":"passed","testResultsByEnv":{"default":"a57fd0989103fa6ac873de84a54ea0dc"}}
