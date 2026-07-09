@@ -1,1 +1,0 @@
-{"id":"c192275d7e34c4bffdbbfd5e4462b0fa","fullName":"tests.test_cli_commands#test_cli_run_execute_find_task","name":"CLI run --execute runs read-only find task","status":"passed","testResultsByEnv":{"default":"49449d83810ad6b51fc388be179862a5"}}

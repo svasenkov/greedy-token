@@ -1,1 +1,0 @@
-{"id":"c52cb3cd8e6560a395498513111bcfdf","fullName":"tests.test_prompt_compress#test_compress_prompt_ollama_fallback","name":"compress_prompt_detail falls back on Ollama failure","status":"passed","testResultsByEnv":{"default":"0749488e5ddc7f458221cd0f1abfb437"}}

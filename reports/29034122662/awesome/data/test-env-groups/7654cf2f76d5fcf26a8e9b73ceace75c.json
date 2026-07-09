@@ -1,0 +1,1 @@
+{"id":"7654cf2f76d5fcf26a8e9b73ceace75c","fullName":"tests.test_coverage_gaps#test_workspace_config_path_auto_root","name":"workspace_config_path discovers root when omitted","status":"passed","testResultsByEnv":{"default":"8a7ecee1b8077735a4dd1365675a1d91"}}

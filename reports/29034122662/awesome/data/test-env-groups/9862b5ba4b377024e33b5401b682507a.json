@@ -1,0 +1,1 @@
+{"id":"9862b5ba4b377024e33b5401b682507a","fullName":"tests.test_settings#test_format_shell_export","name":"Shell export emits OLLAMA_URL and OLLAMA_MODEL","status":"passed","testResultsByEnv":{"default":"4f8f4832947735ffe09d3a11ab93830f"}}

@@ -1,1 +1,0 @@
-{"id":"47770048477b053c49591ff8d40f85f9","fullName":"tests.test_settings#test_apply_ollama_env","name":"apply_ollama_env sets OLLAMA_* when unset","status":"passed","testResultsByEnv":{"default":"6e21d1be0db188022a55a6d39b6773e5"}}

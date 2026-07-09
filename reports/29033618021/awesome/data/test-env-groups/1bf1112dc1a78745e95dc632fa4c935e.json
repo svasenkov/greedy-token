@@ -1,1 +1,0 @@
-{"id":"1bf1112dc1a78745e95dc632fa4c935e","fullName":"tests.test_pipeline#test_pipeline_stops_on_error","name":"Pipeline stops early when a step fails","status":"passed","testResultsByEnv":{"default":"a0ca37f8f5eaad47b6bf67af1c5ed136"}}
