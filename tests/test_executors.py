@@ -299,5 +299,7 @@ def test_infer_rag_domains() -> None:
     assert "stacks" in stacks
     analytics = _infer_rag_domains("allure dashboard quality gate")
     assert analytics == ["analytics"]
+    testing = _infer_rag_domains("page object locator pattern")
+    assert testing == ["testing"]
     assert _infer_rag_domains("random question") is None
 
