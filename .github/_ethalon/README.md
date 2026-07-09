@@ -8,7 +8,7 @@ Same pattern as monorepo `generators/ethalon/tests-java/.github/_ethalon/`
 | Path | Role |
 |------|------|
 | `_ethalon/gha-actions.yaml` | **SSOT** pinned action versions (checkout@v7, setup-python@v6, …) |
-| `_ethalon/test.yml` | Ethalon: pytest + Allure 3 + TestOps |
+| `_ethalon/test.yml` | Ethalon: tests (all) + Allure 3 + TestOps |
 | `_ethalon/publish.yml` | Ethalon: PyPI on release |
 | `workflows/*.yml` | **Runnable** copies — must match `_ethalon/` same basename |
 | `_new.yml` | Inbox: workflow steps from consumer not yet in ethalon |

@@ -17,7 +17,7 @@ env:
 
 jobs:
   test:
-    name: pytest + Allure 3
+    name: tests (all)
     runs-on: ubuntu-latest
     env:
       ALLURE_RESULTS: build/allure-results

@@ -161,7 +161,7 @@ Saved by executor (sum of per-step savings):
 
 ## Тесты
 
-Нужен **Python 3.12+** (как в CI). GitHub Actions: **pytest + Allure 3** (quality gate, отчёт на GitHub Pages; upload в TestOps при наличии `ALLURE_TOKEN`).
+Нужен **Python 3.12+** (как в CI). GitHub Actions: job **tests (all)** — полный прогон, Allure 3 quality gate, отчёт на GitHub Pages; upload в TestOps при наличии `ALLURE_TOKEN`.
 
 **CI ethalon:** `.github/_ethalon/` (пины actions в `gha-actions.yaml`) → runnable `.github/workflows/`. Тот же паттерн, что `tests-java/.github/_ethalon/` в monorepo. Sync: `./scripts/sync-github-workflows.sh`; в CI перед pytest — `./scripts/check-github-workflows-sync.sh`.
 
