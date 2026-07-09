@@ -1,16 +1,18 @@
-# Pinned GitHub Actions (SSOT)
-
-Aligned with monorepo `generators/ethalon/tests-java/.github/_ethalon/`  
-(RAG: `docs/rag/testing/ci-workflow-ethalon.md` in zero-design-system).
+# Pinned GitHub Actions (SSOT) — greedy-token
+#
+# Mirror of monorepo `generators/ethalon/tests-java/.github/_ethalon/gha-actions.yaml`.
+# Bump pins there first, then here, then `_ethalon/*.yml` → `.github/workflows/`.
 
 | Key | Action | Used in |
 |-----|--------|---------|
 | `checkout` | `actions/checkout@v7` | test, publish |
 | `setup-python` | `actions/setup-python@v6` | test, publish |
-| `setup-node` | `actions/setup-node@v6` | test |
+| `setup-node` | `actions/setup-node@v6` | test (`node-version: 24`) |
 | `setup-allurectl` | `allure-framework/setup-allurectl@v1` | test |
-| `gh-pages` | `peaceiris/actions-gh-pages@v4` | test |
+| `upload-artifact` | `actions/upload-artifact@v7` | — |
+| `upload-pages-artifact` | `actions/upload-pages-artifact@v5` | test |
+| `deploy-pages` | `actions/deploy-pages@v5` | test |
+| `gh-pages-backup` | `peaceiris/actions-gh-pages@v4` | test (branch backup only) |
 | `pypi-publish` | `pypa/gh-action-pypi-publish@release/v1` | publish |
 
-**Rule:** bump versions here first, then sync `_ethalon/*.yml` → `.github/workflows/`.  
-Do not edit runnable workflows without updating this file and `_ethalon/`.
+**Rule:** no `@v4` `actions/*` in runnable workflows. Pages deploy = upload-pages-artifact + deploy-pages, not legacy branch builder.

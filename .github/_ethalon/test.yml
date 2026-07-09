@@ -206,24 +206,25 @@ jobs:
       - name: Fail if tests, coverage, or quality gate failed
         if: >-
           always() &&
-          (env.TEST_EXIT != '0' ||
+          ((env.TEST_EXIT != '' && env.TEST_EXIT != '0') ||
            (env.COVERAGE_EXIT != '' && env.COVERAGE_EXIT != '0') ||
            (env.QUALITY_GATE_EXIT != '' && env.QUALITY_GATE_EXIT != '0'))
         run: |
-          if [ "${TEST_EXIT}" != "0" ]; then
+          if [ -n "${TEST_EXIT:-}" ] && [ "${TEST_EXIT}" != "0" ]; then
             exit "${TEST_EXIT}"
           fi
           if [ -n "${COVERAGE_EXIT:-}" ] && [ "${COVERAGE_EXIT}" != "0" ]; then
             exit "${COVERAGE_EXIT}"
           fi
-          exit "${QUALITY_GATE_EXIT}"
+          if [ -n "${QUALITY_GATE_EXIT:-}" ] && [ "${QUALITY_GATE_EXIT}" != "0" ]; then
+            exit "${QUALITY_GATE_EXIT}"
+          fi
 
   deploy-pages:
     name: deploy Allure to GitHub Pages
     needs: test
     if: >-
-      always() &&
-      needs.test.result != 'cancelled' &&
+      needs.test.result == 'success' &&
       github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
