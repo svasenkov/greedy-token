@@ -1,0 +1,1 @@
+{"id":"dec8b5c23a02bdb9716944eeac95db37","fullName":"tests.test_estimator#test_cursor_baseline_includes_rules_task_and_overhead","name":"Cursor baseline sums always-on rules, task, and agent overhead","status":"passed","testResultsByEnv":{"default":"8bcfee5aa0115569d01c77c3cc70344c"}}

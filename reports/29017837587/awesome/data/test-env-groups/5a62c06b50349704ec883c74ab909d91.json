@@ -1,0 +1,1 @@
+{"id":"5a62c06b50349704ec883c74ab909d91","fullName":"tests.test_cli_handlers#test_cmd_config_export","name":"cmd_config --export prints shell exports","status":"passed","testResultsByEnv":{"default":"ec0bb2ce5038a0daba572ca36dd2bd63"}}

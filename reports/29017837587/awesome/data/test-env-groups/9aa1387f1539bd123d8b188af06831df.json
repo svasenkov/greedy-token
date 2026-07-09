@@ -1,0 +1,1 @@
+{"id":"9aa1387f1539bd123d8b188af06831df","fullName":"tests.test_cli_handlers#test_cmd_pipeline_list","name":"cmd_pipeline --list prints recipes","status":"passed","testResultsByEnv":{"default":"5ba9beb852927a35e9eb28002c018aa0"}}

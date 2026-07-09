@@ -1,0 +1,1 @@
+{"id":"9d406585b00aadad42ed17c3c486047d","fullName":"tests.test_cli_handlers#test_main_raises_system_exit","name":"main raises SystemExit with handler return code","status":"passed","testResultsByEnv":{"default":"3225ddd11a973e71f8717262ac1037eb"}}

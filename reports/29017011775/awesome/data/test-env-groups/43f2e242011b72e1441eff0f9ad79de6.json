@@ -1,1 +1,0 @@
-{"id":"43f2e242011b72e1441eff0f9ad79de6","fullName":"tests.test_settings#test_get_ollama_settings_no_root","name":"get_ollama_settings tolerates missing monorepo root","status":"passed","testResultsByEnv":{"default":"b9a29a83ddb61c1f458b2be762d948ec"}}
