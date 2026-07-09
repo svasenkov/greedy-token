@@ -118,3 +118,184 @@ def test_execute_task_cursor_returns_empty(minimal_workspace: Path) -> None:
     with allure.step("Verify cursor tier returns empty output"):
         assert result.decision.target == "cursor"
         assert result.output == ""
+
+
+@allure.story("Plan run")
+@allure.title("plan_run builds python tier command with wrapper read_only")
+def test_plan_run_python(minimal_workspace: Path) -> None:
+    from greedy_token.executors import plan_run
+    from greedy_token.router import RouteDecision
+
+    decision = RouteDecision(
+        target="python",
+        route_id="script-check-meta-sync",
+        confidence=1.0,
+        matched=["meta"],
+        command="./scripts/check-meta-sync.sh",
+        note="",
+        domains=[],
+        read_only=True,
+    )
+    plan = plan_run(decision, "check meta", minimal_workspace)
+    assert plan.executable is True
+    assert "check-meta-sync" in plan.command
+
+
+@allure.story("Plan run")
+@allure.title("plan_run returns RAG dry-run output")
+def test_plan_run_rag(minimal_workspace: Path) -> None:
+    from greedy_token.executors import plan_run
+    from greedy_token.router import RouteDecision
+
+    decision = RouteDecision(
+        target="rag",
+        route_id="rag-lookup",
+        confidence=1.0,
+        matched=["rag"],
+        command=None,
+        note="",
+        domains=["e2e"],
+    )
+    plan = plan_run(decision, "baseUrl -D flag", minimal_workspace)
+    assert plan.executable is False
+    assert "RAG hits" in plan.dry_run_output or "No RAG hits" in plan.dry_run_output
+
+
+@allure.story("Plan run")
+@allure.title("plan_run returns cursor guidance")
+def test_plan_run_cursor(minimal_workspace: Path) -> None:
+    from greedy_token.executors import plan_run
+    from greedy_token.router import RouteDecision
+
+    decision = RouteDecision(
+        target="cursor",
+        route_id="cursor-fallback",
+        confidence=0.3,
+        matched=[],
+        command=None,
+        note="",
+        domains=[],
+    )
+    plan = plan_run(decision, "refactor everything", minimal_workspace)
+    assert "Cursor chat" in plan.dry_run_output
+
+
+@allure.story("Plan run")
+@allure.title("plan_run returns fallback for unknown target")
+def test_plan_run_unknown(minimal_workspace: Path) -> None:
+    from greedy_token.executors import plan_run
+    from greedy_token.router import RouteDecision
+
+    decision = RouteDecision(
+        target="unknown",
+        route_id="x",
+        confidence=0.0,
+        matched=[],
+        command=None,
+        note="",
+        domains=[],
+    )
+    plan = plan_run(decision, "task", minimal_workspace)
+    assert plan.dry_run_output == "No executor."
+
+
+@patch("greedy_token.executors._rag_fallback_output")
+@patch("greedy_token.executors.execute_plan")
+@patch("greedy_token.executors.route_task")
+@allure.story("Filtered output")
+@allure.title("Task executor appends RAG when filtered rg output is short")
+def test_execute_task_filtered_short_rg(
+    mock_route,
+    mock_execute,
+    mock_rag_fallback,
+    minimal_workspace: Path,
+) -> None:
+    from greedy_token.router import RouteDecision
+
+    mock_route.return_value = RouteDecision(
+        target="tool",
+        route_id="tool-rg-search",
+        confidence=0.9,
+        matched=["find"],
+        command="rg ...",
+        note="",
+        domains=[],
+        read_only=True,
+        tool="rg",
+    )
+    mock_execute.return_value = (0, ".cursor/hooks/noise\nbaseUrl\n")
+    mock_rag_fallback.return_value = "RAG hits\n\n1. chunk"
+    result = execute_task("find baseUrl", minimal_workspace)
+    assert result.used_rag_fallback is True
+    assert "Additional RAG" in result.output or "RAG hits" in result.output
+
+
+@patch("greedy_token.executors.execute_plan")
+@patch("greedy_token.executors.route_task")
+@allure.story("Filtered output")
+@allure.title("Task executor returns filtered rg output without RAG when sufficient")
+def test_execute_task_filtered_sufficient(
+    mock_route,
+    mock_execute,
+    minimal_workspace: Path,
+) -> None:
+    from greedy_token.router import RouteDecision
+
+    mock_route.return_value = RouteDecision(
+        target="tool",
+        route_id="tool-rg-search",
+        confidence=0.9,
+        matched=["find"],
+        command="rg ...",
+        note="",
+        domains=[],
+        read_only=True,
+        tool="rg",
+    )
+    lines = "\n".join(f"line{i}: baseUrl" for i in range(5))
+    mock_execute.return_value = (0, ".cursor/hooks/noise\n" + lines)
+    result = execute_task("find baseUrl", minimal_workspace)
+    assert result.used_rag_fallback is False
+    assert "baseUrl" in result.output
+
+
+@patch("greedy_token.executors._rag_fallback_output", return_value=None)
+@patch("greedy_token.executors.execute_plan")
+@patch("greedy_token.executors.route_task")
+@allure.story("RAG fallback")
+@allure.title("Task executor returns raw output when RAG fallback empty")
+def test_execute_task_weak_rg_no_fallback(
+    mock_route,
+    mock_execute,
+    mock_rag,
+    minimal_workspace: Path,
+) -> None:
+    from greedy_token.router import RouteDecision
+
+    mock_route.return_value = RouteDecision(
+        target="tool",
+        route_id="tool-rg-search",
+        confidence=0.9,
+        matched=["find"],
+        command="rg ...",
+        note="",
+        domains=[],
+        read_only=True,
+        tool="rg",
+    )
+    mock_execute.return_value = (2, "")
+    result = execute_task("find baseUrl", minimal_workspace)
+    assert result.used_rag_fallback is False
+
+
+@allure.story("RAG domains")
+@allure.title("_infer_rag_domains detects e2e and stacks tokens")
+def test_infer_rag_domains() -> None:
+    from greedy_token.executors import _infer_rag_domains
+
+    e2e = _infer_rag_domains("explain baseUrl in testconfig")
+    assert e2e == ["e2e"]
+    stacks = _infer_rag_domains("openapi spring stack flows")
+    assert "stacks" in stacks
+    assert _infer_rag_domains("random question") is None
+

@@ -58,11 +58,19 @@ jobs:
       - name: Verify GHA ethalon sync
         run: bash ./scripts/check-github-workflows-sync.sh
 
-      - name: Pytest
+      - name: Pytest with coverage
         run: |
           set +e
-          python -m pytest tests/ -v --alluredir="${ALLURE_RESULTS}"
+          python -m coverage run -m pytest tests/ -v --alluredir="${ALLURE_RESULTS}"
           echo "TEST_EXIT=$?" >> "$GITHUB_ENV"
+          set -e
+
+      - name: Coverage report
+        if: always() && env.TEST_EXIT == '0'
+        run: |
+          set +e
+          python -m coverage report --include='src/greedy_token/*'
+          echo "COVERAGE_EXIT=$?" >> "$GITHUB_ENV"
           set -e
 
       - name: Allure environment
@@ -171,18 +179,52 @@ jobs:
           fi
           echo "- TestOps project: [5276](https://allure.autotests.cloud/project/5276)" >> "$GITHUB_STEP_SUMMARY"
           if [ "${QUALITY_GATE_EXIT:-}" = "0" ]; then
-            echo "- Allure 3 quality gate: passed (\`maxFailures: 0\`, \`minTestsCount: 135\`)" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Allure 3 quality gate: passed (\`maxFailures: 0\`, \`minTestsCount: 288\`)" >> "$GITHUB_STEP_SUMMARY"
           elif [ -n "${QUALITY_GATE_EXIT:-}" ]; then
             echo "- Allure 3 quality gate: **failed** (exit ${QUALITY_GATE_EXIT})" >> "$GITHUB_STEP_SUMMARY"
           fi
+          if [ "${COVERAGE_EXIT:-}" = "0" ]; then
+            echo "- Line coverage: **100%** (\`src/greedy_token/\`, lines + branches, \`fail_under=100\`)" >> "$GITHUB_STEP_SUMMARY"
+          elif [ -n "${COVERAGE_EXIT:-}" ]; then
+            echo "- Line coverage: **failed** (exit ${COVERAGE_EXIT})" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
-      - name: Fail if tests or quality gate failed
+      - name: Fail if tests, coverage, or quality gate failed
         if: >-
           always() &&
           (env.TEST_EXIT != '0' ||
+           (env.COVERAGE_EXIT != '' && env.COVERAGE_EXIT != '0') ||
            (env.QUALITY_GATE_EXIT != '' && env.QUALITY_GATE_EXIT != '0'))
         run: |
           if [ "${TEST_EXIT}" != "0" ]; then
             exit "${TEST_EXIT}"
           fi
+          if [ -n "${COVERAGE_EXIT:-}" ] && [ "${COVERAGE_EXIT}" != "0" ]; then
+            exit "${COVERAGE_EXIT}"
+          fi
           exit "${QUALITY_GATE_EXIT}"
+
+  pyramid:
+    name: pyramid (${{ matrix.layer }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        layer: [unit, component, integration, e2e]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: python -m pip install -e ".[dev,mcp]"
+
+      - name: Install ripgrep
+        if: matrix.layer == 'component' || matrix.layer == 'integration'
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+
+      - name: Pytest layer slice
+        run: python -m pytest tests/ -q -m "${{ matrix.layer }}"

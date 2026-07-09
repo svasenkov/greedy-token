@@ -197,3 +197,51 @@ def test_pipeline_stops_on_error(mock_run, minimal_workspace: Path) -> None:
     with allure.step("Verify pipeline stops early on failure"):
         assert result.stopped_early
         assert len(result.steps) == 2
+
+
+@allure.story("Pipeline result")
+@allure.title("PipelineResult.all_ok is false for empty steps")
+def test_pipeline_all_ok_empty() -> None:
+    from greedy_token.pipeline import PipelineResult
+
+    assert PipelineResult(task="empty").all_ok is False
+
+
+@allure.story("Execute")
+@allure.title("Pipeline skips non-allowlisted step on execute")
+def test_pipeline_skips_non_allowlisted(minimal_workspace: Path) -> None:
+    script = minimal_workspace / "scripts" / "migrate" / "phase1-rsync.sh"
+    script.parent.mkdir(parents=True, exist_ok=True)
+    script.write_text("#!/bin/sh\necho rsync\n", encoding="utf-8")
+    script.chmod(0o755)
+    result = run_pipeline("phase1-rsync", minimal_workspace, execute=True)
+    step = result.steps[0]
+    assert step.executed is False
+    assert "not in pipeline auto-run allowlist" in step.output
+
+
+@patch("greedy_token.pipeline.subprocess.run")
+@allure.story("Execute")
+@allure.title("Pipeline step timeout returns exit 124")
+def test_pipeline_step_timeout(mock_run, minimal_workspace: Path) -> None:
+    import subprocess
+
+    mock_run.side_effect = subprocess.TimeoutExpired("cmd", 120)
+    result = run_pipeline("check-meta-sync", minimal_workspace, execute=True)
+    assert result.steps[0].exit_code == 124
+    assert "timed out" in result.steps[0].output
+
+
+@allure.story("Continue on error")
+@allure.title("Pipeline continue-on-error keeps running after failure")
+def test_pipeline_continue_on_error(minimal_workspace: Path) -> None:
+    with patch("greedy_token.pipeline.ollama_available", return_value=False):
+        result = run_pipeline(
+            "meta-audit configurator-boolean",
+            minimal_workspace,
+            execute=True,
+            stop_on_error=False,
+        )
+    assert len(result.steps) == 2
+    assert result.steps[1].ok is False
+

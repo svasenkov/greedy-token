@@ -5,4 +5,4 @@ try:
 
     __version__ = version("greedy-token")
 except Exception:
-    __version__ = "0.4.4"
+    __version__ = "0.4.5"

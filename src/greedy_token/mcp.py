@@ -38,8 +38,15 @@ def mcp_icons() -> list[Icon]:
         if icon_path.is_file():
             payload = icon_path.read_bytes() if mime == "image/png" else icon_path.read_text(encoding="utf-8").encode("utf-8")
         else:
-            resource = pkg_static.joinpath(name)
-            payload = resource.read_bytes() if mime == "image/png" else resource.read_text(encoding="utf-8").encode("utf-8")
+            try:
+                resource = pkg_static.joinpath(name)
+                payload = (
+                    resource.read_bytes()
+                    if mime == "image/png"
+                    else resource.read_text(encoding="utf-8").encode("utf-8")
+                )
+            except (FileNotFoundError, OSError):
+                continue
         encoded = base64.b64encode(payload).decode("ascii")
         return [
             Icon(

@@ -348,3 +348,125 @@ def test_max_log_bytes_env(monkeypatch: pytest.MonkeyPatch) -> None:
         attach_text("max log bytes", str(max_bytes))
     with allure.step("Verify env value is used"):
         assert max_bytes == 1024
+
+
+@allure.story("Logging paths")
+@allure.title("log_path honors GREEDY_TOKEN_LOG env")
+def test_log_path_custom(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from greedy_token.usage import log_path
+
+    custom = tmp_path / "custom.jsonl"
+    monkeypatch.setenv("GREEDY_TOKEN_LOG", str(custom))
+    assert log_path() == custom
+
+
+@allure.story("Event builders")
+@allure.title("build_script_event and build_compress_event populate fields")
+def test_build_script_and_compress_events(minimal_workspace: Path) -> None:
+    from greedy_token.usage import build_compress_event, build_script_event, executor_from_decision
+    from greedy_token.router import RouteDecision
+
+    script_event = build_script_event(
+        script_id="check-meta-sync",
+        root=minimal_workspace,
+        duration_ms=10,
+        executed=True,
+    )
+    assert script_event["executor"]["script_id"] == "check-meta-sync"
+    assert script_event["duration_ms"] == 10
+
+    compress_event = build_compress_event(
+        text="long prompt text",
+        short="short",
+        use_ollama=False,
+        duration_ms=5,
+    )
+    assert compress_event["compressor"] == "heuristic"
+
+    tool_exec = executor_from_decision(
+        RouteDecision(
+            target="tool",
+            route_id="tool-rg",
+            confidence=1.0,
+            matched=[],
+            command=None,
+            note="",
+            domains=[],
+            tool="rg",
+        )
+    )
+    assert tool_exec["kind"] == "rg"
+
+    py_exec = executor_from_decision(
+        RouteDecision(
+            target="python",
+            route_id="script-check-meta-sync",
+            confidence=1.0,
+            matched=[],
+            command=None,
+            note="",
+            domains=[],
+        )
+    )
+    assert py_exec["kind"] == "script"
+
+
+@allure.story("Tier scan helper")
+@allure.title("build_tier_scan returns rows for all tiers")
+def test_build_tier_scan(minimal_workspace: Path) -> None:
+    from greedy_token.usage import build_tier_scan
+
+    rows = build_tier_scan("find baseUrl", minimal_workspace)
+    assert len(rows) == 5
+    assert rows[0]["tier"] == "tool"
+
+
+@allure.story("Report")
+@allure.title("format_report includes tier table and skipped lines")
+def test_format_report_with_events() -> None:
+    from greedy_token.usage import ReportSummary, TierStats, format_report
+
+    summary = ReportSummary(events=2, since="7d", skipped_lines=1)
+    summary.by_tier = {
+        "tool": TierStats(count=1, est_tokens=0, cursor_baseline=9000, saved_vs_cursor=9000),
+        "ollama": TierStats(count=1, est_tokens=2000, cursor_baseline=9000, saved_vs_cursor=7000),
+        "unknown": TierStats(count=1, est_tokens=1, cursor_baseline=1, saved_vs_cursor=0),
+    }
+    summary.top_routes = [("tool-rg", 1)]
+    summary.counter_methods = {"tiktoken/cl100k_base": 2}
+    text = format_report(summary)
+    assert "greedy-token usage" in text
+    assert "local LLM" in text
+    assert "malformed lines skipped" in text
+
+
+@allure.story("Time filter")
+@allure.title("parse_since rejects invalid values")
+def test_parse_since_invalid() -> None:
+    with pytest.raises(ValueError, match="Invalid --since"):
+        parse_since("not-a-date")
+
+
+@allure.story("Log loading")
+@allure.title("load_events skips events before since and bad timestamps")
+def test_load_events_since_filter(log_file: Path) -> None:
+    log_file.write_text(
+        '{"cmd":"old","ts":"2020-01-01T00:00:00Z","selected_tier":"tool"}\n'
+        '{"cmd":"bad-ts","ts":"broken","selected_tier":"tool"}\n'
+        '{"cmd":"new","ts":"2030-01-01T00:00:00Z","selected_tier":"rag"}\n',
+        encoding="utf-8",
+    )
+    since = parse_since("2025-01-01")
+    events, skipped = load_events(log_file, since=since)
+    assert len(events) == 1
+    assert events[0]["cmd"] == "new"
+    assert skipped >= 1
+
+
+@allure.story("Rotation")
+@allure.title("rotate_log_if_needed returns false when file missing or small")
+def test_rotate_log_noop(log_file: Path) -> None:
+    assert rotate_log_if_needed(log_file) is False
+    log_file.write_text("{}\n", encoding="utf-8")
+    assert rotate_log_if_needed(log_file) is False
+

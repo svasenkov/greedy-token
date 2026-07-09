@@ -97,6 +97,16 @@ def _greedy_token_root_env(monkeypatch: pytest.MonkeyPatch, minimal_workspace: P
 
 
 @pytest.hookimpl(tryfirst=True)
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Auto-mark tests with pyramid layer for pytest -m and CI matrix slices."""
+    for item in items:
+        module_name = item.module.__name__.rsplit(".", 1)[-1]
+        layer = layer_for_module(module_name)
+        if layer:
+            item.add_marker(getattr(pytest.mark, layer))
+
+
+@pytest.hookimpl(tryfirst=True)
 def pytest_runtest_setup(item: pytest.Item) -> None:
     """Attach Allure id + label layer=* for TestOps (5276)."""
     try:
