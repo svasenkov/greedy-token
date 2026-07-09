@@ -1,1 +1,0 @@
-{"id":"3a0364f71c9953a3076f4de6a24a4ec8","fullName":"tests.test_cli_handlers#test_cmd_run_execute","name":"cmd_run --execute runs read-only task","status":"passed","testResultsByEnv":{"default":"d2acb2a2cae780da053ccdeaa6fd7806"}}

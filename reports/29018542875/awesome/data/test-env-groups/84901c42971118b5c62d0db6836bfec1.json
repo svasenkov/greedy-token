@@ -1,0 +1,1 @@
+{"id":"84901c42971118b5c62d0db6836bfec1","fullName":"tests.test_estimator#test_estimate_task_ollama_unavailable_note","name":"Estimate task sets ollama note when Ollama route is unavailable","status":"passed","testResultsByEnv":{"default":"aec6a36c2e5a818d56dfb2c53b99a454"}}
