@@ -1,0 +1,1 @@
+{"id":"b67b8ca54fccdba780957666f5d2d708","fullName":"tests.test_coverage_gaps#test_main_entrypoint","name":"__main__ entrypoint invokes cli.main when executed as script","status":"passed","testResultsByEnv":{"default":"d46dc96e5d89a6bf10b9a5cb735b3612"}}

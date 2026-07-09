@@ -1,0 +1,1 @@
+{"id":"c819079129a656951b5049b24e58438f","fullName":"tests.test_executors#test_execute_task_rag_route_returns_hits","name":"Execute task on RAG route returns formatted doc hits","status":"passed","testResultsByEnv":{"default":"4553870972c8601c31e77a715221d3a0"}}
