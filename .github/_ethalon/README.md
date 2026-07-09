@@ -35,9 +35,9 @@ Bump `actions/*` versions in `_ethalon/gha-actions.yaml` first, then apply to al
 
 `fail_under = 100` in `pyproject.toml` `[tool.coverage.report]` with `branch = true` in `[tool.coverage.run]`. CI on every push/PR: `coverage run` + `coverage report`.
 
-## Pyramid slices
+## Layer slices
 
-Matrix job `pyramid` runs `pytest -m <layer>` for `unit`, `component`, `integration`, `e2e`. Layer mapping: `tests/pyramid_layers.py`; pytest markers are auto-applied in `tests/conftest.py`.
+Matrix job `tests` runs `pytest -m <layer>` for `unit`, `component`, `integration`, `e2e`. Layer mapping: `tests/pyramid_layers.py`; pytest markers are auto-applied in `tests/conftest.py`.
 
 ## Monorepo alignment
 

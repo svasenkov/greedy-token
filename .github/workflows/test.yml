@@ -204,8 +204,8 @@ jobs:
           fi
           exit "${QUALITY_GATE_EXIT}"
 
-  pyramid:
-    name: pyramid (${{ matrix.layer }})
+  tests:
+    name: tests (${{ matrix.layer }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -226,5 +226,5 @@ jobs:
         if: matrix.layer == 'component' || matrix.layer == 'integration'
         run: sudo apt-get update && sudo apt-get install -y ripgrep
 
-      - name: Pytest layer slice
+      - name: Pytest slice
         run: python -m pytest tests/ -q -m "${{ matrix.layer }}"
