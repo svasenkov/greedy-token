@@ -59,7 +59,7 @@ def test_greedy_token_search(minimal_workspace: Path) -> None:
 def test_greedy_token_rag_domain(minimal_workspace: Path) -> None:
     from greedy_token.mcp import greedy_token_rag
 
-    out = greedy_token_rag("baseUrl", domain="e2e")
+    out = greedy_token_rag("baseUrl", domain="config")
     assert "RAG hits" in out or "No RAG hits" in out
 
 

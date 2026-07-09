@@ -29,7 +29,7 @@ def test_init_version_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr("importlib.metadata.version", boom)
     mod = importlib.reload(importlib.import_module("greedy_token"))
-    assert mod.__version__ == "0.4.5"
+    assert mod.__version__ == "0.4.6"
 
 
 @allure.title("__main__ entrypoint invokes cli.main when executed as script")
@@ -54,7 +54,7 @@ def test_rag_est_tokens_reads_file(minimal_workspace: Path) -> None:
     from greedy_token.budget import rag_est_tokens
     from greedy_token.rag_search import RagHit
 
-    hits = [RagHit("id", "docs/rag/e2e/test-chunk.md", "e2e", 1.0, "excerpt")]
+    hits = [RagHit("id", "docs/rag/config/test-chunk.md", "config", 1.0, "excerpt")]
     assert rag_est_tokens(hits, minimal_workspace) > 0
 
 
@@ -361,8 +361,8 @@ def test_rag_index_edges(minimal_workspace: Path) -> None:
         json.dumps(
             {
                 "id": "missing-chunk",
-                "domain": "e2e",
-                "path": "docs/rag/e2e/missing-chunk.md",
+                "domain": "config",
+                "path": "docs/rag/config/missing-chunk.md",
                 "tags": [],
             }
         )
@@ -710,8 +710,8 @@ def test_misc_remaining_branches(minimal_workspace: Path, tmp_path: Path, monkey
 
     manifest = minimal_workspace / "docs" / "rag" / "manifest.jsonl"
     manifest.write_text(
-        '{"id":"empty-path","domain":"e2e","path":"","tags":[]}\n'
-        + '{"id":"ghost","domain":"e2e","path":"docs/rag/e2e/ghost.md","tags":[]}\n',
+        '{"id":"empty-path","domain":"config","path":"","tags":[]}\n'
+        + '{"id":"ghost","domain":"config","path":"docs/rag/config/ghost.md","tags":[]}\n',
         encoding="utf-8",
     )
     invalidate_rag_index(minimal_workspace)

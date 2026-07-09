@@ -104,7 +104,7 @@ def test_cmd_tokens_no_files(minimal_workspace: Path, capsys) -> None:
 @allure.story("RAG")
 @allure.title("cmd_rag searches docs with optional domain")
 def test_cmd_rag(minimal_workspace: Path, capsys) -> None:
-    code = cli.cmd_rag(_ns(query="baseUrl -D flag", domain="e2e", limit=5))
+    code = cli.cmd_rag(_ns(query="baseUrl -D flag", domain="config", limit=5))
     out = capsys.readouterr().out
     assert code == 0
     assert "RAG hits" in out or "No RAG hits" in out

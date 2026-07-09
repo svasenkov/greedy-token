@@ -84,7 +84,7 @@ def greedy_token_route(task: str) -> str:
 
 @mcp.tool()
 def greedy_token_rag(query: str, domain: str = "") -> str:
-    """Search docs/rag chunks. Optional domain: e2e, stacks, e2e-header (comma-separated)."""
+    """Search docs/rag chunks. Optional domain filter (comma-separated manifest names)."""
     t0 = time.perf_counter()
     root = find_monorepo_root()
     task = f"rag: {query}" + (f" [{domain}]" if domain else "")

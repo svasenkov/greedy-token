@@ -108,33 +108,47 @@ routes:
     command: null
     note: "Draft RAG chunks via scripts/ollama/ — never one-by-one in Cursor"
 
-  - id: rag-e2e-config
+  - id: rag-config-keys
     target: rag
     patterns:
-      - e2e config
+      - test config
       - -d flag
       - testconfig
       - env profile
       - baseurl
       - base url
       - healthcheck
-      - gradle -d
-    domains: [e2e]
-    note: "Lookup docs/rag/e2e/e2e-config-keys.md, cfg-*"
+      - property override
+    domains: [config]
+    note: "Lookup docs/rag/config/ — TestConfig keys, env profiles, overrides"
 
-  - id: rag-e2e-patterns
+  - id: rag-testing-patterns
     target: rag
     patterns:
       - page object
       - po locator
-      - selenide
       - test pyramid
       - test layer
       - allure attach
       - ci workflow
       - allurerc
-    domains: [e2e, e2e-header]
-    note: "e2e patterns — read chunk, don't re-derive in chat"
+    domains: [testing, testing-header]
+    note: "Testing patterns — read chunk, don't re-derive in chat"
+
+  - id: rag-analytics
+    target: rag
+    patterns:
+      - quality gate
+      - allure dashboard
+      - analytics grid
+      - sparkline
+      - allure agent
+      - metrics catalog
+      - chart matrix
+      - allure shell
+      - analytics index
+    domains: [analytics]
+    note: "Lookup docs/rag/analytics/ — Allure dashboard, quality gate, grid"
 
   - id: rag-stacks
     target: rag
@@ -158,7 +172,7 @@ routes:
       - wiring
       - architecture
       - new feature
-      - e2e test class
+      - ui test class
     note: "One chat = one zone; use skill if listed"
 
 cursor_fallback:

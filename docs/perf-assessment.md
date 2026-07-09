@@ -16,7 +16,7 @@ is a CPU-bound tokenizer. This assessment measures what the CLI actually spends 
 | `--help` (cold start) | 0.083 s | interpreter 0.02 s + imports ~0.05 s |
 | `route "find baseUrl"` | 0.202 s | regex routing, no heavy work |
 | `estimate "refactor header layout"` | 0.281 s | includes tiktoken encoder init (~0.13 s) |
-| `rag "e2e baseUrl healthCheck"` | 0.087 s | file scan over `docs/rag/` |
+| `rag "config baseUrl healthCheck"` | 0.087 s | file scan over `docs/rag/` |
 | `tokens .cursor/rules` | 0.198 s | tiktoken init dominates |
 | `audit-context` | 0.212 s | tiktoken init dominates |
 
@@ -105,7 +105,7 @@ Results (same machine/corpus, medians of 5 runs via `bench/bench.py`; stress —
 | `estimate "refactor header layout"` | 0.281 s | 0.257 s | ~1.1x |
 | `--help` (cold start) | 0.083 s | 0.087 s | — (noise) |
 | `route "find baseUrl"` | 0.202 s | 0.204 s | — (not touched) |
-| `rag "e2e baseUrl healthCheck"` | 0.087 s | 0.087 s | — (not touched) |
+| `rag "config baseUrl healthCheck"` | 0.087 s | 0.087 s | — (not touched) |
 
 On small inputs the win is bounded by fixed costs (interpreter start ~0.08 s + tiktoken
 encoder init ~0.13 s); the batch path pays off proportionally to corpus size.

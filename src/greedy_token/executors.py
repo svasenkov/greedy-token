@@ -130,18 +130,45 @@ def _infer_rag_domains(task: str) -> list[str] | None:
     if any(
         token in text
         for token in (
-            "e2e",
+            "quality gate",
+            "allure dashboard",
+            "analytics grid",
+            "sparkline",
+            "allure agent",
+            "metrics catalog",
+            "chart matrix",
+            "allure shell",
+            "analytics index",
+        )
+    ):
+        domains.append("analytics")
+    if any(
+        token in text
+        for token in (
+            "page object",
+            "po locator",
             "selenide",
-            "allure",
+            "test pyramid",
+            "test layer",
+            "ci workflow",
+            "allurerc",
+        )
+    ):
+        domains.append("testing")
+    if any(
+        token in text
+        for token in (
             "testconfig",
-            "gradle -d",
+            "test config",
             "baseurl",
             "base url",
             "healthcheck",
             "configurator",
+            "-d flag",
+            "property override",
         )
     ):
-        domains.append("e2e")
+        domains.append("config")
     if any(token in text for token in ("stack", "openapi", "spring", "flows/login")):
         domains.append("stacks")
     return domains or None

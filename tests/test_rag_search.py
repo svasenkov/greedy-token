@@ -17,14 +17,14 @@ pytestmark = [
 
 
 @allure.story("Manifest search")
-@allure.title("RAG search finds baseUrl chunk in e2e domain")
+@allure.title("RAG search finds baseUrl chunk in config domain")
 def test_search_rag_finds_baseurl(minimal_workspace: Path) -> None:
-    with allure.step("Search RAG for baseUrl in e2e domain"):
-        hits = search_rag("baseUrl -D flag", minimal_workspace, domains=["e2e"], limit=5)
+    with allure.step("Search RAG for baseUrl in config domain"):
+        hits = search_rag("baseUrl -D flag", minimal_workspace, domains=["config"], limit=5)
         attach_json("hits", [{"domain": h.domain, "excerpt": h.excerpt} for h in hits])
     with allure.step("Verify baseUrl chunk is found"):
         assert len(hits) >= 1
-        assert hits[0].domain == "e2e"
+        assert hits[0].domain == "config"
         assert "baseurl" in hits[0].excerpt.lower() or "baseUrl" in hits[0].excerpt
 
 

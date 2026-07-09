@@ -173,7 +173,7 @@ def test_cli_rag_query(minimal_workspace: Path) -> None:
             "rag",
             "baseUrl -D flag",
             "--domain",
-            "e2e",
+            "config",
             workspace=minimal_workspace,
         )
         attach_text("stdout", proc.stdout)

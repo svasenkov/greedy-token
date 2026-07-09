@@ -119,8 +119,8 @@ def test_rag_est_tokens(minimal_workspace: Path) -> None:
     from greedy_token.rag_search import RagHit
 
     hits = [
-        RagHit("id1", "docs/rag/e2e/test-chunk.md", "e2e", 1.0, "excerpt", body="baseUrl text"),
-        RagHit("id2", "missing.md", "e2e", 1.0, "excerpt only"),
+        RagHit("id1", "docs/rag/config/test-chunk.md", "config", 1.0, "excerpt", body="baseUrl text"),
+        RagHit("id2", "missing.md", "config", 1.0, "excerpt only"),
     ]
     total = rag_est_tokens(hits, minimal_workspace)
     assert total > 0

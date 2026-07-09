@@ -83,7 +83,6 @@ SEARCH_FILLER = frozenset(
         "are",
         "all",
         "any",
-        "e2e",
         "config",
         "configuration",
         "configurator",

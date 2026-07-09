@@ -6,14 +6,20 @@
 
 Вы работаете в **Cursor** — greedy-token стоит рядом с агентом (CLI + MCP), чтобы повседневные задачи не всегда открывали полный agent chat.
 
-Сначала пробует более дешёвые исполнители — **ripgrep → скрипты → локальный Ollama → docs/rag** — и только если этого мало, эскалирует в **ход Cursor-агента**. В каждом вызове — оценка **Token economy**: сколько сэкономлено относительно наивного полного чата.
+Маршрутизирует задачу на **самый дешёвый подходящий tier** (`tool` → `python` → `ollama` → `rag` → `cursor`; побеждает первый match по паттерну). **Pipeline** — цепочка из нескольких tier’ов в одном вызове. **Cursor agent chat** — только если дешевле маршрута нет. В каждом ответе — footer **Token economy** относительно наивного полного чата.
 
 ```
 В Cursor:  задача  →  greedy-token (MCP/CLI)
                  ↓
-           сначала дешёвое:  rg | скрипты | Ollama | docs/rag | pipeline
+     route (один tier на задачу):
+       tool → python → ollama → rag → cursor
+       первый match в routes.yaml; tier ollama пропускается, если сервер недоступен
                  ↓
-           только если нужно:  agent chat в Cursor
+     pipeline (опционально, несколько шагов):
+       напр. check-meta-sync then audit-skill …
+       собирает шаги tool / python / ollama / rag — это не отдельный tier
+                 ↓
+     эскалация: Cursor agent chat, если дешевле маршрута нет
 ```
 
 ## Зачем
@@ -26,7 +32,7 @@
 | **rag** | lookup в `docs/rag/` | маленький read |
 | **cursor** | wiring, refactor | полный agent chat |
 
-**Порядок tier:** первый match побеждает. Ollama пропускается, если сервер недоступен.
+**Порядок tier:** `TIER_ORDER` в `router.py` / `routes.yaml` — обход `tool → python → ollama → rag → cursor`, побеждает первый match. Не каждый tier выполняется на каждой задаче. Tier `ollama` пропускается, если сервер недоступен.
 
 ## Охват и roadmap
 

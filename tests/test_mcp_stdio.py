@@ -85,7 +85,7 @@ def test_mcp_stdio_rag_returns_hits(minimal_workspace: Path) -> None:
     async def _call(session):
         return await session.call_tool(
             "greedy_token_rag",
-            {"query": "baseUrl -D flag", "domain": "e2e"},
+            {"query": "baseUrl -D flag", "domain": "config"},
         )
 
     with allure.step("Call greedy_token_rag via MCP stdio"):

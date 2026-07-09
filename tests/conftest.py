@@ -49,15 +49,15 @@ def minimal_workspace(tmp_path: Path) -> Path:
 
     rag = tmp_path / "docs" / "rag"
     rag.mkdir()
-    chunk_rel = "docs/rag/e2e/test-chunk.md"
-    (rag / "e2e").mkdir(parents=True)
-    (rag / "e2e" / "test-chunk.md").write_text(
+    chunk_rel = "docs/rag/config/test-chunk.md"
+    (rag / "config").mkdir(parents=True)
+    (rag / "config" / "test-chunk.md").write_text(
         "baseUrl is configured via -DbaseUrl flag in Gradle.\n",
         encoding="utf-8",
     )
     manifest_line = {
         "id": "test-baseurl",
-        "domain": "e2e",
+        "domain": "config",
         "path": chunk_rel,
         "tags": ["baseurl", "gradle"],
     }

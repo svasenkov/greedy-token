@@ -154,7 +154,7 @@ def test_plan_run_rag(minimal_workspace: Path) -> None:
         matched=["rag"],
         command=None,
         note="",
-        domains=["e2e"],
+        domains=["config"],
     )
     plan = plan_run(decision, "baseUrl -D flag", minimal_workspace)
     assert plan.executable is False
@@ -289,13 +289,15 @@ def test_execute_task_weak_rg_no_fallback(
 
 
 @allure.story("RAG domains")
-@allure.title("_infer_rag_domains detects e2e and stacks tokens")
+@allure.title("_infer_rag_domains detects config and stacks tokens")
 def test_infer_rag_domains() -> None:
     from greedy_token.executors import _infer_rag_domains
 
-    e2e = _infer_rag_domains("explain baseUrl in testconfig")
-    assert e2e == ["e2e"]
+    config_domains = _infer_rag_domains("explain baseUrl in testconfig")
+    assert config_domains == ["config"]
     stacks = _infer_rag_domains("openapi spring stack flows")
     assert "stacks" in stacks
+    analytics = _infer_rag_domains("allure dashboard quality gate")
+    assert analytics == ["analytics"]
     assert _infer_rag_domains("random question") is None
 

@@ -30,7 +30,7 @@ COMMANDS = [
     ("estimate", ["estimate", "refactor header layout"]),
     ("estimate + log", ["estimate", "find baseUrl"]),
     ("estimate --no-log", ["--no-log", "estimate", "find baseUrl"]),
-    ("rag", ["rag", "e2e baseUrl healthCheck"]),
+    ("rag", ["rag", "config baseUrl healthCheck"]),
     ("tokens (small dir)", ["tokens", ".cursor/rules"]),
     ("audit-context", ["audit-context"]),
 ]

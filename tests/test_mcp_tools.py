@@ -56,7 +56,7 @@ def test_mcp_search_finds_match_in_workspace(minimal_workspace: Path) -> None:
 @allure.title("MCP RAG tool returns hits with Token economy footer")
 def test_mcp_rag_returns_hits_with_footer(minimal_workspace: Path) -> None:
     with allure.step("Call greedy_token_rag"):
-        out = greedy_token_rag("baseUrl -D flag", domain="e2e")
+        out = greedy_token_rag("baseUrl -D flag", domain="config")
         attach_text("rag response", out)
     with allure.step("Verify RAG hits and Token economy footer"):
         assert "RAG hits for:" in out or "test-baseurl" in out

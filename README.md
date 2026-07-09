@@ -6,14 +6,20 @@
 
 You work in **Cursor** — greedy-token sits next to the agent (CLI + MCP) so everyday tasks don’t always open a full agent chat.
 
-It tries cheaper executors first — **ripgrep → scripts → local Ollama → docs/rag** — and only escalates to a **Cursor agent** turn when those aren’t enough. Each call shows a **Token economy** estimate of what you saved vs a naive full-context chat.
+It routes each task to the **cheapest matching tier** (`tool` → `python` → `ollama` → `rag` → `cursor`; first pattern match wins). **Pipeline** chains multiple tiers in one call. Escalation to **Cursor agent chat** only when no cheaper route matches. Each response includes a **Token economy** footer vs a naive full-context chat.
 
 ```
 In Cursor:  your task  →  greedy-token (MCP/CLI)
                  ↓
-           cheapest first:  rg | scripts | Ollama | docs/rag | pipeline
+     route (one tier per task):
+       tool → python → ollama → rag → cursor
+       first matching route in routes.yaml wins; ollama tier skipped if server down
                  ↓
-           only if needed:  Cursor agent chat
+     pipeline (optional, multi-step):
+       e.g. check-meta-sync then audit-skill …
+       composes tool / python / ollama / rag steps — not a separate tier
+                 ↓
+     escalation: Cursor agent chat when no cheaper route matches
 ```
 
 ## What it does
@@ -26,7 +32,7 @@ In Cursor:  your task  →  greedy-token (MCP/CLI)
 | **rag** | lookup in `docs/rag/` | small read |
 | **cursor** | wiring, refactor, architecture | full agent chat |
 
-**Tier order:** first match wins. Ollama is skipped when unavailable.
+**Tier order:** `TIER_ORDER` in `router.py` / `routes.yaml` — first pattern match wins within the walk `tool → python → ollama → rag → cursor`. Not every tier runs on every task. Ollama tier is skipped when the server is down.
 
 ## Scope & roadmap
 

@@ -21,8 +21,8 @@ pytestmark = [
 @pytest.mark.parametrize(
     ("task", "expected"),
     [
-        ("find baseUrl in e2e config", "baseUrl"),
-        ("find baseUrl in e2e configurator", "baseUrl"),
+        ("find baseUrl in test config", "baseUrl"),
+        ("find baseUrl in configurator presets", "baseUrl"),
         ("grep for ConfigReader in tests", "ConfigReader"),
         ('search for "healthCheck path"', "healthCheck path"),
         ("find phase-manifest.json", "phase-manifest.json"),
@@ -46,13 +46,13 @@ def test_build_tool_command_uses_identifier_not_phrase(minimal_workspace: Path) 
     with allure.step("Build ripgrep command for find task"):
         cmd = _build_tool_command(
             {"tool": "rg"},
-            "find baseUrl in e2e configurator",
+            "find baseUrl in configurator presets",
             minimal_workspace,
         )
         attach_text("tool command", cmd)
     with allure.step("Verify identifier search not full phrase"):
         assert "-F baseUrl" in cmd or "-F 'baseUrl'" in cmd
-        assert "baseUrl in e2e configurator" not in cmd
+        assert "baseUrl in configurator presets" not in cmd
         assert "!.cursor/hooks/**" in cmd
 
 

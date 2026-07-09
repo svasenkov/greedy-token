@@ -39,7 +39,7 @@ def test_get_indexed_chunks_caches(minimal_workspace: Path) -> None:
 def test_index_invalidates_on_chunk_edit(minimal_workspace: Path) -> None:
     invalidate_rag_index()
     before = get_indexed_chunks(minimal_workspace)
-    chunk = minimal_workspace / "docs/rag/e2e/test-chunk.md"
+    chunk = minimal_workspace / "docs/rag/config/test-chunk.md"
     with allure.step("Edit chunk file and reload index"):
         chunk.write_text(
             chunk.read_text(encoding="utf-8") + "\nnewkeyword flag appears here.\n",
@@ -60,8 +60,8 @@ def test_search_reads_only_top_hits(minimal_workspace: Path) -> None:
     rag = minimal_workspace / "docs/rag"
     manifest_lines = []
     for i in range(3):
-        rel = f"docs/rag/e2e/chunk-{i}.md"
-        (rag / "e2e" / f"chunk-{i}.md").write_text(
+        rel = f"docs/rag/config/chunk-{i}.md"
+        (rag / "config" / f"chunk-{i}.md").write_text(
             f"sharedtoken value number {i}\n",
             encoding="utf-8",
         )
@@ -69,7 +69,7 @@ def test_search_reads_only_top_hits(minimal_workspace: Path) -> None:
             json.dumps(
                 {
                     "id": f"chunk-{i}",
-                    "domain": "e2e",
+                    "domain": "config",
                     "path": rel,
                     "tags": ["sharedtoken"],
                 }
@@ -101,7 +101,7 @@ def test_search_reads_only_top_hits(minimal_workspace: Path) -> None:
 def test_search_rag_still_finds_baseurl(minimal_workspace: Path) -> None:
     with allure.step("Rebuild index and search for baseUrl"):
         invalidate_rag_index(minimal_workspace)
-        hits = search_rag("baseUrl -D flag", minimal_workspace, domains=["e2e"], limit=5)
+        hits = search_rag("baseUrl -D flag", minimal_workspace, domains=["config"], limit=5)
         attach_json("hits", [{"chunk_id": h.chunk_id, "has_body": h.body is not None} for h in hits])
     with allure.step("Verify baseUrl chunk is found with body"):
         assert len(hits) >= 1

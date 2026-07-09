@@ -1,7 +1,7 @@
 # Pinned GitHub Actions (SSOT)
 
 Aligned with monorepo `generators/ethalon/tests-java/.github/_ethalon/`  
-(RAG: `docs/rag/e2e/ci-workflow-ethalon.md` in zero-design-system).
+(RAG: `docs/rag/testing/ci-workflow-ethalon.md` in zero-design-system).
 
 | Key | Action | Used in |
 |-----|--------|---------|

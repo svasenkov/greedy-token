@@ -85,7 +85,7 @@ def test_format_decision_full(minimal_workspace: Path) -> None:
         matched=["rag"],
         command=None,
         note="extra note",
-        domains=["e2e"],
+        domains=["config"],
         complexity="low",
         est_tokens=100,
         rationale="lookup docs",

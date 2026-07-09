@@ -24,8 +24,8 @@ def test_rag_est_tokens_reuses_body_without_reread(minimal_workspace: Path) -> N
     hits = [
         RagHit(
             chunk_id="x",
-            path="docs/rag/e2e/test-chunk.md",
-            domain="e2e",
+            path="docs/rag/config/test-chunk.md",
+            domain="config",
             score=1.0,
             excerpt="short",
             body="baseUrl is configured via -DbaseUrl flag in Gradle.\n",
