@@ -8,6 +8,8 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 env:
   ALLURE_VERSION: "3.13.0"
@@ -26,14 +28,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Load Allure history
+      - name: Load existing GitHub Pages site
+        if: github.ref == 'refs/heads/main'
         uses: actions/checkout@v7
         continue-on-error: true
         with:
           ref: gh-pages
-          path: gh-pages
-          sparse-checkout: history.jsonl
-          sparse-checkout-cone-mode: false
+          path: pages
 
       - uses: actions/setup-python@v6
         with:
@@ -41,12 +42,13 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: "22"
+          node-version: "24"
 
       - name: Restore Allure history
+        if: github.ref == 'refs/heads/main'
         run: |
-          if [ -f gh-pages/history.jsonl ]; then
-            cp gh-pages/history.jsonl history.jsonl
+          if [ -f pages/history.jsonl ]; then
+            cp pages/history.jsonl history.jsonl
           fi
 
       - name: Install
@@ -130,7 +132,7 @@ jobs:
           {
             "reportName": "Run #${{ github.run_number }}",
             "buildOrder": ${{ github.run_number }},
-            "reportUrl": "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/reports/${REPORT_ID}/index.html",
+            "reportUrl": "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/reports/${REPORT_ID}/awesome/index.html",
             "buildUrl": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           }
           EOF
@@ -139,7 +141,11 @@ jobs:
             --output build/allure-report
 
       - name: Prepare GitHub Pages
-        if: always() && steps.allure-report.outcome == 'success' && hashFiles('build/allure-report/index.html') != ''
+        if: >-
+          always() &&
+          github.ref == 'refs/heads/main' &&
+          steps.allure-report.outcome == 'success' &&
+          hashFiles('build/allure-report/awesome/index.html') != ''
         run: |
           mkdir -p pages/reports/${REPORT_ID}
           cp -r build/allure-report/. "pages/reports/${REPORT_ID}/"
@@ -151,8 +157,14 @@ jobs:
           echo "${REPORT_ID}" > pages/latest-run-id.txt
           touch pages/.nojekyll
 
-      - name: Deploy Allure report to GitHub Pages
-        if: always() && hashFiles('pages/reports/**/index.html') != ''
+      - name: Upload GitHub Pages artifact
+        if: always() && github.ref == 'refs/heads/main' && hashFiles('pages/reports/**/index.html') != ''
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: pages
+
+      - name: Sync gh-pages branch backup
+        if: always() && github.ref == 'refs/heads/main' && hashFiles('pages/reports/**/index.html') != ''
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -163,12 +175,14 @@ jobs:
       - name: Job summary
         if: always()
         run: |
-          REPORT_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/reports/${REPORT_ID}/index.html"
+          REPORT_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/reports/${REPORT_ID}/awesome/index.html"
+          DASHBOARD_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/reports/${REPORT_ID}/dashboard/index.html"
           echo "## greedy-token Tests" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- [GitHub Actions run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> "$GITHUB_STEP_SUMMARY"
-          if [ -f build/allure-report/index.html ]; then
+          if [ -f build/allure-report/awesome/index.html ]; then
             echo "- [Allure 3 report](${REPORT_URL})" >> "$GITHUB_STEP_SUMMARY"
+            echo "- [Allure 3 dashboard](${DASHBOARD_URL})" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "- Allure 3 report: _not generated (no results or generation error)_" >> "$GITHUB_STEP_SUMMARY"
           fi
@@ -203,6 +217,25 @@ jobs:
             exit "${COVERAGE_EXIT}"
           fi
           exit "${QUALITY_GATE_EXIT}"
+
+  deploy-pages:
+    name: deploy Allure to GitHub Pages
+    needs: test
+    if: >-
+      always() &&
+      needs.test.result != 'cancelled' &&
+      github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
 
   tests:
     name: tests (${{ matrix.layer }})

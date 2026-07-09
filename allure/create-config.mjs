@@ -31,7 +31,7 @@ export function createAllureConfig({ slug, variables } = {}) {
       },
       dashboard: {
         options: {
-          reportName: `${slug} Tests Dashboard`,
+          reportName: `${slug} Tests`,
           reportLanguage: REPORT_LANGUAGE,
           layout: buildDashboardLayout(),
         },
