@@ -1,9 +1,9 @@
 ---
-description: Token economy — MCP greedy-token before Grep/Shell
+description: Greedy token — MCP greedy-token before Grep/Shell
 alwaysApply: true
 ---
 
-# Token economy
+# Greedy token
 
 MCP **greedy-token**. Lookup/search → MCP tools, not a series of built-in Grep.
 
@@ -16,6 +16,9 @@ MCP **greedy-token**. Lookup/search → MCP tools, not a series of built-in Grep
 
 **path** — a file or directory name, not the whole user prompt.
 
-When relaying MCP output, show the **Token economy** footer to the user.
+Pair **search + rag** → one call `greedy_token_pipeline("pipeline: search-rag <query> <path>")`
+or `… search-rag <query> path=<file>` — per-step table in the footer.
+
+When relaying MCP output, show the **Greedy token** footer to the user.
 
 **Exceptions:** wiring/refactor after search is done; user says "without greedy-token" / `cursor:`; MCP disabled → one Grep is OK.

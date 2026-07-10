@@ -82,14 +82,14 @@ Starter kit in this repo (copy into your project):
 | Template | Copy to |
 |----------|---------|
 | [`examples/cursor/mcp.json`](examples/cursor/mcp.json) | `.cursor/mcp.json` |
-| [`examples/cursor/rules/token-economy.mdc`](examples/cursor/rules/token-economy.mdc) | `.cursor/rules/token-economy.mdc` |
+| [`examples/cursor/rules/greedy-token.mdc`](examples/cursor/rules/greedy-token.mdc) | `.cursor/rules/greedy-token.mdc` |
 
 ```bash
 pip install "greedy-token[mcp]"
 mkdir -p .cursor/rules
 # from a greedy-token clone, or paste from the docs:
 cp examples/cursor/mcp.json .cursor/mcp.json
-cp examples/cursor/rules/token-economy.mdc .cursor/rules/token-economy.mdc
+cp examples/cursor/rules/greedy-token.mdc .cursor/rules/greedy-token.mdc
 ```
 
 Then: **Settings → MCP → greedy-token → Enable → Refresh** → **new** Agent chat.

@@ -23,7 +23,7 @@ If Cursor cannot find the binary (common with pyenv / venv), use an absolute pat
 Optional Ollama defaults:
 
 ```bash
-greedy-token config init --model qwen2.5-coder:7b-instruct-q4_K_M
+greedy-token config --init --model qwen2.5-coder:7b-instruct-q4_K_M
 ```
 
 ## 2. Copy the starter kit
@@ -33,13 +33,13 @@ Templates live in the package repo / sdist under `examples/cursor/`:
 | Template | Destination in your project |
 |----------|-----------------------------|
 | [`examples/cursor/mcp.json`](../examples/cursor/mcp.json) | `.cursor/mcp.json` |
-| [`examples/cursor/rules/token-economy.mdc`](../examples/cursor/rules/token-economy.mdc) | `.cursor/rules/token-economy.mdc` |
+| [`examples/cursor/rules/greedy-token.mdc`](../examples/cursor/rules/greedy-token.mdc) | `.cursor/rules/greedy-token.mdc` |
 
 ```bash
 # from a git clone of greedy-token:
 mkdir -p .cursor/rules
 cp examples/cursor/mcp.json .cursor/mcp.json
-cp examples/cursor/rules/token-economy.mdc .cursor/rules/token-economy.mdc
+cp examples/cursor/rules/greedy-token.mdc .cursor/rules/greedy-token.mdc
 ```
 
 Or create the files by hand:
@@ -61,7 +61,7 @@ Or create the files by hand:
 
 `GREEDY_TOKEN_ROOT` should be the workspace root (where you want `rg` / RAG / scripts to run). `${workspaceFolder}` is expanded by Cursor.
 
-**`.cursor/rules/token-economy.mdc`** — copy from [`examples/cursor/rules/token-economy.mdc`](../examples/cursor/rules/token-economy.mdc). Without this rule, Cursor often uses built-in Grep instead of MCP.
+**`.cursor/rules/greedy-token.mdc`** — copy from [`examples/cursor/rules/greedy-token.mdc`](../examples/cursor/rules/greedy-token.mdc). Without this rule, Cursor often uses built-in Grep instead of MCP.
 
 Merge rule: if `.cursor/mcp.json` already exists, add only the `"greedy-token"` server entry under `mcpServers`.
 
@@ -94,7 +94,7 @@ greedy-token pipeline "pipeline: list"
 find TODO in README.md
 ```
 
-Expect: `greedy_token_search`, then a **Token economy** footer in the reply.
+Expect: `greedy_token_search`, then a **Greedy token** footer in the reply.
 
 ```text
 pipeline: list
@@ -104,13 +104,13 @@ Expect: `greedy_token_pipeline` (dry-run by default — pass `execute=true` to r
 
 ## What the rule does
 
-`token-economy.mdc` is `alwaysApply: true` — **canonical** agent behavior (tool map + exceptions).  
+`greedy-token.mdc` is `alwaysApply: true` — **canonical** agent behavior (tool map + exceptions).  
 MCP server instructions stay short (footer relay + pipeline hint); do not duplicate the rule’s tool table there.
 
 The rule tells the agent to:
 
 - prefer MCP search/RAG/route/pipeline for lookups
-- show the **Token economy** block to you
+- show the **Greedy token** block to you
 - fall back to Grep only when MCP is off or you opt out (`cursor:`, “without greedy-token”)
 
 ## Optional: Ollama
@@ -131,7 +131,7 @@ greedy-token config
 | Agent still uses Grep | New chat; confirm rule is listed under Settings → Rules; MCP enabled |
 | Wrong workspace for search | Set `GREEDY_TOKEN_ROOT` in mcp `env` to the correct root |
 | `rg` missing | `brew install ripgrep` (or ensure `rg` is on PATH for the MCP process) |
-| Ollama tier skipped | Start Ollama; `greedy-token config init` |
+| Ollama tier skipped | Start Ollama; `greedy-token config --init` |
 
 ### Absolute-path `mcp.json` example
 

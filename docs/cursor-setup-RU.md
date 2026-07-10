@@ -23,7 +23,7 @@ which greedy-token-mcp   # должен быть в PATH для Cursor
 Ollama (опционально):
 
 ```bash
-greedy-token config init --model qwen2.5-coder:7b-instruct-q4_K_M
+greedy-token config --init --model qwen2.5-coder:7b-instruct-q4_K_M
 ```
 
 ## 2. Скопировать starter kit
@@ -33,13 +33,13 @@ greedy-token config init --model qwen2.5-coder:7b-instruct-q4_K_M
 | Шаблон | Куда в проекте |
 |--------|----------------|
 | [`examples/cursor/mcp.json`](../examples/cursor/mcp.json) | `.cursor/mcp.json` |
-| [`examples/cursor/rules/token-economy.mdc`](../examples/cursor/rules/token-economy.mdc) | `.cursor/rules/token-economy.mdc` |
+| [`examples/cursor/rules/greedy-token.mdc`](../examples/cursor/rules/greedy-token.mdc) | `.cursor/rules/greedy-token.mdc` |
 
 ```bash
 # из git-клона greedy-token:
 mkdir -p .cursor/rules
 cp examples/cursor/mcp.json .cursor/mcp.json
-cp examples/cursor/rules/token-economy.mdc .cursor/rules/token-economy.mdc
+cp examples/cursor/rules/greedy-token.mdc .cursor/rules/greedy-token.mdc
 ```
 
 Или вручную:
@@ -61,7 +61,7 @@ cp examples/cursor/rules/token-economy.mdc .cursor/rules/token-economy.mdc
 
 `GREEDY_TOKEN_ROOT` — корень workspace (где крутятся `rg` / RAG / scripts). Cursor подставляет `${workspaceFolder}`.
 
-**`.cursor/rules/token-economy.mdc`** — из [`examples/cursor/rules/token-economy.mdc`](../examples/cursor/rules/token-economy.mdc). Без rule агент часто игнорирует MCP и идёт в встроенный Grep.
+**`.cursor/rules/greedy-token.mdc`** — из [`examples/cursor/rules/greedy-token.mdc`](../examples/cursor/rules/greedy-token.mdc). Без rule агент часто игнорирует MCP и идёт в встроенный Grep.
 
 Если `.cursor/mcp.json` уже есть — добавьте только сервер `"greedy-token"` в `mcpServers`.
 
@@ -94,7 +94,7 @@ greedy-token pipeline "pipeline: list"
 find TODO in README.md
 ```
 
-Ожидание: `greedy_token_search` + footer **Token economy**.
+Ожидание: `greedy_token_search` + footer **Greedy token**.
 
 ```text
 pipeline: list
@@ -104,13 +104,13 @@ pipeline: list
 
 ## Что делает rule
 
-`token-economy.mdc` с `alwaysApply: true` — **канон** поведения агента (таблица tools + исключения).  
+`greedy-token.mdc` с `alwaysApply: true` — **канон** поведения агента (таблица tools + исключения).  
 MCP server instructions остаются короткими (footer + pipeline); таблицу tools туда не дублировать.
 
 Rule говорит агенту:
 
 - для lookup предпочитает MCP (search / rag / route / pipeline)
-- показывает вам блок **Token economy**
+- показывает вам блок **Greedy token**
 - fallback на Grep только если MCP выключен или вы явно отказались (`cursor:`, «без greedy-token»)
 
 ## Ollama (опционально)
@@ -131,7 +131,7 @@ greedy-token config
 | Агент всё равно Grep | Новый chat; rule в Settings → Rules; MCP enabled |
 | Поиск не там | `GREEDY_TOKEN_ROOT` в `env` mcp.json |
 | Нет `rg` | `brew install ripgrep` |
-| Ollama skipped | Запустить Ollama; `greedy-token config init` |
+| Ollama skipped | Запустить Ollama; `greedy-token config --init` |
 
 ### Пример с абсолютным путём
 

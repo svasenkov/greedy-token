@@ -82,14 +82,14 @@ Starter kit в этом репозитории (скопируйте в свой
 | Шаблон | Куда |
 |--------|------|
 | [`examples/cursor/mcp.json`](examples/cursor/mcp.json) | `.cursor/mcp.json` |
-| [`examples/cursor/rules/token-economy.mdc`](examples/cursor/rules/token-economy.mdc) | `.cursor/rules/token-economy.mdc` |
+| [`examples/cursor/rules/greedy-token.mdc`](examples/cursor/rules/greedy-token.mdc) | `.cursor/rules/greedy-token.mdc` |
 
 ```bash
 pip install "greedy-token[mcp]"
 mkdir -p .cursor/rules
 # из клона greedy-token или вставьте из доки:
 cp examples/cursor/mcp.json .cursor/mcp.json
-cp examples/cursor/rules/token-economy.mdc .cursor/rules/token-economy.mdc
+cp examples/cursor/rules/greedy-token.mdc .cursor/rules/greedy-token.mdc
 ```
 
 Далее: **Settings → MCP → greedy-token → Enable → Refresh** → **новый** Agent chat.
