@@ -23,7 +23,8 @@ from greedy_token.usage import aggregate_events, format_report, load_events, log
 
 # Keep short: tool-map + exceptions live in alwaysApply rule (examples/cursor/rules/greedy-token.mdc).
 MCP_INSTRUCTIONS = (
-    "Relay the full «Greedy token» footer from every tool result. "
+    "Code search (find/найди/search): greedy_token_search only — one call, no route/usage/rag in the same turn. "
+    "greedy_token_usage only when the user explicitly asks for stats/billing. "
     "Multi-step chains: greedy_token_pipeline (e.g. pipeline: meta-audit configurator-boolean)."
 )
 
@@ -64,7 +65,7 @@ mcp = FastMCP("greedy-token", instructions=MCP_INSTRUCTIONS, icons=mcp_icons())
 
 @mcp.tool()
 def greedy_token_route(task: str) -> str:
-    """Recommend executor tier: tool | python | ollama | rag | cursor. Includes token budget."""
+    """Recommend executor tier (tool | python | ollama | rag | cursor). Not for code search — use greedy_token_search directly."""
     t0 = time.perf_counter()
     root = find_workspace_root()
     estimate = estimate_task(task, root)
@@ -108,7 +109,7 @@ def greedy_token_rag(query: str, domain: str = "") -> str:
 
 @mcp.tool()
 def greedy_token_search(query: str, path: str = "") -> str:
-    """Ripgrep codebase. query=term (e.g. baseUrl); path=optional relative path or unique filename."""
+    """Ripgrep codebase — sole tool for find/search/найди. query=term; path=optional file or dir. Do not pair with route or usage."""
     t0 = time.perf_counter()
     root = find_workspace_root()
     task = f"search: {query}" + (f" in {path}" if path else "")
@@ -128,7 +129,7 @@ def greedy_token_search(query: str, path: str = "") -> str:
 
 @mcp.tool()
 def greedy_token_usage(since: str = "7d") -> str:
-    """Aggregate token savings from ~/.greedy-token/usage.jsonl (default last 7 days)."""
+    """Usage/billing stats only — when user explicitly asks. Never call for code search or alongside greedy_token_search."""
     path = log_path()
     since_dt = parse_since(since)
     events, skipped = load_events(path, since=since_dt)
