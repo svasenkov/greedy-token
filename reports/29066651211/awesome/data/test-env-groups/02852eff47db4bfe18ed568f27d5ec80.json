@@ -1,0 +1,1 @@
+{"id":"02852eff47db4bfe18ed568f27d5ec80","fullName":"tests.test_usage#test_append_rotates_before_write","name":"Usage log append rotates before writing new event","status":"passed","testResultsByEnv":{"default":"7dad4ff8fc2a7b6a37d51d5ee9088ba2"}}

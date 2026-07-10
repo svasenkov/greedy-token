@@ -1,0 +1,1 @@
+{"id":"6b96370116dbd73c3c517bdadecabf5a","fullName":"tests.test_cli_commands#test_cli_scripts_list","name":"CLI scripts --list shows wrapper registry","status":"passed","testResultsByEnv":{"default":"b8f47645aa6c28f905d0fb3f89a6c5cc"}}

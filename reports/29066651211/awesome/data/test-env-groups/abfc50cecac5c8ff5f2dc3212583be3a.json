@@ -1,0 +1,1 @@
+{"id":"abfc50cecac5c8ff5f2dc3212583be3a","fullName":"tests.test_code_search#test_glob_skips_outside_symlink","name":"glob skips symlink that resolves outside workspace","status":"passed","testResultsByEnv":{"default":"f8e79359a93754e6651576e4e06b0743"}}
