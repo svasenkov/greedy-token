@@ -355,7 +355,7 @@ def test_tokens_collect_paths_absolute(minimal_workspace: Path) -> None:
 
 @allure.title("Branch gaps: resolve_rg skips empty PATH segment")
 def test_tool_paths_empty_path_segment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from greedy_token.tool_paths import resolve_rg
+    from greedy_token.tool_paths import _rg_candidates, resolve_rg
 
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
@@ -363,9 +363,14 @@ def test_tool_paths_empty_path_segment(tmp_path: Path, monkeypatch: pytest.Monke
     rg.write_text("#!/bin/sh\necho\n", encoding="utf-8")
     rg.chmod(0o755)
     monkeypatch.delenv("GREEDY_TOKEN_RG", raising=False)
-    monkeypatch.setenv("PATH", f"/usr/bin::{bin_dir}")
+    monkeypatch.setenv("PATH", f"::{bin_dir}")
     monkeypatch.setattr("greedy_token.tool_paths.shutil.which", lambda *_a, **_k: None)
-    found = resolve_rg()
+
+    path_derived = [p for p in _rg_candidates() if p.parent == bin_dir]
+    assert path_derived == [bin_dir / "rg"]
+
+    with patch("greedy_token.tool_paths._rg_candidates", return_value=iter([bin_dir / "rg"])):
+        found = resolve_rg()
     assert found == rg.resolve()
 
 
