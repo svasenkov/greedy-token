@@ -1,7 +1,7 @@
 # Настройка Cursor (PyPI / любой workspace)
 
 Инструкция для установки **greedy-token с PyPI** и подключения к **вашему** проекту в Cursor.  
-Если host-monorepo уже поставляет свой launcher (`greedy-token.sh` + hooks) — смотрите документацию того репозитория.
+Если host workspace уже поставляет свой launcher (`greedy-token.sh` + hooks) — смотрите документацию того репозитория.
 
 **English:** [cursor-setup.md](cursor-setup.md)
 
@@ -152,7 +152,7 @@ greedy-token config
 
 | Что | Почему |
 |-----|--------|
-| Monorepo launcher `greedy-token.sh` | Привязан к `projects/greedy-token-home/dev/.venv` |
+| Workspace launcher `greedy-token.sh` | Привязан к `projects/greedy-token-home/dev/.venv` |
 | `sessionStart` hooks | Опционально; монорепо-специфика |
 
 Для beta достаточно MCP + rule.

@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 
-def find_monorepo_root(start: Path | None = None) -> Path:
+def find_workspace_root(start: Path | None = None) -> Path:
     env = os.environ.get("GREEDY_TOKEN_ROOT")
     if env:
         root = Path(env).expanduser().resolve()

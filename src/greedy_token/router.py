@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from greedy_token.paths import find_monorepo_root, load_routes_config
+from greedy_token.paths import find_workspace_root, load_routes_config
 from greedy_token.tokens import count_tokens
 from greedy_token.tool_paths import rg_path_for_shell, root_cd_prefix, sh_quote
 from greedy_token.wrappers import ollama_available, wrapper_for_command
@@ -297,7 +297,7 @@ def _best_in_tier(routes: list[dict], text: str, task: str, root: Path) -> Route
 
 
 def route_task_all_tiers(task: str, root: Path | None = None) -> list[tuple[str, RouteDecision]]:
-    root = root or find_monorepo_root()
+    root = root or find_workspace_root()
     cfg = load_routes_config()
     text = _normalize(task)
     all_routes = cfg.get("routes", [])
@@ -351,7 +351,7 @@ def _fallback_for_tier(tier: str, task: str, root: Path, cfg: dict) -> RouteDeci
 
 
 def route_task(task: str, root: Path | None = None) -> RouteDecision:
-    root = root or find_monorepo_root()
+    root = root or find_workspace_root()
     cfg = load_routes_config()
     text = _normalize(task)
     all_routes = cfg.get("routes", [])

@@ -180,7 +180,7 @@ def test_apply_ollama_env(minimal_workspace: Path, monkeypatch: pytest.MonkeyPat
 
 
 @allure.story("Discovery")
-@allure.title("get_ollama_settings tolerates missing monorepo root")
+@allure.title("get_ollama_settings tolerates missing workspace root")
 def test_get_ollama_settings_no_root(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.delenv("OLLAMA_URL", raising=False)
     monkeypatch.delenv("OLLAMA_MODEL", raising=False)
@@ -193,7 +193,7 @@ def test_get_ollama_settings_no_root(monkeypatch: pytest.MonkeyPatch, tmp_path: 
         lambda: tmp_path / "missing.yaml",
     )
     monkeypatch.setattr(
-        "greedy_token.paths.find_monorepo_root",
+        "greedy_token.paths.find_workspace_root",
         lambda: (_ for _ in ()).throw(SystemExit("no root")),
     )
     settings = get_ollama_settings(None)

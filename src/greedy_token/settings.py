@@ -42,9 +42,9 @@ def user_config_path() -> Path:
 
 def workspace_config_path(root: Path | None = None) -> Path:
     if root is None:
-        from greedy_token.paths import find_monorepo_root
+        from greedy_token.paths import find_workspace_root
 
-        root = find_monorepo_root()
+        root = find_workspace_root()
     return root / ".greedy-token.yaml"
 
 
@@ -170,9 +170,9 @@ def get_cheap_llm_settings(root: Path | None = None) -> CheapLlmSettings:
         workspace_cfg = _read_yaml(workspace_config_path(root))
     else:
         try:
-            from greedy_token.paths import find_monorepo_root
+            from greedy_token.paths import find_workspace_root
 
-            workspace_cfg = _read_yaml(workspace_config_path(find_monorepo_root()))
+            workspace_cfg = _read_yaml(workspace_config_path(find_workspace_root()))
         except SystemExit:
             pass
     return _resolve_cheap_llm(user_cfg=user_cfg, workspace_cfg=workspace_cfg, root=root)

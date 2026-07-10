@@ -8,7 +8,7 @@ import time
 from greedy_token.context_audit import audit_context, render_audit
 from greedy_token.estimator import estimate_task, format_estimate
 from greedy_token.executors import execute_task, plan_run
-from greedy_token.paths import find_monorepo_root
+from greedy_token.paths import find_workspace_root
 from greedy_token.pipeline import format_pipeline_response, list_pipelines, run_pipeline
 from greedy_token.prompt_compress import compress_prompt_detail, format_dual
 from greedy_token.rag_search import format_hits, search_rag
@@ -42,7 +42,7 @@ COMPRESS_MAX_BYTES = 256 * 1024
 
 def cmd_route(args: argparse.Namespace) -> int:
     t0 = time.perf_counter()
-    root = find_monorepo_root()
+    root = find_workspace_root()
     decision = route_task(args.task, root)
     tier_scan = build_tier_scan(args.task, root)
     duration_ms = int((time.perf_counter() - t0) * 1000)
@@ -63,7 +63,7 @@ def cmd_route(args: argparse.Namespace) -> int:
 
 def cmd_estimate(args: argparse.Namespace) -> int:
     t0 = time.perf_counter()
-    root = find_monorepo_root()
+    root = find_workspace_root()
     estimate = estimate_task(args.task, root)
     tier_scan = build_tier_scan(args.task, root)
     duration_ms = int((time.perf_counter() - t0) * 1000)
@@ -84,7 +84,7 @@ def cmd_estimate(args: argparse.Namespace) -> int:
 
 def cmd_run(args: argparse.Namespace) -> int:
     t0 = time.perf_counter()
-    root = find_monorepo_root()
+    root = find_workspace_root()
     decision = route_task(args.task, root)
     plan = plan_run(decision, args.task, root)
     print(f"Route: {decision.target} ({decision.route_id})")
@@ -129,7 +129,7 @@ def cmd_audit_context(_: argparse.Namespace) -> int:
 
 
 def cmd_tokens(args: argparse.Namespace) -> int:
-    root = find_monorepo_root()
+    root = find_workspace_root()
     paths = collect_paths(args.paths, root)
     if not paths:
         print("No files found.", file=sys.stderr)
@@ -153,7 +153,7 @@ def cmd_tokens(args: argparse.Namespace) -> int:
 
 def cmd_rag(args: argparse.Namespace) -> int:
     t0 = time.perf_counter()
-    root = find_monorepo_root()
+    root = find_workspace_root()
     domains = args.domain.split(",") if args.domain else None
     hits = search_rag(args.query, root, domains=domains, limit=args.limit)
     est_tokens = rag_est_tokens(hits, root) if hits else 0
@@ -220,7 +220,7 @@ def cmd_compress(args: argparse.Namespace) -> int:
 
 
 def cmd_scripts(args: argparse.Namespace) -> int:
-    root = find_monorepo_root()
+    root = find_workspace_root()
     if args.list:
         lines = ["Script wrappers (scripts/ollama | migrate | check-meta-sync):", ""]
         for wrapper in WRAPPERS.values():
@@ -301,7 +301,7 @@ def cmd_report(args: argparse.Namespace) -> int:
 
 
 def cmd_config(args: argparse.Namespace) -> int:
-    root = find_monorepo_root()
+    root = find_workspace_root()
     if args.init:
         try:
             path = init_user_config(
@@ -327,7 +327,7 @@ def cmd_pipeline(args: argparse.Namespace) -> int:
     if args.list or not (args.task or "").strip():
         print(list_pipelines())
         return 0
-    root = find_monorepo_root()
+    root = find_workspace_root()
     result = run_pipeline(
         args.task,
         root,
@@ -386,7 +386,7 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--raw", action="store_true", help="Print short text only")
     c.set_defaults(func=cmd_compress)
 
-    scr = sub.add_parser("scripts", help="Wrappers for monorepo scripts")
+    scr = sub.add_parser("scripts", help="Wrappers for workspace scripts")
     scr.add_argument("--list", action="store_true", help="List script wrappers")
     scr.add_argument("--run", metavar="ID", help="Wrapper id (e.g. check-meta-sync)")
     scr.add_argument("args", nargs="?", default="", help="Extra args for script")
@@ -446,7 +446,7 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
     if args.command != "config":
         try:
-            apply_ollama_env(find_monorepo_root())
+            apply_ollama_env(find_workspace_root())
         except SystemExit:
             pass
     code = args.func(args)

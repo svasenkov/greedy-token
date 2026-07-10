@@ -7,7 +7,7 @@ from pathlib import Path
 
 from greedy_token.context_audit import audit_context
 from greedy_token.estimator import cursor_baseline, cursor_saved_for
-from greedy_token.paths import find_monorepo_root
+from greedy_token.paths import find_workspace_root
 from greedy_token.rag_search import RagHit
 from greedy_token.router import BASE_CURSOR_OVERHEAD, RouteDecision, route_task_all_tiers
 from greedy_token.settings import get_cheap_llm_settings
@@ -282,7 +282,7 @@ def wrap_mcp_response(
     executor_sub: str | None = None,
     ollama_eval_tokens: int | None = None,
 ) -> str:
-    root = root or find_monorepo_root()
+    root = root or find_workspace_root()
     footer = format_tool_footer(
         task,
         root,

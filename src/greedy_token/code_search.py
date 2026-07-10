@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from greedy_token.tool_output import filter_tool_output
-from greedy_token.paths import find_monorepo_root
+from greedy_token.paths import find_workspace_root
 from greedy_token.tool_paths import RG_TIMEOUT, resolve_rg, rg_path_for_shell, root_cd_prefix, sh_quote
 
 DEFAULT_GLOBS = [
@@ -161,7 +161,7 @@ def search_code(
     path: str | None = None,
     limit: int = 50,
 ) -> SearchResult:
-    root = (root or find_monorepo_root()).resolve()
+    root = (root or find_workspace_root()).resolve()
     query = query.strip()
     if not query:
         return SearchResult(text="Error: query is required.", engine="rg")

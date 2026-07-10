@@ -1,6 +1,6 @@
 # GitHub Actions ethalon (greedy-token)
 
-Same pattern as monorepo `generators/ethalon/tests-java/.github/_ethalon/`  
+Same pattern as workspace `generators/ethalon/tests-java/.github/_ethalon/`  
 (skill `sync-github-workflows-ethalon`, RAG `ci-workflow-ethalon` in zero-design-system).
 
 ## Layout
@@ -39,7 +39,7 @@ Bump `actions/*` versions in `_ethalon/gha-actions.yaml` first, then apply to al
 
 Matrix job `tests` runs `pytest -m <layer>` for `unit`, `component`, `integration`, `e2e`. Layer mapping: `tests/pyramid_layers.py`; pytest markers are auto-applied in `tests/conftest.py`.
 
-## Monorepo alignment
+## Workspace alignment
 
 | Action | greedy-token | tests-java ethalon |
 |--------|--------------|-------------------|

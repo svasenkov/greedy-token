@@ -76,7 +76,7 @@ cheap_llm:
 - ✅ Health check: `/api/tags` (ollama) or `GET /v1/models` (openai_compat)
 - ✅ Chat: `/api/chat` or `POST /v1/chat/completions`
 - ✅ `OLLAMA_*` / `ollama:` config remain aliases; `CHEAP_LLM_*` preferred
-- 🔜 Monorepo `scripts/ollama/_common.sh` → env-driven / `scripts/cheap-llm/` (consumer scripts; not package)
+- 🔜 Workspace `scripts/ollama/_common.sh` → env-driven / `scripts/cheap-llm/` (consumer scripts; not package)
 
 ## IDE / MCP host
 

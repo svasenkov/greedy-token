@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "greedy-token"
-version = "0.5.0"
+version = "0.5.1"
 description = "Greedy token for Cursor: route tasks through rg, scripts, Ollama, and RAG before opening a full agent chat."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -40,7 +40,7 @@ minversion = "8.0"
 markers = [
     "unit: pure logic, no subprocess or external IO",
     "component: module wiring, mocks, minimal_workspace fixtures",
-    "integration: subprocess CLI, real rg, monorepo checkout",
+    "integration: subprocess CLI, real rg, workspace checkout",
     "api: HTTP/API layer (reserved)",
     "e2e: MCP stdio end-to-end",
     "manual: manual tests (reserved)",

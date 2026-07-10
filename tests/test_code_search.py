@@ -16,11 +16,11 @@ pytestmark = [
 ]
 
 
-@allure.story("Monorepo")
-@allure.title("Resolve search path by filename in monorepo")
-def test_resolve_search_path_by_filename(monorepo_root: Path) -> None:
-    with allure.step("Resolve phase-manifest.json in monorepo"):
-        p = resolve_search_path("phase-manifest.json", monorepo_root)
+@allure.story("Workspace")
+@allure.title("Resolve search path by filename in workspace")
+def test_resolve_search_path_by_filename(workspace_root: Path) -> None:
+    with allure.step("Resolve phase-manifest.json in workspace"):
+        p = resolve_search_path("phase-manifest.json", workspace_root)
         attach_text("resolved path", str(p) if p else "(none)")
     with allure.step("Verify filename match"):
         assert p is not None
@@ -40,9 +40,9 @@ def test_resolve_search_path_in_minimal_workspace(minimal_workspace: Path) -> No
 
 @allure.story("Scoped search")
 @allure.title("Scoped file search reports no matches when absent")
-def test_search_code_scoped_file_no_match(monorepo_root: Path) -> None:
+def test_search_code_scoped_file_no_match(workspace_root: Path) -> None:
     with allure.step("Search baseUrl in scoped file with no match"):
-        out = search_code("baseUrl", monorepo_root, path="configurator-option-presets.html")
+        out = search_code("baseUrl", workspace_root, path="configurator-option-presets.html")
         attach_text("search output", out.text)
         attach_text("engine", out.engine)
     with allure.step("Verify no matches message"):
@@ -63,10 +63,10 @@ def test_search_code_finds_in_minimal_workspace(minimal_workspace: Path) -> None
 
 
 @allure.story("Global search")
-@allure.title("Global search finds baseUrl across monorepo")
-def test_search_code_global_finds_baseurl(monorepo_root: Path) -> None:
-    with allure.step("Search baseUrl globally in monorepo"):
-        out = search_code("baseUrl", monorepo_root, path="", limit=5)
+@allure.title("Global search finds baseUrl across workspace")
+def test_search_code_global_finds_baseurl(workspace_root: Path) -> None:
+    with allure.step("Search baseUrl globally in workspace"):
+        out = search_code("baseUrl", workspace_root, path="", limit=5)
         attach_text("search output", out.text)
         attach_text("engine", out.engine)
     with allure.step("Verify baseUrl found"):

@@ -7,7 +7,7 @@ Requires: greedy-token installed in the current interpreter's environment
 (`pip install -e .`), GREEDY_TOKEN_ROOT set (or auto-detected).
 
 --stress additionally runs `tokens .` over the whole workspace root
-(slow: tens of seconds on a large monorepo).
+(slow: tens of seconds on a large workspace).
 """
 from __future__ import annotations
 

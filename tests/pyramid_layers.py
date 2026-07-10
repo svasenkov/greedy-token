@@ -34,7 +34,7 @@ LAYER_BY_MODULE: dict[str, str] = {
     "test_tool_paths": "component",
     "test_usage": "component",
     "test_wrappers": "component",
-    # integration — subprocess CLI, real rg, monorepo checkout
+    # integration — subprocess CLI, real rg, workspace checkout
     "test_cli": "integration",
     "test_cli_commands": "integration",
     "test_code_search": "integration",

@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from greedy_token.paths import find_monorepo_root
+from greedy_token.paths import find_workspace_root
 from greedy_token.rag_index import IndexedChunk, get_indexed_chunks
 
 
@@ -41,7 +41,7 @@ def search_rag(
     domains: list[str] | None = None,
     limit: int = 5,
 ) -> list[RagHit]:
-    root = root or find_monorepo_root()
+    root = root or find_workspace_root()
     query_tokens = _tokenize(query)
     if not query_tokens:
         return []

@@ -13,7 +13,7 @@ from mcp.types import Icon
 from greedy_token.budget import format_savings_lines, rag_est_tokens, wrap_mcp_response
 from greedy_token.code_search import search_code
 from greedy_token.estimator import estimate_task
-from greedy_token.paths import find_monorepo_root
+from greedy_token.paths import find_workspace_root
 from greedy_token.settings import apply_ollama_env
 from greedy_token.pipeline import format_pipeline_response, list_pipelines, run_pipeline
 from greedy_token.rag_search import format_hits, search_rag
@@ -66,7 +66,7 @@ mcp = FastMCP("greedy-token", instructions=MCP_INSTRUCTIONS, icons=mcp_icons())
 def greedy_token_route(task: str) -> str:
     """Recommend executor tier: tool | python | ollama | rag | cursor. Includes token budget."""
     t0 = time.perf_counter()
-    root = find_monorepo_root()
+    root = find_workspace_root()
     estimate = estimate_task(task, root)
     body = format_decision(estimate.decision, task, root)
     duration_ms = int((time.perf_counter() - t0) * 1000)
@@ -86,7 +86,7 @@ def greedy_token_route(task: str) -> str:
 def greedy_token_rag(query: str, domain: str = "") -> str:
     """Search docs/rag chunks. Optional domain filter (comma-separated manifest names)."""
     t0 = time.perf_counter()
-    root = find_monorepo_root()
+    root = find_workspace_root()
     task = f"rag: {query}" + (f" [{domain}]" if domain else "")
     domains = [d.strip() for d in domain.split(",") if d.strip()] or None
     hits = search_rag(query, root, domains=domains, limit=5)
@@ -110,7 +110,7 @@ def greedy_token_rag(query: str, domain: str = "") -> str:
 def greedy_token_search(query: str, path: str = "") -> str:
     """Ripgrep codebase. query=term (e.g. baseUrl); path=optional file (e.g. configurator-option-presets.html)."""
     t0 = time.perf_counter()
-    root = find_monorepo_root()
+    root = find_workspace_root()
     task = f"search: {query}" + (f" in {path}" if path else "")
     result = search_code(query, root, path=path or None)
     duration_ms = int((time.perf_counter() - t0) * 1000)
@@ -169,13 +169,13 @@ def greedy_token_pipeline(task: str, execute: bool = False) -> str:
     """
     if task.strip().lower() in ("list", "help", "pipeline: list"):
         return list_pipelines()
-    root = find_monorepo_root()
+    root = find_workspace_root()
     result = run_pipeline(task, root, execute=execute, stop_on_error=True)
     return format_pipeline_response(result, root)
 
 
 def main() -> None:
-    root = find_monorepo_root()
+    root = find_workspace_root()
     apply_ollama_env(root)
     mcp.run()
 

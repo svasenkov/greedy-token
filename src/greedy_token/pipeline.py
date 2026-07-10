@@ -19,7 +19,7 @@ from greedy_token.budget import (
     spent_hint,
 )
 from greedy_token.code_search import search_code
-from greedy_token.paths import find_monorepo_root
+from greedy_token.paths import find_workspace_root
 from greedy_token.rag_search import format_hits, search_rag
 from greedy_token.router import RouteDecision
 from greedy_token.settings import get_cheap_llm_settings
@@ -278,7 +278,7 @@ def _parse_segment(segment: str) -> PipelineStep:
     wrapper = WRAPPERS[step_id]
     tier = "ollama" if wrapper.requires_ollama else "python"
     resolved_args = _resolve_wrapper_args(step_id, args)
-    root = find_monorepo_root()
+    root = find_workspace_root()
     command = resolve_wrapper_command(step_id, root, extra_args=resolved_args)
     return PipelineStep(
         step_id=step_id,
@@ -307,7 +307,7 @@ def _parse_search_segment(segment: str) -> PipelineStep:
 
 
 def _resolve_wrapper_args(step_id: str, args: str) -> str:
-    root = find_monorepo_root()
+    root = find_workspace_root()
     arg = args.strip()
     if step_id != "audit-skill":
         return arg
@@ -480,7 +480,7 @@ def run_pipeline(
     stop_on_error: bool = True,
     max_output_per_step: int = 4000,
 ) -> PipelineResult:
-    root = root or find_monorepo_root()
+    root = root or find_workspace_root()
     steps = parse_pipeline(task)
     result = PipelineResult(task=task)
 
@@ -551,7 +551,7 @@ def format_pipeline_response(
     result: PipelineResult,
     root: Path | None = None,
 ) -> str:
-    root = root or find_monorepo_root()
+    root = root or find_workspace_root()
     body = format_pipeline_body(result)
     footer = format_pipeline_footer(result, root)
     return body + footer

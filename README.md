@@ -47,11 +47,11 @@ Greedy-token uses **cheap** and **expensive** in footers and docs. It is about *
 
 ## Scope & roadmap
 
-Today the happy path is **Cursor + Ollama + monorepo**. CLI and MCP are IDE-agnostic. **v0.5.0** ships `cheap_llm.provider: ollama | openai_compat` (tier id stays `ollama`). Paid agent APIs (`expensive_llm`) are still on the roadmap.
+Today the happy path is **Cursor + Ollama + workspace**. CLI and MCP are IDE-agnostic. **v0.5.1** ships `cheap_llm.provider: ollama | openai_compat` (tier id stays `ollama`). Paid agent APIs (`expensive_llm`) are still on the roadmap.
 
 **Full matrix (✅ / ❌ / 🔜) + acceptance criteria + GitHub issues:** [docs/ROADMAP.md](docs/ROADMAP.md) · [docs/ROADMAP-RU.md](docs/ROADMAP-RU.md)
 
-| Area | ✅ today (v0.5.0) | 🔜 next |
+| Area | ✅ today (v0.5.1) | 🔜 next |
 |------|-------------------|---------|
 | Executors | `tool`, `python`, `ollama` (via `cheap_llm`), `rag` | `expensive_llm` agent path; paid bulk APIs |
 | Agent host | Cursor MCP + token baseline | Claude Desktop, Continue |
@@ -65,7 +65,7 @@ Today the happy path is **Cursor + Ollama + monorepo**. CLI and MCP are IDE-agno
 pip install greedy-token
 # with Cursor MCP server:
 pip install "greedy-token[mcp]"
-# editable (monorepo):
+# editable (from workspace):
 cd projects/greedy-token-home/dev && ./scripts/install.sh
 ```
 
@@ -175,7 +175,7 @@ Global: `--no-log` disables telemetry for one invocation.
 
 Requires **Python 3.12+** (same as CI). GitHub Actions job **tests (all)** runs the full suite with Allure 3 quality gate, GitHub Pages report, and optional TestOps upload. Line and **branch** coverage on `src/greedy_token/` must stay at **100%** (`branch = true`, `fail_under = 100`).
 
-**CI ethalon:** `.github/_ethalon/` (action pins in `gha-actions.yaml`) → runnable `.github/workflows/`. Same pattern as monorepo `tests-java/.github/_ethalon/`. Sync: `./scripts/sync-github-workflows.sh`; CI runs `./scripts/check-github-workflows-sync.sh` before pytest.
+**CI ethalon:** `.github/_ethalon/` (action pins in `gha-actions.yaml`) → runnable `.github/workflows/`. Same pattern as workspace `tests-java/.github/_ethalon/`. Sync: `./scripts/sync-github-workflows.sh`; CI runs `./scripts/check-github-workflows-sync.sh` before pytest.
 
 ```bash
 cd projects/greedy-token-home/dev && ./scripts/install.sh
@@ -191,7 +191,7 @@ npx --yes allure@3.13.0 generate build/allure-results --config allurerc.mjs -o b
 
 **Layer slices:** module → `tests/pyramid_layers.py` → Allure label `layer` + pytest marker (`-m unit|component|integration|e2e`). CI matrix job `tests` runs each slice separately.
 
-Optional integration tests (real monorepo files) run when the checkout includes `stacks/java-spring/`; set `GREEDY_TOKEN_ROOT` to override the workspace root.
+Optional integration tests (real workspace files) run when the checkout includes `stacks/java-spring/`; set `GREEDY_TOKEN_ROOT` to override the workspace root.
 
 **TestOps:** project [5276](https://allure.autotests.cloud/project/5276) on `allure.autotests.cloud`. CI uploads when repo secret `ALLURE_TOKEN` is set (`ALLURE_PROJECT_ID` defaults to `5276`, override via repo variable). Pyramid layers (`unit` / `component` / `integration`) are set via Allure label `layer` in `tests/pyramid_layers.py` — same keys as Java `@Layer` and TestOps mappings. Human-readable names use `@allure.title` / `@allure.feature` / `@allure.story` / `@allure.epic` on each test, and `@allure.parent_suite` / `@allure.suite` on each module (`pytestmark`) for TestOps folder names — JUnit `@DisplayName` / `@Feature` equivalent.
 

@@ -47,11 +47,11 @@
 
 ## Охват и roadmap
 
-Сейчас основной сценарий — **Cursor + Ollama + monorepo**. CLI и MCP не привязаны к IDE. **v0.5.0** добавляет `cheap_llm.provider: ollama | openai_compat` (tier id остаётся `ollama`). Paid agent APIs (`expensive_llm`) — ещё на roadmap.
+Сейчас основной сценарий — **Cursor + Ollama + workspace**. CLI и MCP не привязаны к IDE. **v0.5.1** добавляет `cheap_llm.provider: ollama | openai_compat` (tier id остаётся `ollama`). Paid agent APIs (`expensive_llm`) — ещё на roadmap.
 
 **Полная матрица (✅ / ❌ / 🔜) + критерии + GitHub issues:** [docs/ROADMAP-RU.md](docs/ROADMAP-RU.md) · [docs/ROADMAP.md](docs/ROADMAP.md)
 
-| Зона | ✅ сейчас (v0.5.0) | 🔜 дальше |
+| Зона | ✅ сейчас (v0.5.1) | 🔜 дальше |
 |------|-------------------|-----------|
 | Executors | `tool`, `python`, `ollama` (через `cheap_llm`), `rag` | `expensive_llm` agent path; paid bulk APIs |
 | Agent host | Cursor MCP + token baseline | Claude Desktop, Continue |
@@ -65,7 +65,7 @@
 pip install greedy-token
 # с MCP для Cursor:
 pip install "greedy-token[mcp]"
-# editable (monorepo):
+# editable (из workspace):
 cd projects/greedy-token-home/dev && ./scripts/install.sh
 ```
 
@@ -181,7 +181,7 @@ Saved by executor (sum of per-step savings):
 
 Нужен **Python 3.12+** (как в CI). GitHub Actions: job **tests (all)** — полный прогон, Allure 3 quality gate, отчёт на GitHub Pages; upload в TestOps при наличии `ALLURE_TOKEN`.
 
-**CI ethalon:** `.github/_ethalon/` (пины actions в `gha-actions.yaml`) → runnable `.github/workflows/`. Тот же паттерн, что `tests-java/.github/_ethalon/` в monorepo. Sync: `./scripts/sync-github-workflows.sh`; в CI перед pytest — `./scripts/check-github-workflows-sync.sh`.
+**CI ethalon:** `.github/_ethalon/` (пины actions в `gha-actions.yaml`) → runnable `.github/workflows/`. Тот же паттерн, что `tests-java/.github/_ethalon/` в workspace. Sync: `./scripts/sync-github-workflows.sh`; в CI перед pytest — `./scripts/check-github-workflows-sync.sh`.
 
 **TestOps:** проект [5276](https://allure.autotests.cloud/project/5276). Секрет `ALLURE_TOKEN` в настройках репо; `ALLURE_PROJECT_ID` по умолчанию `5276`.
 
@@ -199,7 +199,7 @@ npx --yes allure@3.13.0 generate build/allure-results --config allurerc.mjs -o b
 
 **Слайсы по layer:** модуль → `tests/pyramid_layers.py` → Allure label `layer` + pytest marker (`-m unit|component|integration|e2e`). В CI matrix job `tests` гоняет каждый слой отдельно.
 
-Интеграционные тесты (реальные файлы monorepo) запускаются, если в checkout есть `stacks/java-spring/`. `GREEDY_TOKEN_ROOT` переопределяет корень workspace.
+Интеграционные тесты (реальные файлы workspace) запускаются, если в checkout есть `stacks/java-spring/`. `GREEDY_TOKEN_ROOT` переопределяет корень workspace.
 
 Человекочитаемые имена в TestOps — `@allure.title` / `@feature` / `@story` / `@epic` на каждом тесте, `@allure.parent_suite` / `@allure.suite` на модуле (`pytestmark`).
 

@@ -4,7 +4,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from greedy_token.paths import find_monorepo_root
+from greedy_token.paths import find_workspace_root
 from greedy_token.rag_search import format_hits, search_rag
 from greedy_token.router import RouteDecision, route_task
 from greedy_token.tool_paths import RG_TIMEOUT, SCRIPT_TIMEOUT, root_cd_prefix
@@ -30,7 +30,7 @@ class TaskRunResult:
 
 
 def plan_run(decision: RouteDecision, task: str, root: Path | None = None) -> RunPlan:
-    root = root or find_monorepo_root()
+    root = root or find_workspace_root()
     target = decision.target
 
     if target == "tool" and decision.command:
@@ -187,7 +187,7 @@ def _rag_fallback_output(task: str, root: Path) -> str | None:
 
 
 def execute_task(task: str, root: Path | None = None) -> TaskRunResult:
-    root = root or find_monorepo_root()
+    root = root or find_workspace_root()
     decision = route_task(task, root)
     plan = plan_run(decision, task, root)
 

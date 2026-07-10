@@ -364,6 +364,6 @@ def test_main_tolerates_missing_root(monkeypatch: pytest.MonkeyPatch) -> None:
         raise SystemExit("no root")
 
     monkeypatch.setattr(cli, "apply_ollama_env", boom)
-    monkeypatch.setattr(cli, "find_monorepo_root", lambda: (_ for _ in ()).throw(SystemExit("no root")))
+    monkeypatch.setattr(cli, "find_workspace_root", lambda: (_ for _ in ()).throw(SystemExit("no root")))
     with pytest.raises(SystemExit):
         cli.main(["route", "find x"])

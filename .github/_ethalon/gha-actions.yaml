@@ -1,6 +1,6 @@
 # Pinned GitHub Actions (SSOT) — greedy-token
 #
-# Mirror of monorepo `generators/ethalon/tests-java/.github/_ethalon/gha-actions.yaml`.
+# Mirror of workspace `generators/ethalon/tests-java/.github/_ethalon/gha-actions.yaml`.
 # Bump pins there first, then here, then `_ethalon/*.yml` → `.github/workflows/`.
 
 | Key | Action | Used in |

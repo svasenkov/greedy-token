@@ -1,7 +1,7 @@
 # Cursor setup (PyPI / any workspace)
 
 Use this when you install **greedy-token from PyPI** and wire it into **your own** Cursor project.  
-If your host monorepo ships a custom launcher (`greedy-token.sh` + hooks), follow that repo’s docs instead.
+If your host workspace ships a custom launcher (`greedy-token.sh` + hooks), follow that repo’s docs instead.
 
 **Русская версия:** [cursor-setup-RU.md](cursor-setup-RU.md)
 
@@ -152,8 +152,8 @@ greedy-token config
 
 | Item | Why |
 |------|-----|
-| Monorepo `greedy-token.sh` launcher | Tied to `projects/greedy-token-home/dev/.venv` |
-| `sessionStart` hooks | Optional; monorepo-specific |
+| Workspace `greedy-token.sh` launcher | Tied to `projects/greedy-token-home/dev/.venv` |
+| `sessionStart` hooks | Optional; workspace-specific |
 
 Hooks / custom launchers can be added later; MCP + rule are enough for beta testing.
 

@@ -12,7 +12,7 @@ from tests.pyramid_layers import layer_for_module
 from tests.testops_ids import TESTOPS_IDS
 
 
-def _discover_monorepo_root() -> Path | None:
+def _discover_workspace_root() -> Path | None:
     here = Path(__file__).resolve()
     for parent in here.parents:
         if (parent / "docs" / "phase-manifest.json").is_file() and (
@@ -40,12 +40,12 @@ def pytest_fixture_setup(fixturedef, request):
             finalizer._name = _humanize_fixture_teardown(fixture_name, raw)
 
 
-@allure.title("Monorepo workspace")
+@allure.title("Workspace workspace")
 @pytest.fixture
-def monorepo_root(monkeypatch: pytest.MonkeyPatch) -> Path:
-    root = _discover_monorepo_root()
+def workspace_root(monkeypatch: pytest.MonkeyPatch) -> Path:
+    root = _discover_workspace_root()
     if root is None:
-        pytest.skip("monorepo root not found (parent workspace checkout required)")
+        pytest.skip("workspace root not found (parent workspace checkout required)")
     monkeypatch.setenv("GREEDY_TOKEN_ROOT", str(root))
     return root
 

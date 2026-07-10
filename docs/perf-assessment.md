@@ -1,7 +1,7 @@
 # Performance assessment: should greedy-token leave Python?
 
 **Date:** 2026-07-06 · **Machine:** Apple M2 Max (12 cores), macOS 26.5, Python 3.12, tiktoken 0.13.0
-**Workspace:** sample monorepo checkout (3,223 text files, ~98 MB, 64.8M tokens)
+**Workspace:** sample workspace checkout (3,223 text files, ~98 MB, 64.8M tokens)
 **Repro:** `python bench/bench.py --runs 5 [--stress]`
 
 ## Question
@@ -27,7 +27,7 @@ downloads the cl100k_base BPE file (~3 s, network, cached afterwards).
 chunk is `urllib.request` (~19 ms) pulled in by `wrappers`, the rest is stdlib
 (`dataclasses`, `inspect`, `argparse`).
 
-## Stress case: `tokens .` over the whole monorepo
+## Stress case: `tokens .` over the whole workspace
 
 Total: **19.8 s**. cProfile breakdown:
 
@@ -93,13 +93,13 @@ Wins 1 and 2 are implemented in `tokens.py`:
   normal text instead).
 - `tokens.collect_paths`: `os.walk` with in-place pruning of `skip_dirs` + one final sort,
   instead of `rglob("*")` walking everything (including `.git`) and filtering afterwards.
-  Verified to return the identical file set on the test monorepo.
+  Verified to return the identical file set on the test workspace.
 
 Results (same machine/corpus, medians of 5 runs via `bench/bench.py`; stress — 1 run):
 
 | Command | Before | After | Speedup |
 |---|---:|---:|---:|
-| `tokens .` (whole monorepo, stress) | 19.81 s | **9.78 s** | **2.0x** |
+| `tokens .` (whole workspace, stress) | 19.81 s | **9.78 s** | **2.0x** |
 | `audit-context` | 0.212 s | 0.191 s | 1.1x |
 | `tokens .cursor/rules` | 0.198 s | 0.190 s | 1.04x |
 | `estimate "refactor header layout"` | 0.281 s | 0.257 s | ~1.1x |
@@ -112,7 +112,7 @@ encoder init ~0.13 s); the batch path pays off proportionally to corpus size.
 
 Output parity: `tokens .cursor/rules` and `audit-context` byte-identical before/after.
 
-## Dev install (monorepo)
+## Dev install (workspace)
 
 `projects/greedy-token-home/dev/scripts/install.sh` runs editable `pip install -e greedy-token`.
 Since v0.2.1 `tiktoken` is a required dependency — same install path for dev and PyPI users.

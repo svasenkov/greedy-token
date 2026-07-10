@@ -75,7 +75,7 @@ cheap_llm:
 - ✅ `get_cheap_llm_settings()` вместо `get_ollama_settings()` (alias для совместимости)
 - ✅ Health check и chat для обоих провайдеров
 - ✅ `OLLAMA_*` / `ollama:` остаются алиасами; предпочтительно `CHEAP_LLM_*`
-- 🔜 Monorepo `scripts/ollama/_common.sh` → env-driven / `scripts/cheap-llm/` (не пакет)
+- 🔜 Workspace `scripts/ollama/_common.sh` → env-driven / `scripts/cheap-llm/` (не пакет)
 
 ## IDE / MCP host
 

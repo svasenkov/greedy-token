@@ -7,7 +7,7 @@ import allure
 import pytest
 import yaml
 
-from greedy_token.paths import find_monorepo_root, load_routes_config
+from greedy_token.paths import find_workspace_root, load_routes_config
 from tests.allure_reporting import attach_text
 
 pytestmark = [
@@ -19,47 +19,47 @@ pytestmark = [
 
 
 @allure.story("GREEDY_TOKEN_ROOT")
-@allure.title("find_monorepo_root uses GREEDY_TOKEN_ROOT when set")
-def test_find_monorepo_root_from_env(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@allure.title("find_workspace_root uses GREEDY_TOKEN_ROOT when set")
+def test_find_workspace_root_from_env(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GREEDY_TOKEN_ROOT", str(minimal_workspace))
     with allure.step("Resolve root from env"):
-        root = find_monorepo_root()
+        root = find_workspace_root()
         attach_text("root", str(root))
     assert root == minimal_workspace.resolve()
 
 
 @allure.story("GREEDY_TOKEN_ROOT")
-@allure.title("find_monorepo_root exits when GREEDY_TOKEN_ROOT is not a directory")
-def test_find_monorepo_root_invalid_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@allure.title("find_workspace_root exits when GREEDY_TOKEN_ROOT is not a directory")
+def test_find_workspace_root_invalid_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     missing = tmp_path / "missing-dir"
     monkeypatch.setenv("GREEDY_TOKEN_ROOT", str(missing))
     with allure.step("Resolve root from invalid env path"):
         with pytest.raises(SystemExit, match="not a directory"):
-            find_monorepo_root()
+            find_workspace_root()
 
 
 @allure.story("Discovery")
-@allure.title("find_monorepo_root walks parents for phase-manifest markers")
-def test_find_monorepo_root_walks_parents(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@allure.title("find_workspace_root walks parents for phase-manifest markers")
+def test_find_workspace_root_walks_parents(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("GREEDY_TOKEN_ROOT", raising=False)
     nested = minimal_workspace / "nested" / "deep"
     nested.mkdir(parents=True)
     with allure.step("Resolve root from nested start path"):
-        root = find_monorepo_root(nested)
+        root = find_workspace_root(nested)
         attach_text("root", str(root))
     assert root == minimal_workspace.resolve()
 
 
 @allure.story("Discovery")
-@allure.title("find_monorepo_root exits when markers are absent")
-def test_find_monorepo_root_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
+@allure.title("find_workspace_root exits when markers are absent")
+def test_find_workspace_root_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("GREEDY_TOKEN_ROOT", raising=False)
     isolated = Path("/tmp/greedy_token_root_isolated")
     empty = isolated / "empty"
     empty.mkdir(parents=True, exist_ok=True)
     with allure.step("Resolve root without markers"):
         with pytest.raises(SystemExit, match="Cannot find workspace root"):
-            find_monorepo_root(empty)
+            find_workspace_root(empty)
 
 
 @allure.story("Routes config")

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from greedy_token.paths import find_monorepo_root
+from greedy_token.paths import find_workspace_root
 from greedy_token.tokens import TokenEstimate, count_files, format_size_table
 
 
@@ -16,7 +16,7 @@ class ContextItem:
 
 
 def audit_context(root: Path | None = None) -> list[ContextItem]:
-    root = root or find_monorepo_root()
+    root = root or find_workspace_root()
     items: list[ContextItem] = []
 
     globs = [
