@@ -6,7 +6,7 @@
 
 You work in **Cursor** — greedy-token sits next to the agent (CLI + MCP) so everyday tasks don’t always open a full agent chat.
 
-It routes each task to the **cheapest matching tier** (`tool` → `python` → `ollama` → `rag` → `cursor`; first pattern match wins). **Pipeline** chains multiple tiers in one call. Escalation to **Cursor agent chat** only when no cheaper route matches. Each response includes a **Token economy** footer vs a naive full-context chat.
+It routes each task to the **cheapest matching tier** (`tool` → `python` → `ollama` → `rag` → `cursor`; first pattern match wins). **Pipeline** chains multiple tiers in one call. Escalation to **Cursor agent chat** only when no cheaper route matches. Each response includes a **Greedy token** footer vs a naive full-context chat.
 
 ```
 In Cursor:  your task  →  greedy-token (MCP/CLI)
@@ -218,7 +218,7 @@ greedy-token pipeline "check-meta-sync then audit-skill configurator-boolean" --
 greedy-token report --since 7d
 ```
 
-## Token economy footer
+## Greedy token footer
 
 `route` / `search` / `rag` / `pipeline` responses include:
 

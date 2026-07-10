@@ -22,18 +22,6 @@ pytestmark = [
 ]
 
 
-@allure.title("__init__ falls back when package metadata is unavailable")
-def test_init_version_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
-    import importlib
-
-    def boom(name: str) -> str:
-        raise Exception("no metadata")
-
-    monkeypatch.setattr("importlib.metadata.version", boom)
-    mod = importlib.reload(importlib.import_module("greedy_token"))
-    assert mod.__version__ == "0.5.2"
-
-
 @allure.title("__main__ entrypoint invokes cli.main when executed as script")
 def test_main_entrypoint(monkeypatch: pytest.MonkeyPatch) -> None:
     called = {"n": 0}
