@@ -281,6 +281,58 @@ def test_cmd_config_export(minimal_workspace: Path, capsys) -> None:
 
 
 @allure.story("Config")
+@allure.title("cmd_config --init works without workspace root (PyPI bootstrap)")
+def test_cmd_config_init_without_workspace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    cfg_path = tmp_path / "config.yaml"
+    monkeypatch.delenv("GREEDY_TOKEN_ROOT", raising=False)
+    monkeypatch.setattr(
+        "greedy_token.cli.find_workspace_root",
+        lambda: (_ for _ in ()).throw(SystemExit(1)),
+    )
+    monkeypatch.setattr("greedy_token.settings.user_config_path", lambda: cfg_path)
+    code = cli.cmd_config(
+        _ns(
+            init=True,
+            url="http://localhost:11434",
+            model="test-model",
+            provider="ollama",
+            force=True,
+            export=False,
+        )
+    )
+    out = capsys.readouterr().out
+    assert code == 0
+    assert cfg_path.is_file()
+    assert "Created" in out
+    assert "cheap llm settings" in out.lower() or "ollama" in out.lower()
+
+
+@allure.story("Run")
+@allure.title("cmd_run --execute on cursor route exits non-zero with guidance")
+def test_cmd_run_execute_cursor_refused(minimal_workspace: Path, capsys) -> None:
+    code = cli.cmd_run(
+        _ns(task="refactor monolithic header shell layout", execute=True)
+    )
+    out = capsys.readouterr().out
+    assert code == 1
+    assert "Refusing --execute" in out or "cursor" in out.lower()
+
+
+@allure.story("Config")
+@allure.title("cmd_config show requires workspace when not --init")
+def test_cmd_config_show_requires_workspace(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("GREEDY_TOKEN_ROOT", raising=False)
+    monkeypatch.setattr(
+        "greedy_token.cli.find_workspace_root",
+        lambda: (_ for _ in ()).throw(SystemExit(1)),
+    )
+    with pytest.raises(SystemExit):
+        cli.cmd_config(_ns(init=False, url=None, model=None, provider=None, force=False, export=False))
+
+
+@allure.story("Config")
 @allure.title("cmd_config --init creates user config")
 def test_cmd_config_init(tmp_path: Path, minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
     cfg_path = tmp_path / "config.yaml"

@@ -136,15 +136,17 @@ def test_execute_task_rag_fallback_on_weak_rg(
 
 
 @allure.story("Cursor tier")
-@allure.title("Task executor returns empty output for cursor tier")
-def test_execute_task_cursor_returns_empty(minimal_workspace: Path) -> None:
+@allure.title("Task executor refuses --execute on cursor tier with guidance")
+def test_execute_task_cursor_refuses_execute(minimal_workspace: Path) -> None:
     with allure.step("Execute refactor task routed to cursor"):
         result = execute_task("refactor monolithic header shell layout", minimal_workspace)
-        attach_json("decision", {"target": result.decision.target})
-        attach_text("output", result.output or "(empty)")
-    with allure.step("Verify cursor tier returns empty output"):
+        attach_json("decision", {"target": result.decision.target, "exit_code": result.exit_code})
+        attach_text("output", result.output)
+    with allure.step("Verify cursor tier refuses execute with Agent chat guidance"):
         assert result.decision.target == "cursor"
-        assert result.output == ""
+        assert result.exit_code == 1
+        assert "Refusing --execute" in result.output
+        assert "Cursor" in result.output or "Agent chat" in result.output
 
 
 @allure.story("Plan run")

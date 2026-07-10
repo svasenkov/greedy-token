@@ -22,7 +22,7 @@ TESTOPS_IDS: dict[str, str] = {
     'tests/test_context_audit.py::test_audit_context_finds_rules': '45873',
     'tests/test_context_audit.py::test_render_audit_includes_totals': '45864',
     'tests/test_estimator.py::test_cursor_saved_for_tool_tier': '45880',
-    'tests/test_executors.py::test_execute_task_cursor_returns_empty': '45863',
+    'tests/test_executors.py::test_execute_task_cursor_refuses_execute': '45863',
     'tests/test_executors.py::test_execute_task_rag_fallback_on_weak_rg': '45878',
     'tests/test_mcp_icon.py::test_mcp_icons_advertises_png_data_uri': '45868',
     'tests/test_mcp_tools.py::test_mcp_pipeline_list_recipes': '45911',

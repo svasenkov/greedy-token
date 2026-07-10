@@ -47,11 +47,11 @@ Greedy-token uses **cheap** and **expensive** in footers and docs. It is about *
 
 ## Scope & roadmap
 
-Today the happy path is **Cursor + Ollama + workspace**. CLI and MCP are IDE-agnostic. **v0.5.3** fixes pipeline honesty: multi-word `search-rag` queries, dry-run footer (`saved=0`), and RAG route estimates via `rag_est_tokens` (`cheap_llm.provider: ollama | openai_compat` stays). Paid agent APIs (`expensive_llm`) are still on the roadmap.
+Today the happy path is **Cursor + Ollama + workspace**. CLI and MCP are IDE-agnostic. **v0.5.5** adds PyPI-friendly `config --init` (no workspace required), cursor `--execute` refusal, and usage telemetry aligned to workspace cheap_llm settings. **v0.5.3+** pipeline honesty: multi-word `search-rag`, dry-run footer (`saved=0`), RAG via `rag_est_tokens` (`cheap_llm.provider: ollama | openai_compat`). Paid agent APIs (`expensive_llm`) are still on the roadmap.
 
 **Full matrix (✅ / ❌ / 🔜) + acceptance criteria + GitHub issues:** [docs/ROADMAP.md](docs/ROADMAP.md) · [docs/ROADMAP-RU.md](docs/ROADMAP-RU.md)
 
-| Area | ✅ today (v0.5.3) | 🔜 next |
+| Area | ✅ today (v0.5.5) | 🔜 next |
 |------|-------------------|---------|
 | Executors | `tool`, `python`, `ollama` (via `cheap_llm`), `rag` | `expensive_llm` agent path; paid bulk APIs |
 | Agent host | Cursor MCP + token baseline | Claude Desktop, Continue |
@@ -258,8 +258,8 @@ Pipeline logs **one event per step**. When the log exceeds `GREEDY_TOKEN_LOG_MAX
 Priority (low → high): defaults → `~/.greedy-token/config.yaml` → `$GREEDY_TOKEN_ROOT/.greedy-token.yaml` → `CHEAP_LLM_*` / `OLLAMA_*` env (`OLLAMA_*` = url/model aliases). Route tier id remains `ollama`.
 
 ```bash
-greedy-token config init
-greedy-token config init --provider openai_compat --url http://localhost:1234 --model local-model
+greedy-token config --init
+greedy-token config --init --provider openai_compat --url http://localhost:1234 --model local-model
 greedy-token config
 eval "$(greedy-token config --export)"
 ```

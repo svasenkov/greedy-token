@@ -192,7 +192,14 @@ def execute_task(task: str, root: Path | None = None) -> TaskRunResult:
     plan = plan_run(decision, task, root)
 
     if decision.target == "cursor":
-        return TaskRunResult(decision=decision, output="", exit_code=0)
+        return TaskRunResult(
+            decision=decision,
+            output=(
+                "Refusing --execute: cursor tier requires expensive LLM (Agent chat).\n"
+                f"{plan.dry_run_output}"
+            ),
+            exit_code=1,
+        )
 
     if plan.executable and plan.command:
         code, out = execute_plan(plan)

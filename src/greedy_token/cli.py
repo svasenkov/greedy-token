@@ -301,7 +301,6 @@ def cmd_report(args: argparse.Namespace) -> int:
 
 
 def cmd_config(args: argparse.Namespace) -> int:
-    root = find_workspace_root()
     if args.init:
         try:
             path = init_user_config(
@@ -315,6 +314,15 @@ def cmd_config(args: argparse.Namespace) -> int:
             return 1
         print(f"Created {path}")
         print()
+
+    try:
+        root = find_workspace_root()
+    except SystemExit:
+        if args.init:
+            root = None
+        else:
+            raise
+
     settings = apply_ollama_env(root)
     if args.export:
         print(format_shell_export(settings, root=root))

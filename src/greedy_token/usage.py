@@ -70,7 +70,7 @@ def build_tier_scan(task: str, root: Path) -> list[dict]:
     return rows
 
 
-def executor_from_decision(decision: RouteDecision) -> dict:
+def executor_from_decision(decision: RouteDecision, root: Path | None = None) -> dict:
     target = decision.target
     if target == "tool":
         return {"kind": decision.tool or "rg"}
@@ -80,7 +80,7 @@ def executor_from_decision(decision: RouteDecision) -> dict:
             return {"kind": "script", "script_id": wrapper.id}
         return {"kind": "script"}
     if target == "ollama":
-        model = get_ollama_settings().model
+        model = get_ollama_settings(root).model
         return {"kind": "ollama", "model": model, "eval_tokens": None}
     if target == "rag":
         return {"kind": "rag"}
@@ -110,7 +110,7 @@ def build_route_event(
     est_tokens = est_tokens_override if est_tokens_override is not None else decision.est_tokens
     saved = cursor_saved_for(root, task, est_tokens, decision.target)
     counter = count_tokens(task)
-    executor = executor_from_decision(decision)
+    executor = executor_from_decision(decision, root)
     if rag_hits is not None:
         executor = {**executor, "rag_hits": rag_hits}
     if executed is not None:

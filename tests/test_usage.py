@@ -411,6 +411,38 @@ def test_build_script_and_compress_events(minimal_workspace: Path) -> None:
     assert py_exec["kind"] == "script"
 
 
+@allure.story("Event builders")
+@allure.title("executor_from_decision uses workspace cheap_llm model for ollama tier")
+def test_executor_from_decision_uses_workspace_model(minimal_workspace: Path) -> None:
+    from greedy_token.usage import build_route_event, executor_from_decision
+    from greedy_token.router import RouteDecision
+
+    ws_cfg = minimal_workspace / ".greedy-token.yaml"
+    ws_cfg.write_text(
+        "cheap_llm:\n  provider: ollama\n  url: http://localhost:11434\n"
+        "  model: workspace-only-model\n",
+        encoding="utf-8",
+    )
+    decision = RouteDecision(
+        target="ollama",
+        route_id="ollama-audit-skill",
+        confidence=1.0,
+        matched=["audit"],
+        command=None,
+        note="",
+        domains=[],
+    )
+    assert executor_from_decision(decision, minimal_workspace)["model"] == "workspace-only-model"
+    event = build_route_event(
+        cmd="route",
+        task="audit skill x",
+        root=minimal_workspace,
+        decision=decision,
+        tier_scan=[],
+    )
+    assert event["executor"]["model"] == "workspace-only-model"
+
+
 @allure.story("Tier scan helper")
 @allure.title("build_tier_scan returns rows for all tiers")
 def test_build_tier_scan(minimal_workspace: Path) -> None:
