@@ -1,0 +1,1 @@
+{"id":"4baabc8665fc46fc0827634c0cb549cc","fullName":"tests.test_cheap_llm#test_cheap_llm_available_openai_compat","name":"cheap_llm_available probes OpenAI-compatible /v1/models","status":"passed","testResultsByEnv":{"default":"f855fbc80c4cb2ccbf56ddbfb576fb7c"}}

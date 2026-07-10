@@ -1,0 +1,1 @@
+{"id":"bd536772eff279e366b3a8d56cd8a097","fullName":"tests.test_security#test_ollama_available_uses_cache","name":"Ollama availability probe caches successful result","status":"passed","testResultsByEnv":{"default":"efa7c432f7aa7c5adb63f48cb884b7ee"}}

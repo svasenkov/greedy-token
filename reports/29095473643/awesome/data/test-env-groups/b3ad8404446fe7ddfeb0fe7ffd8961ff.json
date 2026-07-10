@@ -1,0 +1,1 @@
+{"id":"b3ad8404446fe7ddfeb0fe7ffd8961ff","fullName":"tests.test_cheap_llm#test_cheap_llm_available_ollama","name":"cheap_llm_available probes Ollama /api/tags","status":"passed","testResultsByEnv":{"default":"99b9da94200bedb2b672d5c7486983d0"}}
