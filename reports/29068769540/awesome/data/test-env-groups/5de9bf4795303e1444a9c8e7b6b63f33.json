@@ -1,0 +1,1 @@
+{"id":"5de9bf4795303e1444a9c8e7b6b63f33","fullName":"tests.test_pipeline#test_parse_named_pipeline_search_rag_path_kwarg_and_missing","name":"search-rag path= kwarg + multi-word query; missing args raise","status":"passed","testResultsByEnv":{"default":"aae76527dc736ad0ce94b46e0ed83d66"}}

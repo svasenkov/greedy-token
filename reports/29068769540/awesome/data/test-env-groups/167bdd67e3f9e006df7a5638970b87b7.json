@@ -1,0 +1,1 @@
+{"id":"167bdd67e3f9e006df7a5638970b87b7","fullName":"tests.test_cli_handlers#test_cmd_scripts_run_refuse_write","name":"cmd_scripts --run rejects non-read-only execute","status":"passed","testResultsByEnv":{"default":"4c7e9d03522dcaa83ee6bb7ebbe0719c"}}

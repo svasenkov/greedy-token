@@ -1,0 +1,1 @@
+{"id":"291de9ee9ad62f277513476de2320673","fullName":"tests.test_search#test_filter_tool_output_drops_hooks_readme","name":"Tool output filter drops .cursor/hooks paths","status":"passed","testResultsByEnv":{"default":"b55ac03330c6db371820925f8001e2eb"}}

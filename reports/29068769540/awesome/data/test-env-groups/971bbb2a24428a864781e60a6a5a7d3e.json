@@ -1,0 +1,1 @@
+{"id":"971bbb2a24428a864781e60a6a5a7d3e","fullName":"tests.test_paths#test_find_workspace_root_not_found","name":"find_workspace_root exits when markers are absent","status":"passed","testResultsByEnv":{"default":"67d3ba5e32cf2dc81072cca2005513b3"}}

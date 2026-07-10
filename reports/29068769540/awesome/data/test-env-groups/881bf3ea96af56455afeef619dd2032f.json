@@ -1,0 +1,1 @@
+{"id":"881bf3ea96af56455afeef619dd2032f","fullName":"tests.test_cli_handlers#test_cmd_report_json","name":"cmd_report --json emits JSON summary","status":"passed","testResultsByEnv":{"default":"097676844cea3d2f0cc19d5348ba4dd6"}}

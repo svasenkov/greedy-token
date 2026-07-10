@@ -1,0 +1,1 @@
+{"id":"5cfba6955ec81daaa4ddab5f9f10e87a","fullName":"tests.test_cli_handlers#test_cmd_config_show","name":"cmd_config prints Ollama settings","status":"passed","testResultsByEnv":{"default":"33017c466446f3917ba69b5a5c2dfba4"}}

@@ -1,0 +1,1 @@
+{"id":"d50169c84af4050b3ce7cf912c5d3f1a","fullName":"tests.test_cli_handlers#test_cmd_scripts_run_execute","name":"cmd_scripts --run --execute runs read-only wrapper","status":"passed","testResultsByEnv":{"default":"374de71a5ca0b221193a1564ad05f59d"}}
