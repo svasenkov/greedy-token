@@ -1,0 +1,1 @@
+{"id":"6ae42bed4e38b0ecd18129aa653d7358","fullName":"tests.test_prompt_compress#test_format_dual_wraps_blocks","name":"Dual-format output wraps long and short prompt blocks","status":"passed","testResultsByEnv":{"default":"dd3b45e89f5f28dd5161d1365af177b3"}}

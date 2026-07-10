@@ -1,0 +1,1 @@
+{"id":"e0f17a24b487b35ca8070ef000a718d0","fullName":"tests.test_mcp_handlers#test_mcp_icons_package_fallback","name":"mcp_icons loads SVG from package when static dir missing","status":"passed","testResultsByEnv":{"default":"54e96e7b72f2b8587b666db89b339c70"}}

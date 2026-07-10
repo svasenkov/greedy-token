@@ -1,0 +1,1 @@
+{"id":"c2711faf69771ccfa44f63b7b87c8af4","fullName":"tests.test_cli_handlers#test_cmd_scripts_run_audit_skill_execute","name":"cmd_scripts --execute allows stdout-only audit-skill","status":"passed","testResultsByEnv":{"default":"9480a35f693d3c2717aa32112daf0d1d"}}

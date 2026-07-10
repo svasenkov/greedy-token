@@ -1,0 +1,1 @@
+{"id":"dc60849338b8c686b4bd80704b1bf6c2","fullName":"tests.test_executors#test_execute_task_cursor_refuses_execute","name":"Task executor refuses --execute on cursor tier with guidance","status":"passed","testResultsByEnv":{"default":"c9fdfe205efa84545485f88373a5a664"}}

@@ -1,0 +1,8 @@
+Task: find baseUrl in sample.js
+Route: TOOL  (tool-rg-search, 59%)
+Complexity: low
+Est. tokens: 0
+Rationale: Mechanical search — ripgrep/jq, zero LLM tokens. 0 tokens — ripgrep before RAG/Cursor
+Matched: find
+Command: cd /tmp/pytest-of-runner/pytest-0/test_main_raises_system_exit0 && /usr/bin/rg -n --max-columns 200 -F baseUrl -g '!.git/**' -g '!node_modules/**' -g '!build/**' -g '!.venv/**' -g '!.cursor/hooks/**' --max-count 50 projects docs stacks scripts generators
+Execute: read-only (greedy-token run --execute OK)

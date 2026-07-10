@@ -1,0 +1,1 @@
+{"id":"4fd119f6a13f2c8e0873cfba4104d1db","fullName":"tests.test_paths#test_find_workspace_root_invalid_env","name":"find_workspace_root exits when GREEDY_TOKEN_ROOT is not a directory","status":"passed","testResultsByEnv":{"default":"3390000579a2d9681fa8f14209ac4c5d"}}
