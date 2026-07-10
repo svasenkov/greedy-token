@@ -70,3 +70,17 @@ def test_load_routes_config() -> None:
         attach_text("route count", str(len(cfg.get("routes", []))))
     assert isinstance(cfg, dict)
     assert "routes" in cfg
+
+
+@allure.story("Routes config")
+@allure.title("Bundled routes have no phantom null-command executors")
+def test_routes_have_no_null_commands() -> None:
+    """Regression: ollama-rag-draft had command:null → plan_run 'No executor.'"""
+    cfg = load_routes_config()
+    null_cmds = [
+        r.get("id")
+        for r in cfg.get("routes", [])
+        if "command" in r and r.get("command") is None
+    ]
+    attach_text("null-command routes", ", ".join(null_cmds) or "(none)")
+    assert null_cmds == []

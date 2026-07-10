@@ -81,7 +81,7 @@ def spent_hint(tier: str, spent: int, executor_sub: str | None = None) -> str:
             return "ripgrep on disk — 0 LLM spend"
         return "script — 0 LLM spend"
     if tier == "ollama":
-        return "cheap LLM — 0 API spend"
+        return "cheap LLM — local/cheap spend"
     if tier == "rag":
         return "docs/rag chunks read into context"
     if tier == "cursor":
@@ -130,11 +130,21 @@ def format_savings_lines(
     ]
 
 
-def _format_tier_alternatives(task: str, root: Path, selected: str) -> list[str]:
+def _format_tier_alternatives(
+    task: str,
+    root: Path,
+    selected: str,
+    *,
+    selected_spent: int | None = None,
+) -> list[str]:
+    """Tier scan estimates; the selected row uses actual spent when provided."""
     lines = ["Tier alternatives (estimated):"]
     for tier, decision in route_task_all_tiers(task, root):
         label = TIER_LABELS.get(tier, tier)
-        est = decision.est_tokens
+        if tier == selected and selected_spent is not None:
+            est = selected_spent
+        else:
+            est = decision.est_tokens
         suffix = ""
         if tier == selected:
             suffix = "  ← this call"
@@ -171,7 +181,7 @@ def format_tool_footer(
     lines = [
         "",
         "---",
-        "Token economy",
+        "Greedy token",
         "",
         "This call",
         f"  Executor: {sub} — {sub_label}",
@@ -206,7 +216,11 @@ def format_tool_footer(
             "",
         ]
     )
-    lines.extend(_format_tier_alternatives(task, root, tier))
+    lines.extend(
+        _format_tier_alternatives(
+            task, root, tier, selected_spent=est_tokens
+        )
+    )
     lines.append("")
     lines.extend(
         format_savings_lines(

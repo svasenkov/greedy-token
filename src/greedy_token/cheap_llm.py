@@ -48,12 +48,19 @@ def _probe_health(settings: CheapLlmSettings, *, timeout: float) -> bool:
     else:
         url = f"{settings.url.rstrip('/')}/api/tags"
     try:
-        req = urllib.request.Request(url)
+        headers = _auth_headers(settings)
+        req = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             json.load(resp)
         return True
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError, ValueError):
         return False
+
+
+def _auth_headers(settings: CheapLlmSettings) -> dict[str, str]:
+    if settings.provider != "openai_compat" or not settings.api_key:
+        return {}
+    return {"Authorization": f"Bearer {settings.api_key}"}
 
 
 def cheap_llm_chat(
@@ -115,10 +122,11 @@ def _chat_openai_compat(
             ],
         }
     ).encode()
+    headers = {"Content-Type": "application/json", **_auth_headers(settings)}
     req = urllib.request.Request(
         f"{base}/chat/completions",
         data=body,
-        headers={"Content-Type": "application/json"},
+        headers=headers,
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         data = json.load(resp)

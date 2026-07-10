@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import os
 import shutil
+from collections.abc import Iterator
 from pathlib import Path
 
 
-def _rg_candidates() -> list[Path]:
+def _rg_candidates() -> Iterator[Path]:
     override = os.environ.get("GREEDY_TOKEN_RG", "").strip()
     if override:
         yield Path(override).expanduser()

@@ -106,7 +106,7 @@ cp examples/cursor/rules/greedy-token.mdc .cursor/rules/greedy-token.mdc
 | `greedy_token_pipeline` | Цепочка python → ollama → rag |
 | `greedy_token_usage` | Сводка экономии из `~/.greedy-token/usage.jsonl` |
 
-Каждый ответ tool заканчивается блоком **Token economy** — показывай его пользователю.
+**Footers:** `route` / `search` / `rag` / `pipeline` — полный блок **Greedy token** (This call → Tier alternatives → Saved). `usage` — **Session totals** (не полный single-tool footer). `pipeline: list` — только список рецептов, без economy footer.
 
 ### Pipeline (несколько шагов)
 
@@ -122,11 +122,18 @@ pipeline: check-meta-sync then audit-skill configurator-boolean
 
 Именованные рецепты (`greedy-token pipeline --list`):
 
-| Рецепт | Шаги |
-|--------|------|
-| `meta-audit` | python → ollama |
-| `meta-rag` | python → rag |
-| `search-rag` | rg → rag |
+| Рецепт | Шаги | Аргументы |
+|--------|------|-----------|
+| `meta-audit` | python → ollama | `<skill>` |
+| `meta-rag` | python → rag | `<query>` |
+| `search-rag` | rg → rag | `<query> <path>` или `<query> path=<path>` |
+
+`search-rag` переиспользует `query` для обоих шагов; `path` только для ripgrep:
+
+```text
+pipeline: search-rag baseUrl configurator-option-presets.html
+pipeline: search-rag baseUrl path=configurator-option-presets.html
+```
 
 Footer с **таблицей экономии по шагам**:
 
@@ -220,10 +227,12 @@ greedy-token report --since 7d
 
 ## Token economy — что значит «сэкономили»
 
-- **Executor (rg/python/rag)** — free tier, 0 LLM spend на этот шаг
+- **Executor (rg/python/rag)** — free tier, 0 LLM spend на этот шаг (`search` в pipeline → `rg`)
 - **Executor (ollama)** — cheap LLM
+- **Tier alternatives** — строка `← this call` = фактический Spent этого вызова
 - **Saved vs naive Cursor chat** — оценка greedy-token (tiktoken), не биллинг Cursor API
 - **Agent chat** — expensive LLM (rules + ваше сообщение + ответ)
+- **Исключения footer:** `usage` → Session totals; `pipeline: list` → только рецепты
 
 ## Телеметрия
 

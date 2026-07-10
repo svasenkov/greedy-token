@@ -60,6 +60,7 @@ class StepResult:
     duration_ms: int
     est_tokens: int
     executed: bool
+    engine: str = ""  # search: rg | python (from SearchResult.engine)
 
 
 @dataclass
@@ -91,6 +92,14 @@ class StepSavingsRow:
     baseline: int
     saved: int
     billing: str
+    executor_sub: str = ""
+
+
+def _executor_sub_for_step(sr: StepResult) -> str:
+    """Map pipeline step to footer executor_sub (search → SearchResult.engine)."""
+    if sr.step.step_id == "search" or sr.step.tier == "tool":
+        return sr.engine or "rg"
+    return sr.step.tier
 
 
 def compute_step_savings(result: PipelineResult, root: Path) -> list[StepSavingsRow]:
@@ -99,7 +108,8 @@ def compute_step_savings(result: PipelineResult, root: Path) -> list[StepSavings
         baseline = cursor_baseline(root, sr.step.label)
         spent = sr.est_tokens
         saved = max(0, baseline - spent)
-        billing = spent_hint(sr.step.tier, spent, sr.step.tier)
+        sub = _executor_sub_for_step(sr)
+        billing = spent_hint(sr.step.tier, spent, sub)
         rows.append(
             StepSavingsRow(
                 index=i,
@@ -110,6 +120,7 @@ def compute_step_savings(result: PipelineResult, root: Path) -> list[StepSavings
                 baseline=baseline,
                 saved=saved,
                 billing=billing,
+                executor_sub=sub,
             )
         )
     return rows
@@ -123,8 +134,9 @@ def format_pipeline_step_savings_table(rows: list[StepSavingsRow]) -> list[str]:
         f"  {'#':>2}  {'step':<22} {'executor':<8} {'ms':>6} {'spent':>7} {'baseline':>9} {'saved':>9}  billing",
     ]
     for row in rows:
+        executor = row.executor_sub or row.tier
         lines.append(
-            f"  {row.index:>2}  {row.step_id:<22} {row.tier:<8} {row.duration_ms:>6} "
+            f"  {row.index:>2}  {row.step_id:<22} {executor:<8} {row.duration_ms:>6} "
             f"{row.spent:>7,} {row.baseline:>9,} {row.saved:>9,}  {row.billing}"
         )
     return lines
@@ -157,6 +169,27 @@ def _load_pipelines_config() -> dict:
         return yaml.safe_load(fh) or {}
 
 
+def _split_recipe_params(
+    params: list[str], known: list[str]
+) -> tuple[list[str], dict[str, str]]:
+    """Split recipe args into positionals and key=value for known placeholders.
+
+    Supports both ``pipeline: search-rag baseUrl foo.html`` and
+    ``pipeline: search-rag baseUrl path=foo.html`` (agent / rule style).
+    """
+    positional: list[str] = []
+    kwargs: dict[str, str] = {}
+    known_set = set(known)
+    for param in params:
+        if "=" in param:
+            key, _, value = param.partition("=")
+            if key in known_set:
+                kwargs[key] = value
+                continue
+        positional.append(param)
+    return positional, kwargs
+
+
 def _expand_named_pipeline(text: str) -> str:
     cfg = _load_pipelines_config()
     pipelines = cfg.get("pipelines") or {}
@@ -168,7 +201,12 @@ def _expand_named_pipeline(text: str) -> str:
         return text
     recipe = pipelines[name]
     steps: list[str] = recipe.get("steps") or []
-    params = tokens[1:]
+    known: list[str] = []
+    for step_tpl in steps:
+        for ph in re.findall(r"\{(\w+)\}", step_tpl):
+            if ph not in known:
+                known.append(ph)
+    positional, kwargs = _split_recipe_params(tokens[1:], known)
     expanded: list[str] = []
     param_i = 0
     global_mapping: dict[str, str] = {}
@@ -181,19 +219,29 @@ def _expand_named_pipeline(text: str) -> str:
                 if ph in global_mapping:
                     mapping[ph] = global_mapping[ph]
                     continue
-                if param_i >= len(params):
+                if ph in kwargs:
+                    mapping[ph] = kwargs[ph]
+                    global_mapping[ph] = kwargs[ph]
+                    continue
+                if param_i >= len(positional):
                     raise ValueError(
                         f"Pipeline {name!r} needs more args. "
-                        f"Usage: pipeline: {name} <{'> <'.join(dict.fromkeys(placeholders))}>"
+                        f"Usage: pipeline: {name} <{'> <'.join(known)}>"
+                        + (f" (or {known[-1]}=…)" if known else "")
                     )
-                mapping[ph] = params[param_i]
-                global_mapping[ph] = params[param_i]
+                mapping[ph] = positional[param_i]
+                global_mapping[ph] = positional[param_i]
                 param_i += 1
             expanded.append(step_tpl.format(**mapping))
         else:
             expanded.append(step_tpl)
-    if param_i < len(params):
-        expanded[-1] = f"{expanded[-1]} {' '.join(params[param_i:])}"
+    if param_i < len(positional):
+        extra = " ".join(positional[param_i:])
+        raise ValueError(
+            f"Pipeline {name!r} got unexpected extra args: {extra!r}. "
+            f"Usage: pipeline: {name} <{'> <'.join(known)}>"
+            + (f" (or {known[-1]}=…)" if known else "")
+        )
     return " then ".join(expanded)
 
 
@@ -306,9 +354,11 @@ def _run_step(step: PipelineStep, root: Path, *, execute: bool) -> StepResult:
     if step.step_id == "search":
         query, _, path = (step.args + "\t").partition("\t")
         path = path.strip() or None
+        engine = ""
         if execute:
             result = search_code(query, root, path=path)
             output = result.text
+            engine = result.engine
             executed = True
         else:
             output = f"(dry-run) search {query!r}" + (f" in {path}" if path else "")
@@ -322,6 +372,7 @@ def _run_step(step: PipelineStep, root: Path, *, execute: bool) -> StepResult:
             duration_ms=duration_ms,
             est_tokens=est,
             executed=executed,
+            engine=engine,
         )
 
     if step.step_id == "rag":
@@ -425,7 +476,7 @@ def run_pipeline(
     task: str,
     root: Path | None = None,
     *,
-    execute: bool = True,
+    execute: bool = False,
     stop_on_error: bool = True,
     max_output_per_step: int = 4000,
 ) -> PipelineResult:
@@ -517,7 +568,7 @@ def format_pipeline_footer(result: PipelineResult, root: Path) -> str:
     lines = [
         "",
         "---",
-        "Token economy — pipeline",
+        "Greedy token — pipeline",
         "",
     ]
     lines.extend(format_pipeline_step_savings_table(step_rows))

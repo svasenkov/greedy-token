@@ -18,8 +18,8 @@ pytestmark = [
 ]
 
 
-def _assert_token_economy_footer(text: str) -> None:
-    assert "Token economy" in text
+def _assert_greedy_token_footer(text: str) -> None:
+    assert "Greedy token" in text
     assert "Saved vs naive Cursor chat" in text
 
 
@@ -44,8 +44,8 @@ def test_mcp_stdio_lists_five_tools(minimal_workspace: Path) -> None:
 
 
 @allure.story("Route tool")
-@allure.title("MCP stdio route tool returns tier decision with Token economy footer")
-def test_mcp_stdio_route_includes_token_economy(minimal_workspace: Path) -> None:
+@allure.title("MCP stdio route tool returns tier decision with Greedy token footer")
+def test_mcp_stdio_route_includes_greedy_token(minimal_workspace: Path) -> None:
     async def _call(session):
         return await session.call_tool(
             "greedy_token_route",
@@ -56,9 +56,9 @@ def test_mcp_stdio_route_includes_token_economy(minimal_workspace: Path) -> None
         result = run_mcp(minimal_workspace, _call)
         text = tool_text(result)
         attach_text("route response", text)
-    with allure.step("Verify TOOL route and Token economy footer"):
+    with allure.step("Verify TOOL route and Greedy token footer"):
         assert "Route: TOOL" in text
-        _assert_token_economy_footer(text)
+        _assert_greedy_token_footer(text)
 
 
 @allure.story("Search tool")
@@ -74,13 +74,13 @@ def test_mcp_stdio_search_finds_match(minimal_workspace: Path) -> None:
         result = run_mcp(minimal_workspace, _call)
         text = tool_text(result)
         attach_text("search response", text)
-    with allure.step("Verify baseUrl match and Token economy footer"):
+    with allure.step("Verify baseUrl match and Greedy token footer"):
         assert "baseUrl" in text
-        _assert_token_economy_footer(text)
+        _assert_greedy_token_footer(text)
 
 
 @allure.story("RAG tool")
-@allure.title("MCP stdio RAG tool returns doc hits with Token economy footer")
+@allure.title("MCP stdio RAG tool returns doc hits with Greedy token footer")
 def test_mcp_stdio_rag_returns_hits(minimal_workspace: Path) -> None:
     async def _call(session):
         return await session.call_tool(
@@ -92,13 +92,13 @@ def test_mcp_stdio_rag_returns_hits(minimal_workspace: Path) -> None:
         result = run_mcp(minimal_workspace, _call)
         text = tool_text(result)
         attach_text("rag response", text)
-    with allure.step("Verify RAG hits and Token economy footer"):
+    with allure.step("Verify RAG hits and Greedy token footer"):
         assert "RAG hits" in text or "test-baseurl" in text
-        _assert_token_economy_footer(text)
+        _assert_greedy_token_footer(text)
 
 
 @allure.story("Pipeline tool")
-@allure.title("MCP stdio pipeline dry-run includes per-step Token economy footer")
+@allure.title("MCP stdio pipeline dry-run includes per-step Greedy token footer")
 def test_mcp_stdio_pipeline_dry_run_footer(minimal_workspace: Path) -> None:
     async def _call(session):
         return await session.call_tool(

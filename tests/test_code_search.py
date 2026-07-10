@@ -84,6 +84,32 @@ def test_search_code_empty_query(minimal_workspace: Path) -> None:
 
 
 @allure.story("Path resolution")
+@allure.title("resolve_search_path resolves directory under root")
+def test_resolve_search_path_directory(minimal_workspace: Path) -> None:
+    with allure.step("Resolve docs directory"):
+        found = resolve_search_path("docs", minimal_workspace)
+        attach_text("resolved path", str(found) if found else "(none)")
+    with allure.step("Verify directory match"):
+        assert found is not None
+        assert found.is_dir()
+        assert found.name == "docs"
+
+
+@allure.story("Scoped search")
+@allure.title("search_code scopes to directory path without mocking rg")
+def test_search_code_directory_scope(minimal_workspace: Path) -> None:
+    docs = minimal_workspace / "docs"
+    (docs / "note.md").write_text("dirNeedleXYZ\n", encoding="utf-8")
+    with allure.step("Search inside docs directory"):
+        out = search_code("dirNeedleXYZ", minimal_workspace, path="docs")
+        attach_text("search output", out.text)
+        attach_text("engine", out.engine)
+    with allure.step("Verify directory-scoped hit"):
+        assert "dirNeedleXYZ" in out.text
+        assert out.engine in ("rg", "python")
+
+
+@allure.story("Path resolution")
 @allure.title("resolve_search_path returns None for empty hint")
 def test_resolve_search_path_empty(minimal_workspace: Path) -> None:
     with allure.step("Resolve empty path hint"):
@@ -136,8 +162,40 @@ def test_resolve_search_path_ambiguous_glob(minimal_workspace: Path) -> None:
     with allure.step("Resolve filename with multiple matches"):
         found = resolve_search_path("sample.js", minimal_workspace)
         attach_text("resolved path", str(found) if found else "(none)")
-    with allure.step("Verify ambiguous glob handling"):
-        assert found is None or found.name == "sample.js"
+    with allure.step("Verify ambiguous glob returns None"):
+        assert found is None
+
+
+@allure.story("Path resolution")
+@allure.title("resolve_search_path rejects absolute path outside workspace")
+def test_resolve_search_path_rejects_outside_root(
+    minimal_workspace: Path, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    outside_dir = tmp_path_factory.mktemp("outside-root")
+    outside = outside_dir / "secret.txt"
+    outside.write_text("SECRET_TOKEN=leak\n", encoding="utf-8")
+    with allure.step("Resolve absolute path outside workspace"):
+        found = resolve_search_path(str(outside), minimal_workspace)
+        attach_text("outside path", str(outside))
+        attach_text("resolved", str(found) if found else "(none)")
+    with allure.step("Verify outside-root path is rejected"):
+        assert found is None
+
+
+@allure.story("Path resolution")
+@allure.title("search_code refuses absolute path outside workspace")
+def test_search_code_rejects_outside_root(
+    minimal_workspace: Path, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    outside_dir = tmp_path_factory.mktemp("outside-search")
+    outside = outside_dir / "secret.txt"
+    outside.write_text("SECRET_TOKEN=leak\n", encoding="utf-8")
+    with allure.step("Search with absolute path outside workspace"):
+        out = search_code("SECRET_TOKEN", minimal_workspace, path=str(outside))
+        attach_text("search output", out.text)
+    with allure.step("Verify error and no secret leak"):
+        assert "outside workspace" in out.text
+        assert "SECRET_TOKEN=leak" not in out.text
 
 
 @allure.story("Python fallback")

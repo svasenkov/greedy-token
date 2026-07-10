@@ -206,10 +206,11 @@ def _token_estimate_for_route(
         )
     if target == "ollama":
         if ollama_available():
+            # Local/cheap LLM still spends tokens (not Cursor API $).
             return (
                 complexity,
-                0,
-                "Cheap LLM — bulk work off expensive path; 0 API spend.",
+                max(task_tokens, 1),
+                "Cheap LLM — bulk work off expensive path; local/cheap spend.",
             )
         return (
             "medium",

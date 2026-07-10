@@ -24,8 +24,8 @@ from greedy_token.usage import (
 from tests.allure_reporting import attach_json, attach_text
 
 pytestmark = [
-    allure.epic("Token economy"),
-    allure.parent_suite("Token economy"),
+    allure.epic("Greedy token"),
+    allure.parent_suite("Greedy token"),
     allure.feature("Usage telemetry"),
     allure.suite("Usage telemetry"),
 ]

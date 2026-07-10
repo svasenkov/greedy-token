@@ -9,8 +9,8 @@ from greedy_token.context_audit import audit_context, render_audit
 from tests.allure_reporting import attach_text
 
 pytestmark = [
-    allure.epic("Token economy"),
-    allure.parent_suite("Token economy"),
+    allure.epic("Greedy token"),
+    allure.parent_suite("Greedy token"),
     allure.feature("Context audit"),
     allure.suite("Context audit"),
 ]

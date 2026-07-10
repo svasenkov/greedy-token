@@ -106,7 +106,7 @@ Expected: **5 MCP tools** (including `greedy_token_pipeline`).
 | `greedy_token_pipeline` | Multi-step chain (python → ollama → rag) |
 | `greedy_token_usage` | Aggregate savings from `~/.greedy-token/usage.jsonl` |
 
-Every tool response ends with a **Token economy** block — show it to the user.
+**Footers:** `route` / `search` / `rag` / `pipeline` append the full **Greedy token** block (This call → Tier alternatives → Saved). `usage` appends **Session totals** (not the full single-tool footer). `pipeline: list` returns the recipe list only — no economy footer.
 
 ### Pipeline (multi-step)
 
@@ -122,11 +122,18 @@ pipeline: check-meta-sync then audit-skill configurator-boolean
 
 Named recipes (`pipeline --list`):
 
-| Recipe | Steps |
-|--------|-------|
-| `meta-audit` | python → ollama |
-| `meta-rag` | python → rag |
-| `search-rag` | rg → rag |
+| Recipe | Steps | Args |
+|--------|-------|------|
+| `meta-audit` | python → ollama | `<skill>` |
+| `meta-rag` | python → rag | `<query>` |
+| `search-rag` | rg → rag | `<query> <path>` or `<query> path=<path>` |
+
+`search-rag` reuses `query` for both steps; `path` scopes ripgrep only:
+
+```text
+pipeline: search-rag baseUrl configurator-option-presets.html
+pipeline: search-rag baseUrl path=configurator-option-presets.html
+```
 
 Footer includes **per-step savings** table:
 
@@ -212,13 +219,16 @@ greedy-token report --since 7d
 
 ## Token economy footer
 
-Single-tool responses include:
+`route` / `search` / `rag` / `pipeline` responses include:
 
 - **This call** — executor, spent, billing (cheap vs expensive LLM)
 - **Cursor baseline** — rules + task + overhead
+- **Tier alternatives** — selected row matches Spent for this call
 - **Saved vs naive Cursor chat**
 
-Pipeline adds **per-step** baseline / spent / saved and **saved by executor**.
+Exceptions: `usage` → **Session totals**; `pipeline: list` → recipes only (no economy footer).
+
+Pipeline adds **per-step** baseline / spent / saved and **saved by executor** (`search` bills as `rg`).
 
 > **Note:** MCP executor steps use cheap/free tiers. Agent chat wrapper (rules + your message + reply) still uses expensive LLM (Cursor tokens).
 

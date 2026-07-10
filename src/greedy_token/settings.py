@@ -26,6 +26,7 @@ class CheapLlmSettings:
     url: str
     model: str
     source: str
+    api_key: str = ""
 
 
 @dataclass(frozen=True)
@@ -74,11 +75,12 @@ def _apply_level(
     provider: CheapLlmProvider,
     url: str,
     model: str,
+    api_key: str,
     source: str,
     cheap_llm: dict[str, Any],
     ollama: dict[str, Any],
     level: str,
-) -> tuple[CheapLlmProvider, str, str, str]:
+) -> tuple[CheapLlmProvider, str, str, str, str]:
     if ollama.get("url"):
         url = str(ollama["url"]).strip()
         source = level
@@ -96,8 +98,11 @@ def _apply_level(
     if cheap_llm.get("model"):
         model = str(cheap_llm["model"]).strip()
         source = level
+    if cheap_llm.get("api_key"):
+        api_key = str(cheap_llm["api_key"]).strip()
+        source = level
 
-    return provider, url.rstrip("/"), model, source
+    return provider, url.rstrip("/"), model, api_key, source
 
 
 def _resolve_cheap_llm(
@@ -109,21 +114,24 @@ def _resolve_cheap_llm(
     provider: CheapLlmProvider = DEFAULT_CHEAP_LLM_PROVIDER
     url = DEFAULT_CHEAP_LLM_URL
     model = DEFAULT_CHEAP_LLM_MODEL
+    api_key = ""
     source = "default"
 
-    provider, url, model, source = _apply_level(
+    provider, url, model, api_key, source = _apply_level(
         provider=provider,
         url=url,
         model=model,
+        api_key=api_key,
         source=source,
         cheap_llm=_section(user_cfg, "cheap_llm"),
         ollama=_section(user_cfg, "ollama"),
         level="user",
     )
-    provider, url, model, source = _apply_level(
+    provider, url, model, api_key, source = _apply_level(
         provider=provider,
         url=url,
         model=model,
+        api_key=api_key,
         source=source,
         cheap_llm=_section(workspace_cfg, "cheap_llm"),
         ollama=_section(workspace_cfg, "ollama"),
@@ -146,8 +154,13 @@ def _resolve_cheap_llm(
     elif os.environ.get("OLLAMA_MODEL", "").strip():
         model = os.environ["OLLAMA_MODEL"].strip()
         source = "env"
+    if os.environ.get("CHEAP_LLM_API_KEY", "").strip():
+        api_key = os.environ["CHEAP_LLM_API_KEY"].strip()
+        source = "env"
 
-    return CheapLlmSettings(provider=provider, url=url, model=model, source=source)
+    return CheapLlmSettings(
+        provider=provider, url=url, model=model, source=source, api_key=api_key
+    )
 
 
 def get_cheap_llm_settings(root: Path | None = None) -> CheapLlmSettings:
@@ -181,6 +194,8 @@ def apply_cheap_llm_env(root: Path | None = None) -> CheapLlmSettings:
     os.environ.setdefault("CHEAP_LLM_PROVIDER", settings.provider)
     os.environ.setdefault("CHEAP_LLM_URL", settings.url)
     os.environ.setdefault("CHEAP_LLM_MODEL", settings.model)
+    if settings.api_key:
+        os.environ.setdefault("CHEAP_LLM_API_KEY", settings.api_key)
     os.environ.setdefault("OLLAMA_URL", settings.url)
     os.environ.setdefault("OLLAMA_MODEL", settings.model)
     return settings
@@ -224,10 +239,11 @@ def format_config(settings: CheapLlmSettings | OllamaSettings | None = None, *, 
         lines.append(f"  3. {workspace_path}")
     lines.extend(
         [
-            "  4. CHEAP_LLM_* / OLLAMA_* env (OLLAMA_* = url/model aliases)",
+            "  4. CHEAP_LLM_* / OLLAMA_* env (OLLAMA_* = url/model aliases;",
+            "     CHEAP_LLM_API_KEY optional for openai_compat)",
             "",
             "Create user config:",
-            "  greedy-token config init",
+            "  greedy-token config --init",
         ]
     )
     return "\n".join(lines)
@@ -243,15 +259,16 @@ def format_shell_export(settings: CheapLlmSettings | OllamaSettings | None = Non
             model=settings.model,
             source=settings.source,
         )
-    return "\n".join(
-        [
-            f'export CHEAP_LLM_PROVIDER="{settings.provider}"',
-            f'export CHEAP_LLM_URL="{settings.url}"',
-            f'export CHEAP_LLM_MODEL="{settings.model}"',
-            f'export OLLAMA_URL="{settings.url}"',
-            f'export OLLAMA_MODEL="{settings.model}"',
-        ]
-    )
+    lines = [
+        f'export CHEAP_LLM_PROVIDER="{settings.provider}"',
+        f'export CHEAP_LLM_URL="{settings.url}"',
+        f'export CHEAP_LLM_MODEL="{settings.model}"',
+        f'export OLLAMA_URL="{settings.url}"',
+        f'export OLLAMA_MODEL="{settings.model}"',
+    ]
+    if settings.api_key:
+        lines.append(f'export CHEAP_LLM_API_KEY="{settings.api_key}"')
+    return "\n".join(lines)
 
 
 def init_user_config(

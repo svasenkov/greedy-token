@@ -25,8 +25,16 @@ def test_package_version() -> None:
 @allure.story("Main")
 @allure.title("__main__ module delegates to cli.main")
 def test_main_module(monkeypatch: pytest.MonkeyPatch) -> None:
-    import greedy_token.__main__ as main_mod
+    import importlib
 
-    monkeypatch.setattr(main_mod, "main", lambda: None)
-    main_mod.main()
-    assert True
+    import greedy_token.cli as cli
+
+    called: list[int] = []
+    with allure.step("Monkeypatch cli.main and rebind __main__"):
+        monkeypatch.setattr(cli, "main", lambda: called.append(1))
+        main_mod = importlib.reload(importlib.import_module("greedy_token.__main__"))
+    with allure.step("Invoke __main__ entry"):
+        main_mod.main()
+        attach_text("calls", str(called))
+    with allure.step("Verify cli.main was called"):
+        assert called == [1]

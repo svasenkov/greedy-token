@@ -34,28 +34,55 @@ class SearchResult:
     spent_tokens: int = 0
 
 
+def _under_root(path: Path, root: Path) -> bool:
+    try:
+        path.resolve().relative_to(root.resolve())
+        return True
+    except ValueError:
+        return False
+
+
 def resolve_search_path(path_hint: str, root: Path) -> Path | None:
+    """Resolve a file or directory under *root*. Paths outside the workspace are rejected."""
     hint = path_hint.strip()
     if not hint:
         return None
 
+    root = root.resolve()
     direct = Path(hint)
-    if direct.is_file():
-        return direct.resolve()
 
+    # Absolute paths: accept only when under root.
+    if direct.is_absolute():
+        if direct.is_file() or direct.is_dir():
+            resolved = direct.resolve()
+            return resolved if _under_root(resolved, root) else None
+        return None
+
+    # Relative to workspace root (preferred over cwd).
     rooted = (root / hint).resolve()
-    if rooted.is_file():
+    if (rooted.is_file() or rooted.is_dir()) and _under_root(rooted, root):
         return rooted
 
     name = Path(hint).name
-    if name:
-        matches = sorted(root.glob(f"**/{name}"))
-        if len(matches) == 1:
-            return matches[0].resolve()
-        if matches:
-            exact = [m for m in matches if m.name == name]
-            if len(exact) == 1:
-                return exact[0].resolve()
+    if not name:
+        return None
+
+    # Prefer a unique directory match for bare names like "docs".
+    dir_matches = sorted(
+        p.resolve() for p in root.glob(f"**/{name}") if p.is_dir()
+    )
+    dir_matches = [m for m in dir_matches if _under_root(m, root)]
+    if len(dir_matches) == 1:
+        return dir_matches[0]
+
+    matches = sorted(p.resolve() for p in root.glob(f"**/{name}") if p.is_file())
+    matches = [m for m in matches if _under_root(m, root)]
+    if len(matches) == 1:
+        return matches[0]
+    if matches:
+        exact = [m for m in matches if m.name == name]
+        if len(exact) == 1:
+            return exact[0]
 
     return None
 
@@ -134,18 +161,40 @@ def search_code(
     path: str | None = None,
     limit: int = 50,
 ) -> SearchResult:
-    root = root or find_monorepo_root()
+    root = (root or find_monorepo_root()).resolve()
     query = query.strip()
     if not query:
         return SearchResult(text="Error: query is required.", engine="rg")
+
+    if path:
+        hint = path.strip()
+        candidate = Path(hint)
+        try:
+            abs_candidate = (
+                candidate.resolve()
+                if candidate.is_absolute()
+                else (root / hint).resolve()
+            )
+        except OSError:
+            abs_candidate = None
+        if (
+            abs_candidate is not None
+            and abs_candidate.exists()
+            and not _under_root(abs_candidate, root)
+        ):
+            return SearchResult(
+                text=(
+                    f"Error: path {hint!r} is outside workspace root "
+                    f"({root}). Search is confined to the workspace."
+                ),
+                engine="rg",
+            )
 
     resolved = resolve_search_path(path, root) if path else None
     rg_bin = resolve_rg()
 
     if resolved and resolved.is_file():
-        scope = str(
-            resolved.relative_to(root) if resolved.is_relative_to(root) else resolved
-        )
+        scope = str(resolved.relative_to(root))
         if rg_bin:
             rel = sh_quote(scope)
             cmd = (
@@ -210,9 +259,14 @@ def search_code(
                 engine="rg",
             )
 
-    scope_dirs = [root / p for p in DEFAULT_PATHS]
-    name_glob = f"*{Path(path.strip()).name}*" if path else None
-    scope = f"*{Path(path.strip()).name}*" if path else "workspace"
+    if resolved and resolved.is_dir():
+        scope_dirs = [resolved]
+        name_glob = None
+        scope = str(resolved.relative_to(root) if resolved.is_relative_to(root) else resolved)
+    else:
+        scope_dirs = [root / p for p in DEFAULT_PATHS]
+        name_glob = f"*{Path(path.strip()).name}*" if path else None
+        scope = f"*{Path(path.strip()).name}*" if path else "workspace"
     lines = _python_search_tree(
         root,
         query,

@@ -55,22 +55,49 @@ def test_execute_task_rag_route_returns_hits(minimal_workspace: Path) -> None:
 @allure.title("Execute plan refuses non-read-only Ollama route")
 def test_execute_plan_refuses_non_readonly(minimal_workspace: Path) -> None:
     from greedy_token.executors import execute_plan, plan_run
-    from greedy_token.router import route_task
+    from greedy_token.router import RouteDecision
 
-    with allure.step("Route audit task to Ollama tier"):
-        with patch("greedy_token.router.ollama_available", return_value=True):
-            decision = route_task("audit skill configurator-boolean", minimal_workspace)
+    with allure.step("Build non-read-only Ollama plan (batch-inventory)"):
+        decision = RouteDecision(
+            target="ollama",
+            route_id="ollama-inventory",
+            confidence=0.9,
+            matched=["batch inventory"],
+            command="./scripts/ollama/batch-inventory.sh",
+            note="",
+            domains=[],
+            read_only=False,
+        )
         attach_json("decision", {"target": decision.target, "read_only": decision.read_only})
-    if decision.target != "ollama":
-        pytest.skip("Ollama route not selected in this environment")
-    with allure.step("Attempt execute on non-read-only Ollama plan"):
-        plan = plan_run(decision, "audit skill configurator-boolean", minimal_workspace)
+        plan = plan_run(decision, "batch inventory", minimal_workspace)
         code, out = execute_plan(plan)
         attach_text("execute output", out)
         attach_text("exit code", str(code))
-    with allure.step("Verify execute is refused"):
+    with allure.step("Verify execute is refused for non-readonly"):
+        assert plan.executable is False
         assert code == 1
         assert "Refusing --execute" in out
+
+
+@allure.story("Execute safety")
+@allure.title("plan_run marks stdout-only audit-skill as executable")
+def test_plan_run_audit_skill_executable(minimal_workspace: Path) -> None:
+    from greedy_token.executors import plan_run
+    from greedy_token.router import RouteDecision
+
+    decision = RouteDecision(
+        target="ollama",
+        route_id="ollama-audit-skill",
+        confidence=0.9,
+        matched=["audit skill"],
+        command="./scripts/ollama/audit-skill.sh",
+        note="",
+        domains=[],
+        read_only=True,
+    )
+    plan = plan_run(decision, "audit skill configurator-boolean", minimal_workspace)
+    assert plan.executable is True
+    assert "audit-skill" in (plan.command or "")
 
 
 @patch("greedy_token.executors._rag_fallback_output")

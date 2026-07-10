@@ -54,11 +54,13 @@ def plan_run(decision: RouteDecision, task: str, root: Path | None = None) -> Ru
 
     if target == "ollama" and decision.command:
         cmd = f"{root_cd_prefix(root)} {decision.command}"
+        wrapper = wrapper_for_command(decision.command)
+        read_only = decision.read_only or (wrapper.read_only if wrapper else False)
         return RunPlan(
             decision=decision,
             command=cmd,
             dry_run_output=cmd + "  # pass args as needed",
-            executable=False,
+            executable=read_only,
         )
 
     if target == "rag":

@@ -6,7 +6,12 @@ from unittest.mock import patch
 import allure
 import pytest
 
-from greedy_token.pipeline import format_pipeline_footer, parse_pipeline, run_pipeline
+from greedy_token.pipeline import (
+    compute_step_savings,
+    format_pipeline_footer,
+    parse_pipeline,
+    run_pipeline,
+)
 from tests.allure_reporting import attach_json, attach_text
 
 pytestmark = [
@@ -44,6 +49,50 @@ def test_parse_named_pipeline_search_rag_reuses_query() -> None:
         assert steps[0].args == "baseUrl\tTestConfig"
         assert steps[1].step_id == "rag"
         assert steps[1].args == "baseUrl"
+
+
+@allure.story("Named recipes")
+@allure.title("Parse search-rag with path= keyword (agent / rule style)")
+def test_parse_named_pipeline_search_rag_path_kwarg() -> None:
+    with allure.step("Parse search-rag with path= keyword"):
+        steps = parse_pipeline(
+            "pipeline: search-rag baseUrl path=configurator-option-presets.html"
+        )
+        attach_json(
+            "parsed steps",
+            [{"step_id": s.step_id, "tier": s.tier, "args": s.args} for s in steps],
+        )
+    with allure.step("Verify path= is not treated as a literal path prefix"):
+        assert len(steps) == 2
+        assert steps[0].step_id == "search"
+        assert steps[0].args == "baseUrl\tconfigurator-option-presets.html"
+        assert steps[1].step_id == "rag"
+        assert steps[1].args == "baseUrl"
+
+
+@allure.story("Dry run")
+@allure.title("run_pipeline defaults to dry-run (execute=False)")
+def test_run_pipeline_default_is_dry_run(minimal_workspace: Path) -> None:
+    with allure.step("Call run_pipeline without execute kwarg"):
+        result = run_pipeline("check-meta-sync", minimal_workspace)
+        attach_json(
+            "step results",
+            [{"executed": sr.executed, "ok": sr.ok} for sr in result.steps],
+        )
+    with allure.step("Verify default is dry-run"):
+        assert len(result.steps) == 1
+        assert result.steps[0].executed is False
+
+
+@allure.story("Named recipes")
+@allure.title("Excess recipe args raise ValueError")
+def test_parse_named_pipeline_rejects_excess_args() -> None:
+    with allure.step("Parse meta-audit with trailing junk"):
+        with pytest.raises(ValueError, match="unexpected extra args"):
+            parse_pipeline("pipeline: meta-audit configurator-boolean extra-tail")
+    with allure.step("Parse search-rag with third positional as excess"):
+        with pytest.raises(ValueError, match="unexpected extra args"):
+            parse_pipeline("pipeline: search-rag baseUrl foo.html leftover")
 
 
 @allure.story("Custom chain")
@@ -164,6 +213,56 @@ def test_format_pipeline_footer_has_by_executor(minimal_workspace: Path) -> None
         assert "Per-step savings" in footer
         assert "Saved by executor" in footer
         assert "Saved vs naive Cursor chat" in footer
+
+
+@allure.story("Token footer")
+@allure.title("Pipeline search step billing uses executor_sub=rg (not tool→script)")
+def test_pipeline_search_step_billing_uses_rg(minimal_workspace: Path) -> None:
+    with allure.step("Execute search-rag and format footer"):
+        result = run_pipeline(
+            "pipeline: search-rag baseUrl sample.js",
+            minimal_workspace,
+            execute=True,
+        )
+        footer = format_pipeline_footer(result, minimal_workspace)
+        attach_text("pipeline footer", footer)
+    with allure.step("Verify search row shows rg + ripgrep billing"):
+        assert any(
+            sr.step.step_id == "search" and sr.executed for sr in result.steps
+        )
+        # executor column + billing hint (not "script — 0 LLM spend")
+        assert "  search" in footer
+        assert "rg" in footer
+        assert "ripgrep on disk — 0 LLM spend" in footer
+        assert "script — 0 LLM spend" not in footer.split("search")[1].split("\n")[0]
+
+
+@allure.story("Token footer")
+@allure.title("Pipeline search step billing uses python when rg unavailable")
+def test_pipeline_search_step_billing_uses_python_fallback(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with allure.step("Disable ripgrep and execute search-rag"):
+        monkeypatch.setattr("greedy_token.code_search.resolve_rg", lambda: None)
+        result = run_pipeline(
+            "pipeline: search-rag baseUrl sample.js",
+            minimal_workspace,
+            execute=True,
+        )
+        footer = format_pipeline_footer(result, minimal_workspace)
+        attach_text("pipeline footer", footer)
+    with allure.step("Verify search row shows python + script billing"):
+        search_steps = [
+            sr for sr in result.steps if sr.step.step_id == "search" and sr.executed
+        ]
+        assert search_steps and search_steps[0].engine == "python"
+        rows = compute_step_savings(result, minimal_workspace)
+        search_row = next(r for r in rows if r.step_id == "search")
+        assert search_row.executor_sub == "python"
+        assert "script — 0 LLM spend" in search_row.billing
+        assert "ripgrep" not in search_row.billing
+        assert "python" in footer
+        assert "script — 0 LLM spend" in footer
 
 
 @patch("greedy_token.pipeline._run_step")

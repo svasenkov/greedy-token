@@ -53,7 +53,26 @@ def test_cmd_estimate(minimal_workspace: Path, capsys) -> None:
     code = cli.cmd_estimate(_ns(task="find baseUrl in sample.js"))
     out = capsys.readouterr().out
     assert code == 0
-    assert "Tier alternatives" in out or "tool" in out.lower()
+    assert "Tier scan:" in out
+    assert "← selected" in out
+
+
+@allure.story("Scripts")
+@allure.title("cmd_scripts --execute allows stdout-only audit-skill")
+def test_cmd_scripts_run_audit_skill_execute(minimal_workspace: Path) -> None:
+    script = minimal_workspace / "scripts" / "ollama" / "audit-skill.sh"
+    script.parent.mkdir(parents=True, exist_ok=True)
+    script.write_text("#!/bin/sh\necho ok\n", encoding="utf-8")
+    script.chmod(0o755)
+    with patch(
+        "subprocess.run",
+        return_value=MagicMock(spec=__import__("subprocess").CompletedProcess, returncode=0),
+    ) as mock_run:
+        code = cli.cmd_scripts(
+            _ns(list=False, run="audit-skill", args="configurator-boolean", execute=True)
+        )
+    assert code == 0
+    mock_run.assert_called_once()
 
 
 @allure.story("Run")
@@ -177,7 +196,11 @@ def test_cmd_scripts_run_execute(minimal_workspace: Path) -> None:
 @allure.story("Scripts")
 @allure.title("cmd_scripts --run rejects non-read-only execute")
 def test_cmd_scripts_run_refuse_write(minimal_workspace: Path, capsys) -> None:
-    code = cli.cmd_scripts(_ns(list=False, run="audit-skill", args="foo", execute=True))
+    script = minimal_workspace / "scripts" / "migrate" / "phase1-rsync.sh"
+    script.parent.mkdir(parents=True, exist_ok=True)
+    script.write_text("#!/bin/sh\necho rsync\n", encoding="utf-8")
+    script.chmod(0o755)
+    code = cli.cmd_scripts(_ns(list=False, run="phase1-rsync", args="", execute=True))
     err = capsys.readouterr().err
     assert code == 1
     assert "Refusing --execute" in err
@@ -320,10 +343,16 @@ def test_main_config_skips_ollama_env(minimal_workspace: Path, monkeypatch: pyte
 
         return OllamaSettings(url="http://localhost:11434", model="m", source="default")
 
+    def fake_config(args: object) -> int:
+        # Isolate main()'s pre-dispatch gate from cmd_config's own apply_ollama_env.
+        return 0
+
     monkeypatch.setattr(cli, "apply_ollama_env", fake_apply)
-    with pytest.raises(SystemExit):
+    monkeypatch.setattr(cli, "cmd_config", fake_config)
+    with pytest.raises(SystemExit) as exc:
         cli.main(["config"])
-    assert called["apply"] is True
+    assert exc.value.code == 0
+    assert called["apply"] is False
 
 
 @allure.story("Main")

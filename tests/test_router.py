@@ -62,6 +62,31 @@ def test_route_skips_unavailable_ollama(mock_ollama, minimal_workspace: Path) ->
         assert decision.target != "ollama"
 
 
+@patch("greedy_token.router.ollama_available", return_value=True)
+@allure.story("Ollama routes")
+@allure.title("Draft-rag phrases no longer hit removed ollama-rag-draft stub")
+def test_draft_rag_does_not_hit_removed_null_route(mock_ollama, minimal_workspace: Path) -> None:
+    from greedy_token.executors import plan_run
+
+    with allure.step("Route former phantom draft-rag phrase"):
+        decision = route_task("draft rag chunk", minimal_workspace)
+        plan = plan_run(decision, "draft rag chunk", minimal_workspace)
+        attach_json(
+            "decision",
+            {
+                "target": decision.target,
+                "route_id": decision.route_id,
+                "command": decision.command,
+                "dry_run": plan.dry_run_output[:120],
+            },
+        )
+    with allure.step("Verify no null-command ollama-rag-draft / No executor"):
+        assert decision.route_id != "ollama-rag-draft"
+        assert plan.dry_run_output != "No executor."
+        if decision.target == "ollama":
+            assert decision.command
+
+
 @allure.story("Tier scan")
 @allure.title("Full tier scan returns five executor rows")
 def test_route_task_all_tiers_has_five_rows(minimal_workspace: Path) -> None:
@@ -71,6 +96,26 @@ def test_route_task_all_tiers_has_five_rows(minimal_workspace: Path) -> None:
     with allure.step("Verify five executor rows in order"):
         assert len(tiers) == 5
         assert [t[0] for t in tiers] == ["tool", "python", "ollama", "rag", "cursor"]
+
+
+@allure.story("Token estimate")
+@allure.title("Ollama available route reports non-zero est_tokens")
+@patch("greedy_token.router.ollama_available", return_value=True)
+def test_ollama_est_tokens_nonzero(mock_ollama, minimal_workspace: Path) -> None:
+    from greedy_token.router import _token_estimate_for_route
+
+    with allure.step("Estimate tokens for available ollama route"):
+        complexity, est, rationale = _token_estimate_for_route(
+            "ollama",
+            task="audit skill configurator-boolean",
+            root=minimal_workspace,
+            read_only=True,
+        )
+        attach_json("estimate", {"complexity": complexity, "est_tokens": est, "rationale": rationale})
+    with allure.step("Verify est_tokens is positive cheap-LLM spend"):
+        assert est > 0
+        assert "Cheap LLM" in rationale
+        assert "0 API spend" not in rationale
 
 
 @allure.story("Format decision")

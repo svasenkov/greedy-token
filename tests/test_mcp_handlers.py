@@ -51,7 +51,7 @@ def test_greedy_token_search(minimal_workspace: Path) -> None:
 
     out = greedy_token_search("baseUrl", "sample.js")
     assert "baseUrl" in out
-    assert "Token economy" in out
+    assert "Greedy token" in out
 
 
 @allure.story("RAG tool")
@@ -70,7 +70,7 @@ def test_greedy_token_route(minimal_workspace: Path) -> None:
 
     out = greedy_token_route("find baseUrl in sample.js")
     assert "Route:" in out or "TOOL" in out
-    assert "Token economy" in out
+    assert "Greedy token" in out
 
 
 @allure.story("Server main")

@@ -81,7 +81,7 @@ def format_estimate(estimate: TaskEstimate, task: str, root: Path) -> str:
     if target in ("tool", "python"):
         spent_line += "  (0 LLM spend)"
     elif target == "ollama":
-        spent_line += "  (cheap LLM — 0 API spend)"
+        spent_line += "  (cheap LLM — local/cheap spend)"
     elif target == "rag":
         spent_line += "  (docs/rag chunks read into context)"
     elif target == "cursor":

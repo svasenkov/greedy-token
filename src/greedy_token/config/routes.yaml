@@ -1,4 +1,4 @@
-# Task routing — aligned with docs/migration-prompts.md § Token economy rules
+# Task routing — aligned with docs/migration-prompts.md § Greedy token rules
 #
 # Tier order (tool-first): tool → python → ollama → rag → cursor
 # First matching tier wins (best score within tier).
@@ -89,24 +89,13 @@ routes:
 
   - id: ollama-audit-skill
     target: ollama
-    read_only: false
+    read_only: true
     patterns:
       - audit skill
       - skill audit
       - review skill md
     command: ./scripts/ollama/audit-skill.sh
-    note: "Skill quality audit — Ollama, not Cursor"
-
-  - id: ollama-rag-draft
-    target: ollama
-    read_only: false
-    patterns:
-      - draft rag
-      - rag chunk draft
-      - batch rag
-      - ollama chunk
-    command: null
-    note: "Draft RAG chunks via scripts/ollama/ — never one-by-one in Cursor"
+    note: "Skill quality audit — Ollama stdout-only, not Cursor"
 
   - id: rag-config-keys
     target: rag

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import patch
 
 import allure
 import pytest
@@ -25,42 +24,42 @@ pytestmark = [
 ]
 
 
-def _assert_token_economy_footer(text: str) -> None:
-    assert "Token economy" in text
+def _assert_greedy_token_footer(text: str) -> None:
+    assert "Greedy token" in text
     assert "Saved vs naive Cursor chat" in text
 
 
 @allure.story("Route tool")
-@allure.title("MCP route tool returns tier decision with Token economy footer")
-def test_mcp_route_includes_token_economy_footer(minimal_workspace: Path) -> None:
+@allure.title("MCP route tool returns tier decision with Greedy token footer")
+def test_mcp_route_includes_greedy_token_footer(minimal_workspace: Path) -> None:
     with allure.step("Call greedy_token_route"):
         out = greedy_token_route("find baseUrl in sample.js")
         attach_text("route response", out)
-    with allure.step("Verify tool route and Token economy footer"):
+    with allure.step("Verify tool route and Greedy token footer"):
         assert "tool" in out.lower() or "TOOL" in out
-        _assert_token_economy_footer(out)
+        _assert_greedy_token_footer(out)
 
 
 @allure.story("Search tool")
-@allure.title("MCP search tool finds matches and appends Token economy footer")
+@allure.title("MCP search tool finds matches and appends Greedy token footer")
 def test_mcp_search_finds_match_in_workspace(minimal_workspace: Path) -> None:
     with allure.step("Call greedy_token_search"):
         out = greedy_token_search("baseUrl", path="sample.js")
         attach_text("search response", out)
-    with allure.step("Verify match and Token economy footer"):
+    with allure.step("Verify match and Greedy token footer"):
         assert "baseUrl" in out
-        _assert_token_economy_footer(out)
+        _assert_greedy_token_footer(out)
 
 
 @allure.story("RAG tool")
-@allure.title("MCP RAG tool returns hits with Token economy footer")
+@allure.title("MCP RAG tool returns hits with Greedy token footer")
 def test_mcp_rag_returns_hits_with_footer(minimal_workspace: Path) -> None:
     with allure.step("Call greedy_token_rag"):
         out = greedy_token_rag("baseUrl -D flag", domain="config")
         attach_text("rag response", out)
-    with allure.step("Verify RAG hits and Token economy footer"):
+    with allure.step("Verify RAG hits and Greedy token footer"):
         assert "RAG hits for:" in out or "test-baseurl" in out
-        _assert_token_economy_footer(out)
+        _assert_greedy_token_footer(out)
 
 
 @allure.story("Pipeline tool")
@@ -75,7 +74,7 @@ def test_mcp_pipeline_list_recipes() -> None:
 
 
 @allure.story("Pipeline tool")
-@allure.title("MCP pipeline dry-run includes per-step Token economy footer")
+@allure.title("MCP pipeline dry-run includes per-step Greedy token footer")
 def test_mcp_pipeline_dry_run_includes_footer(minimal_workspace: Path) -> None:
     with allure.step("Call greedy_token_pipeline dry-run"):
         out = greedy_token_pipeline("check-meta-sync then rag baseUrl")
@@ -85,34 +84,32 @@ def test_mcp_pipeline_dry_run_includes_footer(minimal_workspace: Path) -> None:
         assert "Saved vs naive Cursor chat" in out
 
 
-@patch("greedy_token.mcp.run_pipeline")
 @allure.story("Pipeline tool")
-@allure.title("MCP pipeline passes execute=true to run allowlisted steps")
-def test_mcp_pipeline_execute_true(mock_run, minimal_workspace: Path) -> None:
-    from greedy_token.pipeline import PipelineResult
-
-    mock_run.return_value = PipelineResult(task="t", steps=[])
+@allure.title("MCP pipeline execute=true runs allowlisted search+rag (not mock-only)")
+def test_mcp_pipeline_execute_true(minimal_workspace: Path) -> None:
     with allure.step("Call greedy_token_pipeline with execute=true"):
-        greedy_token_pipeline("check-meta-sync then rag baseUrl", execute=True)
-        attach_text("execute kwarg", str(mock_run.call_args.kwargs.get("execute")))
-    with allure.step("Verify run_pipeline called with execute=true"):
-        mock_run.assert_called_once()
-        assert mock_run.call_args.kwargs.get("execute") is True
+        out = greedy_token_pipeline(
+            "search baseUrl path=sample.js then rag baseUrl",
+            execute=True,
+        )
+        attach_text("pipeline execute response", out)
+    with allure.step("Verify steps ran and footer is present"):
+        assert "[tool/ran]" in out or "ran]" in out
+        assert "baseUrl" in out
+        assert "Per-step savings" in out
+        assert "ripgrep on disk — 0 LLM spend" in out
+        assert "(dry-run)" not in out.split("---")[0]
 
 
-@patch("greedy_token.mcp.run_pipeline")
 @allure.story("Pipeline tool")
 @allure.title("MCP pipeline defaults to dry-run when execute is omitted")
-def test_mcp_pipeline_execute_false_by_default(mock_run, minimal_workspace: Path) -> None:
-    from greedy_token.pipeline import PipelineResult
-
-    mock_run.return_value = PipelineResult(task="t", steps=[])
+def test_mcp_pipeline_execute_false_by_default(minimal_workspace: Path) -> None:
     with allure.step("Call greedy_token_pipeline without execute flag"):
-        greedy_token_pipeline("pipeline: meta-audit configurator-boolean")
-        attach_text("execute kwarg", str(mock_run.call_args.kwargs.get("execute")))
-    with allure.step("Verify run_pipeline defaults to dry-run"):
-        mock_run.assert_called_once()
-        assert mock_run.call_args.kwargs.get("execute") is False
+        out = greedy_token_pipeline("search baseUrl path=sample.js then rag baseUrl")
+        attach_text("pipeline dry-run response", out)
+    with allure.step("Verify dry-run (no real step execution)"):
+        assert "(dry-run)" in out or "[tool/dry-run]" in out or "dry-run" in out
+        assert "Per-step savings" in out
 
 
 @allure.story("Usage tool")

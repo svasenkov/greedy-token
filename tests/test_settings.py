@@ -33,6 +33,10 @@ pytestmark = [
 def test_defaults_without_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.delenv("OLLAMA_URL", raising=False)
     monkeypatch.delenv("OLLAMA_MODEL", raising=False)
+    monkeypatch.delenv("CHEAP_LLM_PROVIDER", raising=False)
+    monkeypatch.delenv("CHEAP_LLM_URL", raising=False)
+    monkeypatch.delenv("CHEAP_LLM_MODEL", raising=False)
+    monkeypatch.delenv("CHEAP_LLM_API_KEY", raising=False)
     monkeypatch.setattr(
         "greedy_token.settings.user_config_path",
         lambda: tmp_path / "missing.yaml",
@@ -51,6 +55,10 @@ def test_defaults_without_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 def test_workspace_config_overrides_user(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("OLLAMA_URL", raising=False)
     monkeypatch.delenv("OLLAMA_MODEL", raising=False)
+    monkeypatch.delenv("CHEAP_LLM_PROVIDER", raising=False)
+    monkeypatch.delenv("CHEAP_LLM_URL", raising=False)
+    monkeypatch.delenv("CHEAP_LLM_MODEL", raising=False)
+    monkeypatch.delenv("CHEAP_LLM_API_KEY", raising=False)
     user_cfg = {"ollama": {"url": "http://user:11434", "model": "user-model"}}
     workspace_cfg = {"ollama": {"url": "http://workspace:11434", "model": "workspace-model"}}
     with allure.step("Resolve Ollama settings with user and workspace configs"):
@@ -176,6 +184,10 @@ def test_apply_ollama_env(minimal_workspace: Path, monkeypatch: pytest.MonkeyPat
 def test_get_ollama_settings_no_root(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.delenv("OLLAMA_URL", raising=False)
     monkeypatch.delenv("OLLAMA_MODEL", raising=False)
+    monkeypatch.delenv("CHEAP_LLM_PROVIDER", raising=False)
+    monkeypatch.delenv("CHEAP_LLM_URL", raising=False)
+    monkeypatch.delenv("CHEAP_LLM_MODEL", raising=False)
+    monkeypatch.delenv("CHEAP_LLM_API_KEY", raising=False)
     monkeypatch.setattr(
         "greedy_token.settings.user_config_path",
         lambda: tmp_path / "missing.yaml",

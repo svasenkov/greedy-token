@@ -21,9 +21,9 @@ from greedy_token.router import format_decision, route_task
 from greedy_token.tokens import count_tokens
 from greedy_token.usage import aggregate_events, format_report, load_events, log_path, parse_since
 
-# Keep short: tool-map + exceptions live in alwaysApply rule (examples/cursor/rules/token-economy.mdc).
+# Keep short: tool-map + exceptions live in alwaysApply rule (examples/cursor/rules/greedy-token.mdc).
 MCP_INSTRUCTIONS = (
-    "Relay the full «Token economy» footer from every tool result. "
+    "Relay the full «Greedy token» footer from every tool result. "
     "Multi-step chains: greedy_token_pipeline (e.g. pipeline: meta-audit configurator-boolean)."
 )
 

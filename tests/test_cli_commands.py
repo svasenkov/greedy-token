@@ -46,8 +46,9 @@ def test_cli_estimate_shows_tier_scan(minimal_workspace: Path) -> None:
         attach_text("stderr", proc.stderr or "")
     with allure.step("Verify tier scan and task context in output"):
         assert proc.returncode == 0
-        assert "Tier alternatives" in proc.stdout or "tool" in proc.stdout.lower()
-        assert "baseUrl" in proc.stdout or "sample.js" in proc.stdout
+        assert "Tier scan:" in proc.stdout
+        assert "← selected" in proc.stdout
+        assert "baseUrl" in proc.stdout
 
 
 @allure.story("Run")

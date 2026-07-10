@@ -48,16 +48,17 @@ WRAPPERS: dict[str, ScriptWrapper] = {
         id="audit-skill",
         path="scripts/ollama/audit-skill.sh",
         category="ollama",
-        read_only=False,
+        read_only=True,  # stdout-only — no workspace writes
         requires_ollama=True,
-        note="Skill quality audit — Ollama",
+        note="Skill quality audit — Ollama (stdout-only)",
     ),
     "classify-file": ScriptWrapper(
         id="classify-file",
         path="scripts/ollama/classify-file.sh",
         category="ollama",
-        read_only=False,
+        read_only=True,  # stdout-only — no workspace writes
         requires_ollama=True,
+        note="Classify file via cheap LLM (stdout-only)",
     ),
     "phase1-rsync": ScriptWrapper(
         id="phase1-rsync",
@@ -116,6 +117,7 @@ def ollama_available(url: str | None = None, timeout: float = 2.0) -> bool:
             url=url.rstrip("/"),
             model=settings.model,
             source=settings.source,
+            api_key=settings.api_key,
         )
     return cheap_llm_available(settings, timeout=timeout)
 

@@ -11,8 +11,8 @@ from greedy_token.rag_search import RagHit
 from tests.allure_reporting import attach_text
 
 pytestmark = [
-    allure.epic("Token economy"),
-    allure.parent_suite("Token economy"),
+    allure.epic("Greedy token"),
+    allure.parent_suite("Greedy token"),
     allure.feature("RAG token estimate"),
     allure.suite("RAG token estimate"),
 ]

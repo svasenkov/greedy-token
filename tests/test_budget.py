@@ -10,8 +10,8 @@ from greedy_token.estimator import cursor_baseline
 from tests.allure_reporting import attach_text
 
 pytestmark = [
-    allure.epic("Token economy"),
-    allure.parent_suite("Token economy"),
+    allure.epic("Greedy token"),
+    allure.parent_suite("Greedy token"),
     allure.feature("Token budget"),
     allure.suite("Token budget"),
 ]
@@ -29,7 +29,7 @@ def test_format_savings_lines() -> None:
             executor_sub="rg",
         )
         attach_text("footer lines", "\n".join(lines))
-    with allure.step("Verify canonical Token economy block"):
+    with allure.step("Verify canonical Greedy token block"):
         assert lines == [
             "Saved vs naive Cursor chat",
             "  Baseline (naive agent chat):  ~11,607",
@@ -93,9 +93,9 @@ def test_format_tool_footer_cursor_no_savings(minimal_workspace: Path) -> None:
 
 
 @allure.story("MCP response")
-@allure.title("MCP response wrapper appends Token economy footer")
+@allure.title("MCP response wrapper appends Greedy token footer")
 def test_wrap_mcp_response_appends_footer(minimal_workspace: Path) -> None:
-    with allure.step("Wrap MCP response with Token economy footer"):
+    with allure.step("Wrap MCP response with Greedy token footer"):
         out = wrap_mcp_response(
             "result line",
             task="search: baseUrl",
@@ -109,7 +109,7 @@ def test_wrap_mcp_response_appends_footer(minimal_workspace: Path) -> None:
         attach_text("wrapped response", out)
     with allure.step("Verify footer is appended"):
         assert out.startswith("result line")
-        assert "Token economy" in out
+        assert "Greedy token" in out
 
 
 @allure.story("RAG tokens")
@@ -163,4 +163,27 @@ def test_format_tool_footer_ollama_rag(minimal_workspace: Path) -> None:
         rag_hits=3,
     )
     assert "docs/rag" in rag_footer
+
+
+@allure.story("Tool footer")
+@allure.title("RAG Tier alternatives ← this call uses actual Spent, not router estimate")
+def test_format_tool_footer_rag_tier_alternatives_match_spent(
+    minimal_workspace: Path,
+) -> None:
+    spent = 9091
+    footer = format_tool_footer(
+        "rag: false-green",
+        minimal_workspace,
+        tier="rag",
+        est_tokens=spent,
+        route_id="mcp-rag",
+        executor_sub="rag",
+        rag_hits=5,
+    )
+    attach_text("rag footer", footer)
+    # Selected tier row must echo Spent, not RAG_READ_TOKENS (~1800) estimate.
+    assert "← this call" in footer
+    rag_line = next(ln for ln in footer.splitlines() if "rag (docs/rag read)" in ln)
+    assert "9,091" in rag_line and "← this call" in rag_line
+    assert f"Spent (MCP executor, LLM tokens): ~{spent:,}" in footer
 

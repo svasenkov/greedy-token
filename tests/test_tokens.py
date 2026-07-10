@@ -11,8 +11,8 @@ from greedy_token.tokens import count_texts, count_tokens
 from tests.allure_reporting import attach_json, attach_text
 
 pytestmark = [
-    allure.epic("Token economy"),
-    allure.parent_suite("Token economy"),
+    allure.epic("Greedy token"),
+    allure.parent_suite("Greedy token"),
     allure.feature("Token counting"),
     allure.suite("Token counting"),
 ]

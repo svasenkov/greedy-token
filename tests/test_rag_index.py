@@ -54,7 +54,7 @@ def test_index_invalidates_on_chunk_edit(minimal_workspace: Path) -> None:
         assert "newkeyword" in after[0].body_tokens
 
 
-@allure.story("Token economy")
+@allure.story("Greedy token")
 @allure.title("RAG search reads only top-ranked chunk files")
 def test_search_reads_only_top_hits(minimal_workspace: Path) -> None:
     rag = minimal_workspace / "docs/rag"

@@ -28,6 +28,22 @@ def test_wrappers_registry_has_check_meta_sync() -> None:
         assert WRAPPERS["check-meta-sync"].read_only is True
 
 
+@allure.story("Registry")
+@allure.title("Stdout-only Ollama wrappers are read_only for --execute")
+def test_wrappers_stdout_only_are_read_only() -> None:
+    with allure.step("Inspect audit-skill and classify-file"):
+        attach_json(
+            "stdout-only wrappers",
+            {
+                "audit-skill": WRAPPERS["audit-skill"].read_only,
+                "classify-file": WRAPPERS["classify-file"].read_only,
+            },
+        )
+    with allure.step("Verify PIPELINE_AUTO_RUN wrappers are read_only"):
+        assert WRAPPERS["audit-skill"].read_only is True
+        assert WRAPPERS["classify-file"].read_only is True
+
+
 @allure.story("Command resolution")
 @allure.title("Wrapper command resolver builds shell script invocation")
 def test_resolve_wrapper_command_python(minimal_workspace) -> None:
