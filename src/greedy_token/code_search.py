@@ -31,7 +31,6 @@ SKIP_DIR_NAMES = {".git", "node_modules", "build", ".venv", "__pycache__", "dist
 class SearchResult:
     text: str
     engine: str  # rg | python
-    spent_tokens: int = 0
 
 
 @dataclass(frozen=True)

@@ -6,14 +6,14 @@
 
 Вы работаете в **Cursor** — greedy-token стоит рядом с агентом (CLI + MCP), чтобы повседневные задачи не всегда открывали полный agent chat.
 
-Маршрутизирует задачу на **самый дешёвый подходящий tier** (`tool` → `python` → `ollama` → `rag` → `cursor`; побеждает первый match по паттерну). **Pipeline** — цепочка из нескольких tier’ов в одном вызове. **Cursor agent chat** — только если дешевле маршрута нет. В каждом ответе — footer **Greedy token** относительно наивного полного чата.
+Маршрутизирует задачу на **самый дешёвый подходящий tier** (`tool` → `python` → `ollama` → `rag` → `cursor`; обход `TIER_ORDER`, лучший score паттерна в tier). **Pipeline** — цепочка из нескольких tier’ов в одном вызове. **Cursor agent chat** — только если дешевле маршрута нет. В каждом ответе — footer **Greedy token** относительно наивного полного чата.
 
 ```
 В Cursor:  задача  →  greedy-token (MCP/CLI)
                  ↓
      route (один tier на задачу):
        tool → python → ollama → rag → cursor
-       первый match в routes.yaml; tier ollama пропускается, если сервер недоступен
+       обход TIER_ORDER; лучший score паттерна в tier; ollama пропускается, если сервер недоступен
                  ↓
      pipeline (опционально, несколько шагов):
        напр. check-meta-sync then audit-skill …
@@ -43,7 +43,7 @@
 
 **Free tier** (`tool`, `python`, `rag`) — без LLM inference: ripgrep, скрипты, чтение chunk’ов `docs/rag/`.
 
-**Порядок tier:** `TIER_ORDER` в `router.py` / `routes.yaml` — обход `tool → python → ollama → rag → cursor`, побеждает первый match. Не каждый tier выполняется на каждой задаче. Cheap LLM tier пропускается, если runtime из config недоступен.
+**Порядок tier:** `TIER_ORDER` в `router.py` / `routes.yaml` — обход `tool → python → ollama → rag → cursor`; внутри tier побеждает маршрут с наивысшим score паттерна (при равенстве — первый в config). Не каждый tier выполняется на каждой задаче. Cheap LLM tier пропускается, если runtime из config недоступен.
 
 ## Охват и roadmap
 

@@ -6,14 +6,14 @@
 
 You work in **Cursor** — greedy-token sits next to the agent (CLI + MCP) so everyday tasks don’t always open a full agent chat.
 
-It routes each task to the **cheapest matching tier** (`tool` → `python` → `ollama` → `rag` → `cursor`; first pattern match wins). **Pipeline** chains multiple tiers in one call. Escalation to **Cursor agent chat** only when no cheaper route matches. Each response includes a **Greedy token** footer vs a naive full-context chat.
+It routes each task to the **cheapest matching tier** (`tool` → `python` → `ollama` → `rag` → `cursor`; walk `TIER_ORDER`, best pattern score per tier). **Pipeline** chains multiple tiers in one call. Escalation to **Cursor agent chat** only when no cheaper route matches. Each response includes a **Greedy token** footer vs a naive full-context chat.
 
 ```
 In Cursor:  your task  →  greedy-token (MCP/CLI)
                  ↓
      route (one tier per task):
        tool → python → ollama → rag → cursor
-       first matching route in routes.yaml wins; ollama tier skipped if server down
+       walk TIER_ORDER; best pattern score per tier; ollama tier skipped if server down
                  ↓
      pipeline (optional, multi-step):
        e.g. check-meta-sync then audit-skill …
@@ -43,7 +43,7 @@ Greedy-token uses **cheap** and **expensive** in footers and docs. It is about *
 
 **Free tier** (`tool`, `python`, `rag`) = no LLM inference at all — ripgrep, scripts, reading `docs/rag/` chunks.
 
-**Tier order:** `TIER_ORDER` in `router.py` / `routes.yaml` — first pattern match wins within the walk `tool → python → ollama → rag → cursor`. Not every tier runs on every task. The cheap LLM tier is skipped when the configured runtime is unreachable.
+**Tier order:** `TIER_ORDER` in `router.py` / `routes.yaml` — walk `tool → python → ollama → rag → cursor`; within each tier the highest-scoring pattern wins (ties: first route in config). Not every tier runs on every task. The cheap LLM tier is skipped when the configured runtime is unreachable.
 
 ## Scope & roadmap
 

@@ -48,6 +48,7 @@ def test_mcp_search_finds_match_in_workspace(minimal_workspace: Path) -> None:
         attach_text("search response", out)
     with allure.step("Verify match and Greedy token footer"):
         assert "baseUrl" in out
+        assert "ripgrep on disk — 0 LLM spend" in out
         _assert_greedy_token_footer(out)
 
 

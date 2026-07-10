@@ -57,6 +57,7 @@ def test_greedy_token_search(minimal_workspace: Path) -> None:
 
     out = greedy_token_search("baseUrl", "sample.js")
     assert "baseUrl" in out
+    assert "ripgrep on disk — 0 LLM spend" in out
     _assert_greedy_token_footer(out)
 
 

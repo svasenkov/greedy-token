@@ -118,7 +118,7 @@ def greedy_token_search(query: str, path: str = "") -> str:
         result.text,
         task=task,
         tier="tool",
-        est_tokens=result.spent_tokens,
+        est_tokens=0,
         route_id="mcp-search",
         root=root,
         duration_ms=duration_ms,

@@ -76,6 +76,7 @@ def test_mcp_stdio_search_finds_match(minimal_workspace: Path) -> None:
         attach_text("search response", text)
     with allure.step("Verify baseUrl match and Greedy token footer"):
         assert "baseUrl" in text
+        assert "ripgrep on disk — 0 LLM spend" in text
         _assert_greedy_token_footer(text)
 
 
@@ -113,6 +114,30 @@ def test_mcp_stdio_pipeline_dry_run_footer(minimal_workspace: Path) -> None:
     with allure.step("Verify per-step savings footer"):
         assert "Per-step savings" in text
         assert "Saved vs naive Cursor chat" in text
+
+
+@allure.story("Pipeline tool")
+@allure.title("MCP stdio pipeline execute=true runs allowlisted search+rag (not mock-only)")
+def test_mcp_stdio_pipeline_execute_true(minimal_workspace: Path) -> None:
+    async def _call(session):
+        return await session.call_tool(
+            "greedy_token_pipeline",
+            {
+                "task": "search baseUrl path=sample.js then rag baseUrl",
+                "execute": True,
+            },
+        )
+
+    with allure.step("Call greedy_token_pipeline with execute=true via MCP stdio"):
+        result = run_mcp(minimal_workspace, _call)
+        text = tool_text(result)
+        attach_text("pipeline execute response", text)
+    with allure.step("Verify steps ran and footer is present"):
+        assert "[tool/ran]" in text or "ran]" in text
+        assert "baseUrl" in text
+        assert "Per-step savings" in text
+        assert "ripgrep on disk — 0 LLM spend" in text
+        assert "(dry-run)" not in text.split("---")[0]
 
 
 @allure.story("Usage tool")
