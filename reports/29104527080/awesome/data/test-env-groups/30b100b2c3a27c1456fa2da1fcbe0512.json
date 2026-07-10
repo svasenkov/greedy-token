@@ -1,0 +1,1 @@
+{"id":"30b100b2c3a27c1456fa2da1fcbe0512","fullName":"tests.test_cli_handlers#test_cmd_scripts_list","name":"cmd_scripts --list prints wrapper registry","status":"passed","testResultsByEnv":{"default":"1af9abe0a8e68491ae90efb40abc8df7"}}

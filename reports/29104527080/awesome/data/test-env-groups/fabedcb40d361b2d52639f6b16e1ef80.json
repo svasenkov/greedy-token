@@ -1,0 +1,1 @@
+{"id":"fabedcb40d361b2d52639f6b16e1ef80","fullName":"tests.test_cheap_llm#test_openai_compat_sends_api_key","name":"CHEAP_LLM_API_KEY is sent as Bearer for openai_compat","status":"passed","testResultsByEnv":{"default":"b8105b70a68fa536ff50a25700d8543d"}}

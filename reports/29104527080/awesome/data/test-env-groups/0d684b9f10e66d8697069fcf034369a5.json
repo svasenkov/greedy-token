@@ -1,0 +1,1 @@
+{"id":"0d684b9f10e66d8697069fcf034369a5","fullName":"tests.test_cheap_llm#test_openai_compat_base","name":"openai_compat_base appends /v1 when missing","status":"passed","testResultsByEnv":{"default":"b7f4ee0bf7449c14377b750e56feb306"}}
