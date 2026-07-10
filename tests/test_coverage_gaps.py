@@ -31,7 +31,7 @@ def test_init_version_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr("importlib.metadata.version", boom)
     mod = importlib.reload(importlib.import_module("greedy_token"))
-    assert mod.__version__ == "0.5.1"
+    assert mod.__version__ == "0.5.2"
 
 
 @allure.title("__main__ entrypoint invokes cli.main when executed as script")
@@ -191,8 +191,10 @@ def test_code_search_resolve_edges(
     assert "nestedNeedle" in out.text
     assert out.engine == "python"
 
-    # Outside workspace file → error or confine message (covers resolve OSError path).
-    outside = tmp_path / "outside-oserror.txt"
+    # Absolute path whose resolve() raises OSError → not_found (not uncaught).
+    outside_dir = tmp_path.parent / "outside-oserror-dir"
+    outside_dir.mkdir(exist_ok=True)
+    outside = outside_dir / "outside-oserror.txt"
     outside.write_text("x\n", encoding="utf-8")
     real_resolve = Path.resolve
     boom_left = {"n": 1}
@@ -205,18 +207,45 @@ def test_code_search_resolve_edges(
 
     with patch.object(Path, "resolve", boom_resolve):
         result = search_code("x", minimal_workspace, path=str(outside))
-    assert isinstance(result.text, str)
+    assert "Error:" in result.text
+    assert "not found" in result.text or "outside" in result.text
 
-    # Unique file basename among clones (exact name branch).
-    a = minimal_workspace / "projects" / "a" / "target.js"
-    b = minimal_workspace / "projects" / "b" / "other.js"
+    # Absolute path: is_file() raises OSError → not_found.
+    abs_stat_boom = outside_dir / "stat-boom.txt"
+    abs_stat_boom.write_text("y\n", encoding="utf-8")
+    real_is_file = Path.is_file
+
+    def boom_is_file(self):
+        if "stat-boom" in str(self):
+            raise OSError("stat boom")
+        return real_is_file(self)
+
+    with patch.object(Path, "is_file", boom_is_file):
+        assert resolve_search_path(str(abs_stat_boom), minimal_workspace) is None
+
+    # Relative path: (root/hint).resolve() raises OSError → fall through to name lookup.
+    rel_boom = MagicMock()
+    rel_boom.is_absolute.return_value = False
+    rel_boom.name = "no-such-rel-boom-xyz"
+    rooted_boom = MagicMock()
+    rooted_boom.resolve.side_effect = OSError("rel boom")
+    mock_root = MagicMock()
+    mock_root.resolve.return_value = mock_root
+    mock_root.__truediv__.return_value = rooted_boom
+    mock_root.glob.return_value = []
+    with patch("greedy_token.code_search.Path", return_value=rel_boom):
+        assert resolve_search_path("no-such-rel-boom-xyz", mock_root) is None
+
+    # Unique file basename (do not create extra *.js — keeps path="*.js" unambiguous).
+    a = minimal_workspace / "projects" / "a" / "target-unique.dat"
+    b = minimal_workspace / "projects" / "b" / "other-unique.dat"
     a.parent.mkdir(parents=True)
     b.parent.mkdir(parents=True)
     a.write_text("z\n", encoding="utf-8")
     b.write_text("z\n", encoding="utf-8")
     with patch.object(Path, "glob") as mock_glob:
-        mock_glob.return_value = [a, b]
-        found = resolve_search_path("target.js", minimal_workspace)
+        mock_glob.return_value = [a]
+        found = resolve_search_path("target-unique.dat", minimal_workspace)
     assert found == a.resolve()
 
     with patch("greedy_token.code_search.resolve_rg") as mock_rg:
@@ -373,7 +402,8 @@ def test_executors_public_branches(minimal_workspace: Path) -> None:
                     ),
                 ):
                     rag_fb = execute_task("baseUrl config", minimal_workspace)
-    assert rag_fb.used_rag_fallback or "RAG" in rag_fb.output or rag_fb.output != ""
+    assert rag_fb.used_rag_fallback is True
+    assert "RAG hits" in rag_fb.output
 
     with patch("greedy_token.executors.search_rag", return_value=[]):
         with patch("greedy_token.executors.execute_plan", return_value=(0, "plain output\n")):
@@ -917,7 +947,7 @@ def test_remaining_public_branches(
     # Pipeline: unknown step, missing .md path, equals-as-positional, no-command, cursor estimate.
     with pytest.raises(ValueError, match="Unknown step"):
         parse_pipeline("not-a-real-step")
-    with pytest.raises(FileNotFoundError, match="SKILL.md not found"):
+    with pytest.raises(FileNotFoundError, match="File not found"):
         parse_pipeline("audit-skill docs/rag/config/missing-skill.md")
     with pytest.raises(ValueError, match="unexpected extra args"):
         parse_pipeline("pipeline: search-rag baseUrl foo=bar leftover")
@@ -1033,7 +1063,7 @@ def test_remaining_public_branches(
         shutil.rmtree(minimal_workspace / "projects")
     with patch("greedy_token.code_search.resolve_rg", return_value=None):
         miss_dir = search_code("anything", minimal_workspace, path=None)
-    assert "No matches" in miss_dir.text or isinstance(miss_dir.text, str)
+    assert "No matches" in miss_dir.text
 
     # Force relative_to ValueError while scanning an existing scoped tree.
     scoped = tmp_path / "ws2"
@@ -1107,7 +1137,7 @@ def test_remaining_public_coverage_edges(
     with pytest.raises(ValueError, match="Unknown step"):
         parse_pipeline("not-a-real-step")
 
-    with pytest.raises(FileNotFoundError, match="SKILL.md not found"):
+    with pytest.raises(FileNotFoundError, match="File not found"):
         parse_pipeline("audit-skill missing-abs-skill.md")
 
     # ollama estimate: missing skill file on disk (extra=0) + execute for token path.

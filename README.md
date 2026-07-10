@@ -47,11 +47,11 @@ Greedy-token uses **cheap** and **expensive** in footers and docs. It is about *
 
 ## Scope & roadmap
 
-Today the happy path is **Cursor + Ollama + workspace**. CLI and MCP are IDE-agnostic. **v0.5.1** ships `cheap_llm.provider: ollama | openai_compat` (tier id stays `ollama`). Paid agent APIs (`expensive_llm`) are still on the roadmap.
+Today the happy path is **Cursor + Ollama + workspace**. CLI and MCP are IDE-agnostic. **v0.5.2** tightens pipeline/search path confinement under the workspace root (`cheap_llm.provider: ollama | openai_compat` stays). Paid agent APIs (`expensive_llm`) are still on the roadmap.
 
 **Full matrix (✅ / ❌ / 🔜) + acceptance criteria + GitHub issues:** [docs/ROADMAP.md](docs/ROADMAP.md) · [docs/ROADMAP-RU.md](docs/ROADMAP-RU.md)
 
-| Area | ✅ today (v0.5.1) | 🔜 next |
+| Area | ✅ today (v0.5.2) | 🔜 next |
 |------|-------------------|---------|
 | Executors | `tool`, `python`, `ollama` (via `cheap_llm`), `rag` | `expensive_llm` agent path; paid bulk APIs |
 | Agent host | Cursor MCP + token baseline | Claude Desktop, Continue |
@@ -103,7 +103,7 @@ Expected: **5 MCP tools** (including `greedy_token_pipeline`).
 | `greedy_token_search` | Ripgrep: `query` + optional `path` |
 | `greedy_token_rag` | Search `docs/rag/` chunks |
 | `greedy_token_route` | Recommend tier + token footer |
-| `greedy_token_pipeline` | Multi-step chain (python → ollama → rag) |
+| `greedy_token_pipeline` | Multi-step chain (search/tool → python → ollama → rag) |
 | `greedy_token_usage` | Aggregate savings from `~/.greedy-token/usage.jsonl` |
 
 **Footers:** `route` / `search` / `rag` / `pipeline` append the full **Greedy token** block (This call → Tier alternatives → Saved). `usage` appends **Session totals** (not the full single-tool footer). `pipeline: list` returns the recipe list only — no economy footer.

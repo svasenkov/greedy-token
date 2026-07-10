@@ -66,7 +66,7 @@ def format_estimate(estimate: TaskEstimate, task: str, root: Path) -> str:
         f"Task: {task}",
         f"Route: {d.target.upper()}  ({d.route_id}, {d.confidence:.0%})",
         f"Complexity: {estimate.complexity}",
-        f"Est. Cursor tokens: {estimate.est_tokens:,}",
+        f"Est. executor tokens: {estimate.est_tokens:,}",
         f"Rationale: {estimate.rationale}",
     ]
     if d.matched:

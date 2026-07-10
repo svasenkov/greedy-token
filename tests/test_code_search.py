@@ -41,8 +41,9 @@ def test_resolve_search_path_in_minimal_workspace(minimal_workspace: Path) -> No
 @allure.story("Scoped search")
 @allure.title("Scoped file search reports no matches when absent")
 def test_search_code_scoped_file_no_match(workspace_root: Path) -> None:
+    scoped = "projects/design-system-home/design-system/preview/configurator-option-presets.html"
     with allure.step("Search baseUrl in scoped file with no match"):
-        out = search_code("baseUrl", workspace_root, path="configurator-option-presets.html")
+        out = search_code("baseUrl", workspace_root, path=scoped)
         attach_text("search output", out.text)
         attach_text("engine", out.engine)
     with allure.step("Verify no matches message"):
@@ -164,6 +165,147 @@ def test_resolve_search_path_ambiguous_glob(minimal_workspace: Path) -> None:
         attach_text("resolved path", str(found) if found else "(none)")
     with allure.step("Verify ambiguous glob returns None"):
         assert found is None
+
+
+@allure.story("Path resolution")
+@allure.title("resolve skips node_modules bare-name trap")
+def test_resolve_search_path_skips_node_modules(minimal_workspace: Path) -> None:
+    from greedy_token.code_search import resolve_search_path_detail
+
+    with allure.step("Plant unique bare name only under node_modules"):
+        vendor = (
+            minimal_workspace
+            / "projects"
+            / "app"
+            / "node_modules"
+            / "es5-ext"
+            / "reg-exp"
+            / "#"
+            / "search"
+        )
+        vendor.mkdir(parents=True)
+        (vendor / "index.js").write_text("module.exports = 1;\n", encoding="utf-8")
+    with allure.step("Resolve bare name search"):
+        detail = resolve_search_path_detail("search", minimal_workspace)
+        attach_text("reason", detail.reason)
+        attach_text("path", str(detail.path) if detail.path else "(none)")
+    with allure.step("Verify vendor-only match is not_found"):
+        assert detail.path is None
+        assert detail.reason == "not_found"
+
+
+@allure.story("Path resolution")
+@allure.title("resolve prefers unique DEFAULT_PATHS hit over vendor")
+def test_resolve_search_path_prefers_default_paths(minimal_workspace: Path) -> None:
+    with allure.step("Plant same dirname in projects and node_modules"):
+        real = minimal_workspace / "projects" / "lib" / "utils"
+        real.mkdir(parents=True)
+        (real / "a.py").write_text("REAL=1\n", encoding="utf-8")
+        vendor = minimal_workspace / "projects" / "app" / "node_modules" / "utils"
+        vendor.mkdir(parents=True)
+        (vendor / "b.js").write_text("VENDOR=1\n", encoding="utf-8")
+    with allure.step("Resolve bare name utils"):
+        found = resolve_search_path("utils", minimal_workspace)
+        attach_text("resolved path", str(found) if found else "(none)")
+    with allure.step("Verify projects hit wins"):
+        assert found is not None
+        assert found == real.resolve()
+
+
+@allure.story("Path resolution")
+@allure.title("resolve prefers unique DEFAULT_PATHS among multiple non-vendor hits")
+def test_resolve_search_path_prefers_default_among_multi(minimal_workspace: Path) -> None:
+    from greedy_token.code_search import _format_rel, _rel_parts, resolve_search_path_detail
+
+    with allure.step("Plant same dirname under projects and outside DEFAULT_PATHS"):
+        preferred = minimal_workspace / "projects" / "pref-utils"
+        preferred.mkdir(parents=True)
+        (preferred / "a.py").write_text("P=1\n", encoding="utf-8")
+        other = minimal_workspace / "other-zone" / "pref-utils"
+        other.mkdir(parents=True)
+        (other / "b.py").write_text("O=1\n", encoding="utf-8")
+    with allure.step("Resolve bare name"):
+        found = resolve_search_path("pref-utils", minimal_workspace)
+        detail = resolve_search_path_detail("pref-utils", minimal_workspace)
+        attach_text("resolved", str(found))
+    with allure.step("Verify DEFAULT_PATHS preference and helpers"):
+        assert found == preferred.resolve()
+        assert detail.reason == ""
+        outside = minimal_workspace.parent / "ext-rel.txt"
+        outside.write_text("x\n", encoding="utf-8")
+        assert _rel_parts(outside, minimal_workspace) is None
+        assert "ext-rel" in _format_rel(outside, minimal_workspace)
+
+
+@allure.story("Path resolution")
+@allure.title("resolve reports ambiguous when multiple DEFAULT_PATHS dirs match")
+def test_resolve_search_path_ambiguous_dirs(minimal_workspace: Path) -> None:
+    from greedy_token.code_search import resolve_search_path_detail
+
+    with allure.step("Plant same dirname under projects and docs"):
+        a = minimal_workspace / "projects" / "ambig-dir"
+        b = minimal_workspace / "docs" / "ambig-dir"
+        a.mkdir(parents=True)
+        b.mkdir(parents=True)
+        (a / "a.txt").write_text("a\n", encoding="utf-8")
+        (b / "b.txt").write_text("b\n", encoding="utf-8")
+    with allure.step("Resolve ambiguous bare name"):
+        detail = resolve_search_path_detail("ambig-dir", minimal_workspace)
+        attach_text("reason", detail.reason)
+    with allure.step("Verify ambiguous"):
+        assert detail.path is None
+        assert detail.reason == "ambiguous"
+        assert len(detail.candidates) >= 2
+
+
+@allure.story("Path resolution")
+@allure.title("glob skips symlink that resolves outside workspace")
+def test_glob_skips_outside_symlink(
+    minimal_workspace: Path, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    from greedy_token.code_search import _is_skipped_path, resolve_search_path
+
+    outside_dir = tmp_path_factory.mktemp("symlink-outside")
+    outside_file = outside_dir / "link-target-name"
+    outside_file.write_text("leak\n", encoding="utf-8")
+    link = minimal_workspace / "projects" / "link-target-name"
+    try:
+        link.symlink_to(outside_file)
+    except OSError:
+        pytest.skip("symlinks unavailable")
+    with allure.step("Resolve bare name that only matches outside symlink"):
+        found = resolve_search_path("link-target-name", minimal_workspace)
+        attach_text("found", str(found) if found else "(none)")
+    with allure.step("Verify outside symlink skipped; helper treats outside as skipped"):
+        assert found is None
+        assert _is_skipped_path(outside_file, minimal_workspace) is True
+
+
+@allure.story("Path resolution")
+@allure.title("search_code reports ambiguous path instead of silent glob")
+def test_search_code_ambiguous_path_error(minimal_workspace: Path) -> None:
+    with allure.step("Add duplicate sample.js"):
+        extra = minimal_workspace / "projects" / "nested"
+        extra.mkdir()
+        (extra / "sample.js").write_text("dup\n", encoding="utf-8")
+    with allure.step("Search with ambiguous path"):
+        out = search_code("baseUrl", minimal_workspace, path="sample.js")
+        attach_text("search output", out.text)
+    with allure.step("Verify ambiguous error lists candidates"):
+        assert "ambiguous" in out.text
+        assert "sample.js" in out.text
+        assert "baseUrl = " not in out.text
+
+
+@allure.story("Path resolution")
+@allure.title("search_code reports not found for unknown path")
+def test_search_code_path_not_found(minimal_workspace: Path) -> None:
+    with allure.step("Search with missing path hint"):
+        out = search_code("baseUrl", minimal_workspace, path="no-such-file-xyz.js")
+        attach_text("search output", out.text)
+    with allure.step("Verify not-found error"):
+        assert "not found" in out.text
+        assert "no-such-file-xyz.js" in out.text
 
 
 @allure.story("Path resolution")
@@ -314,4 +456,24 @@ def test_python_search_tree(minimal_workspace: Path) -> None:
         attach_text("hits", "\n".join(hits))
     with allure.step("Verify .git skipped and sample.js found"):
         assert any("sample.js" in h for h in hits)
+
+    with allure.step("name_glob filters non-matching files; limit stops early"):
+        (minimal_workspace / "projects" / "a.txt").write_text("limhit\n", encoding="utf-8")
+        (minimal_workspace / "projects" / "b.txt").write_text("limhit\n", encoding="utf-8")
+        filtered = _python_search_tree(
+            minimal_workspace,
+            "limhit",
+            scope_dirs=[minimal_workspace / "projects"],
+            name_glob="*.nope",
+            limit=5,
+        )
+        assert filtered == []
+        limited = _python_search_tree(
+            minimal_workspace,
+            "limhit",
+            scope_dirs=[minimal_workspace / "projects"],
+            name_glob=None,
+            limit=1,
+        )
+        assert len(limited) == 1
 

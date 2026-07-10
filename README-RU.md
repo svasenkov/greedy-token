@@ -47,11 +47,11 @@
 
 ## Охват и roadmap
 
-Сейчас основной сценарий — **Cursor + Ollama + workspace**. CLI и MCP не привязаны к IDE. **v0.5.1** добавляет `cheap_llm.provider: ollama | openai_compat` (tier id остаётся `ollama`). Paid agent APIs (`expensive_llm`) — ещё на roadmap.
+Сейчас основной сценарий — **Cursor + Ollama + workspace**. CLI и MCP не привязаны к IDE. **v0.5.2** ужесточает confinement путей pipeline/search внутри workspace root (`cheap_llm.provider: ollama | openai_compat` без изменений). Paid agent APIs (`expensive_llm`) — ещё на roadmap.
 
 **Полная матрица (✅ / ❌ / 🔜) + критерии + GitHub issues:** [docs/ROADMAP-RU.md](docs/ROADMAP-RU.md) · [docs/ROADMAP.md](docs/ROADMAP.md)
 
-| Зона | ✅ сейчас (v0.5.1) | 🔜 дальше |
+| Зона | ✅ сейчас (v0.5.2) | 🔜 дальше |
 |------|-------------------|-----------|
 | Executors | `tool`, `python`, `ollama` (через `cheap_llm`), `rag` | `expensive_llm` agent path; paid bulk APIs |
 | Agent host | Cursor MCP + token baseline | Claude Desktop, Continue |
@@ -103,7 +103,7 @@ cp examples/cursor/rules/greedy-token.mdc .cursor/rules/greedy-token.mdc
 | `greedy_token_search` | Ripgrep: `query` + опционально `path` |
 | `greedy_token_rag` | Поиск по `docs/rag/` |
 | `greedy_token_route` | Куда нести задачу + token footer |
-| `greedy_token_pipeline` | Цепочка python → ollama → rag |
+| `greedy_token_pipeline` | Цепочка search/tool → python → ollama → rag |
 | `greedy_token_usage` | Сводка экономии из `~/.greedy-token/usage.jsonl` |
 
 **Footers:** `route` / `search` / `rag` / `pipeline` — полный блок **Greedy token** (This call → Tier alternatives → Saved). `usage` — **Session totals** (не полный single-tool footer). `pipeline: list` — только список рецептов, без economy footer.

@@ -64,6 +64,7 @@ def minimal_workspace(tmp_path: Path) -> Path:
     ollama_scripts = tmp_path / "scripts" / "ollama"
     ollama_scripts.mkdir(parents=True)
     (ollama_scripts / "audit-skill.sh").write_text("#!/bin/sh\necho audit\n", encoding="utf-8")
+    (ollama_scripts / "classify-file.sh").write_text("#!/bin/sh\necho classify\n", encoding="utf-8")
 
     rules = tmp_path / ".cursor" / "rules"
     rules.mkdir(parents=True)

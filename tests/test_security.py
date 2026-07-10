@@ -101,6 +101,61 @@ def test_mcp_pipeline_dry_run_by_default(
         assert mock_run.call_args.kwargs.get("execute") is False
 
 
+@allure.story("Pipeline path confinement")
+@allure.title("execute=True rejects audit-skill / classify-file paths outside workspace")
+def test_pipeline_execute_rejects_outside_path(
+    minimal_workspace: Path,
+    tmp_path_factory: pytest.TempPathFactory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from greedy_token.pipeline import parse_pipeline, run_pipeline
+
+    monkeypatch.setenv("GREEDY_TOKEN_ROOT", str(minimal_workspace))
+    outside_dir = tmp_path_factory.mktemp("outside-pipeline")
+    outside_skill = outside_dir / "SKILL.md"
+    outside_skill.write_text("# leaked\nsecret\n", encoding="utf-8")
+    outside_file = outside_dir / "secret.txt"
+    outside_file.write_text("classify-me\n", encoding="utf-8")
+
+    with allure.step("Reject absolute audit-skill path outside root at parse"):
+        with pytest.raises(ValueError, match="outside workspace root"):
+            parse_pipeline(f"audit-skill {outside_skill}")
+        attach_text("outside skill", str(outside_skill))
+
+    with allure.step("Reject absolute classify-file path outside root at parse"):
+        with pytest.raises(ValueError, match="outside workspace root"):
+            parse_pipeline(f"classify-file {outside_file}")
+        attach_text("outside file", str(outside_file))
+
+    with allure.step("execute=True does not run subprocess for outside path"):
+        with patch("greedy_token.pipeline.subprocess.run") as mock_run:
+            with patch("greedy_token.pipeline.ollama_available", return_value=True):
+                with pytest.raises(ValueError, match="outside workspace root"):
+                    run_pipeline(f"audit-skill {outside_skill}", minimal_workspace, execute=True)
+                with pytest.raises(ValueError, match="outside workspace root"):
+                    run_pipeline(f"classify-file {outside_file}", minimal_workspace, execute=True)
+            mock_run.assert_not_called()
+            attach_text("subprocess calls", str(mock_run.call_count))
+
+    with allure.step("Reject ../ escape, empty classify-file, missing bare name"):
+        with pytest.raises(ValueError, match="outside workspace root"):
+            parse_pipeline(f"classify-file ../{outside_dir.name}/{outside_file.name}")
+        with pytest.raises(ValueError, match="classify-file needs"):
+            parse_pipeline("classify-file")
+        with pytest.raises(FileNotFoundError, match="File not found"):
+            parse_pipeline("classify-file missing-bare-name.txt")
+        attach_text("outside dir", str(outside_dir))
+
+    with allure.step("Accept classify-file under root; reject absolute dir / missing abs"):
+        inside = minimal_workspace / "docs" / "phase-manifest.json"
+        steps = parse_pipeline(f"classify-file {inside}")
+        assert steps[0].args == "docs/phase-manifest.json"
+        with pytest.raises(FileNotFoundError, match="File not found"):
+            parse_pipeline(f"audit-skill {minimal_workspace / 'docs'}")
+        with pytest.raises(FileNotFoundError, match="File not found"):
+            parse_pipeline(f"classify-file {minimal_workspace / 'docs' / 'nope.md'}")
+
+
 @patch("greedy_token.cheap_llm.json.load", return_value={"models": []})
 @patch("urllib.request.urlopen")
 @allure.story("Ollama probe")

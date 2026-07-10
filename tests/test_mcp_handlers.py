@@ -35,13 +35,19 @@ def test_greedy_token_usage_footer(tmp_path: Path, minimal_workspace: Path, monk
     assert "malformed log lines skipped" in out
 
 
+def _assert_greedy_token_footer(text: str) -> None:
+    assert "Greedy token" in text
+    assert "Saved vs naive Cursor chat" in text
+
+
 @allure.story("Pipeline tool")
 @allure.title("greedy_token_pipeline list returns recipes")
 def test_greedy_token_pipeline_list(minimal_workspace: Path) -> None:
     from greedy_token.mcp import greedy_token_pipeline
 
     out = greedy_token_pipeline("list")
-    assert "meta-audit" in out or "Named" in out
+    assert "meta-audit" in out
+    assert "search-rag" in out
 
 
 @allure.story("Search tool")
@@ -51,7 +57,7 @@ def test_greedy_token_search(minimal_workspace: Path) -> None:
 
     out = greedy_token_search("baseUrl", "sample.js")
     assert "baseUrl" in out
-    assert "Greedy token" in out
+    _assert_greedy_token_footer(out)
 
 
 @allure.story("RAG tool")
@@ -60,7 +66,8 @@ def test_greedy_token_rag_domain(minimal_workspace: Path) -> None:
     from greedy_token.mcp import greedy_token_rag
 
     out = greedy_token_rag("baseUrl", domain="config")
-    assert "RAG hits" in out or "No RAG hits" in out
+    assert "RAG hits for:" in out or "test-baseurl" in out
+    _assert_greedy_token_footer(out)
 
 
 @allure.story("Route tool")
@@ -69,8 +76,8 @@ def test_greedy_token_route(minimal_workspace: Path) -> None:
     from greedy_token.mcp import greedy_token_route
 
     out = greedy_token_route("find baseUrl in sample.js")
-    assert "Route:" in out or "TOOL" in out
-    assert "Greedy token" in out
+    assert "tool" in out.lower() or "TOOL" in out
+    _assert_greedy_token_footer(out)
 
 
 @allure.story("Server main")

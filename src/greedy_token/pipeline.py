@@ -306,24 +306,59 @@ def _parse_search_segment(segment: str) -> PipelineStep:
     )
 
 
+def _path_under_root(path: Path, root: Path) -> bool:
+    try:
+        path.resolve().relative_to(root.resolve())
+        return True
+    except ValueError:
+        return False
+
+
+def _reject_outside_root(path: Path, root: Path, *, hint: str) -> None:
+    if not _path_under_root(path, root):
+        raise ValueError(
+            f"Error: path {hint!r} is outside workspace root "
+            f"({root}). Pipeline file args are confined to the workspace."
+        )
+
+
+def _resolve_under_root(arg: str, root: Path) -> Path:
+    """Resolve a file path hint; reject absolute/relative escapes outside *root*."""
+    hint = arg.strip()
+    direct = Path(hint)
+    if direct.is_absolute():
+        resolved = direct.resolve()
+        _reject_outside_root(resolved, root, hint=hint)
+        if not resolved.is_file():
+            raise FileNotFoundError(f"File not found: {hint}")
+        return resolved
+    rooted = (root / hint).resolve()
+    _reject_outside_root(rooted, root, hint=hint)
+    if not rooted.is_file():
+        raise FileNotFoundError(f"File not found under workspace root: {hint}")
+    return rooted
+
+
 def _resolve_wrapper_args(step_id: str, args: str) -> str:
     root = find_workspace_root()
     arg = args.strip()
+    if step_id == "classify-file":
+        if not arg:
+            raise ValueError("classify-file needs a path under the workspace root")
+        resolved = _resolve_under_root(arg, root)
+        return str(resolved.relative_to(root.resolve()))
     if step_id != "audit-skill":
         return arg
     if not arg:
         raise ValueError("audit-skill needs skill name (e.g. configurator-boolean)")
     if arg.endswith(".md") or "/" in arg:
-        path = Path(arg)
-        if not path.is_file():
-            path = root / arg
-        if not path.is_file():
-            raise FileNotFoundError(f"SKILL.md not found: {arg}")
-        return str(path.relative_to(root)) if path.is_relative_to(root) else str(path)
-    skill_path = root / ".cursor/skills" / arg / "SKILL.md"
+        resolved = _resolve_under_root(arg, root)
+        return str(resolved.relative_to(root.resolve()))
+    skill_path = (root / ".cursor/skills" / arg / "SKILL.md").resolve()
+    _reject_outside_root(skill_path, root, hint=arg)
     if not skill_path.is_file():
         raise FileNotFoundError(f"Skill not found: {arg} → {skill_path}")
-    return str(skill_path.relative_to(root))
+    return str(skill_path.relative_to(root.resolve()))
 
 
 def _estimate_step_tokens(step: PipelineStep, output: str, root: Path) -> int:

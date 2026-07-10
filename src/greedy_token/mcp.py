@@ -108,7 +108,7 @@ def greedy_token_rag(query: str, domain: str = "") -> str:
 
 @mcp.tool()
 def greedy_token_search(query: str, path: str = "") -> str:
-    """Ripgrep codebase. query=term (e.g. baseUrl); path=optional file (e.g. configurator-option-presets.html)."""
+    """Ripgrep codebase. query=term (e.g. baseUrl); path=optional relative path or unique filename."""
     t0 = time.perf_counter()
     root = find_workspace_root()
     task = f"search: {query}" + (f" in {path}" if path else "")
