@@ -1,0 +1,1 @@
+{"id":"b0875a6315ffc8f8e771fdc33e4fb305","fullName":"tests.test_pipeline#test_pipeline_skips_non_allowlisted","name":"Pipeline skips non-allowlisted step on execute","status":"passed","testResultsByEnv":{"default":"a7e269042a2d1cc84a7964e842a9f5eb"}}

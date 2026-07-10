@@ -1,0 +1,1 @@
+{"id":"77dec51f2129a3f9a974690d1513ea27","fullName":"tests.test_code_search#test_resolve_search_path_prefers_default_among_multi","name":"resolve prefers unique DEFAULT_PATHS among multiple non-vendor hits","status":"passed","testResultsByEnv":{"default":"30c1130650f0b938de95265df9203d80"}}

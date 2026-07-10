@@ -1,0 +1,1 @@
+{"id":"7fd593331e259b463268ea5d362efa56","fullName":"tests.test_pipeline#test_pipeline_continue_on_error","name":"Pipeline continue-on-error keeps running after failure","status":"passed","testResultsByEnv":{"default":"292438cafa73d3a2f8047e49a2fe2e34"}}

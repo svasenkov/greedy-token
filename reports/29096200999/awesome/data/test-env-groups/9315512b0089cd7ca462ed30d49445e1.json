@@ -1,0 +1,1 @@
+{"id":"9315512b0089cd7ca462ed30d49445e1","fullName":"tests.test_init#test_release_version_gate","name":"Release gate: pyproject and package version match CLI target","status":"skipped","testResultsByEnv":{"default":"c2d3ca86184c91eb3a6483085a74326b"}}
