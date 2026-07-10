@@ -374,6 +374,42 @@ def test_tool_paths_empty_path_segment(tmp_path: Path, monkeypatch: pytest.Monke
     assert found == rg.resolve()
 
 
+@allure.title("Branch gaps: ollama audit-skill estimate when skill file is missing")
+def test_pipeline_audit_skill_estimate_missing_file(minimal_workspace: Path) -> None:
+    step = PipelineStep(
+        "audit-skill",
+        "ollama",
+        "audit",
+        command="echo estimate-out",
+        args="no-such-skill.md",
+    )
+    with patch("greedy_token.pipeline.ollama_available", return_value=True):
+        with patch(
+            "greedy_token.pipeline.PIPELINE_AUTO_RUN",
+            frozenset({"audit-skill"}),
+        ):
+            with patch("greedy_token.pipeline.parse_pipeline", return_value=[step]):
+                result = run_pipeline("audit-skill gap", minimal_workspace, execute=True)
+    assert result.steps[0].executed
+    assert result.steps[0].est_tokens > 0
+
+
+@allure.title("Branch gaps: ollama estimate skips audit-skill file branch for other steps")
+def test_pipeline_ollama_estimate_non_audit_skill(minimal_workspace: Path) -> None:
+    step = PipelineStep(
+        "classify-file",
+        "ollama",
+        "classify",
+        command="echo classified",
+        args="sample.js",
+    )
+    with patch("greedy_token.pipeline.ollama_available", return_value=True):
+        with patch("greedy_token.pipeline.parse_pipeline", return_value=[step]):
+            result = run_pipeline("classify-file gap", minimal_workspace, execute=True)
+    assert result.steps[0].executed
+    assert result.steps[0].est_tokens > 0
+
+
 @allure.title("Branch gaps: usage event builders and format_report sections")
 def test_usage_branch_gaps(minimal_workspace: Path) -> None:
     event = build_script_event(script_id="check-meta-sync", root=minimal_workspace)
