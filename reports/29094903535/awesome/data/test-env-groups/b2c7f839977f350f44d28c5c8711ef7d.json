@@ -1,0 +1,1 @@
+{"id":"b2c7f839977f350f44d28c5c8711ef7d","fullName":"tests.test_mcp_stdio#test_mcp_stdio_pipeline_dry_run_footer","name":"MCP stdio pipeline dry-run includes per-step Greedy token footer","status":"passed","testResultsByEnv":{"default":"21a8773885d18c169373271e4487c947"}}

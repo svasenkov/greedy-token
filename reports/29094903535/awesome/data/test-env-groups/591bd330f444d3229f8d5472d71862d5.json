@@ -1,0 +1,1 @@
+{"id":"591bd330f444d3229f8d5472d71862d5","fullName":"tests.test_branch_coverage#test_cli_run_branch_gaps","name":"Branch gaps: CLI run empty output and non-executable dry-run","status":"passed","testResultsByEnv":{"default":"2c1f46aca76d828e97632782a619db9e"}}

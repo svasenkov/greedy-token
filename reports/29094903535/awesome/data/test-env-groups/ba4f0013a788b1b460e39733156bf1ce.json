@@ -1,0 +1,1 @@
+{"id":"ba4f0013a788b1b460e39733156bf1ce","fullName":"tests.test_init#test_resolve_version_release_env_fallback","name":"resolve_version honors GREEDY_TOKEN_RELEASE_VERSION without pyproject or metadata","status":"passed","testResultsByEnv":{"default":"ebc7eff8e7b51bb78a2f3b741949793f"}}
