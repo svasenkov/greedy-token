@@ -1,0 +1,1 @@
+{"id":"73c5f4258535619f45b875f257794009","fullName":"tests.test_security#test_pipeline_execute_rejects_outside_path","name":"execute=True rejects audit-skill / classify-file paths outside workspace","status":"passed","testResultsByEnv":{"default":"e92c9bfdaa487c05ea3467ede3b52e94"}}

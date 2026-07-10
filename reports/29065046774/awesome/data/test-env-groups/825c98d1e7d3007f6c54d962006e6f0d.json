@@ -1,0 +1,1 @@
+{"id":"825c98d1e7d3007f6c54d962006e6f0d","fullName":"tests.test_wrappers#test_wrappers_stdout_only_are_read_only","name":"Stdout-only Ollama wrappers are read_only for --execute","status":"passed","testResultsByEnv":{"default":"29e1cfed4d321622336c1acbc6cea68a"}}

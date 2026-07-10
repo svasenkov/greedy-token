@@ -1,0 +1,1 @@
+{"id":"8fc4f6f32e3e12e2259d62bf2397e2f6","fullName":"tests.test_cli_handlers#test_cmd_scripts_usage","name":"cmd_scripts without list or run prints usage error","status":"passed","testResultsByEnv":{"default":"215749cd81031c30918651012487bc66"}}

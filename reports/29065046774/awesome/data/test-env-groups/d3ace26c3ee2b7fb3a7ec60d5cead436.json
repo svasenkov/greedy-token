@@ -1,0 +1,1 @@
+{"id":"d3ace26c3ee2b7fb3a7ec60d5cead436","fullName":"tests.test_prompt_compress#test_compress_ollama_detail","name":"compress_ollama_detail calls stub server","status":"passed","testResultsByEnv":{"default":"74db2f2e80b7df38265847ee90c9839f"}}

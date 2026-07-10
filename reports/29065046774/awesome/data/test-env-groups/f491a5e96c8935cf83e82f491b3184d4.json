@@ -1,0 +1,1 @@
+{"id":"f491a5e96c8935cf83e82f491b3184d4","fullName":"tests.test_settings#test_get_ollama_settings_alias","name":"get_ollama_settings returns url/model alias of cheap_llm settings","status":"passed","testResultsByEnv":{"default":"f7308e0c7fec83d4715fa32c3f566b06"}}

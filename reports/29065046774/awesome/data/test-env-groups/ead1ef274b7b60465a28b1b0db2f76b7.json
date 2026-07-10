@@ -1,0 +1,1 @@
+{"id":"ead1ef274b7b60465a28b1b0db2f76b7","fullName":"tests.test_wrappers#test_resolve_wrapper_unknown_raises","name":"Wrapper command resolver raises for unknown wrapper id","status":"passed","testResultsByEnv":{"default":"5f92d3d5f04bd039b45b51e0d38ae2bb"}}
