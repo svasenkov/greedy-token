@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import allure
 import pytest
 
 from greedy_token import __version__
 from greedy_token.tool_output import filter_tool_output
+from greedy_token.version import read_pyproject_version
 from tests.allure_reporting import attach_text
 
 pytestmark = [
@@ -21,10 +20,7 @@ pytestmark = [
 @allure.title("Package version matches pyproject.toml")
 def test_version_matches_pyproject() -> None:
     with allure.step("Read version from pyproject.toml"):
-        pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
-        text = pyproject.read_text(encoding="utf-8")
-        line = next(ln for ln in text.splitlines() if ln.startswith("version = "))
-        expected = line.split("=", 1)[1].strip().strip('"')
+        expected = read_pyproject_version()
         attach_text("pyproject version", expected)
         attach_text("package __version__", __version__)
     with allure.step("Verify versions match"):

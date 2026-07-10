@@ -47,11 +47,11 @@ Greedy-token uses **cheap** and **expensive** in footers and docs. It is about *
 
 ## Scope & roadmap
 
-Today the happy path is **Cursor + Ollama + workspace**. CLI and MCP are IDE-agnostic. **v0.5.5** adds PyPI-friendly `config --init` (no workspace required), cursor `--execute` refusal, and usage telemetry aligned to workspace cheap_llm settings. **v0.5.3+** pipeline honesty: multi-word `search-rag`, dry-run footer (`saved=0`), RAG via `rag_est_tokens` (`cheap_llm.provider: ollama | openai_compat`). Paid agent APIs (`expensive_llm`) are still on the roadmap.
+Today the happy path is **Cursor + Ollama + workspace**. CLI and MCP are IDE-agnostic. **v0.5.7** — version SSOT from `pyproject.toml` (no hardcoded `__init__` pin), `./scripts/release-gate.sh TARGET`, auto-sync `minTestsCount` from pytest collection. **v0.5.6** — honest search footer, MCP stdio `pipeline execute=true` e2e, removed dead `SearchResult.spent_tokens`. **v0.5.5** — PyPI-friendly `config --init` (no workspace required), cursor `--execute` refusal, usage telemetry aligned to workspace cheap_llm settings. **v0.5.3+** pipeline honesty: multi-word `search-rag`, dry-run footer (`saved=0`), RAG via `rag_est_tokens` (`cheap_llm.provider: ollama | openai_compat`). Paid agent APIs (`expensive_llm`) are still on the roadmap.
 
 **Full matrix (✅ / ❌ / 🔜) + acceptance criteria + GitHub issues:** [docs/ROADMAP.md](docs/ROADMAP.md) · [docs/ROADMAP-RU.md](docs/ROADMAP-RU.md)
 
-| Area | ✅ today (v0.5.5) | 🔜 next |
+| Area | ✅ today (v0.5.7) | 🔜 next |
 |------|-------------------|---------|
 | Executors | `tool`, `python`, `ollama` (via `cheap_llm`), `rag` | `expensive_llm` agent path; paid bulk APIs |
 | Agent host | Cursor MCP + token baseline | Claude Desktop, Continue |

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "greedy-token"
-version = "0.5.6"
+version = "0.5.7"
 description = "Greedy token for Cursor: route tasks through rg, scripts, Ollama, and RAG before opening a full agent chat."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -44,6 +44,7 @@ markers = [
     "api: HTTP/API layer (reserved)",
     "e2e: MCP stdio end-to-end",
     "manual: manual tests (reserved)",
+    "release: release gate — requires --release-version or GREEDY_TOKEN_RELEASE_VERSION",
 ]
 
 [tool.coverage.run]

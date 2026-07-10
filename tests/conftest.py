@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import allure
@@ -10,6 +11,24 @@ from allure_commons._allure import fixture as allure_fixture_wrapper
 from tests.ollama_stub import clear_ollama_probe_cache, install_ollama_scripts, ollama_stub_server
 from tests.pyramid_layers import layer_for_module
 from tests.testops_ids import TESTOPS_IDS
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--release-version",
+        action="store",
+        default=None,
+        help="Target release semver for @pytest.mark.release gate tests",
+    )
+
+
+@pytest.fixture
+def release_version(request: pytest.FixtureRequest) -> str | None:
+    cli = request.config.getoption("--release-version")
+    if cli:
+        return str(cli).strip()
+    env = os.environ.get("GREEDY_TOKEN_RELEASE_VERSION", "").strip()
+    return env or None
 
 
 def _discover_workspace_root() -> Path | None:

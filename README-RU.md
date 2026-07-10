@@ -47,11 +47,11 @@
 
 ## Охват и roadmap
 
-Сейчас основной сценарий — **Cursor + Ollama + workspace**. CLI и MCP не привязаны к IDE. **v0.5.5** — `config --init` без workspace (PyPI bootstrap), отказ `run --execute` на cursor tier, telemetry cheap_llm по workspace. **v0.5.3+** — честность pipeline: multi-word `search-rag`, dry-run footer (`saved=0`), RAG через `rag_est_tokens` (`cheap_llm.provider: ollama | openai_compat`). Paid agent APIs (`expensive_llm`) — ещё на roadmap.
+Сейчас основной сценарий — **Cursor + Ollama + workspace**. CLI и MCP не привязаны к IDE. **v0.5.7** — SSOT версии из `pyproject.toml` (без hardcode в `__init__`), `./scripts/release-gate.sh TARGET`, auto-sync `minTestsCount` из pytest collection. **v0.5.6** — честный search footer, e2e MCP stdio `pipeline execute=true`, удалён мёртвый `SearchResult.spent_tokens`. **v0.5.5** — `config --init` без workspace (PyPI bootstrap), отказ `run --execute` на cursor tier, telemetry cheap_llm по workspace. **v0.5.3+** — честность pipeline: multi-word `search-rag`, dry-run footer (`saved=0`), RAG через `rag_est_tokens` (`cheap_llm.provider: ollama | openai_compat`). Paid agent APIs (`expensive_llm`) — ещё на roadmap.
 
 **Полная матрица (✅ / ❌ / 🔜) + критерии + GitHub issues:** [docs/ROADMAP-RU.md](docs/ROADMAP-RU.md) · [docs/ROADMAP.md](docs/ROADMAP.md)
 
-| Зона | ✅ сейчас (v0.5.5) | 🔜 дальше |
+| Зона | ✅ сейчас (v0.5.7) | 🔜 дальше |
 |------|-------------------|-----------|
 | Executors | `tool`, `python`, `ollama` (через `cheap_llm`), `rag` | `expensive_llm` agent path; paid bulk APIs |
 | Agent host | Cursor MCP + token baseline | Claude Desktop, Continue |

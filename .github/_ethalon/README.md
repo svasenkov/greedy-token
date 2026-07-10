@@ -29,7 +29,15 @@ Bump `actions/*` versions in `_ethalon/gha-actions.yaml` first, then apply to al
 
 ## Quality gate count
 
-`minTestsCount` lives in `allure/quality-gate.mjs`. When it changes, update the job summary line in `_ethalon/test.yml` (search `minTestsCount`).
+**SSOT:** `pytest --collect-only` → `./scripts/sync-min-tests-count.sh` updates:
+
+- `allure/quality-gate.mjs` (`minTestsCount`)
+- job summary line in `_ethalon/test.yml` (search `minTestsCount`)
+- runnable `.github/workflows/test.yml` (via `sync-github-workflows.sh`)
+
+CI guard: `check-github-workflows-sync.sh` fails if configured count ≠ pytest collected.
+
+After adding/removing tests: run sync script (or `./scripts/release-gate.sh` at cut — runs sync at end).
 
 ## Coverage gate
 

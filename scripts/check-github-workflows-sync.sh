@@ -38,8 +38,16 @@ done < <(grep -hoE 'uses: [^ ]+' "$ETHALON"/*.yml | sed 's/uses: //' | sort -u)
 
 gate_count=$(grep -oE 'minTestsCount: [0-9]+' "$ROOT/allure/quality-gate.mjs" | awk '{print $2}')
 summary_count=$(grep -oE 'minTestsCount: [0-9]+' "$ETHALON/test.yml" | tail -1 | awk '{print $2}')
+collect_line="$(python -m pytest tests/ --collect-only -q 2>&1 | tail -1)"
+live_count=""
+if [[ "$collect_line" =~ ^([0-9]+)\ tests\ collected ]]; then
+  live_count="${BASH_REMATCH[1]}"
+fi
 if [[ "$gate_count" != "$summary_count" ]]; then
   echo "minTestsCount mismatch: quality-gate.mjs=$gate_count ethalon test.yml summary=$summary_count" >&2
+  fail=1
+elif [[ -n "$live_count" && "$gate_count" != "$live_count" ]]; then
+  echo "minTestsCount stale: configured=$gate_count pytest collected=$live_count — run ./scripts/sync-min-tests-count.sh" >&2
   fail=1
 else
   echo "minTestsCount OK: $gate_count"
