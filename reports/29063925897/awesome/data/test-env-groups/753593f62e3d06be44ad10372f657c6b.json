@@ -1,0 +1,1 @@
+{"id":"753593f62e3d06be44ad10372f657c6b","fullName":"tests.test_code_search#test_resolve_search_path_skips_node_modules","name":"resolve skips node_modules bare-name trap","status":"passed","testResultsByEnv":{"default":"45992b7f656c3384235400edc851ac7e"}}
