@@ -90,9 +90,114 @@ def test_parse_named_pipeline_rejects_excess_args() -> None:
     with allure.step("Parse meta-audit with trailing junk"):
         with pytest.raises(ValueError, match="unexpected extra args"):
             parse_pipeline("pipeline: meta-audit configurator-boolean extra-tail")
-    with allure.step("Parse search-rag with third positional as excess"):
+    with allure.step("Parse search-rag with kwargs already bound + leftover"):
         with pytest.raises(ValueError, match="unexpected extra args"):
-            parse_pipeline("pipeline: search-rag baseUrl foo.html leftover")
+            parse_pipeline("pipeline: search-rag query=baseUrl path=foo.html leftover")
+
+
+@allure.story("Named recipes")
+@allure.title("Parse search-rag multi-word query with path= keyword")
+def test_parse_named_pipeline_search_rag_multiword_query() -> None:
+    with allure.step("Parse search-rag with multi-word query and path="):
+        steps = parse_pipeline(
+            "pipeline: search-rag hello world path=configurator-option-presets.html"
+        )
+        attach_json(
+            "parsed steps",
+            [{"step_id": s.step_id, "tier": s.tier, "args": s.args} for s in steps],
+        )
+    with allure.step("Verify query words join; path stays separate"):
+        assert len(steps) == 2
+        assert steps[0].step_id == "search"
+        assert steps[0].args == "hello world\tconfigurator-option-presets.html"
+        assert steps[1].step_id == "rag"
+        assert steps[1].args == "hello world"
+
+
+@allure.story("Named recipes")
+@allure.title("Parse search-rag multi-word query with trailing path positional")
+def test_parse_named_pipeline_search_rag_multiword_positional_path() -> None:
+    with allure.step("Parse search-rag with multi-word query + path token"):
+        steps = parse_pipeline("pipeline: search-rag MCP CLI route README.md")
+    with allure.step("Verify last token is path; earlier tokens join as query"):
+        assert steps[0].args == "MCP CLI route\tREADME.md"
+        assert steps[1].args == "MCP CLI route"
+
+
+@allure.story("Named recipes")
+@allure.title("meta-rag joins multi-word query; unknown key= stays positional")
+def test_parse_named_pipeline_meta_rag_and_unknown_equals() -> None:
+    with allure.step("Parse meta-rag with multi-word query"):
+        steps = parse_pipeline("pipeline: meta-rag hello world flag")
+        assert steps[0].step_id == "check-meta-sync"
+        assert steps[1].step_id == "rag"
+        assert steps[1].args == "hello world flag"
+    with allure.step("Unknown key=value is part of joined query; path= still binds"):
+        steps2 = parse_pipeline(
+            "pipeline: search-rag baseUrl foo=bar path=sample.js"
+        )
+        assert steps2[0].args == "baseUrl foo=bar\tsample.js"
+        assert steps2[1].args == "baseUrl foo=bar"
+
+
+@allure.story("Named recipes")
+@allure.title("search-rag path= kwarg + multi-word query; missing args raise")
+def test_parse_named_pipeline_search_rag_path_kwarg_and_missing() -> None:
+    with allure.step("path= set; remaining positionals join as query"):
+        steps = parse_pipeline(
+            "pipeline: search-rag hello world path=sample.js"
+        )
+        assert steps[0].args == "hello world\tsample.js"
+    with allure.step("path= alone without query raises"):
+        with pytest.raises(ValueError, match="needs more args"):
+            parse_pipeline("pipeline: search-rag path=sample.js")
+    with allure.step("single-token recipe rejects multi positional"):
+        with pytest.raises(ValueError, match="unexpected extra args"):
+            parse_pipeline("pipeline: meta-audit skill-a skill-b")
+    with allure.step("Direct bind covers empty known / zip fallback"):
+        from greedy_token.pipeline import _bind_recipe_args
+
+        assert _bind_recipe_args("x", [], [], {}) == {}
+        with pytest.raises(ValueError, match="needs more args"):
+            _bind_recipe_args("x", ["a", "b"], ["only"], {})
+        bound = _bind_recipe_args("x", ["a", "b"], ["one", "two"], {})
+        assert bound == {"a": "one", "b": "two"}
+        with pytest.raises(ValueError, match="unexpected extra args"):
+            _bind_recipe_args("x", ["a", "b"], ["one", "two", "three"], {})
+        # path already in kwargs, but no query tokens left
+        with pytest.raises(ValueError, match="needs more args"):
+            _bind_recipe_args(
+                "search-rag",
+                ["query", "path"],
+                [],
+                {"path": "sample.js"},
+            )
+        # path + query needed but only one positional
+        with pytest.raises(ValueError, match="needs more args"):
+            _bind_recipe_args(
+                "search-rag",
+                ["query", "path"],
+                ["only-query"],
+                {},
+            )
+        # path= kwarg + multi-word query (path not in need_pos → joinable single slot)
+        assert _bind_recipe_args(
+            "search-rag",
+            ["query", "path"],
+            ["a", "b"],
+            {"path": "p.html"},
+        ) == {"path": "p.html", "query": "a b"}
+        # three placeholders without path-join special case → zip
+        assert _bind_recipe_args(
+            "x",
+            ["a", "b", "c"],
+            ["1", "2", "3"],
+            {},
+        ) == {"a": "1", "b": "2", "c": "3"}
+        # unknown kwarg key ignored in mapping loop
+        assert _bind_recipe_args("x", ["skill"], ["ok"], {"nope": "x"}) == {
+            "skill": "ok"
+        }
 
 
 @allure.story("Custom chain")
@@ -209,10 +314,15 @@ def test_format_pipeline_footer_has_by_executor(minimal_workspace: Path) -> None
         )
         footer = format_pipeline_footer(result, minimal_workspace)
         attach_text("pipeline footer", footer)
-    with allure.step("Verify per-executor savings sections"):
+        rows = compute_step_savings(result, minimal_workspace)
+    with allure.step("Verify per-executor sections; dry-run does not inflate saved"):
         assert "Per-step savings" in footer
         assert "Saved by executor" in footer
         assert "Saved vs naive Cursor chat" in footer
+        assert "dry-run — not executed" in footer
+        assert "Saved:             ~0" in footer
+        assert all(row.saved == 0 for row in rows)
+        assert all(row.billing == "dry-run — not executed" for row in rows)
 
 
 @allure.story("Token footer")

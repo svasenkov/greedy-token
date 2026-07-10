@@ -537,9 +537,12 @@ def test_pipeline_public_edges(minimal_workspace: Path) -> None:
 
     # Run audit-skill (dry) to cover token estimate for skill file.
     executed = run_pipeline(f"audit-skill {skill.relative_to(minimal_workspace)}", minimal_workspace, execute=False)
-    assert executed.steps[0].est_tokens >= 0
+    assert executed.steps[0].est_tokens == 0
+    assert executed.steps[0].executed is False
     footer2 = format_pipeline_footer(executed, minimal_workspace)
-    assert "cheap" in footer2 or "Step" in footer2 or "executor" in footer2.lower() or "Saved" in footer2
+    assert "Greedy token — pipeline" in footer2
+    assert "dry-run — not executed" in footer2
+    assert "Saved:             ~0" in footer2
 
 
 @allure.title("prompt_compress heuristic edges")
@@ -584,7 +587,8 @@ def test_router_public_edges(minimal_workspace: Path) -> None:
     assert grep.target in ("tool", "rag", "cursor", "python", "ollama")
 
     spaced = route_task("find ", minimal_workspace)
-    assert spaced.command or spaced.target
+    assert spaced.target in ("tool", "python", "ollama", "rag", "cursor")
+    assert isinstance(spaced.route_id, str) and spaced.route_id
 
     non_ro = RouteDecision(
         target="python",
@@ -938,7 +942,8 @@ def test_remaining_public_branches(
     # Digit token scoring + empty residue after strip ("find").
     assert route_task("find 123", minimal_workspace).command
     bare = route_task("find", minimal_workspace)
-    assert bare.command or bare.target
+    assert bare.target in ("tool", "python", "ollama", "rag", "cursor")
+    assert isinstance(bare.route_id, str) and bare.route_id
 
     # jq tool command builder via route patterns.
     jq = route_task("parse json phase-manifest json", minimal_workspace)
@@ -950,7 +955,7 @@ def test_remaining_public_branches(
     with pytest.raises(FileNotFoundError, match="File not found"):
         parse_pipeline("audit-skill docs/rag/config/missing-skill.md")
     with pytest.raises(ValueError, match="unexpected extra args"):
-        parse_pipeline("pipeline: search-rag baseUrl foo=bar leftover")
+        parse_pipeline("pipeline: search-rag query=baseUrl path=foo.html leftover")
 
     with patch(
         "greedy_token.pipeline.parse_pipeline",

@@ -47,11 +47,11 @@
 
 ## Охват и roadmap
 
-Сейчас основной сценарий — **Cursor + Ollama + workspace**. CLI и MCP не привязаны к IDE. **v0.5.2** ужесточает confinement путей pipeline/search внутри workspace root (`cheap_llm.provider: ollama | openai_compat` без изменений). Paid agent APIs (`expensive_llm`) — ещё на roadmap.
+Сейчас основной сценарий — **Cursor + Ollama + workspace**. CLI и MCP не привязаны к IDE. **v0.5.3** чинит честность pipeline: multi-word `search-rag`, dry-run footer (`saved=0`), оценка RAG через `rag_est_tokens` (`cheap_llm.provider: ollama | openai_compat` без изменений). Paid agent APIs (`expensive_llm`) — ещё на roadmap.
 
 **Полная матрица (✅ / ❌ / 🔜) + критерии + GitHub issues:** [docs/ROADMAP-RU.md](docs/ROADMAP-RU.md) · [docs/ROADMAP.md](docs/ROADMAP.md)
 
-| Зона | ✅ сейчас (v0.5.2) | 🔜 дальше |
+| Зона | ✅ сейчас (v0.5.3) | 🔜 дальше |
 |------|-------------------|-----------|
 | Executors | `tool`, `python`, `ollama` (через `cheap_llm`), `rag` | `expensive_llm` agent path; paid bulk APIs |
 | Agent host | Cursor MCP + token baseline | Claude Desktop, Continue |
@@ -65,8 +65,10 @@
 pip install greedy-token
 # с MCP для Cursor:
 pip install "greedy-token[mcp]"
-# editable (из workspace):
-cd projects/greedy-token-home/dev && ./scripts/install.sh
+# editable из этого clone:
+pip install -e ".[dev,mcp]"
+# monorepo hub (соседний ../dev):
+#   cd ../dev && ./scripts/install.sh
 ```
 
 ```bash
@@ -126,7 +128,7 @@ pipeline: check-meta-sync then audit-skill configurator-boolean
 |--------|------|-----------|
 | `meta-audit` | python → ollama | `<skill>` |
 | `meta-rag` | python → rag | `<query>` |
-| `search-rag` | rg → rag | `<query> <path>` или `<query> path=<path>` |
+| `search-rag` | rg → rag | `<query> <path>` · multi-word query + `path=` · или kwargs `query=` / `path=` |
 
 `search-rag` переиспользует `query` для обоих шагов; `path` только для ripgrep:
 
@@ -186,13 +188,12 @@ Saved by executor (sum of per-step savings):
 **TestOps:** проект [5276](https://allure.autotests.cloud/project/5276). Секрет `ALLURE_TOKEN` в настройках репо; `ALLURE_PROJECT_ID` по умолчанию `5276`.
 
 ```bash
-cd projects/greedy-token-home/dev && ./scripts/install.sh
-source .venv/bin/activate
-cd ../greedy-token
+# из этого clone (после pip install -e ".[dev,mcp]"):
 python -m coverage run -m pytest tests/ -v --alluredir=build/allure-results
 python -m coverage report --include='src/greedy_token/*'
 npx --yes allure@3.13.0 quality-gate build/allure-results --config allurerc.mjs
 npx --yes allure@3.13.0 generate build/allure-results --config allurerc.mjs -o build/allure-report
+# monorepo hub: cd ../dev && ./scripts/install.sh && source .venv/bin/activate && cd ../greedy-token
 ```
 
 **Coverage:** `branch = true` и `fail_under = 100` для `src/greedy_token/` (`pyproject.toml`). CI: `coverage run` + `coverage report` (lines + branches).

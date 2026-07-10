@@ -83,6 +83,8 @@ def spent_hint(tier: str, spent: int, executor_sub: str | None = None) -> str:
     if tier == "ollama":
         return "cheap LLM — local/cheap spend"
     if tier == "rag":
+        if spent <= 0:
+            return "docs/rag — no chunks counted"
         return "docs/rag chunks read into context"
     if tier == "cursor":
         return "expensive LLM path — same order as baseline"

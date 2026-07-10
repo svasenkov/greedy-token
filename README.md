@@ -47,11 +47,11 @@ Greedy-token uses **cheap** and **expensive** in footers and docs. It is about *
 
 ## Scope & roadmap
 
-Today the happy path is **Cursor + Ollama + workspace**. CLI and MCP are IDE-agnostic. **v0.5.2** tightens pipeline/search path confinement under the workspace root (`cheap_llm.provider: ollama | openai_compat` stays). Paid agent APIs (`expensive_llm`) are still on the roadmap.
+Today the happy path is **Cursor + Ollama + workspace**. CLI and MCP are IDE-agnostic. **v0.5.3** fixes pipeline honesty: multi-word `search-rag` queries, dry-run footer (`saved=0`), and RAG route estimates via `rag_est_tokens` (`cheap_llm.provider: ollama | openai_compat` stays). Paid agent APIs (`expensive_llm`) are still on the roadmap.
 
 **Full matrix (✅ / ❌ / 🔜) + acceptance criteria + GitHub issues:** [docs/ROADMAP.md](docs/ROADMAP.md) · [docs/ROADMAP-RU.md](docs/ROADMAP-RU.md)
 
-| Area | ✅ today (v0.5.2) | 🔜 next |
+| Area | ✅ today (v0.5.3) | 🔜 next |
 |------|-------------------|---------|
 | Executors | `tool`, `python`, `ollama` (via `cheap_llm`), `rag` | `expensive_llm` agent path; paid bulk APIs |
 | Agent host | Cursor MCP + token baseline | Claude Desktop, Continue |
@@ -65,8 +65,10 @@ Today the happy path is **Cursor + Ollama + workspace**. CLI and MCP are IDE-agn
 pip install greedy-token
 # with Cursor MCP server:
 pip install "greedy-token[mcp]"
-# editable (from workspace):
-cd projects/greedy-token-home/dev && ./scripts/install.sh
+# editable from this clone:
+pip install -e ".[dev,mcp]"
+# monorepo hub (sibling ../dev):
+#   cd ../dev && ./scripts/install.sh
 ```
 
 ```bash
@@ -126,7 +128,7 @@ Named recipes (`pipeline --list`):
 |--------|-------|------|
 | `meta-audit` | python → ollama | `<skill>` |
 | `meta-rag` | python → rag | `<query>` |
-| `search-rag` | rg → rag | `<query> <path>` or `<query> path=<path>` |
+| `search-rag` | rg → rag | `<query> <path>` · multi-word query + `path=` · or `query=` / `path=` kwargs |
 
 `search-rag` reuses `query` for both steps; `path` scopes ripgrep only:
 
@@ -178,13 +180,12 @@ Requires **Python 3.12+** (same as CI). GitHub Actions job **tests (all)** runs 
 **CI ethalon:** `.github/_ethalon/` (action pins in `gha-actions.yaml`) → runnable `.github/workflows/`. Same pattern as workspace `tests-java/.github/_ethalon/`. Sync: `./scripts/sync-github-workflows.sh`; CI runs `./scripts/check-github-workflows-sync.sh` before pytest.
 
 ```bash
-cd projects/greedy-token-home/dev && ./scripts/install.sh
-source .venv/bin/activate
-cd ../greedy-token
+# from this clone (after pip install -e ".[dev,mcp]"):
 python -m coverage run -m pytest tests/ -v --alluredir=build/allure-results
 python -m coverage report --include='src/greedy_token/*'
 npx --yes allure@3.13.0 quality-gate build/allure-results --config allurerc.mjs
 npx --yes allure@3.13.0 generate build/allure-results --config allurerc.mjs -o build/allure-report
+# monorepo hub alternative: cd ../dev && ./scripts/install.sh && source .venv/bin/activate && cd ../greedy-token
 ```
 
 **Coverage:** `branch = true` and `fail_under = 100` on `src/greedy_token/` (see `[tool.coverage.run]` / `[tool.coverage.report]` in `pyproject.toml`). CI runs `coverage run` + `coverage report` on every push/PR.

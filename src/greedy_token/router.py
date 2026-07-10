@@ -20,7 +20,8 @@ COMPLEXITY_BY_TARGET = {
 }
 
 BASE_CURSOR_OVERHEAD = 6000
-RAG_READ_TOKENS = 1800
+# Rough fallback when docs/rag index is empty / unavailable (route pre-flight only).
+RAG_READ_TOKENS_FALLBACK = 1800
 
 
 @dataclass
@@ -218,9 +219,14 @@ def _token_estimate_for_route(
             "Cheap LLM unavailable — would fall back to expensive Cursor path.",
         )
     if target == "rag":
+        from greedy_token.budget import rag_est_tokens
+        from greedy_token.rag_search import search_rag
+
+        hits = search_rag(task, root, limit=5)
+        rag_tokens = rag_est_tokens(hits, root) if hits else RAG_READ_TOKENS_FALLBACK
         return (
             complexity,
-            RAG_READ_TOKENS + task_tokens,
+            rag_tokens + task_tokens,
             "Read docs/rag chunk(s) — small context vs full agent chat.",
         )
 

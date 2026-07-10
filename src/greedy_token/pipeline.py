@@ -11,6 +11,7 @@ from pathlib import Path
 import yaml
 
 from greedy_token.budget import (
+    BASELINE_LABEL,
     TOTAL_BASELINE_LABEL,
     TIER_LABELS,
     cursor_baseline,
@@ -107,9 +108,14 @@ def compute_step_savings(result: PipelineResult, root: Path) -> list[StepSavings
     for i, sr in enumerate(result.steps, 1):
         baseline = cursor_baseline(root, sr.step.label)
         spent = sr.est_tokens
-        saved = max(0, baseline - spent)
+        # Dry-run did not run the executor — do not claim full baseline savings.
+        if not sr.executed:
+            saved = 0
+            billing = "dry-run — not executed"
+        else:
+            saved = max(0, baseline - spent)
+            billing = spent_hint(sr.step.tier, spent, _executor_sub_for_step(sr))
         sub = _executor_sub_for_step(sr)
-        billing = spent_hint(sr.step.tier, spent, sub)
         rows.append(
             StepSavingsRow(
                 index=i,
@@ -169,6 +175,10 @@ def _load_pipelines_config() -> dict:
         return yaml.safe_load(fh) or {}
 
 
+# Placeholders that absorb remaining positionals as a multi-word value.
+_JOINABLE_PLACEHOLDERS = frozenset({"query"})
+
+
 def _split_recipe_params(
     params: list[str], known: list[str]
 ) -> tuple[list[str], dict[str, str]]:
@@ -176,6 +186,7 @@ def _split_recipe_params(
 
     Supports both ``pipeline: search-rag baseUrl foo.html`` and
     ``pipeline: search-rag baseUrl path=foo.html`` (agent / rule style).
+    Multi-word queries: ``pipeline: search-rag hello world path=foo.html``.
     """
     positional: list[str] = []
     kwargs: dict[str, str] = {}
@@ -188,6 +199,62 @@ def _split_recipe_params(
                 continue
         positional.append(param)
     return positional, kwargs
+
+
+def _bind_recipe_args(
+    name: str,
+    known: list[str],
+    positional: list[str],
+    kwargs: dict[str, str],
+) -> dict[str, str]:
+    """Bind recipe placeholders: kwargs first; join multi-word ``query``; last token → ``path``."""
+    usage = (
+        f"Usage: pipeline: {name} <{'> <'.join(known)}>"
+        + (f" (or {known[-1]}=…)" if known else "")
+    )
+    mapping: dict[str, str] = {
+        key: value for key, value in kwargs.items() if key in known
+    }
+    need_pos = [ph for ph in known if ph not in mapping]
+    if not need_pos:
+        if positional:
+            raise ValueError(
+                f"Pipeline {name!r} got unexpected extra args: {' '.join(positional)!r}. {usage}"
+            )
+        return mapping
+
+    # query (+ …) + path: last positional is path; earlier tokens join into query.
+    if "path" in need_pos and any(ph in _JOINABLE_PLACEHOLDERS for ph in need_pos):
+        if len(positional) < 2:
+            raise ValueError(f"Pipeline {name!r} needs more args. {usage}")
+        mapping["path"] = positional[-1]
+        positional = positional[:-1]
+        need_pos = [ph for ph in need_pos if ph != "path"]
+
+    if len(need_pos) == 1:
+        ph = need_pos[0]
+        if not positional:
+            raise ValueError(f"Pipeline {name!r} needs more args. {usage}")
+        if ph in _JOINABLE_PLACEHOLDERS:
+            mapping[ph] = " ".join(positional)
+            return mapping
+        if len(positional) > 1:
+            raise ValueError(
+                f"Pipeline {name!r} got unexpected extra args: {' '.join(positional[1:])!r}. {usage}"
+            )
+        mapping[ph] = positional[0]
+        return mapping
+
+    if len(positional) < len(need_pos):
+        raise ValueError(f"Pipeline {name!r} needs more args. {usage}")
+    if len(positional) > len(need_pos):
+        extra = " ".join(positional[len(need_pos) :])
+        raise ValueError(
+            f"Pipeline {name!r} got unexpected extra args: {extra!r}. {usage}"
+        )
+    for ph, value in zip(need_pos, positional, strict=True):
+        mapping[ph] = value
+    return mapping
 
 
 def _expand_named_pipeline(text: str) -> str:
@@ -207,41 +274,15 @@ def _expand_named_pipeline(text: str) -> str:
             if ph not in known:
                 known.append(ph)
     positional, kwargs = _split_recipe_params(tokens[1:], known)
+    global_mapping = _bind_recipe_args(name, known, positional, kwargs)
     expanded: list[str] = []
-    param_i = 0
-    global_mapping: dict[str, str] = {}
     for step_tpl in steps:
         if "{" in step_tpl:
-            # one placeholder per step: {skill}, {query}, {path}
             placeholders = re.findall(r"\{(\w+)\}", step_tpl)
-            mapping: dict[str, str] = {}
-            for ph in placeholders:
-                if ph in global_mapping:
-                    mapping[ph] = global_mapping[ph]
-                    continue
-                if ph in kwargs:
-                    mapping[ph] = kwargs[ph]
-                    global_mapping[ph] = kwargs[ph]
-                    continue
-                if param_i >= len(positional):
-                    raise ValueError(
-                        f"Pipeline {name!r} needs more args. "
-                        f"Usage: pipeline: {name} <{'> <'.join(known)}>"
-                        + (f" (or {known[-1]}=…)" if known else "")
-                    )
-                mapping[ph] = positional[param_i]
-                global_mapping[ph] = positional[param_i]
-                param_i += 1
+            mapping = {ph: global_mapping[ph] for ph in placeholders}
             expanded.append(step_tpl.format(**mapping))
         else:
             expanded.append(step_tpl)
-    if param_i < len(positional):
-        extra = " ".join(positional[param_i:])
-        raise ValueError(
-            f"Pipeline {name!r} got unexpected extra args: {extra!r}. "
-            f"Usage: pipeline: {name} <{'> <'.join(known)}>"
-            + (f" (or {known[-1]}=…)" if known else "")
-        )
     return " then ".join(expanded)
 
 
@@ -652,19 +693,32 @@ def format_pipeline_footer(result: PipelineResult, root: Path) -> str:
             "",
         ]
     )
-    lines.extend(
-        format_savings_lines(
-            baseline=baseline,
-            spent=total_spent,
-            saved=saved,
-            spent_note="sum of pipeline steps",
+    any_dry = any(not sr.executed for sr in result.steps)
+    if any_dry and not any(sr.executed for sr in result.steps):
+        # Pure dry-run: do not claim baseline−0 as "saved".
+        lines.extend(
+            [
+                "Saved vs naive Cursor chat",
+                f"  {BASELINE_LABEL}  ~{baseline:,}",
+                f"  Spent (MCP executor, LLM tokens): ~{total_spent:,}  (dry-run — steps not executed)",
+                "  Saved:             ~0  (dry-run; re-run with execute=true / --execute)",
+            ]
         )
-    )
+    else:
+        lines.extend(
+            format_savings_lines(
+                baseline=baseline,
+                spent=total_spent,
+                saved=saved,
+                spent_note="sum of pipeline steps",
+            )
+        )
     lines.extend(
         [
             "",
             "Note: Per-step baseline assumes a separate agent chat per step (rules+overhead each time).",
             "Pipeline total baseline = one agent chat for the full pipeline task.",
+            "Dry-run steps report saved=0 until execute=true / --execute.",
             "Agent wrapper (MCP + reply) still uses Cursor tokens beyond executor rows.",
         ]
     )

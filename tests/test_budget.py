@@ -134,7 +134,8 @@ def test_spent_hint_all_tiers() -> None:
     assert "ripgrep" in spent_hint("tool", 0, "rg")
     assert "script" in spent_hint("python", 0)
     assert "cheap LLM" in spent_hint("ollama", 100)
-    assert "docs/rag" in spent_hint("rag", 100)
+    assert "docs/rag chunks read" in spent_hint("rag", 100)
+    assert "no chunks counted" in spent_hint("rag", 0)
     assert "expensive LLM" in spent_hint("cursor", 100)
     assert spent_hint("unknown", 0) == ""
 
@@ -181,7 +182,7 @@ def test_format_tool_footer_rag_tier_alternatives_match_spent(
         rag_hits=5,
     )
     attach_text("rag footer", footer)
-    # Selected tier row must echo Spent, not RAG_READ_TOKENS (~1800) estimate.
+    # Selected tier row must echo Spent, not router RAG_READ_TOKENS_FALLBACK (~1800).
     assert "← this call" in footer
     rag_line = next(ln for ln in footer.splitlines() if "rag (docs/rag read)" in ln)
     assert "9,091" in rag_line and "← this call" in rag_line
