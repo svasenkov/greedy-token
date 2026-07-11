@@ -8,6 +8,36 @@ You work in **Cursor** — greedy-token sits next to the agent (CLI + MCP) so ev
 
 It routes each task to the **cheapest matching tier** (`tool` → `python` → `ollama` → `rag` → `cursor`; walk `TIER_ORDER`, best pattern score per tier). **Pipeline** chains multiple tiers in one call. Escalation to **Cursor agent chat** only when no cheaper route matches. Each response includes a **Greedy token** footer vs a naive full-context chat.
 
+[![greedy-token](https://svasenkov.github.io/greedy-token/readme/badge.svg)](https://svasenkov.github.io/greedy-token/reports/latest/dashboard/)
+
+<details>
+<summary><strong>Automated tests dashboard</strong> — live metrics + Allure 3 preview</summary>
+
+[![greedy-token stats](https://svasenkov.github.io/greedy-token/readme/stats.svg)](https://svasenkov.github.io/greedy-token/reports/latest/dashboard/)
+
+[![greedy-token metrics](https://svasenkov.github.io/greedy-token/readme/metrics-panel.svg)](https://svasenkov.github.io/greedy-token/reports/latest/dashboard/)
+
+<a href="https://svasenkov.github.io/greedy-token/reports/latest/dashboard/">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://svasenkov.github.io/greedy-token/readme/dashboard-preview-dark.png">
+    <img
+      src="https://svasenkov.github.io/greedy-token/readme/dashboard-preview.png"
+      alt="Allure 3 dashboard — pytest suite, status dynamics"
+      width="800"
+    />
+  </picture>
+</a>
+
+> Badges and dashboard PNG update after each CI run on `main` (Playwright screenshot of the Allure 3 dashboard).
+
+| Link | Description |
+|------|-------------|
+| [Dashboard](https://svasenkov.github.io/greedy-token/reports/latest/dashboard/) | MCP/CLI pytest + contract tests |
+| [Awesome](https://svasenkov.github.io/greedy-token/reports/latest/awesome/) | Drill-down by epic |
+| [CI workflow](https://github.com/svasenkov/greedy-token/actions/workflows/test.yml) | pytest + gh-pages publish |
+
+</details>
+
 ```
 In Cursor:  your task  →  greedy-token (MCP/CLI)
                  ↓

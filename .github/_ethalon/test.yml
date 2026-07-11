@@ -149,6 +149,8 @@ jobs:
         run: |
           mkdir -p pages/reports/${REPORT_ID}
           cp -r build/allure-report/. "pages/reports/${REPORT_ID}/"
+          rm -rf pages/reports/latest
+          cp -r "pages/reports/${REPORT_ID}" pages/reports/latest
           if [ -f history.jsonl ]; then
             cp history.jsonl pages/history.jsonl
           elif [ -f build/allure-report/history.jsonl ]; then
@@ -156,6 +158,40 @@ jobs:
           fi
           echo "${REPORT_ID}" > pages/latest-run-id.txt
           touch pages/.nojekyll
+
+      - name: Generate README dashboard assets
+        if: >-
+          always() &&
+          github.ref == 'refs/heads/main' &&
+          steps.allure-report.outcome == 'success' &&
+          hashFiles('build/allure-report/awesome/index.html') != ''
+        run: |
+          mkdir -p pages/readme
+          bash .github/scripts/generate-readme-badge.sh \
+            build/allure-results pages/readme main "#${{ github.run_number }}" \
+            "" "greedy-token" "pytest · MCP · Allure 3" ""
+
+      - name: Capture dashboard preview for README
+        if: >-
+          always() &&
+          github.ref == 'refs/heads/main' &&
+          steps.allure-report.outcome == 'success' &&
+          hashFiles('pages/reports/latest/dashboard/index.html') != ''
+        continue-on-error: true
+        run: |
+          mkdir -p pages/readme
+          npm install --no-save playwright@1.50.1
+          npx playwright install chromium --with-deps
+          npx --yes serve pages -l 8765 >/tmp/serve.log 2>&1 &
+          SERVE_PID=$!
+          for _ in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8765/reports/latest/dashboard/ >/dev/null && break
+            sleep 1
+          done
+          PREVIEW_URL="http://127.0.0.1:8765/reports/latest/dashboard/" \
+            PREVIEW_OUTPUT_DIR="pages/readme" \
+            node .github/scripts/capture-dashboard-preview.mjs
+          kill "${SERVE_PID}" || true
 
       - name: Upload GitHub Pages artifact
         if: always() && github.ref == 'refs/heads/main' && hashFiles('pages/reports/**/index.html') != ''

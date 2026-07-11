@@ -8,6 +8,36 @@
 
 Маршрутизирует задачу на **самый дешёвый подходящий tier** (`tool` → `python` → `ollama` → `rag` → `cursor`; обход `TIER_ORDER`, лучший score паттерна в tier). **Pipeline** — цепочка из нескольких tier’ов в одном вызове. **Cursor agent chat** — только если дешевле маршрута нет. В каждом ответе — footer **Greedy token** относительно наивного полного чата.
 
+[![greedy-token](https://svasenkov.github.io/greedy-token/readme/badge.svg)](https://svasenkov.github.io/greedy-token/reports/latest/dashboard/)
+
+<details>
+<summary><strong>Дашборд автотестов</strong> — живые метрики + превью Allure 3</summary>
+
+[![greedy-token stats](https://svasenkov.github.io/greedy-token/readme/stats.svg)](https://svasenkov.github.io/greedy-token/reports/latest/dashboard/)
+
+[![greedy-token metrics](https://svasenkov.github.io/greedy-token/readme/metrics-panel.svg)](https://svasenkov.github.io/greedy-token/reports/latest/dashboard/)
+
+<a href="https://svasenkov.github.io/greedy-token/reports/latest/dashboard/">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://svasenkov.github.io/greedy-token/readme/dashboard-preview-dark.png">
+    <img
+      src="https://svasenkov.github.io/greedy-token/readme/dashboard-preview.png"
+      alt="Дашборд Allure 3 — pytest, динамика статусов"
+      width="800"
+    />
+  </picture>
+</a>
+
+> Бейджи и PNG дашборда обновляются после каждого прогона CI на `main` (скриншот дашборда Allure 3 через Playwright).
+
+| Ссылка | Описание |
+|--------|----------|
+| [Dashboard](https://svasenkov.github.io/greedy-token/reports/latest/dashboard/) | pytest MCP/CLI + контрактные тесты |
+| [Awesome](https://svasenkov.github.io/greedy-token/reports/latest/awesome/) | Детализация по epic |
+| [CI workflow](https://github.com/svasenkov/greedy-token/actions/workflows/test.yml) | pytest + публикация gh-pages |
+
+</details>
+
 ```
 В Cursor:  задача  →  greedy-token (MCP/CLI)
                  ↓
