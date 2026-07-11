@@ -1,0 +1,1 @@
+{"id":"a513f7d36166ede3f8cf33068462626c","fullName":"tests.test_mcp_tools#test_mcp_rag_returns_hits_with_footer","name":"MCP RAG tool returns hits with Greedy token footer","status":"passed","testResultsByEnv":{"default":"a0339155907a83d724449dfedd17bd2c"}}

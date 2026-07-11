@@ -1,0 +1,1 @@
+{"id":"fd9ecb61e6e4e61635198cc5f0e8f425","fullName":"tests.test_code_search#test_search_code_directory_scope","name":"search_code scopes to directory path without mocking rg","status":"passed","testResultsByEnv":{"default":"1c10e387283f45b7b50d4b7296487b72"}}

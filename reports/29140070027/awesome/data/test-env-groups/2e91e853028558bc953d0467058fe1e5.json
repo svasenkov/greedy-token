@@ -1,0 +1,1 @@
+{"id":"2e91e853028558bc953d0467058fe1e5","fullName":"tests.test_cli_handlers#test_cmd_config_init","name":"cmd_config --init creates user config","status":"passed","testResultsByEnv":{"default":"bb6029c10d869d6889c69a24314bcaf6"}}

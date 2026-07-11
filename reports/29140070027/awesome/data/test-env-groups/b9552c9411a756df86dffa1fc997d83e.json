@@ -1,0 +1,1 @@
+{"id":"b9552c9411a756df86dffa1fc997d83e","fullName":"tests.test_mcp_tools#test_mcp_pipeline_dry_run_includes_footer","name":"MCP pipeline dry-run includes per-step Greedy token footer","status":"passed","testResultsByEnv":{"default":"315a0368b0ce02b838a47f044b4fb910"}}

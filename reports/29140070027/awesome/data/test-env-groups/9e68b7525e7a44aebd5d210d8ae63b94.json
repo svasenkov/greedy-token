@@ -1,0 +1,1 @@
+{"id":"9e68b7525e7a44aebd5d210d8ae63b94","fullName":"tests.test_settings#test_defaults_without_config","name":"Ollama settings return defaults when no config files","status":"passed","testResultsByEnv":{"default":"55dd7e837883ec72ef13058b2a67bd17"}}

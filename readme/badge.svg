@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="248" height="20" role="img" aria-label="greedy-token: 323 passed">
+  <title>greedy-token: 323 passed</title>
+  <linearGradient id="b" x2="0" y2="100%">
+    <stop offset="0" stop-color="#f8fafc" stop-opacity=".7"/>
+    <stop offset=".1" stop-color="#eef2f7" stop-opacity=".3"/>
+    <stop offset=".9" stop-color="#eef2f7" stop-opacity=".3"/>
+    <stop offset="1" stop-color="#f8fafc" stop-opacity=".7"/>
+  </linearGradient>
+  <mask id="m"><rect width="248" height="20" rx="3" fill="#fff"/></mask>
+  <g mask="url(#m)">
+    <rect width="120" height="20" fill="#0b4f6c"/>
+    <rect x="120" width="128" height="20" fill="#008a56"/>
+    <rect width="248" height="20" fill="url(#b)"/>
+  </g>
+  <g fill="#fff" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="11">
+    <text x="60" y="14" font-weight="600">greedy-token</text>
+    <text x="184" y="14">323 passed</text>
+  </g>
+</svg>

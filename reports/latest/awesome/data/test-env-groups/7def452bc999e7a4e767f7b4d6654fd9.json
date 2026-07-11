@@ -1,0 +1,1 @@
+{"id":"7def452bc999e7a4e767f7b4d6654fd9","fullName":"tests.test_cli_handlers#test_cmd_config_show_requires_workspace","name":"cmd_config show requires workspace when not --init","status":"passed","testResultsByEnv":{"default":"a1107b5135f8a78f8a5a44144db1764b"}}
