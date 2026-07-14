@@ -1,0 +1,43 @@
+# Prod preset — Ollama 7b + 14b + optional 32b (heavy off by default)
+# greedy-token config --init --preset prod-ollama-3
+# Enable ollama-heavy on server when VRAM allows: turned_on: true + ollama pull 32b
+
+llm:
+  policy: cheap_only
+  cheap:
+    default_id: fast
+    selection: auto
+    models:
+      - id: fast
+        turned_on: true
+        provider: ollama
+        url: http://127.0.0.1:11434
+        model: qwen2.5-coder:7b-instruct-q4_K_M
+        profiles: [tms-classify, tms-auth-probe, classify, compress]
+      - id: smart
+        turned_on: true
+        provider: ollama
+        url: http://127.0.0.1:11434
+        model: qwen2.5-coder:14b-instruct-q4_K_M
+        profiles: [tms-generate, generate, audit]
+      - id: ollama-heavy
+        turned_on: false
+        provider: ollama
+        url: http://127.0.0.1:11434
+        model: qwen2.5-coder:32b-instruct-q4_K_M
+        profiles: [architecture, complex-refactor, pipeline-fallback, crystallize-verify]
+  expensive:
+    opt_in: false
+    daily_cap_usd: 5
+    models:
+      - id: yandex-lite
+        turned_on: false
+        provider: yandex_gpt
+        model: yandexgpt-lite
+        profiles: [tms-generate-fallback, escalate]
+        cost_per_1m_usd: 7
+        api_key_env: YANDEX_GPT_API_KEY
+  escalation:
+    enabled: true
+    chain: [fast, smart, ollama-heavy, yandex-lite]
+    max_steps: 3

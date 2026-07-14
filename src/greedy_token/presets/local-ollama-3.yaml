@@ -1,0 +1,36 @@
+# Dev preset — local Ollama fast + smart + heavy (3 models)
+# greedy-token config --init --preset local-ollama-3
+# Requires: ollama pull qwen2.5-coder:32b-instruct-q4_K_M
+
+llm:
+  policy: auto
+  cheap:
+    default_id: ollama-fast
+    selection: auto
+    models:
+      - id: ollama-fast
+        turned_on: true
+        provider: ollama
+        url: http://localhost:11434
+        model: qwen2.5-coder:7b-instruct-q4_K_M
+        profiles: [classify, tms-classify, compress]
+      - id: ollama-smart
+        turned_on: true
+        provider: ollama
+        url: http://localhost:11434
+        model: qwen2.5-coder:14b-instruct-q4_K_M
+        profiles: [generate, audit, tms-generate]
+      - id: ollama-heavy
+        turned_on: true
+        provider: ollama
+        url: http://localhost:11434
+        model: qwen2.5-coder:32b-instruct-q4_K_M
+        profiles: [architecture, complex-refactor, pipeline-fallback, crystallize-verify]
+  expensive:
+    opt_in: false
+    daily_cap_usd: 5
+    models: []
+  escalation:
+    enabled: true
+    chain: [ollama-fast, ollama-smart, ollama-heavy]
+    max_steps: 3

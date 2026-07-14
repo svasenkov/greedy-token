@@ -1,0 +1,29 @@
+# Dev preset — local Ollama fast + smart, both turned on
+# greedy-token config --init --preset local-ollama
+
+llm:
+  policy: auto
+  cheap:
+    default_id: ollama-fast
+    selection: auto
+    models:
+      - id: ollama-fast
+        turned_on: true
+        provider: ollama
+        url: http://localhost:11434
+        model: qwen2.5-coder:7b-instruct-q4_K_M
+        profiles: [classify, tms-classify, compress]
+      - id: ollama-smart
+        turned_on: true
+        provider: ollama
+        url: http://localhost:11434
+        model: qwen2.5-coder:14b-instruct-q4_K_M
+        profiles: [generate, audit, tms-generate]
+  expensive:
+    opt_in: false
+    daily_cap_usd: 5
+    models: []
+  escalation:
+    enabled: true
+    chain: [ollama-fast, ollama-smart]
+    max_steps: 2
