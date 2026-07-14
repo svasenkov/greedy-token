@@ -98,6 +98,17 @@ def test_route_task_all_tiers_has_five_rows(minimal_workspace: Path) -> None:
         assert [t[0] for t in tiers] == ["tool", "python", "ollama", "rag", "cursor"]
 
 
+@allure.story("Shadow routes")
+@allure.title("Disabled shadow route does not execute script tier")
+def test_disabled_shadow_route_is_skipped(minimal_workspace: Path) -> None:
+    with allure.step("Route task matching provider balance shadow route"):
+        decision = route_task("provider balance", minimal_workspace)
+        attach_json("decision", {"target": decision.target, "route_id": decision.route_id})
+    with allure.step("Verify disabled shadow route is skipped"):
+        assert decision.route_id != "python-provider-balance"
+        assert decision.target == "cursor"
+
+
 @allure.story("Token estimate")
 @allure.title("Ollama available route reports non-zero est_tokens")
 @patch("greedy_token.router.ollama_available", return_value=True)

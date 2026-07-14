@@ -13,6 +13,7 @@ from greedy_token.usage import (
     aggregate_events,
     append_event,
     build_route_event,
+    build_script_override_event,
     format_report,
     load_events,
     logging_enabled,
@@ -81,6 +82,31 @@ def test_build_route_event_truncates_task(minimal_workspace: Path) -> None:
         assert event["task"].endswith("…")
         assert event["v"] == SCHEMA_VERSION
         assert "tier_scan" in event
+
+
+@allure.story("Override events")
+@allure.title("Script override event follows usage contract")
+def test_build_script_override_event_shape(minimal_workspace: Path) -> None:
+    with allure.step("Build script override event"):
+        event = build_script_override_event(
+            task="ssh check qaguru prod",
+            selected_tier="cursor",
+            previous_tier="python",
+            crystal_id="python-ssh-check",
+            root=minimal_workspace,
+            reason="user_reask",
+            window_sec=900,
+            tags={"project": "infra-home"},
+        )
+        attach_json("override event", event)
+    with allure.step("Verify override contract fields"):
+        assert event["event"] == "script_override"
+        assert event["selected_tier"] == "cursor"
+        assert event["previous_tier"] == "python"
+        assert event["crystal_id"] == "python-ssh-check"
+        assert event["billing"]["spent_est"] == 0
+        assert event["billing"]["saved_est"] == 0
+        assert event["meta"]["reason"] == "user_reask"
 
 
 @allure.story("Savings estimate")

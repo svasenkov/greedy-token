@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 from greedy_token.paths import find_workspace_root, load_routes_config
@@ -53,6 +54,21 @@ def _score_patterns(text: str, patterns: list[str]) -> tuple[float, list[str]]:
             matched.append(pat)
             score += 1.0 + min(len(p) / 20.0, 2.0)
     return score, matched
+
+
+def _route_active(route: dict) -> bool:
+    if route.get("enabled") is False:
+        return False
+    shadow_until = str(route.get("shadow_until") or "").strip()
+    if not shadow_until:
+        return True
+    try:
+        until = datetime.fromisoformat(shadow_until.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    if until.tzinfo is None:
+        until = until.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) >= until
 
 
 SEARCH_PREFIXES = (
@@ -292,6 +308,8 @@ def _best_in_tier(routes: list[dict], text: str, task: str, root: Path) -> Route
     best: RouteDecision | None = None
     best_score = 0.0
     for route in routes:
+        if not _route_active(route):
+            continue
         score, matched = _score_patterns(text, route.get("patterns", []))
         if score <= 0:
             continue

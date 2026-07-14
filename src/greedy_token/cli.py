@@ -25,6 +25,7 @@ from greedy_token.usage import (
     build_compress_event,
     build_route_event,
     build_script_event,
+    build_script_override_event,
     build_tier_scan,
     format_report,
     load_events,
@@ -346,6 +347,39 @@ def cmd_pipeline(args: argparse.Namespace) -> int:
     return 0 if result.all_ok else 1
 
 
+def _parse_tags(raw: str) -> dict[str, str]:
+    tags: dict[str, str] = {}
+    for part in raw.split(","):
+        part = part.strip()
+        if not part or "=" not in part:
+            continue
+        key, _, value = part.partition("=")
+        tags[key.strip()] = value.strip()
+    return tags
+
+
+def cmd_override(args: argparse.Namespace) -> int:
+    root = find_workspace_root()
+    event = build_script_override_event(
+        task=args.task,
+        selected_tier=args.selected_tier,
+        previous_tier=args.previous_tier,
+        crystal_id=args.crystal_id,
+        root=root,
+        reason=args.reason,
+        prior_usage_ts=args.prior_usage_ts,
+        window_sec=args.window_sec,
+        tags=_parse_tags(args.tags),
+    )
+    maybe_append_event(args, event)
+    if args.json:
+        print(json.dumps(event, ensure_ascii=False))
+    else:
+        crystal = args.crystal_id or "unknown"
+        print(f"script_override logged: {crystal} -> {args.selected_tier}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="greedy-token",
@@ -413,6 +447,23 @@ def build_parser() -> argparse.ArgumentParser:
     )
     rep.add_argument("--json", action="store_true", help="JSON output")
     rep.set_defaults(func=cmd_report)
+
+    over = sub.add_parser("override", help="Log a script_override telemetry event")
+    over.add_argument("crystal_id", help="Route / crystal id being overridden")
+    over.add_argument("task", help="Retry task text")
+    over.add_argument("--selected-tier", default="cursor", help="Retry tier (default: cursor)")
+    over.add_argument("--previous-tier", default="python", help="Prior tier (default: python)")
+    over.add_argument(
+        "--reason",
+        default="manual",
+        choices=("user_reask", "agent_fallback", "smoke_fail", "manual"),
+        help="Override reason",
+    )
+    over.add_argument("--prior-usage-ts", default=None, help="Timestamp of prior script hit")
+    over.add_argument("--window-sec", type=int, default=900, help="Attribution window seconds")
+    over.add_argument("--tags", default="", help="Telemetry tags key=value,key=value")
+    over.add_argument("--json", action="store_true", help="JSON output")
+    over.set_defaults(func=cmd_override)
 
     cfg = sub.add_parser("config", help="Show or init cheap LLM settings (Ollama / OpenAI-compatible)")
     cfg.add_argument("--init", action="store_true", help="Create ~/.greedy-token/config.yaml")

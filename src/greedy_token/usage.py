@@ -13,7 +13,7 @@ from greedy_token.settings import get_ollama_settings
 from greedy_token.tokens import count_tokens
 from greedy_token.wrappers import WRAPPERS
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 TASK_MAX_LEN = 500
 DEFAULT_LOG = Path.home() / ".greedy-token" / "usage.jsonl"
 DEFAULT_MAX_LOG_BYTES = 5 * 1024 * 1024
@@ -166,6 +166,50 @@ def build_script_event(
         event["duration_ms"] = duration_ms
     if executed is not None:
         event["executor"]["executed"] = executed
+    return event
+
+
+def build_script_override_event(
+    *,
+    task: str,
+    selected_tier: str,
+    previous_tier: str,
+    crystal_id: str | None = None,
+    root: Path | None = None,
+    reason: str = "manual",
+    prior_usage_ts: str | None = None,
+    window_sec: int | None = None,
+    tags: dict[str, str] | None = None,
+) -> dict:
+    event: dict = {
+        "v": SCHEMA_VERSION,
+        "ts": _utc_now_iso(),
+        "event": "script_override",
+        "cmd": "override",
+        "task": _truncate_task(task),
+        "task_normalized": _truncate_task(task.lower()),
+        "root": str(root) if root else os.environ.get("GREEDY_TOKEN_ROOT", ""),
+        "selected_tier": selected_tier,
+        "previous_tier": previous_tier,
+        "est_tokens": 0,
+        "cursor_baseline": 0,
+        "cursor_saved": 0,
+        "billing": {
+            "spent_est": 0,
+            "saved_est": 0,
+            "note": "override — prior script hit rejected by user/agent",
+        },
+        "meta": {"reason": reason},
+    }
+    if crystal_id:
+        event["crystal_id"] = crystal_id
+        event["route_id"] = crystal_id
+    if prior_usage_ts:
+        event["meta"]["prior_usage_ts"] = prior_usage_ts
+    if window_sec is not None:
+        event["meta"]["window_sec"] = window_sec
+    if tags:
+        event["tags"] = dict(tags)
     return event
 
 

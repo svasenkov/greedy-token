@@ -15,6 +15,12 @@ routes:
       - where is
       - locate
       - look for
+      - найди
+      - найти
+      - где лежит
+      - где находится
+      - где файл
+      - покажи где
     note: "0 tokens — ripgrep before RAG/Cursor"
     globs:
       - "!.git/**"
@@ -54,16 +60,17 @@ routes:
     command: ./scripts/migrate/phase1-rsync.sh
     note: "0 tokens — shell rsync"
 
-  - id: python-meta-sync
+  - id: python-meta-sync-check
     target: python
     read_only: true
     patterns:
       - check-meta-sync
       - meta sync
       - phase-manifest
+      - phase manifest drift
       - skills-map sync
-    command: ./scripts/check-meta-sync.sh
-    note: "Meta validation without LLM"
+    command: python scripts/meta-sync-check.py
+    note: "meta_sync_clean gate — crystallized script tier, 0 LLM"
 
   - id: python-gen-env
     target: python
@@ -74,6 +81,90 @@ routes:
       - properties sync script
     command: python stacks/java-spring/scripts/gen-env-configs.py
     note: "Deterministic config generation"
+
+  - id: python-openapi-diff
+    target: python
+    read_only: true
+    patterns:
+      - openapi diff
+      - contract drift
+      - stacks/_contract
+    command: python scripts/openapi-diff.py
+    note: "contract_lint gate — crystallized script tier, 0 LLM"
+
+  - id: python-java-matrix-plan
+    target: python
+    read_only: true
+    patterns:
+      - java matrix fanout
+      - java matrix plan
+      - selenium variant plan
+    command: python scripts/java-matrix-plan.py
+    note: "java-matrix-fanout plan — crystallized script tier, 0 LLM"
+
+  - id: python-sonar-gate-wait
+    target: python
+    read_only: true
+    patterns:
+      - sonar gate
+      - quality gate wait
+      - sonar.qa.guru
+    command: python scripts/sonar-gate-wait.py
+    note: "sonar_quality_gate — crystallized script tier, 0 LLM"
+
+  - id: python-crystallize-report
+    target: python
+    read_only: true
+    patterns:
+      - crystallize report
+      - crystallize candidates
+      - coverage report script
+    command: python scripts/crystallize-report.py
+    note: "script-crystallize candidates from usage.jsonl, 0 LLM"
+
+  - id: python-configurator-boolean-audit
+    target: python
+    read_only: true
+    patterns:
+      - meta-audit configurator-boolean
+      - configurator boolean audit
+      - plaque-field-seg drift
+    command: python scripts/configurator-boolean-audit.py
+    note: "configurator-boolean canon drift gate — crystallized script tier, 0 LLM"
+
+  - id: python-ssh-check
+    target: python
+    read_only: true
+    patterns:
+      - ssh check
+      - ssh smoke
+      - ssh access canon
+      - qaguru ssh
+      - infra ssh probe
+    command: python scripts/infra-ssh/check.py
+    note: "infra SSH smoke — crystallized script tier, 0 LLM"
+
+  - id: python-ollama-health
+    target: python
+    read_only: true
+    patterns:
+      - ollama doctor
+      - ollama health
+      - local model setup
+      - ollama preset
+    command: python scripts/ollama-health.py
+    note: "Ollama health / presets — crystallized script tier"
+
+  - id: python-greedy-context-smoke
+    target: python
+    read_only: true
+    patterns:
+      - context smoke
+      - greedy context smoke
+      - cheap tier smoke
+      - context quality matrix
+    command: python scripts/greedy-context-smoke.py
+    note: "Cheap-tier context smoke matrix — crystallized script tier, 0 LLM"
 
   - id: ollama-inventory
     target: ollama
@@ -96,6 +187,19 @@ routes:
       - review skill md
     command: ./scripts/ollama/audit-skill.sh
     note: "Skill quality audit — Ollama stdout-only, not Cursor"
+
+  - id: rag-ru-lookup
+    target: rag
+    patterns:
+      - что такое
+      - объясни
+      - расскажи
+      - как работает
+      - для чего
+      - что значит
+      - в чём разница
+    domains: [config, testing, stacks, analytics]
+    note: "RU Q&A — docs/rag lookup before full Agent context"
 
   - id: rag-config-keys
     target: rag
@@ -148,6 +252,60 @@ routes:
       - flows/login
     domains: [stacks]
     note: "stacks/_contract + docs/rag/stacks/"
+
+  - id: python-resolve-testops-project
+    target: python
+    read_only: true
+    patterns:
+      - resolve testops project
+      - resolve_testops_project
+      - testops project context
+    command: python scripts/resolve_testops_project.py
+    note: "TMS automator — resolve TestOps project/workflow (consumer repo script)"
+
+  - id: python-sync-testops-layer
+    target: python
+    read_only: true
+    patterns:
+      - sync testops layer
+      - sync_testops_layer_mappings
+      - testops layer mapping
+    command: python scripts/sync_testops_layer_mappings.py
+    note: "TMS automator — sync Test Layer mappings"
+
+  - id: python-sync-testops-component
+    target: python
+    read_only: true
+    patterns:
+      - sync testops component
+      - sync_testops_component_mappings
+      - testops component mapping
+    command: python scripts/sync_testops_component_mappings.py
+    note: "TMS automator — sync Component mappings"
+
+  - id: python-auth-storage-probe
+    target: python
+    read_only: true
+    patterns:
+      - auth storage probe
+      - auth_storage_probe
+      - tms auth probe
+      - testops auth storage
+    command: python scripts/auth_storage_probe.py
+    note: "TMS automator — crystallized auth/session probe (script tier)"
+
+  # shadow until 2026-07-22 — enabled false; promote after golden green
+  - id: python-provider-balance
+    target: python
+    read_only: true
+    enabled: false
+    shadow_until: "2026-07-22T00:00:00Z"
+    patterns:
+      - provider balance
+      - balance analyzer
+      - infra burn
+    command: python scripts/infra/provider_balance.py
+    note: "Provider balance analyzer — shadow crystallize, 0 LLM when promoted"
 
   - id: cursor-wiring
     target: cursor

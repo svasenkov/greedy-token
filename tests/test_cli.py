@@ -70,3 +70,32 @@ def test_cli_route_tool(minimal_workspace) -> None:
     with allure.step("Verify route recommends tool tier"):
         assert proc.returncode == 0
         assert "TOOL" in proc.stdout or "tool" in proc.stdout.lower()
+
+
+@allure.story("Override")
+@allure.title("CLI override emits script_override JSON")
+def test_cli_override_json(minimal_workspace) -> None:
+    with allure.step("Run greedy-token override in no-log JSON mode"):
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "greedy_token",
+                "--no-log",
+                "override",
+                "python-ssh-check",
+                "ssh check qaguru prod",
+                "--reason",
+                "user_reask",
+                "--json",
+            ],
+            capture_output=True,
+            text=True,
+            env={**__import__("os").environ, "GREEDY_TOKEN_ROOT": str(minimal_workspace)},
+        )
+        attach_text("stdout", proc.stdout)
+        attach_text("stderr", proc.stderr or "")
+    with allure.step("Verify override JSON contract"):
+        assert proc.returncode == 0
+        assert '"event": "script_override"' in proc.stdout
+        assert '"crystal_id": "python-ssh-check"' in proc.stdout
