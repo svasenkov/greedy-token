@@ -1,6 +1,6 @@
 # Cut checklist — greedy-token v0.6.0
 
-**Status:** RELEASE-READY (phase E)  
+**Status:** RELEASED — tag `v0.6.0` published 2026-07-15  
 **Nested HEAD:** commit after `release-gate.sh 0.6.0` (396 passed)  
 **Do not run tag/push/publish without an explicit user command.**
 
