@@ -5,6 +5,24 @@
  */
 (function () {
   const FUNNEL_TOP_TO_BOTTOM = ["manual", "e2e", "api", "integration", "component", "unit"];
+  const PALETTE = {
+    light: {
+      unit: "#94a3b8",
+      component: "#2563eb",
+      integration: "#0891b2",
+      api: "#7c3aed",
+      e2e: "#d97706",
+      manual: "#ea580c",
+    },
+    dark: {
+      unit: "#64748b",
+      component: "#3b82f6",
+      integration: "#06b6d4",
+      api: "#8b5cf6",
+      e2e: "#f59e0b",
+      manual: "#f97316",
+    },
+  };
 
   function findPyramidWidget(root) {
     return [...root.querySelectorAll('[class*="styles_widget"]')].find((el) =>
@@ -81,10 +99,21 @@
     return shapeEntries.map(() => null);
   }
 
+  function currentTheme() {
+    return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+  }
+
+  function colorForLayer(layer) {
+    const cssVar = getComputedStyle(document.documentElement)
+      .getPropertyValue(`--layer-${layer}`)
+      .trim();
+    return cssVar || PALETTE[currentTheme()][layer] || PALETTE.light[layer];
+  }
+
   function setShapeFill(shape, layer) {
-    const cssColor = `var(--layer-${layer})`;
-    shape.setAttribute("fill", cssColor);
-    shape.style.setProperty("fill", cssColor, "important");
+    const color = colorForLayer(layer);
+    shape.setAttribute("fill", color);
+    shape.style.setProperty("fill", color, "important");
     shape.setAttribute("data-pyramid-layer", layer);
   }
 

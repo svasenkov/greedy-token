@@ -125,14 +125,18 @@ def test_overrides_css_defines_layer_vars() -> None:
 
 
 @allure.story("Override script")
-@allure.title("dashboard-overrides.js paints via var(--layer-*) not positional slice fallback")
+@allure.title("dashboard-overrides.js paints SVG with resolved colors, not raw CSS vars")
 def test_overrides_js_uses_css_vars_and_name_pairing() -> None:
     js = OVERRIDES_JS.read_text(encoding="utf-8")
     attach_text("overrides js markers", "checked")
     with allure.step("Reject regressive patterns"):
-        assert "var(--layer-" in js
+        assert "--layer-${layer}" in js
+        assert "getComputedStyle(document.documentElement)" in js
+        assert "const PALETTE" in js
         assert "data-pyramid-layer" in js
         assert "FALLBACK_LAYER_ORDER.slice" not in js
+        assert "setAttribute(\"fill\", cssColor)" not in js
+        assert "setProperty(\"fill\", cssColor" not in js
         # Must not assign Allure's single primary fill as the paint source.
         assert 'fill", "var(--color-intent-primary-bg)' not in js
         assert "setProperty(\"fill\", \"var(--color-intent-primary-bg)" not in js
@@ -190,6 +194,7 @@ def test_overrides_js_hex_matches_ssot_module() -> None:
                     missing.append(f"{theme}/{layer}={hex_color}")
         attach_json("missing from css", missing)
         assert not missing, missing
-    with allure.step("Override script documents CSS var remapping"):
-        assert "var(--layer-" in js
+    with allure.step("Override script keeps CSS var + hex fallback remapping"):
+        assert "--layer-${layer}" in js
+        assert "PALETTE" in js
         assert "pairShapesToLayers" in js
