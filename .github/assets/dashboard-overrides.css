@@ -1,7 +1,8 @@
 /* Injected into Allure 3 dashboard/awesome (prepare-allure-pages-colors.sh).
  * Palette A — SSOT with design-system tokens.css --layer-* and
  * allure/pyramid-layer-colors.mjs. Allure paints all active bands with
- * one --color-intent-primary-bg; JS sets fill to var(--layer-<name>). */
+ * one --color-intent-primary-bg; JS resolves --layer-* to hex (SVG fill
+ * with raw var(--layer-*) / unknown layer keys renders black). */
 
 :root {
   color-scheme: light;

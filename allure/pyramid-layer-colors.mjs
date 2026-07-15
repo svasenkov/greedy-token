@@ -66,6 +66,13 @@ export function colorForLayer(layer, theme) {
 export function pairShapesToLayers(shapes, labels) {
   if (!shapes.length) return [];
 
+  // Full pyramid: shapes are sorted top→bottom; funnel order is deterministic.
+  // Prefer this over label Y pairing — Allure concatenates tspans and can
+  // poison labels (e.g. "manualNo tests") before normalizeLayer runs in JS.
+  if (shapes.length === PYRAMID_FUNNEL_TOP_TO_BOTTOM.length) {
+    return [...PYRAMID_FUNNEL_TOP_TO_BOTTOM];
+  }
+
   if (labels.length === shapes.length) {
     const sorted = [...labels].sort((a, b) => a.y - b.y);
     return sorted.map((entry) => entry.layer);
@@ -84,11 +91,6 @@ export function pairShapesToLayers(shapes, labels) {
       }
       return best;
     });
-  }
-
-  // Labels missing (Allure DOM change): only safe when full 6-band pyramid.
-  if (shapes.length === PYRAMID_FUNNEL_TOP_TO_BOTTOM.length) {
-    return [...PYRAMID_FUNNEL_TOP_TO_BOTTOM];
   }
 
   return shapes.map(() => null);
