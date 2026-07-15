@@ -1,0 +1,55 @@
+name: Pages root
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - pages-templates/root-index.html
+      - .github/workflows/pages-root.yml
+      - .github/_ethalon/pages-root.yml
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy-root:
+    name: deploy gh-pages root index
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout gh-pages site
+        uses: actions/checkout@v7
+        with:
+          ref: gh-pages
+          path: pages
+
+      - name: Checkout root index template
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            pages-templates/root-index.html
+          sparse-checkout-cone-mode: false
+          path: src
+
+      - name: Install root index redirect
+        run: |
+          cp src/pages-templates/root-index.html pages/index.html
+          touch pages/.nojekyll
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: pages
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
