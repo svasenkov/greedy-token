@@ -159,6 +159,9 @@ jobs:
           echo "${REPORT_ID}" > pages/latest-run-id.txt
           cp pages-templates/root-index.html pages/index.html
           touch pages/.nojekyll
+          # Palette A: Allure paints all active pyramid bands with one primary color.
+          bash .github/scripts/prepare-allure-pages-colors.sh pages "pages/reports/${REPORT_ID}"
+          bash .github/scripts/prepare-allure-pages-colors.sh pages pages/reports/latest
 
       - name: Generate README dashboard assets
         if: >-
@@ -230,7 +233,7 @@ jobs:
           fi
           echo "- TestOps project: [5276](https://allure.autotests.cloud/project/5276)" >> "$GITHUB_STEP_SUMMARY"
           if [ "${QUALITY_GATE_EXIT:-}" = "0" ]; then
-            echo "- Allure 3 quality gate: passed (\`maxFailures: 0\`, \`minTestsCount: 396\`)" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Allure 3 quality gate: passed (\`maxFailures: 0\`, \`minTestsCount: 403\`)" >> "$GITHUB_STEP_SUMMARY"
           elif [ -n "${QUALITY_GATE_EXIT:-}" ]; then
             echo "- Allure 3 quality gate: **failed** (exit ${QUALITY_GATE_EXIT})" >> "$GITHUB_STEP_SUMMARY"
           fi

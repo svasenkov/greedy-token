@@ -16,6 +16,7 @@ LAYER_BY_MODULE: dict[str, str] = {
     "test_mcp_icon": "unit",
     "test_paths": "unit",
     "test_pyramid_layers": "unit",
+    "test_pyramid_layer_colors": "unit",
     "test_rag_tokens": "unit",
     "test_router": "unit",
     "test_settings": "unit",
