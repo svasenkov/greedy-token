@@ -61,6 +61,13 @@ def _is_consumer_script(route: dict) -> bool:
     return "consumer repo" in note
 
 
+def _is_package_only_root(root: Path) -> bool:
+    """True when linting the published package tree (no monorepo docs/)."""
+    return (root / "src" / "greedy_token").is_dir() and not (
+        root / "docs" / "phase-manifest.json"
+    ).is_file()
+
+
 def pattern_violations(pattern: str) -> list[str]:
     p = (pattern or "").strip().lower()
     if not p:
@@ -117,7 +124,8 @@ def lint_routes(
                     full.relative_to(root.resolve())
                 except ValueError:
                     full = root / script
-                if not full.is_file():
+                if not full.is_file() and not _is_package_only_root(root):
+                    # Package CI: routes point at monorepo scripts that are not shipped.
                     violations.append(
                         {
                             "id": rid,

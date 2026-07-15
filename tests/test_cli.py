@@ -145,13 +145,13 @@ def test_cli_scripts_lint(minimal_workspace) -> None:
     with allure.step("Run greedy-token scripts lint against package routes"):
         import os
 
-        real_root = os.environ.get("GREEDY_TOKEN_ROOT") or str(
-            minimal_workspace.parents[3] if len(minimal_workspace.parents) > 3 else minimal_workspace
-        )
-        # Prefer monorepo root when discoverable from this nested package.
-        monorepo = Path(__file__).resolve().parents[4]
-        if (monorepo / "docs" / "phase-manifest.json").is_file():
-            real_root = str(monorepo)
+        package_root = Path(__file__).resolve().parents[1]
+        real_root = str(package_root)
+        # Prefer monorepo root when nested (scripts live outside the package).
+        for candidate in Path(__file__).resolve().parents:
+            if (candidate / "docs" / "phase-manifest.json").is_file():
+                real_root = str(candidate)
+                break
         proc = subprocess.run(
             [sys.executable, "-m", "greedy_token", "--no-log", "scripts", "lint"],
             capture_output=True,
