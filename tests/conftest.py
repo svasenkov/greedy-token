@@ -75,9 +75,12 @@ def minimal_workspace(tmp_path: Path) -> Path:
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "phase-manifest.json").write_text("{}", encoding="utf-8")
     (tmp_path / "scripts").mkdir()
-    meta_sync = tmp_path / "scripts" / "check-meta-sync.sh"
-    meta_sync.write_text("#!/bin/sh\necho check-meta-sync-ok\n", encoding="utf-8")
+    meta_sync = tmp_path / "scripts" / "meta-sync-check.py"
+    meta_sync.write_text("#!/usr/bin/env python\nprint('meta-sync-check-ok')\n", encoding="utf-8")
     meta_sync.chmod(0o755)
+    bool_audit = tmp_path / "scripts" / "configurator-boolean-audit.py"
+    bool_audit.write_text('#!/usr/bin/env python\nprint(\'{"ok": true}\')\n', encoding="utf-8")
+    bool_audit.chmod(0o755)
     (tmp_path / "stacks").mkdir()
     (tmp_path / "generators").mkdir()
     ollama_scripts = tmp_path / "scripts" / "ollama"
@@ -144,8 +147,24 @@ def _clear_cheap_llm_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "CHEAP_LLM_PROVIDER",
         "CHEAP_LLM_URL",
         "CHEAP_LLM_MODEL",
+        "CHEAP_LLM_API_KEY",
+        "GREEDY_LLM_MODEL_ID",
+        "GREEDY_LLM_PROFILE",
+        "GREEDY_LLM_TIER",
+        "GREEDY_EXPENSIVE_LLM",
+        "GREEDY_ALLOW_EXPENSIVE",
+        "GREEDY_TOKEN_FOOTER_STYLE",
     ):
         monkeypatch.delenv(key, raising=False)
+
+
+@allure.title("Isolate user config from developer HOME")
+@pytest.fixture(autouse=True)
+def _isolate_user_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Prevent ~/.greedy-token/config.yaml on the dev machine from affecting unit tests."""
+    missing = tmp_path / "no-user-greedy-token-config.yaml"
+    monkeypatch.setattr("greedy_token.settings.user_config_path", lambda: missing)
+    monkeypatch.setattr("greedy_token.model_select.user_config_path", lambda: missing)
 
 
 @allure.title("Set GREEDY_TOKEN_ROOT")

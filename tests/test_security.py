@@ -69,7 +69,7 @@ def test_resolve_wrapper_command_quotes_root_and_args(tmp_path: Path) -> None:
     root = tmp_path / "space root"
     script_dir = root / "scripts"
     script_dir.mkdir(parents=True)
-    (script_dir / "check-meta-sync.sh").write_text("#!/bin/sh\necho ok\n", encoding="utf-8")
+    (script_dir / "meta-sync-check.py").write_text("#!/usr/bin/env python\nprint('ok')\n", encoding="utf-8")
 
     with allure.step("Resolve wrapper command with spaced root and args"):
         cmd = resolve_wrapper_command("check-meta-sync", root, extra_args="x; id")

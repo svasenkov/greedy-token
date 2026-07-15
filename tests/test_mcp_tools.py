@@ -26,7 +26,8 @@ pytestmark = [
 
 def _assert_greedy_token_footer(text: str) -> None:
     assert "Greedy token" in text
-    assert "Saved vs naive Cursor chat" in text
+    assert "saved **~" in text
+    assert "> spent ~" in text
 
 
 @allure.story("Route tool")
@@ -48,7 +49,7 @@ def test_mcp_search_finds_match_in_workspace(minimal_workspace: Path) -> None:
         attach_text("search response", out)
     with allure.step("Verify match and Greedy token footer"):
         assert "baseUrl" in out
-        assert "ripgrep on disk — 0 LLM spend" in out
+        assert "free tier" in out
         _assert_greedy_token_footer(out)
 
 
@@ -116,11 +117,13 @@ def test_mcp_pipeline_execute_false_by_default(minimal_workspace: Path) -> None:
 @allure.story("Usage tool")
 @allure.title("MCP usage tool aggregates log events and session totals")
 def test_mcp_usage_aggregates_log(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from datetime import UTC, datetime
+
     log_file = tmp_path / "usage.jsonl"
     event = {
         "v": SCHEMA_VERSION,
         "cmd": "route",
-        "ts": "2026-07-07T12:00:00Z",
+        "ts": datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
         "selected_tier": "tool",
         "est_tokens": 0,
         "cursor_baseline": 9600,

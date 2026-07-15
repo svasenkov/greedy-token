@@ -36,7 +36,7 @@ greedy-token config --list-presets
 
 `local-ollama-3` requires: `ollama pull qwen2.5-coder:32b-instruct-q4_K_M`
 
-## Executors (v0.5.9)
+## Executors (v0.5.9+)
 
 | Provider key | Executor | Base URL | API key env |
 |--------------|----------|----------|-------------|

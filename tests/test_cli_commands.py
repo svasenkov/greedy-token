@@ -229,7 +229,7 @@ def test_cli_scripts_run_execute_check_meta_sync(minimal_workspace: Path) -> Non
         attach_text("stderr", proc.stderr or "")
     with allure.step("Verify wrapper script output"):
         assert proc.returncode == 0
-        assert "check-meta-sync-ok" in proc.stdout
+        assert "meta-sync-check-ok" in proc.stdout
 
 
 @allure.story("Compress")

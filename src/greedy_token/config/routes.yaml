@@ -271,7 +271,7 @@ routes:
       - sync_testops_layer_mappings
       - testops layer mapping
     command: python scripts/sync_testops_layer_mappings.py
-    note: "TMS automator — sync Test Layer mappings"
+    note: "TMS automator — sync Test Layer mappings (consumer repo script)"
 
   - id: python-sync-testops-component
     target: python
@@ -281,7 +281,7 @@ routes:
       - sync_testops_component_mappings
       - testops component mapping
     command: python scripts/sync_testops_component_mappings.py
-    note: "TMS automator — sync Component mappings"
+    note: "TMS automator — sync Component mappings (consumer repo script)"
 
   - id: python-auth-storage-probe
     target: python

@@ -10,6 +10,8 @@ from typing import Any, Literal
 import yaml
 
 CheapLlmProvider = Literal["ollama", "openai_compat"]
+FooterStyle = Literal["compact", "markdown", "full"]
+DEFAULT_FOOTER_STYLE: FooterStyle = "compact"
 
 DEFAULT_CHEAP_LLM_PROVIDER: CheapLlmProvider = "ollama"
 DEFAULT_OLLAMA_URL = "http://localhost:11434"
@@ -36,6 +38,28 @@ class OllamaSettings:
     source: str
 
 
+@dataclass(frozen=True)
+class FooterSettings:
+    style: FooterStyle
+    source: str
+
+
+SearchContextMode = Literal["none", "snippet", "file"]
+DEFAULT_SEARCH_CONTEXT: SearchContextMode = "snippet"
+DEFAULT_MAX_CONTEXT_TOKENS = 2000
+DEFAULT_MAX_SNIPPET_FILES = 3
+DEFAULT_CONTEXT_LINES = 15
+
+
+@dataclass(frozen=True)
+class SearchSettings:
+    context: SearchContextMode
+    max_context_tokens: int
+    max_snippet_files: int
+    context_lines: int
+    source: str
+
+
 def user_config_path() -> Path:
     return Path.home() / ".greedy-token" / "config.yaml"
 
@@ -59,6 +83,15 @@ def _read_yaml(path: Path) -> dict[str, Any]:
 def _section(cfg: dict[str, Any], name: str) -> dict[str, Any]:
     section = cfg.get(name)
     return section if isinstance(section, dict) else {}
+
+
+def _normalize_footer_style(value: str | None) -> FooterStyle | None:
+    if not value:
+        return None
+    normalized = value.strip().lower()
+    if normalized in ("compact", "markdown", "full"):
+        return normalized  # type: ignore[return-value]
+    return None
 
 
 def _normalize_provider(value: str | None) -> CheapLlmProvider | None:
@@ -163,7 +196,30 @@ def _resolve_cheap_llm(
     )
 
 
-def get_cheap_llm_settings(root: Path | None = None) -> CheapLlmSettings:
+def _resolve_footer_style(
+    *,
+    user_cfg: dict[str, Any],
+    workspace_cfg: dict[str, Any],
+) -> FooterSettings:
+    style: FooterStyle = DEFAULT_FOOTER_STYLE
+    source = "default"
+
+    for level, cfg in (("user", user_cfg), ("workspace", workspace_cfg)):
+        footer = _section(cfg, "footer")
+        next_style = _normalize_footer_style(footer.get("style"))
+        if next_style:
+            style = next_style
+            source = level
+
+    env_style = _normalize_footer_style(os.environ.get("GREEDY_TOKEN_FOOTER_STYLE", ""))
+    if env_style:
+        style = env_style
+        source = "env"
+
+    return FooterSettings(style=style, source=source)
+
+
+def get_footer_settings(root: Path | None = None) -> FooterSettings:
     user_cfg = _read_yaml(user_config_path())
     workspace_cfg: dict[str, Any] = {}
     if root is not None:
@@ -175,7 +231,119 @@ def get_cheap_llm_settings(root: Path | None = None) -> CheapLlmSettings:
             workspace_cfg = _read_yaml(workspace_config_path(find_workspace_root()))
         except SystemExit:
             pass
-    return _resolve_cheap_llm(user_cfg=user_cfg, workspace_cfg=workspace_cfg, root=root)
+    return _resolve_footer_style(user_cfg=user_cfg, workspace_cfg=workspace_cfg)
+
+
+def _normalize_search_context(value: str | None) -> SearchContextMode | None:
+    if not value:
+        return None
+    normalized = value.strip().lower()
+    if normalized in ("none", "snippet", "file"):
+        return normalized  # type: ignore[return-value]
+    return None
+
+
+def _resolve_search_settings(
+    *,
+    user_cfg: dict[str, Any],
+    workspace_cfg: dict[str, Any],
+) -> SearchSettings:
+    context: SearchContextMode = DEFAULT_SEARCH_CONTEXT
+    max_tokens = DEFAULT_MAX_CONTEXT_TOKENS
+    max_files = DEFAULT_MAX_SNIPPET_FILES
+    context_lines = DEFAULT_CONTEXT_LINES
+    source = "default"
+
+    for level, cfg in (("user", user_cfg), ("workspace", workspace_cfg)):
+        section = _section(cfg, "search")
+        next_ctx = _normalize_search_context(
+            str(section["context"]) if section.get("context") is not None else None
+        )
+        if next_ctx:
+            context = next_ctx
+            source = level
+        if section.get("max_context_tokens") is not None:
+            try:
+                max_tokens = max(200, int(section["max_context_tokens"]))
+                source = level
+            except (TypeError, ValueError):
+                pass
+        if section.get("max_snippet_files") is not None:
+            try:
+                max_files = max(1, min(10, int(section["max_snippet_files"])))
+                source = level
+            except (TypeError, ValueError):
+                pass
+        if section.get("context_lines") is not None:
+            try:
+                context_lines = max(3, min(80, int(section["context_lines"])))
+                source = level
+            except (TypeError, ValueError):
+                pass
+
+    env_ctx = _normalize_search_context(os.environ.get("GREEDY_TOKEN_SEARCH_CONTEXT", ""))
+    if env_ctx:
+        context = env_ctx
+        source = "env"
+    if os.environ.get("GREEDY_TOKEN_MAX_CONTEXT_TOKENS", "").strip():
+        try:
+            max_tokens = max(200, int(os.environ["GREEDY_TOKEN_MAX_CONTEXT_TOKENS"]))
+            source = "env"
+        except ValueError:
+            pass
+
+    return SearchSettings(
+        context=context,
+        max_context_tokens=max_tokens,
+        max_snippet_files=max_files,
+        context_lines=context_lines,
+        source=source,
+    )
+
+
+def get_search_settings(root: Path | None = None) -> SearchSettings:
+    user_cfg = _read_yaml(user_config_path())
+    workspace_cfg: dict[str, Any] = {}
+    if root is not None:
+        workspace_cfg = _read_yaml(workspace_config_path(root))
+    else:
+        try:
+            from greedy_token.paths import find_workspace_root
+
+            workspace_cfg = _read_yaml(workspace_config_path(find_workspace_root()))
+        except SystemExit:
+            pass
+    return _resolve_search_settings(user_cfg=user_cfg, workspace_cfg=workspace_cfg)
+
+
+def get_cheap_llm_settings(root: Path | None = None) -> CheapLlmSettings:
+    """Resolved default cheap model (legacy API — delegates to model registry when configured)."""
+    user_cfg = _read_yaml(user_config_path())
+    workspace_cfg: dict[str, Any] = {}
+    resolved_root = root
+    if resolved_root is None:
+        try:
+            from greedy_token.paths import find_workspace_root
+
+            resolved_root = find_workspace_root()
+        except SystemExit:
+            resolved_root = None
+    if resolved_root is not None:
+        workspace_cfg = _read_yaml(workspace_config_path(resolved_root))
+
+    if not (_section(user_cfg, "llm") or _section(workspace_cfg, "llm")):
+        return _resolve_cheap_llm(
+            user_cfg=user_cfg, workspace_cfg=workspace_cfg, root=resolved_root
+        )
+
+    from greedy_token.model_select import resolve_model
+
+    try:
+        return resolve_model("", root=resolved_root, tier_hint="cheap").settings
+    except ValueError:
+        return _resolve_cheap_llm(
+            user_cfg=user_cfg, workspace_cfg=workspace_cfg, root=resolved_root
+        )
 
 
 def get_ollama_settings(root: Path | None = None) -> OllamaSettings:
@@ -188,9 +356,38 @@ def get_ollama_settings(root: Path | None = None) -> OllamaSettings:
 _resolve_ollama = _resolve_cheap_llm
 
 
-def apply_cheap_llm_env(root: Path | None = None) -> CheapLlmSettings:
+def apply_cheap_llm_env(root: Path | None = None, *, profile: str = "") -> CheapLlmSettings:
     """Export resolved settings into os.environ for shell wrappers."""
-    settings = get_cheap_llm_settings(root)
+    from greedy_token.model_select import apply_model_env, resolve_model
+
+    resolved_root = root
+    if resolved_root is None:
+        try:
+            from greedy_token.paths import find_workspace_root
+
+            resolved_root = find_workspace_root()
+        except SystemExit:
+            resolved_root = None
+
+    user_cfg = _read_yaml(user_config_path())
+    workspace_cfg: dict[str, Any] = {}
+    if resolved_root is not None:
+        workspace_cfg = _read_yaml(workspace_config_path(resolved_root))
+
+    use_registry = bool(
+        profile.strip()
+        or _section(user_cfg, "llm")
+        or _section(workspace_cfg, "llm")
+    )
+    if use_registry:
+        try:
+            resolved = resolve_model(profile, root=resolved_root)
+            apply_model_env(resolved)
+            return resolved.settings
+        except ValueError:
+            pass
+
+    settings = get_cheap_llm_settings(resolved_root)
     os.environ.setdefault("CHEAP_LLM_PROVIDER", settings.provider)
     os.environ.setdefault("CHEAP_LLM_URL", settings.url)
     os.environ.setdefault("CHEAP_LLM_MODEL", settings.model)
@@ -223,6 +420,7 @@ def format_config(settings: CheapLlmSettings | OllamaSettings | None = None, *, 
         )
     user_path = user_config_path()
     workspace_path = workspace_config_path(root) if root else None
+    footer = get_footer_settings(root)
     lines = [
         "greedy-token cheap LLM settings",
         "",
@@ -230,6 +428,10 @@ def format_config(settings: CheapLlmSettings | OllamaSettings | None = None, *, 
         f"  url:      {settings.url}",
         f"  model:    {settings.model}",
         f"  source:   {settings.source}",
+        "",
+        "Footer (MCP tool responses):",
+        f"  style:    {footer.style}  (compact | markdown | full)",
+        f"  source:   {footer.source}",
         "",
         "Config files (low → high priority):",
         "  1. defaults",
@@ -244,6 +446,11 @@ def format_config(settings: CheapLlmSettings | OllamaSettings | None = None, *, 
             "",
             "Create user config:",
             "  greedy-token config --init",
+            "  greedy-token config --init --preset local-ollama",
+            "  greedy-token config --list-presets",
+            "",
+            "Multi-model: use llm.cheap.models[] + profiles (see docs/ROADMAP-RU.md).",
+            "Prefer: greedy-token llm invoke --profile tms-classify over CHEAP_LLM_MODEL env.",
         ]
     )
     return "\n".join(lines)
@@ -304,6 +511,55 @@ def init_user_config(
     return path
 
 
+def presets_dir() -> Path:
+    from greedy_token.version import repo_root
+
+    for candidate in (
+        repo_root() / "examples" / "presets",
+        Path(__file__).resolve().parent / "presets",
+    ):
+        if candidate.is_dir() and any(candidate.glob("*.yaml")):
+            return candidate
+    return Path(__file__).resolve().parent / "presets"
+
+
+def list_preset_names() -> list[str]:
+    directory = presets_dir()
+    if not directory.is_dir():
+        return []
+    return sorted(path.stem for path in directory.glob("*.yaml"))
+
+
+def preset_path(name: str) -> Path:
+    safe = name.strip().removesuffix(".yaml")
+    if not safe:
+        raise FileNotFoundError("Preset name is required")
+    path = presets_dir() / f"{safe}.yaml"
+    if not path.is_file():
+        available = ", ".join(list_preset_names()) or "(none)"
+        raise FileNotFoundError(f"Unknown preset {name!r}. Available: {available}")
+    return path
+
+
+def load_preset_yaml(name: str) -> dict[str, Any]:
+    raw = yaml.safe_load(preset_path(name).read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise ValueError(f"Preset {name!r} is not a YAML mapping")
+    return raw
+
+
+def init_user_config_from_preset(*, preset: str, force: bool = False) -> Path:
+    path = user_config_path()
+    if path.is_file() and not force:
+        raise FileExistsError(f"Config already exists: {path} (use --force to overwrite)")
+
+    payload = load_preset_yaml(preset)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
+        yaml.safe_dump(payload, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+    return path
+
+
 def example_workspace_config() -> str:
     return (
         "# Project-local greedy-token settings (optional)\n"
@@ -311,4 +567,11 @@ def example_workspace_config() -> str:
         f"  provider: {DEFAULT_CHEAP_LLM_PROVIDER}\n"
         f"  url: {DEFAULT_CHEAP_LLM_URL}\n"
         f"  model: {DEFAULT_CHEAP_LLM_MODEL}\n"
+        "footer:\n"
+        f"  style: {DEFAULT_FOOTER_STYLE}  # compact | markdown | full\n"
+        "search:\n"
+        f"  context: {DEFAULT_SEARCH_CONTEXT}  # none | snippet | file\n"
+        f"  max_context_tokens: {DEFAULT_MAX_CONTEXT_TOKENS}\n"
+        f"  max_snippet_files: {DEFAULT_MAX_SNIPPET_FILES}\n"
+        f"  context_lines: {DEFAULT_CONTEXT_LINES}\n"
     )

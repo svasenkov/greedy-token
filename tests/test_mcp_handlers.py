@@ -37,7 +37,8 @@ def test_greedy_token_usage_footer(tmp_path: Path, minimal_workspace: Path, monk
 
 def _assert_greedy_token_footer(text: str) -> None:
     assert "Greedy token" in text
-    assert "Saved vs naive Cursor chat" in text
+    assert "saved **~" in text
+    assert "> spent ~" in text
 
 
 @allure.story("Pipeline tool")
@@ -57,7 +58,7 @@ def test_greedy_token_search(minimal_workspace: Path) -> None:
 
     out = greedy_token_search("baseUrl", "sample.js")
     assert "baseUrl" in out
-    assert "ripgrep on disk — 0 LLM spend" in out
+    assert "free tier" in out
     _assert_greedy_token_footer(out)
 
 

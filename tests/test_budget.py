@@ -51,6 +51,7 @@ def test_format_tool_footer_detailed_breakdown(minimal_workspace: Path) -> None:
             route_id="mcp-search",
             executor_sub="rg",
             duration_ms=42,
+            style="full",
         )
         attach_text("footer", footer)
     with allure.step("Verify detailed token breakdown sections"):
@@ -84,6 +85,7 @@ def test_format_tool_footer_cursor_no_savings(minimal_workspace: Path) -> None:
             est_tokens=11000,
             route_id="cursor-wiring",
             executor_sub="cursor",
+            style="full",
         )
         attach_text("footer", footer)
     with allure.step("Verify zero savings for cursor tier"):
@@ -151,6 +153,7 @@ def test_format_tool_footer_ollama_rag(minimal_workspace: Path) -> None:
         route_id="ollama-audit",
         executor_sub="ollama",
         ollama_eval_tokens=100,
+        style="full",
     )
     assert "cheap LLM" in ollama_footer
 
@@ -162,6 +165,7 @@ def test_format_tool_footer_ollama_rag(minimal_workspace: Path) -> None:
         route_id="mcp-rag",
         executor_sub="rag",
         rag_hits=3,
+        style="full",
     )
     assert "docs/rag" in rag_footer
 
@@ -180,6 +184,7 @@ def test_format_tool_footer_rag_tier_alternatives_match_spent(
         route_id="mcp-rag",
         executor_sub="rag",
         rag_hits=5,
+        style="full",
     )
     attach_text("rag footer", footer)
     # Selected tier row must echo Spent, not router RAG_READ_TOKENS_FALLBACK (~1800).
@@ -188,3 +193,68 @@ def test_format_tool_footer_rag_tier_alternatives_match_spent(
     assert "9,091" in rag_line and "← this call" in rag_line
     assert f"Spent (MCP executor, LLM tokens): ~{spent:,}" in footer
 
+
+@allure.story("Footer style")
+@allure.title("Compact footer is default and shorter than full")
+def test_format_tool_footer_compact_default(minimal_workspace: Path) -> None:
+    task = "search: baseUrl"
+    compact = format_tool_footer(
+        task,
+        minimal_workspace,
+        tier="tool",
+        est_tokens=0,
+        route_id="mcp-search",
+        executor_sub="rg",
+        duration_ms=42,
+    )
+    full = format_tool_footer(
+        task,
+        minimal_workspace,
+        tier="tool",
+        est_tokens=0,
+        route_id="mcp-search",
+        executor_sub="rg",
+        duration_ms=42,
+        style="full",
+    )
+    attach_text("compact footer", compact)
+    assert "**Greedy token**" in compact
+    assert "`rg`" in compact
+    assert "Tier alternatives" not in compact
+    assert len(compact) < len(full) // 2
+
+
+@allure.story("Footer style")
+@allure.title("Markdown footer includes token table")
+def test_format_tool_footer_markdown(minimal_workspace: Path) -> None:
+    footer = format_tool_footer(
+        "search: test",
+        minimal_workspace,
+        tier="tool",
+        est_tokens=0,
+        route_id="mcp-search",
+        executor_sub="rg",
+        duration_ms=10,
+        style="markdown",
+    )
+    attach_text("markdown footer", footer)
+    assert "### Greedy token" in footer
+    assert "| spent |" in footer
+    assert "| **saved** |" in footer
+
+
+@allure.story("Footer style")
+@allure.title("Footer style resolves from workspace config and env")
+def test_footer_style_config(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from greedy_token.settings import get_footer_settings
+
+    assert get_footer_settings(minimal_workspace).style == "compact"
+
+    (minimal_workspace / ".greedy-token.yaml").write_text(
+        "footer:\n  style: markdown\n",
+        encoding="utf-8",
+    )
+    assert get_footer_settings(minimal_workspace).style == "markdown"
+
+    monkeypatch.setenv("GREEDY_TOKEN_FOOTER_STYLE", "full")
+    assert get_footer_settings(minimal_workspace).style == "full"

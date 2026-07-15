@@ -108,18 +108,28 @@ def greedy_token_rag(query: str, domain: str = "") -> str:
 
 
 @mcp.tool()
-def greedy_token_search(query: str, path: str = "") -> str:
-    """Ripgrep codebase — sole tool for find/search/найди. query=term; path=optional file or dir. Do not pair with route or usage."""
+def greedy_token_search(query: str, path: str = "", context: str = "") -> str:
+    """Ripgrep codebase — sole tool for find/search/найди. query=term; path=optional file or dir; context=snippet|none|file (default from .greedy-token.yaml). Do not pair with route or usage."""
     t0 = time.perf_counter()
     root = find_workspace_root()
     task = f"search: {query}" + (f" in {path}" if path else "")
-    result = search_code(query, root, path=path or None)
+    ctx = context.strip().lower() or None
+    if ctx is not None and ctx not in ("none", "snippet", "file"):
+        ctx = None
+    result = search_code(query, root, path=path or None, context=ctx)  # type: ignore[arg-type]
+    body = result.text
+    if result.hit_count or result.enriched_files:
+        body = (
+            f"{body}\n\n"
+            f"hits: {result.hit_count} · enriched: {result.enriched_files} file(s) "
+            f"· ~{result.context_tokens} ctx tokens"
+        )
     duration_ms = int((time.perf_counter() - t0) * 1000)
     return wrap_mcp_response(
-        result.text,
+        body,
         task=task,
         tier="tool",
-        est_tokens=0,
+        est_tokens=result.context_tokens,
         route_id="mcp-search",
         root=root,
         duration_ms=duration_ms,
@@ -159,19 +169,27 @@ def greedy_token_usage(since: str = "7d") -> str:
 
 
 @mcp.tool()
-def greedy_token_pipeline(task: str, execute: bool = False) -> str:
+def greedy_token_pipeline(task: str, execute: bool = False, profile: str = "") -> str:
     """Run multi-step pipeline with unified token stats.
 
     Named: pipeline: meta-audit configurator-boolean
+    TMS: pipeline: tms-classify path=case.json (profile from recipe or profile arg)
     Custom: pipeline: check-meta-sync then audit-skill configurator-boolean
     List recipes: pipeline: list
 
     Set execute=true to run allowlisted steps (default: dry-run).
+    Optional profile= for LLM model selection (tms-classify, tms-generate, …).
     """
     if task.strip().lower() in ("list", "help", "pipeline: list"):
         return list_pipelines()
     root = find_workspace_root()
-    result = run_pipeline(task, root, execute=execute, stop_on_error=True)
+    result = run_pipeline(
+        task,
+        root,
+        execute=execute,
+        stop_on_error=True,
+        profile=profile.strip(),
+    )
     return format_pipeline_response(result, root)
 
 

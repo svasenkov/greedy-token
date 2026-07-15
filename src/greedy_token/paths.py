@@ -15,7 +15,7 @@ def find_workspace_root(start: Path | None = None) -> Path:
     here = (start or Path(__file__)).resolve()
     for parent in [here, *here.parents]:
         if (parent / "docs" / "phase-manifest.json").is_file() and (
-            parent / "scripts" / "check-meta-sync.sh"
+            parent / "scripts" / "meta-sync-check.py"
         ).is_file():
             return parent
 

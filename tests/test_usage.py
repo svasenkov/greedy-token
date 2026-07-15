@@ -104,9 +104,128 @@ def test_build_script_override_event_shape(minimal_workspace: Path) -> None:
         assert event["selected_tier"] == "cursor"
         assert event["previous_tier"] == "python"
         assert event["crystal_id"] == "python-ssh-check"
+        assert event["task_normalized"] == "ssh check qaguru prod"
         assert event["billing"]["spent_est"] == 0
         assert event["billing"]["saved_est"] == 0
         assert event["meta"]["reason"] == "user_reask"
+        assert event["meta"]["window_sec"] == 900
+
+
+@allure.story("Override events")
+@allure.title("normalize_task collapses case and whitespace")
+def test_normalize_task() -> None:
+    from greedy_token.usage import normalize_task
+
+    assert normalize_task("  SSH   check\tqaguru  ") == "ssh check qaguru"
+
+
+@allure.story("Override events")
+@allure.title("Auto script_override after cursor reask within window")
+def test_auto_script_override_within_window(log_file: Path) -> None:
+    from greedy_token.usage import OVERRIDE_WINDOW_SEC, append_event
+
+    prior = {
+        "v": SCHEMA_VERSION,
+        "ts": "2026-07-14T12:00:00Z",
+        "cmd": "route",
+        "task": "SSH check   QAGURU prod",
+        "selected_tier": "python",
+        "route_id": "python-ssh-check",
+        "root": "/tmp/ws",
+    }
+    append_event(prior, path=log_file, emit_auto_override=False)
+
+    cursor = {
+        "v": SCHEMA_VERSION,
+        "ts": "2026-07-14T12:05:00Z",
+        "cmd": "route",
+        "task": "ssh check qaguru prod",
+        "selected_tier": "cursor",
+        "route_id": "cursor-fallback",
+        "root": "/tmp/ws",
+        "tags": {"project": "infra-home"},
+    }
+    append_event(cursor, path=log_file)
+
+    lines = [json.loads(line) for line in log_file.read_text(encoding="utf-8").splitlines() if line.strip()]
+    attach_json("log events", lines)
+    assert len(lines) == 3
+    override = lines[-1]
+    assert override["event"] == "script_override"
+    assert override["crystal_id"] == "python-ssh-check"
+    assert override["previous_tier"] == "python"
+    assert override["selected_tier"] == "cursor"
+    assert override["meta"]["reason"] == "user_reask"
+    assert override["meta"]["prior_usage_ts"] == "2026-07-14T12:00:00Z"
+    assert override["meta"]["window_sec"] == OVERRIDE_WINDOW_SEC
+    assert override["tags"]["project"] == "infra-home"
+
+
+@allure.story("Override events")
+@allure.title("Auto script_override skips outside window and mismatched tasks")
+def test_auto_script_override_guards(log_file: Path) -> None:
+    from greedy_token.usage import append_event
+
+    append_event(
+        {
+            "v": SCHEMA_VERSION,
+            "ts": "2026-07-14T12:00:00Z",
+            "task": "ssh check qaguru prod",
+            "selected_tier": "python",
+            "route_id": "python-ssh-check",
+        },
+        path=log_file,
+        emit_auto_override=False,
+    )
+    # Outside 900s window
+    append_event(
+        {
+            "v": SCHEMA_VERSION,
+            "ts": "2026-07-14T12:20:00Z",
+            "task": "ssh check qaguru prod",
+            "selected_tier": "cursor",
+            "route_id": "cursor-fallback",
+        },
+        path=log_file,
+    )
+    # Different task within window (no prior for this task)
+    append_event(
+        {
+            "v": SCHEMA_VERSION,
+            "ts": "2026-07-14T12:21:00Z",
+            "task": "openapi diff stacks",
+            "selected_tier": "cursor",
+            "route_id": "cursor-fallback",
+        },
+        path=log_file,
+    )
+    # tool tier prior does not attribute
+    append_event(
+        {
+            "v": SCHEMA_VERSION,
+            "ts": "2026-07-14T12:22:00Z",
+            "task": "find baseUrl",
+            "selected_tier": "tool",
+            "route_id": "tool-rg-search",
+        },
+        path=log_file,
+        emit_auto_override=False,
+    )
+    append_event(
+        {
+            "v": SCHEMA_VERSION,
+            "ts": "2026-07-14T12:23:00Z",
+            "task": "find baseUrl",
+            "selected_tier": "cursor",
+            "route_id": "cursor-fallback",
+        },
+        path=log_file,
+    )
+
+    rows = [json.loads(line) for line in log_file.read_text(encoding="utf-8").splitlines() if line.strip()]
+    overrides = [r for r in rows if r.get("event") == "script_override"]
+    attach_json("overrides", overrides)
+    assert overrides == []
 
 
 @allure.story("Savings estimate")

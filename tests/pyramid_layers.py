@@ -6,6 +6,8 @@ from __future__ import annotations
 LAYER_BY_MODULE: dict[str, str] = {
     # unit — pure logic, no subprocess / external IO
     "test_budget": "unit",
+    "test_budget_policy": "unit",
+    "test_resource_probe": "unit",
     "test_branch_coverage": "unit",
     "test_cli_handlers": "unit",
     "test_context_audit": "unit",
@@ -17,7 +19,10 @@ LAYER_BY_MODULE: dict[str, str] = {
     "test_rag_tokens": "unit",
     "test_router": "unit",
     "test_settings": "unit",
+    "test_config_presets": "unit",
     "test_cheap_llm": "unit",
+    "test_model_select": "unit",
+    "test_llm_invoke": "unit",
     "test_tokens": "unit",
     "test_tool_output": "unit",
     # component — module wiring, mocks, minimal_workspace fixtures
@@ -30,10 +35,12 @@ LAYER_BY_MODULE: dict[str, str] = {
     "test_rag_index": "component",
     "test_rag_search": "component",
     "test_search": "component",
+    "test_search_enrich": "component",
     "test_security": "component",
     "test_tool_paths": "component",
     "test_usage": "component",
     "test_wrappers": "component",
+    "test_hub": "component",
     # integration — subprocess CLI, real rg, workspace checkout
     "test_cli": "integration",
     "test_cli_commands": "integration",

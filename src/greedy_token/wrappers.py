@@ -31,10 +31,17 @@ class ScriptWrapper:
 WRAPPERS: dict[str, ScriptWrapper] = {
     "check-meta-sync": ScriptWrapper(
         id="check-meta-sync",
-        path="scripts/check-meta-sync.sh",
+        path="scripts/meta-sync-check.py",
         category="meta",
         read_only=True,
-        note="Meta validation — no LLM",
+        note="Meta validation — no LLM (JSON stdout)",
+    ),
+    "configurator-boolean-audit": ScriptWrapper(
+        id="configurator-boolean-audit",
+        path="scripts/configurator-boolean-audit.py",
+        category="meta",
+        read_only=True,
+        note="Configurator-boolean canon drift gate — crystallized script tier, 0 LLM",
     ),
     "batch-inventory": ScriptWrapper(
         id="batch-inventory",

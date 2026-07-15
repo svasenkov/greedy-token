@@ -28,4 +28,6 @@ Pair **search + rag** → one `greedy_token_pipeline("pipeline: search-rag <quer
 At end of reply — one line: `Greedy token: <executor> · spent ~N · saved ~N · <billing>`.
 Full footer only if user asked («stats», «greedy verbose»).
 
+Footer style (MCP): `.greedy-token.yaml` → `footer.style: compact | markdown | full` (default **compact**).
+
 **Exceptions:** wiring/refactor after search; user says "without greedy-token" / `cursor:`; MCP disabled → one Grep OK.

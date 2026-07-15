@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "greedy-token"
-version = "0.5.8"
+version = "0.6.0"
 description = "Greedy token for Cursor: route tasks through rg, scripts, Ollama, and RAG before opening a full agent chat."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -32,7 +32,7 @@ Repository = "https://github.com/svasenkov/greedy-token"
 where = ["src"]
 
 [tool.setuptools.package-data]
-greedy_token = ["config/*.yaml", "static/icon.png", "static/icon.svg"]
+greedy_token = ["config/*.yaml", "presets/*.yaml", "static/icon.png", "static/icon.svg", "hub/static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

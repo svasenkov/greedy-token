@@ -32,9 +32,8 @@ def test_parse_named_pipeline_meta_audit() -> None:
         assert len(steps) == 2
         assert steps[0].step_id == "check-meta-sync"
         assert steps[0].tier == "python"
-        assert steps[1].step_id == "audit-skill"
-        assert steps[1].tier == "ollama"
-        assert "configurator-boolean" in steps[1].args
+        assert steps[1].step_id == "configurator-boolean-audit"
+        assert steps[1].tier == "python"
 
 
 @allure.story("Named recipes")
@@ -243,37 +242,42 @@ def test_pipeline_execute_check_meta_sync(minimal_workspace: Path) -> None:
         step = result.steps[0]
         assert step.executed is True
         assert step.ok is True
-        assert "check-meta-sync-ok" in step.output
+        assert "meta-sync-check-ok" in step.output
 
 
 @allure.story("Execute")
-@allure.title("Pipeline execute runs meta-audit Ollama step against HTTP stub")
-def test_pipeline_execute_meta_audit_with_ollama_stub(ollama_workspace: Path) -> None:
-    with allure.step("Execute meta-audit pipeline against Ollama stub"):
+@allure.title("Pipeline execute runs meta-audit configurator-boolean via script tier")
+def test_pipeline_execute_meta_audit_configurator_boolean_script(minimal_workspace: Path) -> None:
+    with allure.step("Execute meta-audit pipeline for configurator-boolean"):
         result = run_pipeline(
             "meta-audit configurator-boolean",
-            ollama_workspace,
+            minimal_workspace,
             execute=True,
         )
         attach_json("step results", [{"step_id": sr.step.step_id, "ok": sr.ok, "executed": sr.executed} for sr in result.steps])
         attach_text("check-meta-sync output", result.steps[0].output)
-        attach_text("audit-skill output", result.steps[1].output)
-    with allure.step("Verify both steps completed without early stop"):
+        attach_text("configurator-boolean-audit output", result.steps[1].output)
+    with allure.step("Verify both python steps completed without early stop"):
         assert len(result.steps) == 2
         assert not result.stopped_early
         assert result.steps[0].executed and result.steps[0].ok
         assert result.steps[1].executed and result.steps[1].ok
-        assert "check-meta-sync-ok" in result.steps[0].output
+        assert result.steps[1].step.tier == "python"
+        assert result.steps[1].step.step_id == "configurator-boolean-audit"
+        assert "meta-sync-check-ok" in result.steps[0].output
         assert '"ok":true' in result.steps[1].output.replace(" ", "")
 
 
 @allure.story("Execute")
 @allure.title("Pipeline execute skips Ollama step when server is unavailable")
 def test_pipeline_execute_skips_unavailable_ollama(minimal_workspace: Path) -> None:
+    other_skill = minimal_workspace / ".cursor" / "skills" / "other-skill"
+    other_skill.mkdir(parents=True, exist_ok=True)
+    (other_skill / "SKILL.md").write_text("# other-skill\n", encoding="utf-8")
     with allure.step("Execute meta-audit with Ollama unavailable"):
         with patch("greedy_token.pipeline.ollama_available", return_value=False):
             result = run_pipeline(
-                "meta-audit configurator-boolean",
+                "meta-audit other-skill",
                 minimal_workspace,
                 execute=True,
             )
@@ -283,6 +287,7 @@ def test_pipeline_execute_skips_unavailable_ollama(minimal_workspace: Path) -> N
         assert result.stopped_early is True
         assert result.steps[0].ok is True
         assert result.steps[1].ok is False
+        assert result.steps[1].step.step_id == "audit-skill"
         assert "Cheap LLM unavailable" in result.steps[1].output
 
 
@@ -444,9 +449,12 @@ def test_pipeline_step_timeout(mock_run, minimal_workspace: Path) -> None:
 @allure.story("Continue on error")
 @allure.title("Pipeline continue-on-error keeps running after failure")
 def test_pipeline_continue_on_error(minimal_workspace: Path) -> None:
+    other_skill = minimal_workspace / ".cursor" / "skills" / "other-skill"
+    other_skill.mkdir(parents=True, exist_ok=True)
+    (other_skill / "SKILL.md").write_text("# other-skill\n", encoding="utf-8")
     with patch("greedy_token.pipeline.ollama_available", return_value=False):
         result = run_pipeline(
-            "meta-audit configurator-boolean",
+            "meta-audit other-skill",
             minimal_workspace,
             execute=True,
             stop_on_error=False,

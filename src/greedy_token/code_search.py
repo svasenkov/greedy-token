@@ -1,12 +1,20 @@
 from __future__ import annotations
 
+import re
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Literal
 
 from greedy_token.tool_output import filter_tool_output
 from greedy_token.paths import find_workspace_root
 from greedy_token.tool_paths import RG_TIMEOUT, resolve_rg, rg_path_for_shell, root_cd_prefix, sh_quote
+
+SearchContextMode = Literal["none", "snippet", "file"]
+
+_HIT_LINE_RE = re.compile(
+    r"^((?:[A-Za-z]:)?[^:\n]+|\.?/?[\w./+-]+):(\d+):(.*)$"
+)
 
 DEFAULT_GLOBS = [
     "!.git/**",
@@ -31,6 +39,10 @@ SKIP_DIR_NAMES = {".git", "node_modules", "build", ".venv", "__pycache__", "dist
 class SearchResult:
     text: str
     engine: str  # rg | python
+    hit_count: int = 0
+    enriched_files: int = 0
+    context_tokens: int = 0
+    hit_paths: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -267,12 +279,206 @@ def _run_rg(cmd: str) -> tuple[int, str]:
     return proc.returncode, out
 
 
+_BARE_LINE_RE = re.compile(r"^(\d+):(.*)$")
+
+
+def normalize_hit_body(body: str, *, default_path: str | None = None) -> str:
+    """Prefix bare ``line:content`` rows (rg single-file mode) with *default_path*."""
+    if not default_path:
+        return body
+    out: list[str] = []
+    for raw in body.splitlines():
+        line = raw.rstrip("\n")
+        if _HIT_LINE_RE.match(line.strip()):
+            out.append(line)
+            continue
+        m = _BARE_LINE_RE.match(line.strip())
+        if m:
+            out.append(f"{default_path}:{m.group(1)}:{m.group(2)}")
+        else:
+            out.append(line)
+    return "\n".join(out)
+
+
+def parse_hit_lines(
+    text: str, *, default_path: str | None = None
+) -> list[tuple[str, int, str]]:
+    """Parse ``path:line:content`` hits from search output."""
+    text = normalize_hit_body(text, default_path=default_path)
+    hits: list[tuple[str, int, str]] = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("Search:") or line.startswith("("):
+            continue
+        m = _HIT_LINE_RE.match(line)
+        if not m:
+            # ripgrep single-file: ``12:content``
+            bare = _BARE_LINE_RE.match(line)
+            if bare and default_path:
+                try:
+                    hits.append((default_path, int(bare.group(1)), bare.group(2)))
+                except ValueError:
+                    pass
+            continue
+        path_s, line_s, content = m.group(1), m.group(2), m.group(3)
+        if path_s.lower().startswith("error"):
+            continue
+        # Reject pure-numeric "paths" unless no better match (line:content mis-parse)
+        if path_s.isdigit():
+            if default_path:
+                try:
+                    hits.append((default_path, int(path_s), f"{line_s}:{content}"))
+                except ValueError:
+                    pass
+            continue
+        try:
+            line_no = int(line_s)
+        except ValueError:
+            continue
+        hits.append((path_s, line_no, content))
+    return hits
+
+
+def unique_hit_paths(hits: list[tuple[str, int, str]], *, limit: int = 3) -> list[str]:
+    seen: list[str] = []
+    for path_s, _line, _content in hits:
+        if path_s not in seen:
+            seen.append(path_s)
+        if len(seen) >= limit:
+            break
+    return seen
+
+
+def enrich_search_hits(
+    root: Path,
+    hits: list[tuple[str, int, str]],
+    *,
+    mode: SearchContextMode = "snippet",
+    max_files: int = 3,
+    context_lines: int = 15,
+    max_tokens: int = 2000,
+) -> tuple[str, int, int]:
+    """Return (snippet block, files_enriched, approx_tokens)."""
+    if mode == "none" or not hits:
+        return "", 0, 0
+
+    from greedy_token.tokens import count_tokens
+
+    paths = unique_hit_paths(hits, limit=max_files)
+    # First hit line per file for snippet centering
+    line_by_path: dict[str, int] = {}
+    for path_s, line_no, _ in hits:
+        if path_s not in line_by_path:
+            line_by_path[path_s] = line_no
+
+    blocks: list[str] = []
+    used_tokens = 0
+    files_done = 0
+    for path_s in paths:
+        file_path = Path(path_s)
+        if not file_path.is_absolute():
+            file_path = (root / path_s).resolve()
+        else:
+            file_path = file_path.resolve()
+        try:
+            file_path.relative_to(root.resolve())
+        except ValueError:
+            continue
+        if not file_path.is_file():
+            continue
+        try:
+            all_lines = file_path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            continue
+
+        rel = _format_rel(file_path, root)
+        if mode == "file":
+            body = "\n".join(all_lines)
+            chunk = f"### {rel} (full file, {len(all_lines)} lines)\n{body}"
+        else:
+            center = line_by_path.get(path_s, 1)
+            start = max(1, center - context_lines)
+            end = min(len(all_lines), center + context_lines)
+            slice_lines = all_lines[start - 1 : end]
+            numbered = [f"{start + i:>5}|{line}" for i, line in enumerate(slice_lines)]
+            chunk = (
+                f"### {rel}:{center} (±{context_lines} lines, {start}-{end})\n"
+                + "\n".join(numbered)
+            )
+
+        tok = count_tokens(chunk).tokens
+        if used_tokens and used_tokens + tok > max_tokens:
+            blocks.append(
+                f"### … (stopped at token budget ~{max_tokens}; "
+                f"skipped remaining files)"
+            )
+            break
+        blocks.append(chunk)
+        used_tokens += tok
+        files_done += 1
+
+    if not blocks:
+        return "", 0, 0
+    header = (
+        f"--- enriched context ({mode}, {files_done} file(s), ~{used_tokens} tokens) ---"
+    )
+    return header + "\n\n" + "\n\n".join(blocks), files_done, used_tokens
+
+
+def _finalize_search(
+    *,
+    header: str,
+    body: str,
+    engine: str,
+    root: Path,
+    context: SearchContextMode | None,
+    default_path: str | None = None,
+) -> SearchResult:
+    body = normalize_hit_body(body, default_path=default_path)
+    hits = parse_hit_lines(body, default_path=default_path)
+    hit_paths = unique_hit_paths(hits, limit=10)
+    text = f"{header}\n\n{body}" if body else header
+    enriched_files = 0
+    context_tokens = 0
+
+    mode = context
+    if mode is None:
+        from greedy_token.settings import get_search_settings
+
+        mode = get_search_settings(root).context
+
+    if mode != "none" and hits:
+        from greedy_token.settings import get_search_settings
+
+        settings = get_search_settings(root)
+        block, enriched_files, context_tokens = enrich_search_hits(
+            root,
+            hits,
+            mode=mode,
+            max_files=settings.max_snippet_files,
+            context_lines=settings.context_lines,
+            max_tokens=settings.max_context_tokens,
+        )
+        if block:
+            text = f"{text}\n\n{block}"
+
+    return SearchResult(
+        text=text,
+        engine=engine,
+        hit_count=len(hits),
+        enriched_files=enriched_files,
+        context_tokens=context_tokens,
+        hit_paths=hit_paths,
+    )
+
+
 def search_code(
     query: str,
     root: Path | None = None,
     *,
     path: str | None = None,
     limit: int = 50,
+    context: SearchContextMode | None = None,
 ) -> SearchResult:
     root = (root or find_workspace_root()).resolve()
     query = query.strip()
@@ -304,19 +510,28 @@ def search_code(
             _, out = _run_rg(cmd)
             filtered = filter_tool_output(out)
             if filtered and "command not found" not in filtered.lower():
-                return SearchResult(
-                    text=f"Search: {query!r} in {scope}\n\n{filtered}",
+                return _finalize_search(
+                    header=f"Search: {query!r} in {scope}",
+                    body=filtered,
                     engine="rg",
+                    root=root,
+                    context=context,
+                    default_path=scope,
                 )
         lines = _python_search_file(resolved, query, limit=limit)
         if lines:
+            # python file scan returns ``path:line:content`` already
             body = "\n".join(lines)
-            return SearchResult(
-                text=(
+            return _finalize_search(
+                header=(
                     f"Search: {query!r} in {scope} [python]\n"
-                    f"(rg not in PATH — python file scan)\n\n{body}"
+                    f"(rg not in PATH — python file scan)"
                 ),
+                body=body,
                 engine="python",
+                root=root,
+                context=context,
+                default_path=scope,
             )
         return SearchResult(
             text=(
@@ -346,9 +561,12 @@ def search_code(
         _, out = _run_rg(cmd)
         filtered = filter_tool_output(out)
         if filtered and "command not found" not in filtered.lower():
-            return SearchResult(
-                text=f"Search: {query!r} in {scope}\n\n{filtered}",
+            return _finalize_search(
+                header=f"Search: {query!r} in {scope}",
+                body=filtered,
                 engine="rg",
+                root=root,
+                context=context,
             )
 
     if resolved and resolved.is_dir():
@@ -367,10 +585,16 @@ def search_code(
         limit=limit,
     )
     if lines:
-        note = "\n(rg not in PATH — python tree scan)\n\n" if not rg_bin else "\n"
-        return SearchResult(
-            text=f"Search: {query!r} in {scope} [python]{note}" + "\n".join(lines),
+        note = "(rg not in PATH — python tree scan)" if not rg_bin else ""
+        header = f"Search: {query!r} in {scope} [python]"
+        if note:
+            header = f"{header}\n{note}"
+        return _finalize_search(
+            header=header,
+            body="\n".join(lines),
             engine="python",
+            root=root,
+            context=context,
         )
 
     return SearchResult(

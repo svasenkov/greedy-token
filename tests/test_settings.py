@@ -207,6 +207,7 @@ def test_example_workspace_config() -> None:
 
     text = example_workspace_config()
     assert "cheap_llm:" in text
+    assert "footer:" in text
     assert DEFAULT_OLLAMA_URL in text
 
 

@@ -4,16 +4,20 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
+import os
 
 from greedy_token.context_audit import audit_context
 from greedy_token.estimator import cursor_baseline, cursor_saved_for
 from greedy_token.paths import find_workspace_root
 from greedy_token.rag_search import RagHit
 from greedy_token.router import BASE_CURSOR_OVERHEAD, RouteDecision, route_task_all_tiers
-from greedy_token.settings import get_cheap_llm_settings
+from greedy_token.settings import FooterStyle, get_cheap_llm_settings, get_footer_settings
 from greedy_token.tokens import count_tokens
 from greedy_token.usage import append_event, build_route_event
 from greedy_token.wrappers import ollama_available
+
+FooterStyleArg = Literal["compact", "markdown", "full"] | None
 
 TIER_LABELS: dict[str, str] = {
     "tool": "rg (disk search)",
@@ -162,6 +166,214 @@ def _format_tier_alternatives(
     return lines
 
 
+@dataclass(frozen=True)
+class ToolFooterContext:
+    task: str
+    root: Path
+    tier: str
+    est_tokens: int
+    route_id: str
+    executor_sub: str
+    sub_label: str
+    duration_ms: int | None
+    rag_hits: int | None
+    ollama_eval_tokens: int | None
+    breakdown: CursorBaselineBreakdown
+    baseline: int
+    saved: int
+    billing_short: str
+
+
+def _billing_short(
+    tier: str,
+    *,
+    rag_hits: int | None = None,
+    ollama_eval_tokens: int | None = None,
+) -> str:
+    if tier in ("tool", "python"):
+        return "free tier"
+    if tier == "ollama":
+        llm = get_cheap_llm_settings()
+        model_id = os.environ.get("GREEDY_LLM_MODEL_ID", "")
+        label = f"{model_id}/" if model_id else ""
+        note = f", ~{ollama_eval_tokens:,} eval" if ollama_eval_tokens else ""
+        return f"cheap LLM ({label}{llm.model}{note})"
+    if tier == "rag":
+        hit_note = f", {rag_hits} chunk(s)" if rag_hits is not None else ""
+        return f"docs/rag{hit_note}"
+    if tier == "cursor":
+        return "expensive LLM"
+    return tier
+
+
+def _build_tool_footer_context(
+    task: str,
+    root: Path,
+    *,
+    tier: str,
+    est_tokens: int,
+    route_id: str = "",
+    executor_sub: str | None = None,
+    duration_ms: int | None = None,
+    rag_hits: int | None = None,
+    ollama_eval_tokens: int | None = None,
+) -> ToolFooterContext:
+    breakdown = cursor_baseline_breakdown(root, task)
+    baseline = breakdown.total
+    saved = cursor_saved_for(root, task, est_tokens, tier)
+    sub = executor_sub or tier
+    sub_label = EXECUTOR_SUB_LABELS.get(sub, sub)
+    return ToolFooterContext(
+        task=task,
+        root=root,
+        tier=tier,
+        est_tokens=est_tokens,
+        route_id=route_id,
+        executor_sub=sub,
+        sub_label=sub_label,
+        duration_ms=duration_ms,
+        rag_hits=rag_hits,
+        ollama_eval_tokens=ollama_eval_tokens,
+        breakdown=breakdown,
+        baseline=baseline,
+        saved=saved,
+        billing_short=_billing_short(
+            tier,
+            rag_hits=rag_hits,
+            ollama_eval_tokens=ollama_eval_tokens,
+        ),
+    )
+
+
+def _resolve_footer_style(root: Path, style: FooterStyleArg) -> FooterStyle:
+    if style is not None:
+        return style
+    return get_footer_settings(root).style
+
+
+def _format_tool_footer_compact(ctx: ToolFooterContext) -> str:
+    duration = f" · {ctx.duration_ms}ms" if ctx.duration_ms is not None else ""
+    route = f" · {ctx.route_id}" if ctx.route_id else ""
+    extras = _policy_footer_lines(ctx.root)
+    lines = [
+        "",
+        "---",
+        f"> **Greedy token** · `{ctx.executor_sub}`{duration} · saved **~{ctx.saved:,}**",
+        f"> spent ~{ctx.est_tokens:,} · naive ~{ctx.baseline:,} · {ctx.billing_short}{route}",
+    ]
+    lines.extend(extras)
+    lines.append("---")
+    return "\n".join(lines)
+
+
+def _policy_footer_lines(root: Path) -> list[str]:
+    try:
+        from greedy_token.budget_policy import policy_footer_extras
+
+        return policy_footer_extras(root=root)
+    except (ImportError, OSError, ValueError, RuntimeError):
+        return []
+
+
+def _format_tool_footer_markdown(ctx: ToolFooterContext) -> str:
+    duration = f" · {ctx.duration_ms}ms" if ctx.duration_ms is not None else ""
+    route = f" · `{ctx.route_id}`" if ctx.route_id else ""
+    return "\n".join(
+        [
+            "",
+            "---",
+            f"### Greedy token · `{ctx.executor_sub}`{duration}",
+            "",
+            "| | tokens |",
+            "|:--|--:|",
+            f"| spent | ~{ctx.est_tokens:,} |",
+            f"| naive Cursor | ~{ctx.baseline:,} |",
+            f"| **saved** | **~{ctx.saved:,}** |",
+            "",
+            f"{ctx.billing_short}{route}",
+            "---",
+        ]
+    )
+
+
+def _format_tool_footer_full(ctx: ToolFooterContext) -> str:
+    lines = [
+        "",
+        "---",
+        "Greedy token",
+        "",
+        "This call",
+        f"  Executor: {ctx.executor_sub} — {ctx.sub_label}",
+    ]
+    if ctx.route_id:
+        lines.append(f"  Route: {ctx.route_id}")
+    if ctx.duration_ms is not None:
+        lines.append(f"  Duration: {ctx.duration_ms} ms")
+    lines.append(
+        format_spent_line(
+            ctx.est_tokens,
+            tier=ctx.tier,
+            executor_sub=ctx.executor_sub,
+            indent="  ",
+        )
+    )
+    if ctx.tier in ("tool", "python"):
+        lines.append("  Billing: free tier — not expensive LLM")
+    elif ctx.tier == "ollama":
+        llm = get_cheap_llm_settings()
+        eval_note = (
+            f", ~{ctx.ollama_eval_tokens:,} eval tokens" if ctx.ollama_eval_tokens else ""
+        )
+        lines.append(
+            f"  Billing: cheap LLM ({llm.provider}/{llm.model}{eval_note}) — not expensive path"
+        )
+    elif ctx.tier == "rag":
+        hit_note = f", {ctx.rag_hits} chunk(s)" if ctx.rag_hits is not None else ""
+        lines.append(
+            f"  Billing: read docs/rag{hit_note} — small context vs expensive LLM chat"
+        )
+    elif ctx.tier == "cursor":
+        lines.append("  Billing: expensive LLM (Cursor agent) — full context + reply")
+
+    lines.extend(
+        [
+            "",
+            "Cursor agent chat (naive — same task, no MCP tool)",
+            f"  Always-on rules: ~{ctx.breakdown.rules:,}",
+            f"  Task prompt:     ~{ctx.breakdown.task:,}",
+            f"  Agent overhead:  ~{ctx.breakdown.overhead:,}",
+            f"  {TOTAL_BASELINE_LABEL}  ~{ctx.baseline:,}",
+            "",
+        ]
+    )
+    lines.extend(
+        _format_tier_alternatives(
+            ctx.task, ctx.root, ctx.tier, selected_spent=ctx.est_tokens
+        )
+    )
+    lines.append("")
+    lines.extend(
+        format_savings_lines(
+            baseline=ctx.baseline,
+            spent=ctx.est_tokens,
+            saved=ctx.saved,
+            tier=ctx.tier,
+            executor_sub=ctx.executor_sub,
+        )
+    )
+    for extra in _policy_footer_lines(ctx.root):
+        lines.append(f"  {extra}")
+    lines.extend(
+        [
+            "",
+            "Note: MCP in Agent chat still uses Cursor tokens for rules + your message +",
+            "agent reply. Only cheap LLM / rg / rag rows avoid the expensive LLM path.",
+        ]
+    )
+
+    return "\n".join(lines)
+
+
 def format_tool_footer(
     task: str,
     root: Path,
@@ -173,75 +385,25 @@ def format_tool_footer(
     duration_ms: int | None = None,
     rag_hits: int | None = None,
     ollama_eval_tokens: int | None = None,
+    style: FooterStyleArg = None,
 ) -> str:
-    breakdown = cursor_baseline_breakdown(root, task)
-    baseline = breakdown.total
-    saved = cursor_saved_for(root, task, est_tokens, tier)
-    sub = executor_sub or tier
-    sub_label = EXECUTOR_SUB_LABELS.get(sub, sub)
-
-    lines = [
-        "",
-        "---",
-        "Greedy token",
-        "",
-        "This call",
-        f"  Executor: {sub} — {sub_label}",
-    ]
-    if route_id:
-        lines.append(f"  Route: {route_id}")
-    if duration_ms is not None:
-        lines.append(f"  Duration: {duration_ms} ms")
-    lines.append(format_spent_line(est_tokens, tier=tier, executor_sub=sub, indent="  "))
-    if tier in ("tool", "python"):
-        lines.append("  Billing: free tier — not expensive LLM")
-    elif tier == "ollama":
-        llm = get_cheap_llm_settings()
-        eval_note = f", ~{ollama_eval_tokens:,} eval tokens" if ollama_eval_tokens else ""
-        lines.append(
-            f"  Billing: cheap LLM ({llm.provider}/{llm.model}{eval_note}) — not expensive path"
-        )
-    elif tier == "rag":
-        hit_note = f", {rag_hits} chunk(s)" if rag_hits is not None else ""
-        lines.append(f"  Billing: read docs/rag{hit_note} — small context vs expensive LLM chat")
-    elif tier == "cursor":
-        lines.append("  Billing: expensive LLM (Cursor agent) — full context + reply")
-
-    lines.extend(
-        [
-            "",
-            "Cursor agent chat (naive — same task, no MCP tool)",
-            f"  Always-on rules: ~{breakdown.rules:,}",
-            f"  Task prompt:     ~{breakdown.task:,}",
-            f"  Agent overhead:  ~{breakdown.overhead:,}",
-            f"  {TOTAL_BASELINE_LABEL}  ~{baseline:,}",
-            "",
-        ]
+    ctx = _build_tool_footer_context(
+        task,
+        root,
+        tier=tier,
+        est_tokens=est_tokens,
+        route_id=route_id,
+        executor_sub=executor_sub,
+        duration_ms=duration_ms,
+        rag_hits=rag_hits,
+        ollama_eval_tokens=ollama_eval_tokens,
     )
-    lines.extend(
-        _format_tier_alternatives(
-            task, root, tier, selected_spent=est_tokens
-        )
-    )
-    lines.append("")
-    lines.extend(
-        format_savings_lines(
-            baseline=baseline,
-            spent=est_tokens,
-            saved=saved,
-            tier=tier,
-            executor_sub=sub,
-        )
-    )
-    lines.extend(
-        [
-            "",
-            "Note: MCP in Agent chat still uses Cursor tokens for rules + your message +",
-            "agent reply. Only cheap LLM / rg / rag rows avoid the expensive LLM path.",
-        ]
-    )
-
-    return "\n".join(lines)
+    resolved = _resolve_footer_style(root, style)
+    if resolved == "full":
+        return _format_tool_footer_full(ctx)
+    if resolved == "markdown":
+        return _format_tool_footer_markdown(ctx)
+    return _format_tool_footer_compact(ctx)
 
 
 def log_tool_usage(

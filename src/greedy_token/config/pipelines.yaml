@@ -3,7 +3,7 @@
 
 pipelines:
   meta-audit:
-    description: "Python meta check → Ollama skill audit"
+    description: "Python meta check → skill audit (configurator-boolean → script tier; others → Ollama)"
     steps:
       - check-meta-sync
       - "audit-skill {skill}"
@@ -19,3 +19,28 @@ pipelines:
     steps:
       - "search {query} path={path}"
       - "rag {query}"
+
+  search-enrich-rag:
+    description: "Ripgrep → snippet enrich from hits → RAG (chained context)"
+    steps:
+      - "search {query} path={path}"
+      - read-hits
+      - "rag {query}"
+
+  tms-classify:
+    description: "Fast cheap LLM — TestOps step classification"
+    profile: tms-classify
+    steps:
+      - "classify-file {path}"
+
+  tms-generate:
+    description: "Smart cheap LLM — Java test generation / skill audit"
+    profile: tms-generate
+    steps:
+      - "audit-skill {skill}"
+
+  tms-auth-probe:
+    description: "Auth/storage discovery — fast model"
+    profile: tms-auth-probe
+    steps:
+      - "classify-file {path}"

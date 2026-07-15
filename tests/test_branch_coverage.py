@@ -58,6 +58,7 @@ def test_budget_footer_branch_gaps(minimal_workspace: Path) -> None:
         tier="tool",
         est_tokens=0,
         route_id="",
+        style="full",
     )
     assert "Route:" not in no_route
 
@@ -68,6 +69,7 @@ def test_budget_footer_branch_gaps(minimal_workspace: Path) -> None:
         est_tokens=5000,
         route_id="cursor-x",
         executor_sub="cursor",
+        style="full",
     )
     assert "Billing: expensive LLM (Cursor agent)" in cursor_billing
 
@@ -77,6 +79,7 @@ def test_budget_footer_branch_gaps(minimal_workspace: Path) -> None:
         tier="compress",
         est_tokens=10,
         route_id="compress-x",
+        style="full",
     )
     assert "Billing:" not in unknown_tier or "compress" in unknown_tier.lower()
 
@@ -444,6 +447,7 @@ def test_ci_linux_branch_gaps(minimal_workspace: Path) -> None:
             est_tokens=0,
             route_id="mcp-search",
             executor_sub="rg",
+            style="full",
         )
     assert "cheap" in footer
 

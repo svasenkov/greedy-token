@@ -24,7 +24,7 @@ pytestmark = [
 
 
 def _ns(**kwargs) -> Namespace:
-    defaults = {"no_log": True, "provider": None}
+    defaults = {"no_log": True, "provider": None, "list_presets": False, "preset": None}
     defaults.update(kwargs)
     return Namespace(**defaults)
 
@@ -174,7 +174,7 @@ def test_cmd_scripts_run_dry(minimal_workspace: Path, capsys) -> None:
     code = cli.cmd_scripts(_ns(list=False, run="check-meta-sync", args="", execute=False))
     out = capsys.readouterr().out
     assert code == 0
-    assert "check-meta-sync" in out
+    assert "meta-sync-check" in out
 
 
 @allure.story("Scripts")
@@ -354,6 +354,31 @@ def test_cmd_config_init_exists(tmp_path: Path, minimal_workspace: Path, monkeyp
     err = capsys.readouterr().err
     assert code == 1
     assert "already exists" in err.lower()
+
+
+@allure.story("Config")
+@allure.title("cmd_config --list-presets prints preset names")
+def test_cmd_config_list_presets(capsys) -> None:
+    code = cli.cmd_config(_ns(list_presets=True, init=False, export=False))
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "local-ollama" in out
+    assert "cursor-like-catalog" in out
+
+
+@allure.story("Config")
+@allure.title("cmd_config --init --preset local-ollama")
+def test_cmd_config_init_preset(tmp_path: Path, minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    cfg_path = tmp_path / "config.yaml"
+    monkeypatch.setattr("greedy_token.settings.user_config_path", lambda: cfg_path)
+    code = cli.cmd_config(
+        _ns(init=True, preset="local-ollama", url=None, model=None, provider=None, force=True, export=False)
+    )
+    out = capsys.readouterr().out
+    assert code == 0
+    assert cfg_path.is_file()
+    assert "Created" in out
+    assert "ollama-fast" in cfg_path.read_text(encoding="utf-8")
 
 
 @allure.story("Pipeline")

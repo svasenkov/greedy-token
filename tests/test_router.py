@@ -103,10 +103,18 @@ def test_route_task_all_tiers_has_five_rows(minimal_workspace: Path) -> None:
 def test_disabled_shadow_route_is_skipped(minimal_workspace: Path) -> None:
     with allure.step("Route task matching provider balance shadow route"):
         decision = route_task("provider balance", minimal_workspace)
-        attach_json("decision", {"target": decision.target, "route_id": decision.route_id})
-    with allure.step("Verify disabled shadow route is skipped"):
+        attach_json(
+            "decision",
+            {
+                "target": decision.target,
+                "route_id": decision.route_id,
+                "shadow_route_id": decision.shadow_route_id,
+            },
+        )
+    with allure.step("Verify disabled shadow route is skipped but logged"):
         assert decision.route_id != "python-provider-balance"
         assert decision.target == "cursor"
+        assert decision.shadow_route_id == "python-provider-balance"
 
 
 @allure.story("Token estimate")

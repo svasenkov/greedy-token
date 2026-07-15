@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import subprocess
 import time
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -19,11 +20,20 @@ from greedy_token.budget import (
     format_savings_lines,
     spent_hint,
 )
-from greedy_token.code_search import search_code
+from greedy_token.code_search import (
+    enrich_search_hits,
+    parse_hit_lines,
+    search_code,
+)
 from greedy_token.paths import find_workspace_root
 from greedy_token.rag_search import format_hits, search_rag
 from greedy_token.router import RouteDecision
-from greedy_token.settings import get_cheap_llm_settings
+from greedy_token.settings import (
+    apply_cheap_llm_env,
+    get_cheap_llm_settings,
+    get_search_settings,
+)
+from greedy_token.model_select import resolve_model, apply_model_env
 from greedy_token.tokens import count_tokens
 from greedy_token.tool_paths import SCRIPT_TIMEOUT
 from greedy_token.usage import append_event, build_route_event
@@ -35,9 +45,11 @@ PIPELINE_SPLIT = re.compile(r"\s+then\s+|\s*→\s*|\s*->\s*|\s*;\s*", re.IGNOREC
 PIPELINE_AUTO_RUN = frozenset(
     {
         "check-meta-sync",
+        "configurator-boolean-audit",
         "audit-skill",
         "classify-file",
         "search",
+        "read-hits",
         "rag",
     }
 )
@@ -50,6 +62,7 @@ class PipelineStep:
     label: str
     command: str | None = None
     args: str = ""
+    profile: str = ""
 
 
 @dataclass
@@ -257,16 +270,17 @@ def _bind_recipe_args(
     return mapping
 
 
-def _expand_named_pipeline(text: str) -> str:
+def _expand_named_pipeline(text: str, *, default_profile: str = "") -> tuple[str, str]:
     cfg = _load_pipelines_config()
     pipelines = cfg.get("pipelines") or {}
     tokens = text.split()
     if not tokens:
-        return text
+        return text, default_profile
     name = tokens[0]
     if name not in pipelines:
-        return text
+        return text, default_profile
     recipe = pipelines[name]
+    recipe_profile = str(recipe.get("profile", default_profile or name)).strip()
     steps: list[str] = recipe.get("steps") or []
     known: list[str] = []
     for step_tpl in steps:
@@ -277,30 +291,45 @@ def _expand_named_pipeline(text: str) -> str:
     global_mapping = _bind_recipe_args(name, known, positional, kwargs)
     expanded: list[str] = []
     for step_tpl in steps:
+        if (
+            step_tpl == "audit-skill {skill}"
+            and global_mapping.get("skill") == "configurator-boolean"
+        ):
+            expanded.append("configurator-boolean-audit")
+            continue
         if "{" in step_tpl:
             placeholders = re.findall(r"\{(\w+)\}", step_tpl)
             mapping = {ph: global_mapping[ph] for ph in placeholders}
             expanded.append(step_tpl.format(**mapping))
         else:
             expanded.append(step_tpl)
-    return " then ".join(expanded)
+    return " then ".join(expanded), recipe_profile
 
 
-def parse_pipeline(task: str) -> list[PipelineStep]:
+def parse_pipeline(task: str, *, profile: str = "") -> list[PipelineStep]:
     text = task.strip()
     if text.lower().startswith("pipeline:"):
         text = text.split(":", 1)[1].strip()
-    text = _expand_named_pipeline(text)
+    text, recipe_profile = _expand_named_pipeline(text, default_profile=profile)
+    active_profile = recipe_profile or profile
     segments = [s.strip() for s in PIPELINE_SPLIT.split(text) if s.strip()]
     if not segments:
         raise ValueError("Empty pipeline. Example: check-meta-sync then audit-skill configurator-boolean")
-    return [_parse_segment(seg) for seg in segments]
+    return [_parse_segment(seg, profile=active_profile) for seg in segments]
 
 
-def _parse_segment(segment: str) -> PipelineStep:
+def _parse_segment(segment: str, *, profile: str = "") -> PipelineStep:
     segment = segment.strip()
     if segment.startswith("search "):
-        return _parse_search_segment(segment)
+        return _parse_search_segment(segment, profile=profile)
+    if segment == "read-hits" or segment.startswith("read-hits "):
+        return PipelineStep(
+            step_id="read-hits",
+            tier="tool",
+            label="read-hits",
+            args=segment[len("read-hits") :].strip(),
+            profile=profile,
+        )
     if segment.startswith("rag "):
         query = segment[4:].strip()
         return PipelineStep(
@@ -308,13 +337,15 @@ def _parse_segment(segment: str) -> PipelineStep:
             tier="rag",
             label=f"rag: {query}",
             args=query,
+            profile=profile,
         )
     parts = segment.split(maxsplit=1)
     step_id = parts[0]
     args = parts[1] if len(parts) > 1 else ""
     if step_id not in WRAPPERS:
         raise ValueError(
-            f"Unknown step {step_id!r}. Known: {', '.join(sorted(WRAPPERS))}, search, rag"
+            f"Unknown step {step_id!r}. Known: {', '.join(sorted(WRAPPERS))}, "
+            f"search, read-hits, rag"
         )
     wrapper = WRAPPERS[step_id]
     tier = "ollama" if wrapper.requires_ollama else "python"
@@ -327,10 +358,11 @@ def _parse_segment(segment: str) -> PipelineStep:
         label=f"{step_id} {resolved_args}".strip(),
         command=command,
         args=resolved_args,
+        profile=profile if wrapper.requires_ollama else "",
     )
 
 
-def _parse_search_segment(segment: str) -> PipelineStep:
+def _parse_search_segment(segment: str, *, profile: str = "") -> PipelineStep:
     # search baseUrl path=configurator-option-presets.html
     body = segment[7:].strip()
     path = ""
@@ -344,6 +376,7 @@ def _parse_search_segment(segment: str) -> PipelineStep:
         tier="tool",
         label=f"search: {query}" + (f" in {path}" if path else ""),
         args=f"{query}\t{path}",
+        profile=profile,
     )
 
 
@@ -421,7 +454,86 @@ def _estimate_step_tokens(step: PipelineStep, output: str, root: Path) -> int:
     return count_tokens(output).tokens
 
 
-def _run_step(step: PipelineStep, root: Path, *, execute: bool) -> StepResult:
+def _run_read_hits(
+    step: PipelineStep,
+    root: Path,
+    *,
+    prior_search_output: str | None,
+    execute: bool,
+) -> StepResult:
+    t0 = time.perf_counter()
+    if not execute:
+        return StepResult(
+            step=step,
+            ok=True,
+            exit_code=0,
+            output="(dry-run) read-hits from prior search",
+            duration_ms=int((time.perf_counter() - t0) * 1000),
+            est_tokens=0,
+            executed=False,
+            engine="read-hits",
+        )
+    if not prior_search_output:
+        return StepResult(
+            step=step,
+            ok=False,
+            exit_code=1,
+            output="read-hits: no prior search step output to enrich",
+            duration_ms=int((time.perf_counter() - t0) * 1000),
+            est_tokens=0,
+            executed=True,
+            engine="read-hits",
+        )
+    hits = parse_hit_lines(prior_search_output)
+    if not hits:
+        return StepResult(
+            step=step,
+            ok=True,
+            exit_code=0,
+            output="read-hits: no path:line hits parsed from prior search",
+            duration_ms=int((time.perf_counter() - t0) * 1000),
+            est_tokens=0,
+            executed=True,
+            engine="read-hits",
+        )
+    settings = get_search_settings(root)
+    mode = "snippet"
+    if step.args.strip().lower() in ("none", "snippet", "file"):
+        mode = step.args.strip().lower()
+    block, files_done, ctx_tokens = enrich_search_hits(
+        root,
+        hits,
+        mode=mode,  # type: ignore[arg-type]
+        max_files=settings.max_snippet_files,
+        context_lines=settings.context_lines,
+        max_tokens=settings.max_context_tokens,
+    )
+    # Also surface hit file list for the next human/agent reader
+    from greedy_token.code_search import unique_hit_paths
+
+    paths = unique_hit_paths(hits, limit=settings.max_snippet_files)
+    header = f"read-hits: {files_done} file(s) · ~{ctx_tokens} tokens\nfiles: {', '.join(paths)}"
+    output = header if not block else f"{header}\n\n{block}"
+    return StepResult(
+        step=step,
+        ok=True,
+        exit_code=0,
+        output=output,
+        duration_ms=int((time.perf_counter() - t0) * 1000),
+        est_tokens=ctx_tokens,
+        executed=True,
+        engine="read-hits",
+    )
+
+
+def _run_step(
+    step: PipelineStep,
+    root: Path,
+    *,
+    execute: bool,
+    escalate: bool = False,
+    prior_search_output: str | None = None,
+) -> StepResult:
     t0 = time.perf_counter()
     executed = False
     output = ""
@@ -432,7 +544,8 @@ def _run_step(step: PipelineStep, root: Path, *, execute: bool) -> StepResult:
         path = path.strip() or None
         engine = ""
         if execute:
-            result = search_code(query, root, path=path)
+            # Raw hits only — enrichment is the dedicated read-hits step (or MCP context=).
+            result = search_code(query, root, path=path, context="none")
             output = result.text
             engine = result.engine
             executed = True
@@ -451,10 +564,25 @@ def _run_step(step: PipelineStep, root: Path, *, execute: bool) -> StepResult:
             engine=engine,
         )
 
+    if step.step_id == "read-hits":
+        return _run_read_hits(
+            step, root, prior_search_output=prior_search_output, execute=execute
+        )
+
     if step.step_id == "rag":
         if execute:
+            # Prefer domain hints from prior search file paths when present
             hits = search_rag(step.args, root, limit=5)
             output = format_hits(step.args, hits)
+            if prior_search_output:
+                from greedy_token.code_search import unique_hit_paths
+
+                files = unique_hit_paths(parse_hit_lines(prior_search_output), limit=5)
+                if files:
+                    output = (
+                        f"{output}\n\n--- prior search files ---\n"
+                        + "\n".join(files)
+                    )
             executed = True
         else:
             output = f"(dry-run) rag {step.args!r}"
@@ -490,6 +618,16 @@ def _run_step(step: PipelineStep, root: Path, *, execute: bool) -> StepResult:
             est_tokens=0,
             executed=False,
         )
+
+    if step.tier == "ollama":
+        if step.profile:
+            try:
+                resolved = resolve_model(step.profile, root=root)
+                apply_model_env(resolved)
+            except ValueError:
+                apply_cheap_llm_env(root, profile=step.profile)
+        else:
+            apply_cheap_llm_env(root)
 
     if step.tier == "ollama" and not ollama_available():
         llm = get_cheap_llm_settings(root)
@@ -555,13 +693,24 @@ def run_pipeline(
     execute: bool = False,
     stop_on_error: bool = True,
     max_output_per_step: int = 4000,
+    profile: str = "",
+    escalate: bool = False,
 ) -> PipelineResult:
     root = root or find_workspace_root()
-    steps = parse_pipeline(task)
+    steps = parse_pipeline(task, profile=profile)
     result = PipelineResult(task=task)
+    last_search_output: str | None = None
 
     for step in steps:
-        step_result = _run_step(step, root, execute=execute)
+        step_result = _run_step(
+            step,
+            root,
+            execute=execute,
+            escalate=escalate,
+            prior_search_output=last_search_output,
+        )
+        if step.step_id == "search" and step_result.executed:
+            last_search_output = step_result.output
         if len(step_result.output) > max_output_per_step:
             step_result.output = (
                 step_result.output[: max_output_per_step - 40] + "\n… (truncated)"
@@ -675,7 +824,11 @@ def format_pipeline_footer(result: PipelineResult, root: Path) -> str:
         count, tokens = by_tier[tier]
         note = TIER_LABELS.get(tier, tier)
         if tier == "ollama":
-            note += f" ({llm.provider}/{llm.model}, cheap)"
+            model_id = os.environ.get("GREEDY_LLM_MODEL_ID", "")
+            if model_id:
+                note += f" ({model_id}/{llm.model}, cheap)"
+            else:
+                note += f" ({llm.provider}/{llm.model}, cheap)"
         elif tier in ("tool", "python"):
             note += " (0 LLM spend)"
         lines.append(f"  {note:<32} steps={count}  ~{tokens:,} tok")

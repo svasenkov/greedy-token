@@ -13,7 +13,8 @@
 | Тема | Цель | Трекинг |
 |------|------|---------|
 | **cheap_llm** | `provider: ollama \| openai_compat` — один конфиг для Ollama и OpenAI-compatible серверов | ✅ [#2](https://github.com/svasenkov/greedy-token/issues/2) (v0.5.0) |
-| **expensive_llm** | Metered agent / API path (Cursor сегодня; опциональные paid agent APIs) — не bulk classify | [#3](https://github.com/svasenkov/greedy-token/issues/3) |
+| **multi_model** | `llm.cheap.models[]` + profiles (`tms-classify`, `tms-generate`), `greedy-token llm invoke` | ✅ v0.5.9 |
+| **expensive_llm** | YandexGPT Lite opt-in, daily cap, escalation fast→smart→paid | ✅ MVP v0.5.9 ([#3](https://github.com/svasenkov/greedy-token/issues/3) partial) |
 | **mcp_hosts** | Документация и smoke MCP не только в Cursor | [#14](https://github.com/svasenkov/greedy-token/issues/14), [#15](https://github.com/svasenkov/greedy-token/issues/15) |
 
 ## Темы v0.6
@@ -75,7 +76,64 @@ cheap_llm:
 - ✅ `get_cheap_llm_settings()` вместо `get_ollama_settings()` (alias для совместимости)
 - ✅ Health check и chat для обоих провайдеров
 - ✅ `OLLAMA_*` / `ollama:` остаются алиасами; предпочтительно `CHEAP_LLM_*`
+- ✅ **v0.5.9:** multi-model registry `llm.cheap.models[]`, profiles, `greedy-token llm invoke --profile`
 - 🔜 Workspace `scripts/ollama/_common.sh` → env-driven / `scripts/cheap-llm/` (не пакет)
+
+### multi_model — v0.5.9
+
+```yaml
+llm:
+  policy: auto              # cheap_only | expensive_only | auto
+  cheap:
+    default_id: fast
+    models:
+      - id: fast
+        enabled: true
+        provider: ollama
+        model: qwen2.5-coder:7b-instruct-q4_K_M
+        profiles: [tms-classify, classify]
+      - id: smart
+        enabled: true
+        model: qwen2.5-coder:14b-instruct-q4_K_M
+        profiles: [tms-generate, generate]
+  expensive:
+    opt_in: false
+    models:
+      - id: yandex-lite
+        provider: yandex_gpt
+        enabled: false
+        profiles: [escalate, crystallize-verify]
+  escalation:
+    chain: [fast, smart, yandex-lite]
+```
+
+- ✅ `resolve_model(profile)` · `greedy-token llm list` · pipeline `--profile`
+- ✅ Telemetry: `model_id`, `profile`, `tags.project`, `billing_tier`, `cost_usd`
+- ✅ Backward compat: одиночный `cheap_llm.model` → synthetic `default` model
+
+### Model presets (v0.5.9+)
+
+Шаблоны в [examples/presets/](../examples/presets/README.md) — не runtime SSOT, а старт для `~/.greedy-token/config.yaml`:
+
+```bash
+greedy-token config --list-presets
+greedy-token config --init --preset local-ollama
+greedy-token config --init --preset cursor-like-catalog
+```
+
+| Preset | Назначение |
+|--------|------------|
+| `local-ollama` | Dev **2 models**: 7b + 14b, обе **on** |
+| `local-ollama-3` | Dev **3 models**: 7b + 14b + 32b, все **on** |
+| `prod-ollama-2` | Prod **2 models**: 7b classify + 14b generate |
+| `prod-ollama-3` | Prod **3 models**: 2 on + 32b **off** по умолчанию |
+| `cursor-like-catalog` | Полный каталог провайдеров; paid **off** |
+| `selectel-cl21r` | CL21R prod (alias `prod-ollama-2`) |
+| `tms-automator` | TMS automator + escalation |
+
+**Anthropic / Gemini:** только в README как `models_pending` ([#9](https://github.com/svasenkov/greedy-token/issues/9), [#11](https://github.com/svasenkov/greedy-token/issues/11)) — native executor в v0.6+, не в YAML (чтобы случайный `turned_on: true` не ломал `resolve_model`).
+
+OpenAI / Groq / Mistral / DeepSeek в пресетах — через `openai_compat` + `url` + `api_key_env`.
 
 ## IDE / MCP host
 
@@ -123,6 +181,8 @@ CI job → greedy-token CLI → rg | python | cheap_llm (Ollama/internal) | RAG 
 
 | Версия | Фокус |
 |--------|-------|
+| **v0.6.0** | `greedy-token doctor` (hardware + Ollama catalog), split budget (`budget` CLI, metered hard cap + Cursor estimate), `llm.policy: hybrid`, footer/statusline budget display, usage.jsonl v2 `billing` |
+| **v0.5.9** | Multi-model registry, profiles, `llm invoke`, YandexGPT opt-in MVP, TMS pipelines, escalation, **model presets** (`config --init --preset`) |
 | **v0.5.0** | `cheap_llm` provider (`ollama` \| `openai_compat`); tier id `ollama` без переименования; `OLLAMA_*` compat |
 | **v0.4.4** | Cursor-first README, mascot, короче MCP instructions, roadmap CI/headless (#18) |
 | **v0.4.3** | Cursor starter kit (`examples/cursor/`) + setup-дока для пользователей PyPI |

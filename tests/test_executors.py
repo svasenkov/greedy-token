@@ -160,14 +160,14 @@ def test_plan_run_python(minimal_workspace: Path) -> None:
         route_id="script-check-meta-sync",
         confidence=1.0,
         matched=["meta"],
-        command="./scripts/check-meta-sync.sh",
+        command="python scripts/meta-sync-check.py",
         note="",
         domains=[],
         read_only=True,
     )
     plan = plan_run(decision, "check meta", minimal_workspace)
     assert plan.executable is True
-    assert "check-meta-sync" in plan.command
+    assert "meta-sync-check.py" in plan.command
 
 
 @allure.story("Plan run")

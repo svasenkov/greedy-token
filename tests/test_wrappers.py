@@ -47,14 +47,14 @@ def test_wrappers_stdout_only_are_read_only() -> None:
 @allure.story("Command resolution")
 @allure.title("Wrapper command resolver builds shell script invocation")
 def test_resolve_wrapper_command_python(minimal_workspace) -> None:
-    script = minimal_workspace / "scripts" / "check-meta-sync.sh"
-    script.write_text("#!/bin/sh\necho ok\n", encoding="utf-8")
+    script = minimal_workspace / "scripts" / "meta-sync-check.py"
+    script.write_text("#!/usr/bin/env python\nprint('ok')\n", encoding="utf-8")
     with allure.step("Resolve check-meta-sync wrapper command"):
         cmd = resolve_wrapper_command("check-meta-sync", minimal_workspace)
         attach_text("resolved command", cmd)
-    with allure.step("Verify shell script invocation"):
-        assert "check-meta-sync.sh" in cmd
-        assert "python" not in cmd
+    with allure.step("Verify python script invocation"):
+        assert "meta-sync-check.py" in cmd
+        assert "python" in cmd
 
 
 @allure.story("Command resolution")
@@ -121,7 +121,7 @@ def test_wrapper_for_command() -> None:
 
     assert wrapper_for_command(None) is None
     assert wrapper_for_command("echo noop") is None
-    w = wrapper_for_command("./scripts/check-meta-sync.sh")
+    w = wrapper_for_command("python scripts/meta-sync-check.py")
     assert w is not None
     assert w.id == "check-meta-sync"
 

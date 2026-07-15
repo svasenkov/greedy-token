@@ -66,6 +66,7 @@ def test_budget_footer_public(minimal_workspace: Path) -> None:
             est_tokens=0,
             route_id="mcp-search",
             executor_sub="rg",
+            style="full",
         )
     assert "unavailable" in footer
 
@@ -419,7 +420,7 @@ def test_executors_public_branches(minimal_workspace: Path) -> None:
                 route_id="script-check-meta-sync",
                 confidence=1.0,
                 matched=[],
-                command="./scripts/check-meta-sync.sh",
+                command="python scripts/meta-sync-check.py",
                 note="",
                 domains=[],
                 read_only=True,
@@ -1064,7 +1065,7 @@ def test_remaining_public_branches(
     (scoped / "docs").mkdir()
     (scoped / "docs" / "phase-manifest.json").write_text("{}", encoding="utf-8")
     (scoped / "scripts").mkdir()
-    (scoped / "scripts" / "check-meta-sync.sh").write_text("#!/bin/sh\n", encoding="utf-8")
+    (scoped / "scripts" / "meta-sync-check.py").write_text("#!/usr/bin/env python\n", encoding="utf-8")
     proj = scoped / "projects"
     proj.mkdir()
     special = proj / "relboom.txt"

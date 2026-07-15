@@ -1,0 +1,71 @@
+# Static SSOT for local + paid model recommendations (not runtime Ollama scrape).
+tiers:
+  cpu_only:
+    vram_gb_max: 0
+    ram_gb_min: 8
+    recommend:
+      - qwen2.5-coder:7b-instruct-q4_K_M
+    avoid:
+      - openchat
+      - llama2
+      - codellama
+  low_vram:
+    vram_gb_max: 8
+    ram_gb_min: 16
+    recommend:
+      - qwen2.5-coder:7b-instruct-q4_K_M
+    avoid:
+      - openchat
+      - qwen2.5-coder:32b
+  mid_vram:
+    vram_gb_max: 16
+    ram_gb_min: 16
+    recommend:
+      - qwen2.5-coder:14b-instruct-q4_K_M
+      - qwen2.5-coder:7b-instruct-q4_K_M
+    avoid:
+      - openchat
+  high_vram:
+    vram_gb_max: 999
+    ram_gb_min: 32
+    recommend:
+      - qwen2.5-coder:14b-instruct-q4_K_M
+      - qwen2.5-coder:32b-instruct-q4_K_M
+    avoid:
+      - openchat
+
+deprecated:
+  openchat:
+    reason: "Superseded by qwen2.5-coder; poor code quality for classify/audit"
+  openchat:7b:
+    reason: "Superseded by qwen2.5-coder:7b-instruct-q4_K_M"
+  llama2:
+    reason: "Outdated for code tasks; use qwen2.5-coder"
+  codellama:
+    reason: "Outdated; qwen2.5-coder preferred for code"
+
+benchmark:
+  system: "Classify the following code snippet in one word: function, class, or other."
+  user: "def foo(x): return x + 1"
+
+paid_models:
+  yandexgpt-lite:
+    cost_per_1m_usd: 7.0
+    quality_tier: budget
+    profiles: [classify, summarize, escalate]
+    note: "152-ФЗ compliant; good for bulk classify"
+  gpt-4o-mini:
+    cost_per_1m_usd: 0.15
+    quality_tier: mid
+    profiles: [generate, refactor-hint]
+    note: "Best cost/quality for short generation"
+  gpt-4o:
+    cost_per_1m_usd: 2.5
+    quality_tier: high
+    profiles: [architecture, complex-refactor]
+    note: "Use only when cheaper models fail"
+  groq-llama-3.1-8b:
+    cost_per_1m_usd: 0.05
+    quality_tier: budget
+    profiles: [classify, summarize]
+    note: "Fast cloud open-weights; low latency"

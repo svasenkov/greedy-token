@@ -18,6 +18,8 @@ from greedy_token.settings import (
     format_config,
     format_shell_export,
     init_user_config,
+    init_user_config_from_preset,
+    list_preset_names,
 )
 from greedy_token.tokens import TokenEstimate, collect_paths, count_files, count_tokens, format_size_table
 from greedy_token.usage import (
@@ -37,6 +39,7 @@ from greedy_token.wrappers import WRAPPERS, ollama_status_line, resolve_wrapper_
 
 
 from greedy_token.budget import rag_est_tokens
+from greedy_token.advisory import watch_events
 
 COMPRESS_MAX_BYTES = 256 * 1024
 
@@ -222,6 +225,13 @@ def cmd_compress(args: argparse.Namespace) -> int:
 
 def cmd_scripts(args: argparse.Namespace) -> int:
     root = find_workspace_root()
+    action = str(getattr(args, "args", "") or "").strip()
+    if not args.list and not args.run and action == "lint":
+        from greedy_token.scripts_lint import format_lint_report, lint_routes
+
+        result = lint_routes(root=root)
+        print(format_lint_report(result))
+        return 0 if result.get("ok") else 1
     if args.list:
         lines = ["Script wrappers (scripts/ollama | migrate | check-meta-sync):", ""]
         for wrapper in WRAPPERS.values():
@@ -283,7 +293,7 @@ def cmd_scripts(args: argparse.Namespace) -> int:
             ),
         )
         return code
-    print("Use scripts --list or scripts --run ID", file=sys.stderr)
+    print("Use scripts --list, scripts --run ID, or scripts lint", file=sys.stderr)
     return 1
 
 
@@ -302,15 +312,31 @@ def cmd_report(args: argparse.Namespace) -> int:
 
 
 def cmd_config(args: argparse.Namespace) -> int:
+    if args.list_presets:
+        for name in list_preset_names():
+            print(name)
+        return 0
+
     if args.init:
         try:
-            path = init_user_config(
-                url=args.url,
-                model=args.model,
-                provider=args.provider,
-                force=args.force,
-            )
+            if args.preset:
+                if args.url or args.model or args.provider:
+                    print(
+                        "config --init --preset ignores --url, --model, and --provider",
+                        file=sys.stderr,
+                    )
+                path = init_user_config_from_preset(preset=args.preset, force=args.force)
+            else:
+                path = init_user_config(
+                    url=args.url,
+                    model=args.model,
+                    provider=args.provider,
+                    force=args.force,
+                )
         except FileExistsError as exc:
+            print(exc, file=sys.stderr)
+            return 1
+        except (FileNotFoundError, ValueError) as exc:
             print(exc, file=sys.stderr)
             return 1
         print(f"Created {path}")
@@ -342,6 +368,8 @@ def cmd_pipeline(args: argparse.Namespace) -> int:
         root,
         execute=args.execute,
         stop_on_error=not args.continue_on_error,
+        profile=getattr(args, "profile", "") or "",
+        escalate=getattr(args, "escalate", False),
     )
     print(format_pipeline_response(result, root))
     return 0 if result.all_ok else 1
@@ -356,6 +384,156 @@ def _parse_tags(raw: str) -> dict[str, str]:
         key, _, value = part.partition("=")
         tags[key.strip()] = value.strip()
     return tags
+
+
+def cmd_llm_invoke(args: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    from greedy_token.llm_invoke import invoke_profile, invoke_result_to_dict
+
+    root = find_workspace_root()
+    system = args.system or ""
+    user = args.user or ""
+    if args.system_file:
+        system = Path(args.system_file).read_text(encoding="utf-8")
+    if args.user_file:
+        user = Path(args.user_file).read_text(encoding="utf-8")
+    if not user and not sys.stdin.isatty():
+        user = sys.stdin.read()
+    if not user.strip():
+        print("llm invoke needs --user, --user-file, or stdin", file=sys.stderr)
+        return 2
+
+    try:
+        result = invoke_profile(
+            args.profile,
+            system=system,
+            user=user,
+            root=root,
+            tags=_parse_tags(args.tags or ""),
+            allow_escalate=not args.no_escalate,
+            allow_expensive=args.allow_expensive,
+            log=not getattr(args, "no_log", False),
+        )
+    except RuntimeError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(json.dumps(invoke_result_to_dict(result), indent=2, ensure_ascii=False))
+    else:
+        print(result.text)
+        if result.escalated_from:
+            print(f"\n(escalated from {result.escalated_from} → {result.model_id})", file=sys.stderr)
+    return 0
+
+
+def cmd_llm_list(args: argparse.Namespace) -> int:
+    from greedy_token.model_select import get_llm_registry, list_models
+
+    root = find_workspace_root()
+    reg = get_llm_registry(root)
+    lines = [
+        f"policy: {reg.policy}",
+        f"cheap default: {reg.cheap_default_id} ({reg.cheap_selection})",
+        f"expensive opt_in: {reg.expensive_opt_in}  daily_cap_usd: {reg.daily_cap_usd}",
+        "",
+        "models:",
+    ]
+    for spec in list_models(root):
+        state = "on" if spec.enabled else "off"
+        lines.append(
+            f"  {spec.id:<16} [{spec.tier}] {state}  {spec.provider}/{spec.model}  "
+            f"profiles={','.join(spec.profiles)}"
+        )
+    print("\n".join(lines))
+    return 0
+
+
+def cmd_doctor(args: argparse.Namespace) -> int:
+    from greedy_token.resource_probe import apply_doctor_config, format_doctor_report, run_doctor
+
+    root = None
+    try:
+        root = find_workspace_root()
+    except SystemExit:
+        pass
+
+    if args.apply:
+        try:
+            path = apply_doctor_config(force=args.force)
+            print(f"Updated {path}")
+            return 0
+        except (ValueError, FileExistsError) as exc:
+            print(exc, file=sys.stderr)
+            return 1
+
+    report = run_doctor(
+        root=root,
+        quick=not args.benchmark,
+        include_paid=args.paid,
+        benchmark=args.benchmark,
+    )
+    if args.json:
+        import dataclasses
+
+        payload = {
+            "hardware": dataclasses.asdict(report.hardware),
+            "ollama_available": report.ollama_available,
+            "configured_model": report.configured_model,
+            "recommended": report.recommended,
+            "warnings": report.warnings,
+            "deprecated_installed": report.deprecated_installed,
+        }
+        if report.benchmark:
+            payload["benchmark"] = dataclasses.asdict(report.benchmark)
+        if args.paid:
+            payload["paid_recommendations"] = report.paid_recommendations
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+    else:
+        print(format_doctor_report(report, include_paid=args.paid))
+    return 0
+
+
+def cmd_budget(args: argparse.Namespace) -> int:
+    from greedy_token.budget_ledger import aggregate_budget, format_budget_line
+
+    root = None
+    try:
+        root = find_workspace_root()
+    except SystemExit:
+        pass
+
+    snap = aggregate_budget(root=root)
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "metered_spent_usd": snap.metered_spent_usd,
+                    "metered_cap_usd": snap.metered_cap_usd,
+                    "metered_remaining_usd": snap.metered_remaining_usd,
+                    "metered_pct": snap.metered_pct,
+                    "cursor_est_spent_usd": snap.cursor_est_spent_usd,
+                    "cursor_est_cap_usd": snap.cursor_est_cap_usd,
+                    "cursor_est_remaining_usd": snap.cursor_est_remaining_usd,
+                    "cursor_est_pct": snap.cursor_est_pct,
+                    "mode": snap.mode,
+                    "period_label": snap.period_label,
+                },
+                indent=2,
+            )
+        )
+    else:
+        print(format_budget_line(root=root, compact=not args.verbose))
+    return 0
+
+
+def cmd_watch(args: argparse.Namespace) -> int:
+    return watch_events(
+        follow=not args.once,
+        from_start=args.from_start,
+        json_out=args.json,
+    )
 
 
 def cmd_override(args: argparse.Namespace) -> int:
@@ -377,6 +555,13 @@ def cmd_override(args: argparse.Namespace) -> int:
     else:
         crystal = args.crystal_id or "unknown"
         print(f"script_override logged: {crystal} -> {args.selected_tier}")
+    return 0
+
+
+def cmd_hub_serve(args: argparse.Namespace) -> int:
+    from greedy_token.hub import serve
+
+    serve(host=args.host, port=args.port)
     return 0
 
 
@@ -431,7 +616,12 @@ def build_parser() -> argparse.ArgumentParser:
     scr = sub.add_parser("scripts", help="Wrappers for workspace scripts")
     scr.add_argument("--list", action="store_true", help="List script wrappers")
     scr.add_argument("--run", metavar="ID", help="Wrapper id (e.g. check-meta-sync)")
-    scr.add_argument("args", nargs="?", default="", help="Extra args for script")
+    scr.add_argument(
+        "args",
+        nargs="?",
+        default="",
+        help="Extra args for --run, or 'lint' for crystallize pattern/script checks",
+    )
     scr.add_argument(
         "--execute",
         action="store_true",
@@ -467,6 +657,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     cfg = sub.add_parser("config", help="Show or init cheap LLM settings (Ollama / OpenAI-compatible)")
     cfg.add_argument("--init", action="store_true", help="Create ~/.greedy-token/config.yaml")
+    cfg.add_argument(
+        "--preset",
+        help="Preset name for --init (see greedy-token config --list-presets)",
+    )
+    cfg.add_argument(
+        "--list-presets",
+        action="store_true",
+        help="List available config presets",
+    )
     cfg.add_argument("--url", help="Cheap LLM base URL for --init")
     cfg.add_argument("--model", help="Cheap LLM model for --init")
     cfg.add_argument(
@@ -495,7 +694,76 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Do not stop on step failure",
     )
+    pipe.add_argument(
+        "--profile",
+        default="",
+        help="LLM profile for ollama steps (e.g. tms-classify, tms-generate)",
+    )
+    pipe.add_argument(
+        "--escalate",
+        action="store_true",
+        help="Allow model escalation on weak ollama output (requires expensive opt-in for paid)",
+    )
     pipe.set_defaults(func=cmd_pipeline)
+
+    llm = sub.add_parser("llm", help="Multi-model LLM invoke (headless / TMS automator)")
+    llm_sub = llm.add_subparsers(dest="llm_command", required=True)
+
+    invoke = llm_sub.add_parser("invoke", help="Invoke LLM by profile")
+    invoke.add_argument("--profile", required=True, help="Model profile (tms-classify, tms-generate, …)")
+    invoke.add_argument("--system", default="", help="System prompt text")
+    invoke.add_argument("--user", default="", help="User prompt text")
+    invoke.add_argument("--system-file", help="System prompt file")
+    invoke.add_argument("--user-file", help="User prompt file")
+    invoke.add_argument(
+        "--tags",
+        default="",
+        help="Telemetry tags key=value,key=value (e.g. project=tms-automator,step=classify)",
+    )
+    invoke.add_argument("--json", action="store_true", help="JSON output")
+    invoke.add_argument("--allow-expensive", action="store_true", help="Opt in to paid expensive LLM")
+    invoke.add_argument("--no-escalate", action="store_true", help="Disable escalation chain")
+    invoke.set_defaults(func=cmd_llm_invoke)
+
+    llm_list = llm_sub.add_parser("list", help="List configured models")
+    llm_list.set_defaults(func=cmd_llm_list)
+
+    doc = sub.add_parser("doctor", help="Probe hardware + Ollama models; recommend optimal local model")
+    doc.add_argument("--apply", action="store_true", help="Update ~/.greedy-token/config.yaml with recommendation")
+    doc.add_argument("--force", action="store_true", help="Overwrite on --apply")
+    doc.add_argument("--benchmark", action="store_true", help="Run micro-benchmark on recommended model")
+    doc.add_argument("--paid", action="store_true", help="Include paid model economy recommendations")
+    doc.add_argument("--json", action="store_true", help="JSON output")
+    doc.set_defaults(func=cmd_doctor)
+
+    bud = sub.add_parser("budget", help="Split budget view: metered API + Cursor estimate")
+    bud.add_argument("--json", action="store_true", help="JSON output")
+    bud.add_argument("--verbose", action="store_true", help="Multi-line breakdown")
+    bud.set_defaults(func=cmd_budget)
+
+    w = sub.add_parser(
+        "watch",
+        help="Tail hook advisory log (~/.greedy-token/advisory.jsonl)",
+    )
+    w.add_argument(
+        "--once",
+        action="store_true",
+        help="Print new events since start, then exit (no follow)",
+    )
+    w.add_argument(
+        "--from-start",
+        action="store_true",
+        help="Include entire log from file start",
+    )
+    w.add_argument("--json", action="store_true", help="Raw JSONL output")
+    w.set_defaults(func=cmd_watch)
+
+    hub = sub.add_parser("hub", help="Local ops dashboard (telemetry + crystallize)")
+    hub_sub = hub.add_subparsers(dest="hub_command", required=True)
+    hub_serve = hub_sub.add_parser("serve", help="Serve hub on localhost")
+    hub_serve.add_argument("--host", default="127.0.0.1", help="Bind host (default 127.0.0.1)")
+    hub_serve.add_argument("--port", type=int, default=8787, help="Bind port (default 8787)")
+    hub_serve.set_defaults(func=cmd_hub_serve)
 
     return p
 

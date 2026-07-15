@@ -20,7 +20,8 @@ pytestmark = [
 
 def _assert_greedy_token_footer(text: str) -> None:
     assert "Greedy token" in text
-    assert "Saved vs naive Cursor chat" in text
+    assert "saved **~" in text
+    assert "> spent ~" in text
 
 
 @allure.story("Server handshake")
@@ -76,7 +77,7 @@ def test_mcp_stdio_search_finds_match(minimal_workspace: Path) -> None:
         attach_text("search response", text)
     with allure.step("Verify baseUrl match and Greedy token footer"):
         assert "baseUrl" in text
-        assert "ripgrep on disk — 0 LLM spend" in text
+        assert "free tier" in text
         _assert_greedy_token_footer(text)
 
 
