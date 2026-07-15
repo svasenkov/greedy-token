@@ -1,0 +1,51 @@
+/* Injected into Allure 3 dashboard/awesome (prepare-allure-pages-colors.sh).
+ * Palette A — SSOT with design-system tokens.css --layer-* and
+ * allure/pyramid-layer-colors.mjs. Allure paints all active bands with
+ * one --color-intent-primary-bg; JS sets fill to var(--layer-<name>). */
+
+:root {
+  color-scheme: light;
+  --layer-unit: #94a3b8;
+  --layer-component: #2563eb;
+  --layer-integration: #0891b2;
+  --layer-api: #7c3aed;
+  --layer-e2e: #d97706;
+  --layer-manual: #ea580c;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --layer-unit: #64748b;
+  --layer-component: #3b82f6;
+  --layer-integration: #06b6d4;
+  --layer-api: #8b5cf6;
+  --layer-e2e: #f59e0b;
+  --layer-manual: #f97316;
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+  --layer-unit: #94a3b8;
+  --layer-component: #2563eb;
+  --layer-integration: #0891b2;
+  --layer-api: #7c3aed;
+  --layer-e2e: #d97706;
+  --layer-manual: #ea580c;
+}
+
+/* Narrow shell — overrides Allure CSS-module grids + inline widget widths */
+html[data-shell-layout="narrow"] [class*="styles_grid__"] {
+  grid-template-columns: 1fr !important;
+  width: 100% !important;
+  gap: 12px !important;
+}
+
+html[data-shell-layout="narrow"] [class*="styles_grid-item__"] {
+  grid-template-columns: 1fr !important;
+  width: 100% !important;
+}
+
+html[data-shell-layout="narrow"] [class*="styles_widget__"] {
+  width: 100% !important;
+  max-width: 100% !important;
+}
