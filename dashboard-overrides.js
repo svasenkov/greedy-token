@@ -38,15 +38,31 @@
     }
   }
 
+  /**
+   * Normalize a raw "Layer: <name>…" fragment to a known layer key.
+   * Allure concatenates tspans ("manualNo tests") and layer names contain
+   * digits ("e2e"), so a naive [a-z]+ capture is wrong — match by prefix.
+   */
+  function normalizeLayer(raw) {
+    const text = (raw || "").trim().toLowerCase();
+    let best = null;
+    for (const layer of FUNNEL_TOP_TO_BOTTOM) {
+      if (text.startsWith(layer) && (!best || layer.length > best.length)) {
+        best = layer;
+      }
+    }
+    return best;
+  }
+
   /** Unique Layer: <name> labels with Y (Allure annotation tspans). */
   function layerLabelsFromWidget(widget) {
     const seen = new Set();
     const labels = [];
     widget.querySelectorAll("text, tspan").forEach((node) => {
-      const match = (node.textContent || "").match(/^Layer:\s*([a-z]+)/i);
+      const match = (node.textContent || "").match(/Layer:\s*(.+)/i);
       if (!match) return;
-      const layer = match[1].toLowerCase();
-      if (seen.has(layer)) return;
+      const layer = normalizeLayer(match[1]);
+      if (!layer || seen.has(layer)) return;
       seen.add(layer);
       const textEl = node.closest("text") || node;
       labels.push({ layer, y: safeBBoxY(textEl) });
@@ -72,6 +88,11 @@
   function pairShapesToLayers(shapeEntries, labels) {
     if (!shapeEntries.length) return [];
 
+    // Full pyramid: shapes are sorted top→bottom, funnel order is deterministic.
+    if (shapeEntries.length === FUNNEL_TOP_TO_BOTTOM.length) {
+      return [...FUNNEL_TOP_TO_BOTTOM];
+    }
+
     if (labels.length === shapeEntries.length) {
       const sorted = [...labels].sort((a, b) => a.y - b.y);
       return sorted.map((entry) => entry.layer);
@@ -92,10 +113,6 @@
       });
     }
 
-    if (shapeEntries.length === FUNNEL_TOP_TO_BOTTOM.length) {
-      return [...FUNNEL_TOP_TO_BOTTOM];
-    }
-
     return shapeEntries.map(() => null);
   }
 
@@ -104,6 +121,7 @@
   }
 
   function colorForLayer(layer) {
+    if (!layer || !PALETTE.light[layer]) return null;
     const cssVar = getComputedStyle(document.documentElement)
       .getPropertyValue(`--layer-${layer}`)
       .trim();
@@ -112,6 +130,7 @@
 
   function setShapeFill(shape, layer) {
     const color = colorForLayer(layer);
+    if (!color) return;
     shape.setAttribute("fill", color);
     shape.style.setProperty("fill", color, "important");
     shape.setAttribute("data-pyramid-layer", layer);
