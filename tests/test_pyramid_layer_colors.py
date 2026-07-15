@@ -140,6 +140,14 @@ def test_overrides_js_uses_css_vars_and_name_pairing() -> None:
         # Must not assign Allure's single primary fill as the paint source.
         assert 'fill", "var(--color-intent-primary-bg)' not in js
         assert "setProperty(\"fill\", \"var(--color-intent-primary-bg)" not in js
+    with allure.step("Robust label parsing (digits + concatenated tspans)"):
+        # Naive [a-z]+ turned "manualNo tests" -> "manualno" and "e2e" -> "e",
+        # producing fill="undefined" (black). normalizeLayer must map by prefix.
+        assert "function normalizeLayer" in js
+        assert r"([a-z]+)" not in js
+        # Unknown layers must never reach setAttribute (guard returns null).
+        assert "if (!color) return;" in js
+        assert "if (!layer || !PALETTE.light[layer]) return null;" in js
 
 
 @allure.story("CI inject")
