@@ -157,6 +157,7 @@ jobs:
             cp build/allure-report/history.jsonl pages/history.jsonl
           fi
           echo "${REPORT_ID}" > pages/latest-run-id.txt
+          cp pages-templates/root-index.html pages/index.html
           touch pages/.nojekyll
 
       - name: Generate README dashboard assets
