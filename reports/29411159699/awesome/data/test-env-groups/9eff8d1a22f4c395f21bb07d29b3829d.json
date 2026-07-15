@@ -1,1 +1,0 @@
-{"id":"9eff8d1a22f4c395f21bb07d29b3829d","fullName":"tests.test_cli_handlers#test_cmd_config_init_without_workspace","name":"cmd_config --init works without workspace root (PyPI bootstrap)","status":"passed","testResultsByEnv":{"default":"aa91136eba6dd426e4aef5d71c047dd9"}}

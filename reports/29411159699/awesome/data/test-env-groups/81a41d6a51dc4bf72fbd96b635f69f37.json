@@ -1,1 +1,0 @@
-{"id":"81a41d6a51dc4bf72fbd96b635f69f37","fullName":"tests.test_usage#test_executor_from_decision_uses_workspace_model","name":"executor_from_decision uses workspace cheap_llm model for ollama tier","status":"passed","testResultsByEnv":{"default":"87cef1d6996a7ae779b5c7bf463f228e"}}

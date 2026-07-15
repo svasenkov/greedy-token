@@ -1,1 +1,0 @@
-{"id":"bfc85ff04ddee7909b60ecf0c1b3db45","fullName":"tests.test_rag_index#test_search_rag_empty_query","name":"search_rag returns empty for token-less query","status":"passed","testResultsByEnv":{"default":"bb74437385ff141f2b0fbc90a72d3b9e"}}

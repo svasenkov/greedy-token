@@ -1,1 +1,0 @@
-{"id":"779bdb4cd5142a281d7871e513313c94","fullName":"tests.test_executors#test_execute_plan_refuses_non_readonly","name":"Execute plan refuses non-read-only Ollama route","status":"passed","testResultsByEnv":{"default":"b30a873181d299b2954201ce8d8d30e6"}}

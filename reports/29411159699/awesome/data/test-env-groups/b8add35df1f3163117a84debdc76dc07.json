@@ -1,1 +1,0 @@
-{"id":"b8add35df1f3163117a84debdc76dc07","fullName":"tests.test_code_search#test_python_search_file_edges","name":"_python_search_file truncates long lines and handles read errors","status":"passed","testResultsByEnv":{"default":"e79d8dbd202130345bfb1312655d5c49"}}

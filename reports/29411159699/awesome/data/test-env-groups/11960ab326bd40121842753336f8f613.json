@@ -1,1 +1,0 @@
-{"id":"11960ab326bd40121842753336f8f613","fullName":"tests.test_pipeline#test_pipeline_all_ok_empty","name":"PipelineResult.all_ok is false for empty steps","status":"passed","testResultsByEnv":{"default":"2cd924487593b7cc3e7ccad7d7a78411"}}

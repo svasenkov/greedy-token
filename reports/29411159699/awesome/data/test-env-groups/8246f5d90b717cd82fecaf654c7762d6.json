@@ -1,1 +1,0 @@
-{"id":"8246f5d90b717cd82fecaf654c7762d6","fullName":"tests.test_wrappers#test_ollama_status_line_unavailable","name":"ollama_status_line reports unavailable when server is down","status":"passed","testResultsByEnv":{"default":"83b70888e43d71552752dd0e14497998"}}
