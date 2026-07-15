@@ -263,8 +263,11 @@ jobs:
   deploy-pages:
     name: deploy Allure to GitHub Pages
     needs: test
+    # Deploy even when coverage/quality gate fail — Pages artifact is uploaded
+    # with always() after prepare-allure-pages-colors (pyramid Palette A).
     if: >-
-      needs.test.result == 'success' &&
+      always() &&
+      needs.test.result != 'cancelled' &&
       github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
