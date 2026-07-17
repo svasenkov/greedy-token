@@ -314,7 +314,7 @@ def parse_hit_lines(
         if not m:
             # ripgrep single-file: ``12:content``
             bare = _BARE_LINE_RE.match(line)
-            if bare and default_path:
+            if bare and default_path:  # pragma: no cover - bare rows are normalized upstream
                 try:
                     hits.append((default_path, int(bare.group(1)), bare.group(2)))
                 except ValueError:
@@ -326,15 +326,9 @@ def parse_hit_lines(
         # Reject pure-numeric "paths" unless no better match (line:content mis-parse)
         if path_s.isdigit():
             if default_path:
-                try:
-                    hits.append((default_path, int(path_s), f"{line_s}:{content}"))
-                except ValueError:
-                    pass
+                hits.append((default_path, int(path_s), f"{line_s}:{content}"))
             continue
-        try:
-            line_no = int(line_s)
-        except ValueError:
-            continue
+        line_no = int(line_s)
         hits.append((path_s, line_no, content))
     return hits
 

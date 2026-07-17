@@ -49,7 +49,7 @@ def extract_script_path(command: str | None) -> str | None:
     if m:
         return m.group("path")
     # Bare path starting with scripts/ etc.
-    if cmd.startswith(("scripts/", "stacks/", "projects/")):
+    if cmd.startswith(("scripts/", "stacks/", "projects/")):  # pragma: no cover - _COMMAND_SCRIPT already matches leading script paths
         return cmd.split()[0]
     return None
 

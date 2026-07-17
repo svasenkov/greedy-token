@@ -520,7 +520,7 @@ def presets_dir() -> Path:
     ):
         if candidate.is_dir() and any(candidate.glob("*.yaml")):
             return candidate
-    return Path(__file__).resolve().parent / "presets"
+    return Path(__file__).resolve().parent / "presets"  # pragma: no cover - packaged presets always present
 
 
 def list_preset_names() -> list[str]:

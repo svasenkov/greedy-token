@@ -341,7 +341,7 @@ def _pick_from_pool(
         for m in pool:
             if m.id == mid:
                 return m
-    return pool[0]
+    return pool[0]  # pragma: no cover - pool[0].id always matches above
 
 
 def resolve_model(

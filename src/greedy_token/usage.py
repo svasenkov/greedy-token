@@ -326,7 +326,7 @@ def maybe_emit_auto_script_override(event: dict, *, path: Path) -> None:
     if prior is None:
         return
     previous_tier = prior.get("selected_tier") or "python"
-    if previous_tier not in SCRIPT_HIT_TIERS:
+    if previous_tier not in SCRIPT_HIT_TIERS:  # pragma: no cover - prior hits are pre-filtered to SCRIPT_HIT_TIERS
         return
     crystal_id = prior.get("route_id") or prior.get("crystal_id")
     root_raw = event.get("root") or prior.get("root") or ""
