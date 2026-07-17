@@ -35,7 +35,7 @@ body {
 .brand { font-weight: 700; font-size: 1.1rem; }
 .muted { color: var(--muted); font-weight: 400; }
 
-nav { display: flex; gap: 0.5rem; flex: 1; flex-wrap: wrap; }
+nav { display: flex; gap: 0.5rem; flex: 1; flex-wrap: wrap; align-items: center; }
 nav a {
   color: var(--muted);
   text-decoration: none;
@@ -44,6 +44,28 @@ nav a {
   font-size: 0.9rem;
 }
 nav a.active, nav a:hover { color: var(--text); background: var(--card); }
+
+.since-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+  font-size: 0.8rem;
+}
+.since-picker select {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.since-picker select:hover,
+.since-picker select:focus {
+  border-color: var(--accent);
+  outline: none;
+}
 
 .test-widget {
   font-size: 0.8rem;

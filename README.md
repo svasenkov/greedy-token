@@ -28,7 +28,7 @@ It routes each task to the **cheapest matching tier** (`tool` → `python` → `
   </picture>
 </a>
 
-> Badges and dashboard PNG update after each CI run on `main` (Playwright screenshot of the Allure 3 dashboard).
+Badges and dashboard PNG update after each CI run on `main` (Playwright screenshot of the Allure 3 dashboard).
 
 | Link | Description |
 |------|-------------|
@@ -74,6 +74,14 @@ Greedy-token uses **cheap** and **expensive** in footers and docs. It is about *
 **Free tier** (`tool`, `python`, `rag`) = no LLM inference at all — ripgrep, scripts, reading `docs/rag/` chunks.
 
 **Tier order:** `TIER_ORDER` in `router.py` / `routes.yaml` — walk `tool → python → ollama → rag → cursor`; within each tier the highest-scoring pattern wins (ties: first route in config). Not every tier runs on every task. The cheap LLM tier is skipped when the configured runtime is unreachable.
+
+## No model training
+
+greedy-token does **not** fine-tune models and never ships your code or usage data off for training.
+
+- No gradient descent on usage data or overrides.
+- "Learning" here means new deterministic routes/scripts distilled from telemetry (`crystallize-report`) — readable, reviewable, revertible code, not model weights.
+- Telemetry (`~/.greedy-token/usage.jsonl`) stays local and only powers savings reports; disable with `GREEDY_TOKEN_LOG=0`.
 
 ## Scope & roadmap
 
@@ -201,7 +209,7 @@ Saved by executor (sum of per-step savings):
 
 Global: `--no-log` disables telemetry for one invocation.
 
-> **Pipeline execute:** MCP `greedy_token_pipeline` and CLI `greedy-token pipeline` are **dry-run** by default. Pass `execute=true` (MCP) or `--execute` (CLI) to run allowlisted steps.
+**Pipeline execute:** MCP `greedy_token_pipeline` and CLI `greedy-token pipeline` are **dry-run** by default. Pass `execute=true` (MCP) or `--execute` (CLI) to run allowlisted steps.
 
 ## Testing
 
@@ -261,7 +269,7 @@ Exceptions: `usage` → **Session totals**; `pipeline: list` → recipes only (n
 
 Pipeline adds **per-step** baseline / spent / saved and **saved by executor** (`search` bills as `rg`).
 
-> **Note:** MCP executor steps use cheap/free tiers. Agent chat wrapper (rules + your message + reply) still uses expensive LLM (Cursor tokens).
+**Note:** MCP executor steps use cheap/free tiers. Agent chat wrapper (rules + your message + reply) still uses expensive LLM (Cursor tokens).
 
 ## Usage telemetry
 

@@ -7,20 +7,20 @@
   const FUNNEL_TOP_TO_BOTTOM = ["manual", "e2e", "api", "integration", "component", "unit"];
   const PALETTE = {
     light: {
-      unit: "#94a3b8",
-      component: "#2563eb",
-      integration: "#0891b2",
-      api: "#7c3aed",
-      e2e: "#d97706",
-      manual: "#ea580c",
+      unit: "#3bc95d",
+      component: "#ff8200",
+      integration: "#c165c1",
+      api: "#ffd833",
+      e2e: "#f43f3b",
+      manual: "#459bde",
     },
     dark: {
-      unit: "#64748b",
-      component: "#3b82f6",
-      integration: "#06b6d4",
-      api: "#8b5cf6",
-      e2e: "#f59e0b",
-      manual: "#f97316",
+      unit: "#60d87a",
+      component: "#ffa833",
+      integration: "#dd7edd",
+      api: "#ffe04a",
+      e2e: "#ff6f67",
+      manual: "#61b6fb",
     },
   };
 

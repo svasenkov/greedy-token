@@ -166,6 +166,17 @@ routes:
     command: python scripts/greedy-context-smoke.py
     note: "Cheap-tier context smoke matrix — crystallized script tier, 0 LLM"
 
+  - id: python-rag-eval
+    target: python
+    read_only: true
+    patterns:
+      - rag eval
+      - rag golden
+      - rag retrieval recall
+      - rag hit rate
+    command: python scripts/rag-eval.py
+    note: "RAG retrieval golden eval — recall@k/MRR by chunk id, 0 LLM"
+
   - id: ollama-inventory
     target: ollama
     read_only: false

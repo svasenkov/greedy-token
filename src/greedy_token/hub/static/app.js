@@ -8,7 +8,25 @@ const PAGES = [
 ];
 
 const STAGES = ["report", "watch", "extract", "register", "route", "smoke", "promote"];
-const SINCE = "7d";
+const SINCE_OPTIONS = [
+  { value: "24h", label: "24h" },
+  { value: "7d", label: "7d" },
+  { value: "30d", label: "30d" },
+  { value: "90d", label: "90d" },
+  { value: "365d", label: "1y" },
+];
+const SINCE_STORAGE_KEY = "gt-hub-since";
+
+function getSince() {
+  const saved = localStorage.getItem(SINCE_STORAGE_KEY);
+  if (saved && SINCE_OPTIONS.some((o) => o.value === saved)) return saved;
+  return "7d";
+}
+
+function setSince(value) {
+  if (!SINCE_OPTIONS.some((o) => o.value === value)) return;
+  localStorage.setItem(SINCE_STORAGE_KEY, value);
+}
 
 function fmt(n) {
   n = Number(n) || 0;
@@ -25,9 +43,26 @@ async function api(path) {
 
 function renderNav() {
   const hash = location.hash || "#/";
-  document.getElementById("nav").innerHTML = PAGES.map(
-    (p) => `<a href="${p.path}" class="${hash === p.path ? "active" : ""}">${p.label}</a>`
-  ).join("");
+  const since = getSince();
+  document.getElementById("nav").innerHTML =
+    PAGES.map(
+      (p) => `<a href="${p.path}" class="${hash === p.path ? "active" : ""}">${p.label}</a>`
+    ).join("") +
+    `<label class="since-picker" title="Usage window">
+      <span class="muted">since</span>
+      <select id="since-select" aria-label="Usage window">
+        ${SINCE_OPTIONS.map(
+          (o) => `<option value="${o.value}" ${o.value === since ? "selected" : ""}>${o.label}</option>`
+        ).join("")}
+      </select>
+    </label>`;
+  const sel = document.getElementById("since-select");
+  if (sel) {
+    sel.addEventListener("change", () => {
+      setSince(sel.value);
+      route().catch(console.error);
+    });
+  }
 }
 
 async function renderTestWidget() {
@@ -37,7 +72,7 @@ async function renderTestWidget() {
 }
 
 async function renderHome() {
-  const data = await api(`/api/summary?since=${SINCE}`);
+  const data = await api(`/api/summary?since=${getSince()}`);
   const tiers = data.by_tier || {};
   const totalSaved = data.totals?.saved_vs_cursor || 0;
   const coverage = data.coverage_pct ?? 0;
@@ -76,7 +111,7 @@ async function renderHome() {
 }
 
 async function renderSessions() {
-  const data = await api(`/api/sessions?since=${SINCE}`);
+  const data = await api(`/api/sessions?since=${getSince()}`);
   const rows = (data.sessions || []).map((s) =>
     `<tr><td><code>${s.session_id.slice(0, 12)}…</code></td><td>${s.since}</td><td>${s.calls}</td><td>${fmt(s.saved_vs_cursor)}</td><td>${fmt(s.est_tokens)}</td></tr>`
   ).join("");
@@ -89,7 +124,7 @@ async function renderSessions() {
 }
 
 async function renderCrystals() {
-  const data = await api(`/api/crystals?since=${SINCE}`);
+  const data = await api(`/api/crystals?since=${getSince()}`);
   const crystals = data.crystals || [];
   const rows = crystals.map((c) =>
     `<tr><td><a class="link" href="#/crystals/${encodeURIComponent(c.crystal_id)}">${c.crystal_id}</a></td>
@@ -108,7 +143,7 @@ async function renderCrystals() {
 }
 
 async function renderCrystalDetail(id) {
-  const data = await api(`/api/crystals/${encodeURIComponent(id)}?since=${SINCE}`);
+  const data = await api(`/api/crystals/${encodeURIComponent(id)}?since=${getSince()}`);
   const latest = data.latest_stage;
   const latestIdx = STAGES.indexOf(latest);
   const pipeline = STAGES.map((s, i) => {
@@ -132,7 +167,7 @@ async function renderCrystalDetail(id) {
 }
 
 async function renderRoutes() {
-  const data = await api(`/api/routes?since=${SINCE}`);
+  const data = await api(`/api/routes?since=${getSince()}`);
   const rows = (data.routes || []).slice(0, 30).map((r) =>
     `<tr><td><code>${r.route_id}</code></td><td>${r.count}</td><td>${fmt(r.saved_vs_cursor)}</td><td>${fmt(r.est_tokens)}</td></tr>`
   ).join("");
@@ -193,7 +228,7 @@ async function route() {
   }
   const health = await api("/api/health");
   document.getElementById("foot-meta").textContent =
-    `since ${SINCE} · log ${health.log_path} · ${new Date().toLocaleString()}`;
+    `since ${getSince()} · log ${health.log_path} · ${new Date().toLocaleString()}`;
 }
 
 window.addEventListener("hashchange", () => route().catch(console.error));

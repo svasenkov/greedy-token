@@ -6,32 +6,32 @@
 
 :root {
   color-scheme: light;
-  --layer-unit: #94a3b8;
-  --layer-component: #2563eb;
-  --layer-integration: #0891b2;
-  --layer-api: #7c3aed;
-  --layer-e2e: #d97706;
-  --layer-manual: #ea580c;
+  --layer-unit: #3bc95d;
+  --layer-component: #ff8200;
+  --layer-integration: #c165c1;
+  --layer-api: #ffd833;
+  --layer-e2e: #f43f3b;
+  --layer-manual: #459bde;
 }
 
 html[data-theme="dark"] {
   color-scheme: dark;
-  --layer-unit: #64748b;
-  --layer-component: #3b82f6;
-  --layer-integration: #06b6d4;
-  --layer-api: #8b5cf6;
-  --layer-e2e: #f59e0b;
-  --layer-manual: #f97316;
+  --layer-unit: #60d87a;
+  --layer-component: #ffa833;
+  --layer-integration: #dd7edd;
+  --layer-api: #ffe04a;
+  --layer-e2e: #ff6f67;
+  --layer-manual: #61b6fb;
 }
 
 html[data-theme="light"] {
   color-scheme: light;
-  --layer-unit: #94a3b8;
-  --layer-component: #2563eb;
-  --layer-integration: #0891b2;
-  --layer-api: #7c3aed;
-  --layer-e2e: #d97706;
-  --layer-manual: #ea580c;
+  --layer-unit: #3bc95d;
+  --layer-component: #ff8200;
+  --layer-integration: #c165c1;
+  --layer-api: #ffd833;
+  --layer-e2e: #f43f3b;
+  --layer-manual: #459bde;
 }
 
 /* Narrow shell — overrides Allure CSS-module grids + inline widget widths */

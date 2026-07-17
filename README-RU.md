@@ -28,7 +28,7 @@
   </picture>
 </a>
 
-> Бейджи и PNG дашборда обновляются после каждого прогона CI на `main` (скриншот дашборда Allure 3 через Playwright).
+Бейджи и PNG дашборда обновляются после каждого прогона CI на `main` (скриншот дашборда Allure 3 через Playwright).
 
 | Ссылка | Описание |
 |--------|----------|
@@ -74,6 +74,14 @@
 **Free tier** (`tool`, `python`, `rag`) — без LLM inference: ripgrep, скрипты, чтение chunk’ов `docs/rag/`.
 
 **Порядок tier:** `TIER_ORDER` в `router.py` / `routes.yaml` — обход `tool → python → ollama → rag → cursor`; внутри tier побеждает маршрут с наивысшим score паттерна (при равенстве — первый в config). Не каждый tier выполняется на каждой задаче. Cheap LLM tier пропускается, если runtime из config недоступен.
+
+## Не дообучаем модели
+
+greedy-token **не** дообучает (fine-tune) модели и не отправляет ваш код или usage-данные на обучение.
+
+- Никакого gradient descent на usage data или overrides.
+- «Обучение» здесь = новые детерминированные routes/scripts из телеметрии (`crystallize-report`) — читаемый, проверяемый и откатываемый код, а не веса модели.
+- Телеметрия (`~/.greedy-token/usage.jsonl`) остаётся локальной и нужна только для отчётов об экономии; отключить — `GREEDY_TOKEN_LOG=0`.
 
 ## Охват и roadmap
 
@@ -207,7 +215,7 @@ Saved by executor (sum of per-step savings):
 
 Флаг `--no-log` отключает запись в log на один вызов.
 
-> **Pipeline execute:** MCP `greedy_token_pipeline` и CLI `greedy-token pipeline` по умолчанию **dry-run**. Для запуска allowlisted шагов: `execute=true` (MCP) или `--execute` (CLI).
+**Pipeline execute:** MCP `greedy_token_pipeline` и CLI `greedy-token pipeline` по умолчанию **dry-run**. Для запуска allowlisted шагов: `execute=true` (MCP) или `--execute` (CLI).
 
 ## Тесты
 

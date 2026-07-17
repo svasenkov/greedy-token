@@ -250,9 +250,11 @@ def format_overkill_user_message(
         route_id=route_id,
     )
     body = "\n".join(f"· {r}" for r in recs)
+    # Cursor "blocked by hook" toast does not scroll — never echo full prompt.
+    preview = _truncate(prompt, TASK_MAX_LEN)
     return (
         "greedy-token: Agent overkill — отправка остановлена\n\n"
-        f"Задача: {prompt}\n\n"
+        f"Задача: {preview}\n\n"
         f"{body}\n\n"
         "---\n"
         "Agent всё равно нужен → cursor: <промпт>"

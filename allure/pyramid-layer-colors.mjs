@@ -21,24 +21,24 @@ export const PYRAMID_LAYERS = [
 /** Funnel visual order after Allure `[...data].reverse()` (tip → base). */
 export const PYRAMID_FUNNEL_TOP_TO_BOTTOM = [...PYRAMID_LAYERS].reverse();
 
-/** Palette A — dark theme (Allure data-theme="dark"). */
+/** Palette A / Allure3 F5 — dark theme (Allure data-theme="dark"). */
 export const PYRAMID_COLORS_DARK = {
-  unit: "#64748b",
-  component: "#3b82f6",
-  integration: "#06b6d4",
-  api: "#8b5cf6",
-  e2e: "#f59e0b",
-  manual: "#f97316",
+  unit: "#60d87a",
+  component: "#ffa833",
+  integration: "#dd7edd",
+  api: "#ffe04a",
+  e2e: "#ff6f67",
+  manual: "#61b6fb",
 };
 
-/** Palette A — light theme (Allure data-theme="light"). */
+/** Palette A / Allure3 F5 — light theme (Allure data-theme="light"). */
 export const PYRAMID_COLORS_LIGHT = {
-  unit: "#94a3b8",
-  component: "#2563eb",
-  integration: "#0891b2",
-  api: "#7c3aed",
-  e2e: "#d97706",
-  manual: "#ea580c",
+  unit: "#3bc95d",
+  component: "#ff8200",
+  integration: "#c165c1",
+  api: "#ffd833",
+  e2e: "#f43f3b",
+  manual: "#459bde",
 };
 
 export const PYRAMID_COLORS = {
