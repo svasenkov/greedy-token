@@ -1,0 +1,1 @@
+{"id":"75da4e06d53b9dd2d6668b25207ef128","fullName":"tests.test_hub_gaps#test_static_root","name":"static_root returns a path; falls back on resource error","status":"passed","testResultsByEnv":{"default":"12234924b0c21c5fd550234fc2028ac4"}}

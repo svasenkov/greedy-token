@@ -1,0 +1,1 @@
+{"id":"b54454e6b9338965999bffa8a4313307","fullName":"tests.test_hub_gaps#test_serve_keyboard_interrupt","name":"serve() starts server then handles KeyboardInterrupt","status":"passed","testResultsByEnv":{"default":"061eac1bd449138013d15235e59964a2"}}

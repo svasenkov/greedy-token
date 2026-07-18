@@ -1,0 +1,1 @@
+{"id":"fb46cfbf25671acedbdd8d506636ca87","fullName":"tests.test_budget_gaps#test_format_budget_line_states","name":"format_budget_line non-compact reflects exhausted and warn","status":"passed","testResultsByEnv":{"default":"42dbb53f76be3391089f3a1d77cf3d62"}}

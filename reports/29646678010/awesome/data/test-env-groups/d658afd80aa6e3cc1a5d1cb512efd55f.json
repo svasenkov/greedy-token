@@ -1,0 +1,1 @@
+{"id":"d658afd80aa6e3cc1a5d1cb512efd55f","fullName":"tests.test_budget_gaps#test_cursor_warn_unavailable","name":"cursor warn falls through when local LLM unavailable","status":"passed","testResultsByEnv":{"default":"ebfec43cc759cf25d8e4fe6527144abe"}}

@@ -1,0 +1,1 @@
+{"id":"8bae3eba49678900524737388726a3fa","fullName":"tests.test_cli_gaps#test_cmd_budget_no_workspace","name":"cmd_budget tolerates missing workspace root","status":"passed","testResultsByEnv":{"default":"e4a992a973369dfc05c1cd65226c0c91"}}

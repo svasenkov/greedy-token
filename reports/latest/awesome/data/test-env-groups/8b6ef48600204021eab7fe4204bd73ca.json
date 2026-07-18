@@ -1,0 +1,1 @@
+{"id":"8b6ef48600204021eab7fe4204bd73ca","fullName":"tests.test_budget_gaps#test_doctor_error_and_exhausted_note","name":"run_doctor errors are swallowed; exhausted mode annotates note","status":"passed","testResultsByEnv":{"default":"77d5ff3ff08143247be5e9a8f5c0cecb"}}

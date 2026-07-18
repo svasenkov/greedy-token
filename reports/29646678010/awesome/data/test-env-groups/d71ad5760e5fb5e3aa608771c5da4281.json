@@ -1,0 +1,1 @@
+{"id":"d71ad5760e5fb5e3aa608771c5da4281","fullName":"tests.test_expensive_llm#test_folder_from_env","name":"_folder_from_env reads either env var","status":"passed","testResultsByEnv":{"default":"0f013ff587853285fb2527d7249cb8d0"}}

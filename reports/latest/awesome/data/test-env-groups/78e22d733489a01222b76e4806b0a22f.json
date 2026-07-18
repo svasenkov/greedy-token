@@ -1,0 +1,1 @@
+{"id":"78e22d733489a01222b76e4806b0a22f","fullName":"tests.test_budget_gaps#test_metered_exhausted_reroute","name":"metered exhausted reroutes cursor→cheaper tier, skipping unavailable ollama","status":"passed","testResultsByEnv":{"default":"23dc52018e23a852939e46b7aa378a29"}}

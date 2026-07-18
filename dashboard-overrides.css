@@ -1,37 +1,40 @@
 /* Injected into Allure 3 dashboard/awesome (prepare-allure-pages-colors.sh).
- * Palette A — SSOT with design-system tokens.css --layer-* and
+ * Palette A / Allure3 F5 — SSOT with design-system tokens.css --layer-* and
  * allure/pyramid-layer-colors.mjs. Allure paints all active bands with
  * one --color-intent-primary-bg; JS resolves --layer-* to hex (SVG fill
  * with raw var(--layer-*) / unknown layer keys renders black). */
 
 :root {
   color-scheme: light;
-  --layer-unit: #3bc95d;
+  --layer-unit: #15803d;
   --layer-component: #ff8200;
-  --layer-integration: #c165c1;
-  --layer-api: #ffd833;
-  --layer-e2e: #f43f3b;
+  --layer-integration: #7e22ce;
+  --layer-api: #e8bd00;
+  --layer-e2e: #dc2626;
   --layer-manual: #459bde;
+  --layer-other: #64748b;
 }
 
 html[data-theme="dark"] {
   color-scheme: dark;
-  --layer-unit: #60d87a;
+  --layer-unit: #31bd58;
   --layer-component: #ffa833;
-  --layer-integration: #dd7edd;
-  --layer-api: #ffe04a;
-  --layer-e2e: #ff6f67;
+  --layer-integration: #a65ac4;
+  --layer-api: #ffd833;
+  --layer-e2e: #ff574f;
   --layer-manual: #61b6fb;
+  --layer-other: #5d6876;
 }
 
 html[data-theme="light"] {
   color-scheme: light;
-  --layer-unit: #3bc95d;
+  --layer-unit: #15803d;
   --layer-component: #ff8200;
-  --layer-integration: #c165c1;
-  --layer-api: #ffd833;
-  --layer-e2e: #f43f3b;
+  --layer-integration: #7e22ce;
+  --layer-api: #e8bd00;
+  --layer-e2e: #dc2626;
   --layer-manual: #459bde;
+  --layer-other: #64748b;
 }
 
 /* Narrow shell — overrides Allure CSS-module grids + inline widget widths */
@@ -50,3 +53,60 @@ html[data-shell-layout="narrow"] [class*="styles_widget__"] {
   width: 100% !important;
   max-width: 100% !important;
 }
+
+/* Row height follows content, but every widget in a row matches its tallest
+ * neighbour (Allure's default align-items: stretch) — so nothing is clipped
+ * (pyramid + treemaps keep their full ~473px body) and paired cards stay level.
+ * No fixed height: a short widget next to a tall one just centers its body. */
+[class*="styles_grid__"] {
+  align-items: stretch !important;
+}
+
+[class*="styles_grid-item__"],
+[class*="styles_widget__"] {
+  height: 100% !important;
+}
+
+/* Card is the styles_grid-item__ (border + radius + shadow). Its 4px padding
+ * leaves a gap between the card border and our header bar, so the bar reads as
+ * floating instead of a real title bar. Drop it so the widget (and its bar) sit
+ * flush inside the card. */
+[class*="styles_grid-item__"] {
+  padding: 0 !important;
+}
+
+/* Unified status indicators — macOS-window dots injected by dashboard-overrides.js
+ * into each widget's own header (styles_header__), left of the title. Only the
+ * status-colour FAMILIES actually present in that widget's chart are shown, in a
+ * fixed priority order: red -> orange -> yellow -> purple -> gray -> green -> blue.
+ * Families are read "по факту" from the rendered SVG fills (nearest-anchor match),
+ * so the dots always reflect the real result mix. Swatches mirror design-system
+ * --indicator-* hexes (design-system CSS does not cascade into the Allure iframe),
+ * muted toward the header background so they read as a decorative title-bar accent
+ * rather than chart data. */
+.zds-widget-dots {
+  --zds-dot-size: 11px;
+  --zds-dot-gap: 7px;
+  --zds-bar-bg: var(--color-bg-secondary, #f7f7f9);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--zds-dot-gap);
+  margin-right: 12px;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.zds-widget-dot {
+  width: var(--zds-dot-size);
+  height: var(--zds-dot-size);
+  border-radius: 50%;
+  background: rgba(127, 127, 127, 0.35);
+}
+
+.zds-widget-dot--red { background: color-mix(in srgb, #fd5a3e 62%, var(--zds-bar-bg)); }
+.zds-widget-dot--orange { background: color-mix(in srgb, #ff8200 62%, var(--zds-bar-bg)); }
+.zds-widget-dot--yellow { background: color-mix(in srgb, #ffd050 62%, var(--zds-bar-bg)); }
+.zds-widget-dot--purple { background: color-mix(in srgb, #b46fd8 62%, var(--zds-bar-bg)); }
+.zds-widget-dot--gray { background: color-mix(in srgb, #aaaaaa 62%, var(--zds-bar-bg)); }
+.zds-widget-dot--green { background: color-mix(in srgb, #6bbf59 62%, var(--zds-bar-bg)); }
+.zds-widget-dot--blue { background: color-mix(in srgb, #4b9bff 62%, var(--zds-bar-bg)); }

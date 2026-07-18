@@ -1,0 +1,1 @@
+{"id":"f8785de49fb4cc32935adec0d1cd8ab9","fullName":"tests.test_settings_gaps#test_load_preset_yaml_non_mapping","name":"load_preset_yaml rejects non-mapping preset files","status":"passed","testResultsByEnv":{"default":"45aa50caded6be2cfe14f2b1bfc79f18"}}

@@ -1,0 +1,1 @@
+{"id":"c899c26416bc62e42db6e1eaa61678ed","fullName":"tests.test_resource_probe_gaps#test_detect_hardware_tiers","name":"detect_hardware maps vram to all tiers","status":"passed","testResultsByEnv":{"default":"d9979cd240a75ae4da22183192cf02f9"}}

@@ -1,0 +1,1 @@
+{"id":"e3fbe648bcf9245b501ef7ec38c08785","fullName":"tests.test_settings_gaps#test_get_cheap_llm_registry_fallback","name":"get_cheap_llm_settings falls back when registry resolve fails","status":"passed","testResultsByEnv":{"default":"976d072f081010c71e696eab393f9754"}}
