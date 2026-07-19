@@ -140,6 +140,60 @@ jobs:
             --config allurerc.mjs \
             --output build/allure-report
 
+      - name: Setup Java for allure-notifications
+        if: always() && steps.allure-report.outcome == 'success'
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Send Telegram notification
+        if: always() && steps.allure-report.outcome == 'success'
+        continue-on-error: true
+        env:
+          # ADR 008 / RAG ci-allure-notifications — bot @qa_guru_monitoring_bot, chat -1004381150566
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN || secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID || '-1004381150566' }}
+          TELEGRAM_TOPIC_ID: ${{ secrets.TELEGRAM_GREEDY_TOKEN_TOPIC_ID || vars.TELEGRAM_GREEDY_TOKEN_TOPIC_ID || secrets.TELEGRAM_TOPIC_ID || vars.TELEGRAM_TOPIC_ID }}
+          ALLURE_REPORT_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/reports/latest/awesome/index.html
+          ALLURE_DASHBOARD_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/reports/latest/dashboard/index.html
+          BUILD_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TESTOPS_LAUNCH_URL: ${{ env.TESTOPS_LAUNCH_URL }}
+        run: |
+          AWESOME="build/allure-report/awesome"
+          if [ ! -f "$AWESOME/summary.json" ]; then
+            echo "No Allure summary — skip Telegram notification"
+            exit 0
+          fi
+          if [ -z "${TELEGRAM_BOT_TOKEN:-}" ]; then
+            echo "TELEGRAM_BOT_TOKEN missing — skip"
+            exit 0
+          fi
+          CONFIG=notifications/config.runtime.json
+          python -c "
+          import json, os
+          from pathlib import Path
+          cfg = json.loads(Path('notifications/config.json').read_text())
+          cfg['base']['project'] = 'greedy-token #${{ github.run_number }}'
+          cfg['base']['links'] = {
+              'report': os.environ['ALLURE_REPORT_URL'],
+              'dashboard': os.environ['ALLURE_DASHBOARD_URL'],
+              'testops': os.environ.get('TESTOPS_LAUNCH_URL') or '',
+              'build': os.environ['BUILD_URL'],
+          }
+          cfg['telegram']['token'] = os.environ['TELEGRAM_BOT_TOKEN']
+          cfg['telegram']['chat'] = os.environ['TELEGRAM_CHAT_ID']
+          cfg['telegram']['topic'] = os.environ.get('TELEGRAM_TOPIC_ID') or ''
+          cfg['telegram']['replyTo'] = ''
+          Path('notifications/config.runtime.json').write_text(json.dumps(cfg, indent=2))
+          "
+          JAR=allure-notifications-5.0.2.jar
+          if [ ! -f "$JAR" ]; then
+            curl -fsSL -o "$JAR" \
+              https://github.com/qa-guru/allure-notifications/releases/download/v5.0.2/"$JAR"
+          fi
+          java "-DconfigFile=${CONFIG}" -jar "$JAR"
+
       - name: Prepare GitHub Pages
         if: >-
           always() &&

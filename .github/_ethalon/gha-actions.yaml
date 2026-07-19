@@ -7,6 +7,7 @@
 |-----|--------|---------|
 | `checkout` | `actions/checkout@v7` | test, publish |
 | `setup-python` | `actions/setup-python@v6` | test, publish |
+| `setup-java` | `actions/setup-java@v5` | test (allure-notifications jar) |
 | `setup-node` | `actions/setup-node@v6` | test (`node-version: 24`) |
 | `setup-allurectl` | `allure-framework/setup-allurectl@v1` | test |
 | `upload-artifact` | `actions/upload-artifact@v7` | — |
