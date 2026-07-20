@@ -42,8 +42,12 @@ def test_parse_tags() -> None:
 def test_cmd_scripts_lint(minimal_workspace: Path, capsys) -> None:
     code = cli.cmd_scripts(_ns(list=False, run=None, args="lint", execute=False))
     out = capsys.readouterr().out
+    # exit code must mirror the printed report, not merely "did not crash"
     assert code in (0, 1)
-    assert out.strip()
+    if code == 0:
+        assert "scripts lint OK" in out
+    else:
+        assert "FAILED" in out
 
 
 @allure.title("cmd_config --init --preset warns when url/model/provider also passed")

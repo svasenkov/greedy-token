@@ -39,6 +39,9 @@ def test_parse_hit_lines_variants() -> None:
     # numeric mis-split without default_path → skipped, not appended
     assert cs.parse_hit_lines("12:34:content") == []
 
+    # unicode-digit "path" (isdigit() True but int() raises) → ValueError swallowed
+    assert "\u00b2".isdigit() and cs.parse_hit_lines("\u00b2:5:content", default_path="d.js") == []
+
 
 @allure.title("enrich_search_hits returns empty on none mode or no hits")
 def test_enrich_empty(tmp_path: Path) -> None:

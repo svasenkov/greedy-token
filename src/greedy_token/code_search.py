@@ -325,8 +325,13 @@ def parse_hit_lines(
             continue
         # Reject pure-numeric "paths" unless no better match (line:content mis-parse)
         if path_s.isdigit():
+            # ``str.isdigit()`` is broader than ``int()`` (e.g. superscripts),
+            # so guard the conversion even though rg output is ASCII in practice.
             if default_path:
-                hits.append((default_path, int(path_s), f"{line_s}:{content}"))
+                try:
+                    hits.append((default_path, int(path_s), f"{line_s}:{content}"))
+                except ValueError:
+                    pass
             continue
         line_no = int(line_s)
         hits.append((path_s, line_no, content))

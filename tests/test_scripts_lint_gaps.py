@@ -22,6 +22,10 @@ def test_extract_script_path() -> None:
     assert sl.extract_script_path("git status") is None
     assert sl.extract_script_path("scripts/foo.sh --flag") == "scripts/foo.sh"
     assert sl.extract_script_path("make && scripts/bar.sh") == "scripts/bar.sh"
+    # bare dir prefix with nothing/space after the slash: _COMMAND_SCRIPT can't
+    # match (needs a non-space path segment), so the startswith fallback fires
+    assert sl.extract_script_path("scripts/") == "scripts/"
+    assert sl.extract_script_path("projects/ tail") == "projects/"
 
 
 @allure.title("_is_consumer_script recognises external/consumer/note markers")

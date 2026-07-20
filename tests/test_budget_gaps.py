@@ -298,7 +298,6 @@ def test_doctor_error_and_exhausted_note(policy_env, monkeypatch: pytest.MonkeyP
 
 @allure.title("policy_footer_extras returns lines and swallows errors")
 def test_policy_footer_extras(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(bp, "format_budget_line", lambda **k: "budget line", raising=False)
     monkeypatch.setattr("greedy_token.budget_ledger.format_budget_line", lambda **k: "budget line")
     monkeypatch.setattr(bp, "local_health_line", lambda: "health line")
     extras = bp.policy_footer_extras(root=None)

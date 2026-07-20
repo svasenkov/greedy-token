@@ -204,10 +204,13 @@ def test_fetch_ollama_models(monkeypatch: pytest.MonkeyPatch) -> None:
     assert rp.fetch_ollama_models("http://o:11434") == []
 
 
-@allure.title("recommend_avoid returns list for tier")
+@allure.title("recommend_avoid extracts and stringifies the tier avoid-list")
 def test_recommend_avoid() -> None:
     hw = HardwareProfile("cpu_only", 8, 4, 0, 4, "gpu", "Linux")
-    assert isinstance(rp.recommend_avoid(hw), list)
+    catalog = {"tiers": {"cpu_only": {"avoid": ["llama3:70b", 13]}}}
+    assert rp.recommend_avoid(hw, catalog) == ["llama3:70b", "13"]
+    # tier missing from catalog → empty list, not an error
+    assert rp.recommend_avoid(hw, {"tiers": {}}) == []
 
 
 @allure.title("probe cache load/save round-trip and error handling")
