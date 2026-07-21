@@ -1,0 +1,1 @@
+{"id":"58ea77852058064060c5ae504fd28e5c","fullName":"tests.test_cli_handlers#test_cmd_init_json","name":"cmd_init --json returns detection payload","status":"passed","testResultsByEnv":{"default":"2b1f0ec7ccb1a87a635df29833900e65"}}

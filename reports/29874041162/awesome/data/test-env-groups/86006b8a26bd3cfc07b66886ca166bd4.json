@@ -1,0 +1,1 @@
+{"id":"86006b8a26bd3cfc07b66886ca166bd4","fullName":"tests.test_usage#test_quality_metrics_empty_and_summary","name":"quality_metrics is empty-safe and surfaced in aggregate_events","status":"passed","testResultsByEnv":{"default":"b38c28ebf4ef30bb6fb70a9ee506b150"}}

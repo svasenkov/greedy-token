@@ -1,0 +1,1 @@
+{"id":"cb2ff203eecf14f8e7aebea05849d8d2","fullName":"tests.test_cli_handlers#test_cmd_init_bad_profile","name":"cmd_init rejects unknown profile","status":"passed","testResultsByEnv":{"default":"8854b51d4b34426690518ac1c37f2b29"}}
