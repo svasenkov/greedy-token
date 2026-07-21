@@ -1,1 +1,1 @@
-{"id":"b333b8361077bc39dd91739353f03ddf","fullName":"tests.test_budget#test_wrap_mcp_response_appends_footer","name":"MCP response wrapper appends Greedy token footer","status":"passed","testResultsByEnv":{"default":"e4d1032c493cbcb106049d351c811fd8"}}
+{"id":"b333b8361077bc39dd91739353f03ddf","fullName":"tests.test_budget#test_wrap_mcp_response_appends_footer","name":"MCP response wrapper appends Greedy token footer","status":"passed","testResultsByEnv":{"default":"781aa87ffedd205e6b0a24cd2a00de2f"}}

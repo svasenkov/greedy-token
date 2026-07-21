@@ -1,1 +1,1 @@
-{"id":"81a41d6a51dc4bf72fbd96b635f69f37","fullName":"tests.test_usage#test_executor_from_decision_uses_workspace_model","name":"executor_from_decision uses workspace cheap_llm model for ollama tier","status":"passed","testResultsByEnv":{"default":"79920a401dbc041817a9c99d435c9a8e"}}
+{"id":"81a41d6a51dc4bf72fbd96b635f69f37","fullName":"tests.test_usage#test_executor_from_decision_uses_workspace_model","name":"executor_from_decision uses workspace cheap_llm model for ollama tier","status":"passed","testResultsByEnv":{"default":"f0b7397c3fc601109b380d41652d6883"}}

@@ -1,1 +1,1 @@
-{"id":"aa40cfe6db5cf3e7dce346540f2a84c3","fullName":"tests.test_mcp_tools#test_mcp_route_includes_greedy_token_footer","name":"MCP route tool returns tier decision with Greedy token footer","status":"passed","testResultsByEnv":{"default":"338d221b79a60017ebda5a91a58d6709"}}
+{"id":"aa40cfe6db5cf3e7dce346540f2a84c3","fullName":"tests.test_mcp_tools#test_mcp_route_includes_greedy_token_footer","name":"MCP route tool returns tier decision with Greedy token footer","status":"passed","testResultsByEnv":{"default":"b82f321a7c984af2002c2c9d467f48c2"}}

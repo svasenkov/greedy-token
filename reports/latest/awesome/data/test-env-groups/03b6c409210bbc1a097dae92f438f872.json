@@ -1,1 +1,1 @@
-{"id":"03b6c409210bbc1a097dae92f438f872","fullName":"tests.test_cli_handlers#test_main_config_skips_ollama_env","name":"main skips apply_ollama_env for config subcommand","status":"passed","testResultsByEnv":{"default":"4231e4591010d13748313d17e6f7dce8"}}
+{"id":"03b6c409210bbc1a097dae92f438f872","fullName":"tests.test_cli_handlers#test_main_config_skips_ollama_env","name":"main skips apply_ollama_env for config subcommand","status":"passed","testResultsByEnv":{"default":"d162f9b53f11eaff32357c2b8a7d7e61"}}

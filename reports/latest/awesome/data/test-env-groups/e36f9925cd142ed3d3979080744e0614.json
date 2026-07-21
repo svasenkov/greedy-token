@@ -1,1 +1,1 @@
-{"id":"e36f9925cd142ed3d3979080744e0614","fullName":"tests.test_wrappers#test_ollama_available_against_stub","name":"Ollama availability returns true when stub /api/tags responds","status":"passed","testResultsByEnv":{"default":"bc6835c0ea027f8126b0ecb29fe05fa9"}}
+{"id":"e36f9925cd142ed3d3979080744e0614","fullName":"tests.test_wrappers#test_ollama_available_against_stub","name":"Ollama availability returns true when stub /api/tags responds","status":"passed","testResultsByEnv":{"default":"34ad068891306a69048d44e5473384ba"}}

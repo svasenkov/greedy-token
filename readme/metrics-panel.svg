@@ -21,7 +21,7 @@
   <text x="394" y="88" fill="rgba(2,19,44,0.55)" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12">failed</text>
   <text x="560" y="72" fill="rgba(1,10,24,0.78)" font-family="ui-sans-serif,system-ui,sans-serif" font-size="22" font-weight="700">99%</text>
   <text x="560" y="92" fill="rgba(2,19,44,0.55)" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12">pass rate</text>
-  <text x="680" y="72" fill="rgba(1,10,24,0.78)" font-family="ui-sans-serif,system-ui,sans-serif" font-size="22" font-weight="700">19s</text>
+  <text x="680" y="72" fill="rgba(1,10,24,0.78)" font-family="ui-sans-serif,system-ui,sans-serif" font-size="22" font-weight="700">20s</text>
   <text x="680" y="92" fill="rgba(2,19,44,0.55)" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12">duration</text>
   <rect x="40" y="118" width="720" height="12" rx="6" fill="#e2e8f0"/>
   <rect x="40" y="118" width="714" height="12" rx="6" fill="#008a56"/>

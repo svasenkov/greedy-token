@@ -1,1 +1,1 @@
-{"id":"72103924306352877e572d424ffeacee","fullName":"tests.test_cli_handlers#test_cmd_estimate","name":"cmd_estimate prints tier scan","status":"passed","testResultsByEnv":{"default":"2c67c3f4d27406bc24a782d8425e6412"}}
+{"id":"72103924306352877e572d424ffeacee","fullName":"tests.test_cli_handlers#test_cmd_estimate","name":"cmd_estimate prints tier scan","status":"passed","testResultsByEnv":{"default":"d792d227b1797aa64e94c8a9c981d498"}}

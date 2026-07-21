@@ -1,1 +1,1 @@
-{"id":"99695460682b3eeecc970960e8abd80b","fullName":"tests.test_paths#test_load_routes_config","name":"load_routes_config reads bundled routes.yaml","status":"passed","testResultsByEnv":{"default":"9fb90a83d6bccb61808af792eab9eda4"}}
+{"id":"99695460682b3eeecc970960e8abd80b","fullName":"tests.test_paths#test_load_routes_config","name":"load_routes_config reads bundled routes.yaml","status":"passed","testResultsByEnv":{"default":"acbf541811af72a6faab24046580f4f4"}}

@@ -1,1 +1,1 @@
-{"id":"1a11c7bfdaecf3f82cc6594d73d29420","fullName":"tests.test_cli_handlers#test_cmd_compress_stdin","name":"cmd_compress reads stdin and prints dual format","status":"passed","testResultsByEnv":{"default":"ff7e26ccd5c89b6fb6e90126d98e9928"}}
+{"id":"1a11c7bfdaecf3f82cc6594d73d29420","fullName":"tests.test_cli_handlers#test_cmd_compress_stdin","name":"cmd_compress reads stdin and prints dual format","status":"passed","testResultsByEnv":{"default":"c07e88aac88a253bf9766483976f975b"}}

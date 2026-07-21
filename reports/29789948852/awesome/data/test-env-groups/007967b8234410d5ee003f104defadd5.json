@@ -1,1 +1,1 @@
-{"id":"007967b8234410d5ee003f104defadd5","fullName":"tests.test_budget#test_format_tool_footer_ollama_rag","name":"format_tool_footer covers ollama and rag billing lines","status":"passed","testResultsByEnv":{"default":"6cc4b31abf8a6e84a194f6f21c405f97"}}
+{"id":"007967b8234410d5ee003f104defadd5","fullName":"tests.test_budget#test_format_tool_footer_ollama_rag","name":"format_tool_footer covers ollama and rag billing lines","status":"passed","testResultsByEnv":{"default":"a63de97243e943259d09fe97a2a890bb"}}

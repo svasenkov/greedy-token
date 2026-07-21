@@ -1,1 +1,1 @@
-{"id":"78e22d733489a01222b76e4806b0a22f","fullName":"tests.test_budget_gaps#test_metered_exhausted_reroute","name":"metered exhausted reroutes cursor→cheaper tier, skipping unavailable ollama","status":"passed","testResultsByEnv":{"default":"92e3b73e48528c561d72dc8a7f61391b"}}
+{"id":"78e22d733489a01222b76e4806b0a22f","fullName":"tests.test_budget_gaps#test_metered_exhausted_reroute","name":"metered exhausted reroutes cursor→cheaper tier, skipping unavailable ollama","status":"passed","testResultsByEnv":{"default":"965da2fc6b4e7c5909e7b299869c0f6e"}}

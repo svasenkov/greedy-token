@@ -1,1 +1,1 @@
-{"id":"84404f475973fff9bf4dc4c7d9b9ef95","fullName":"tests.test_pipeline#test_pipeline_execute_skips_unavailable_ollama","name":"Pipeline execute skips Ollama step when server is unavailable","status":"passed","testResultsByEnv":{"default":"5fcb38332e093b0b22285b584b5d45d4"}}
+{"id":"84404f475973fff9bf4dc4c7d9b9ef95","fullName":"tests.test_pipeline#test_pipeline_execute_skips_unavailable_ollama","name":"Pipeline execute skips Ollama step when server is unavailable","status":"passed","testResultsByEnv":{"default":"8422d5c1f6eb03b49e08a5def33331d6"}}

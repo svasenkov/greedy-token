@@ -1,1 +1,1 @@
-{"id":"73c5f4258535619f45b875f257794009","fullName":"tests.test_security#test_pipeline_execute_rejects_outside_path","name":"execute=True rejects audit-skill / classify-file paths outside workspace","status":"passed","testResultsByEnv":{"default":"2bb09b7a35902d971d1964752a024348"}}
+{"id":"73c5f4258535619f45b875f257794009","fullName":"tests.test_security#test_pipeline_execute_rejects_outside_path","name":"execute=True rejects audit-skill / classify-file paths outside workspace","status":"passed","testResultsByEnv":{"default":"878b4052dad1c7e9d215e2f257c037f0"}}

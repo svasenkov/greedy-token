@@ -1,1 +1,1 @@
-{"id":"ea5b11687896c4503780700687bc5048","fullName":"tests.test_rag_index#test_search_reads_only_top_hits","name":"RAG search reads only top-ranked chunk files","status":"passed","testResultsByEnv":{"default":"eeb9380af90ee2b3c875b60048a55d5a"}}
+{"id":"ea5b11687896c4503780700687bc5048","fullName":"tests.test_rag_index#test_search_reads_only_top_hits","name":"RAG search reads only top-ranked chunk files","status":"passed","testResultsByEnv":{"default":"611418bc123398b8a0cb0d6125fae15d"}}

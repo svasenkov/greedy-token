@@ -1,1 +1,1 @@
-{"id":"ae57cf5c9835ca876d6de57bcfea4b1e","fullName":"tests.test_cli_commands#test_cli_estimate_shows_tier_scan","name":"CLI estimate prints tier scan and token estimate","status":"passed","testResultsByEnv":{"default":"a6d7c4064d84efd76f9ef170517623af"}}
+{"id":"ae57cf5c9835ca876d6de57bcfea4b1e","fullName":"tests.test_cli_commands#test_cli_estimate_shows_tier_scan","name":"CLI estimate prints tier scan and token estimate","status":"passed","testResultsByEnv":{"default":"4f915fa0f34ade0b30c3904202393065"}}

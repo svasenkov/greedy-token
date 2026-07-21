@@ -1,1 +1,1 @@
-{"id":"fae448e0b9160254706935bf2fb93c32","fullName":"tests.test_usage#test_cursor_baseline_includes_overhead","name":"Cursor baseline includes agent overhead tokens","status":"passed","testResultsByEnv":{"default":"84e535b7223379b7300bf5bd17204633"}}
+{"id":"fae448e0b9160254706935bf2fb93c32","fullName":"tests.test_usage#test_cursor_baseline_includes_overhead","name":"Cursor baseline includes agent overhead tokens","status":"passed","testResultsByEnv":{"default":"e111a657251277fea51ffb05a4e464c3"}}

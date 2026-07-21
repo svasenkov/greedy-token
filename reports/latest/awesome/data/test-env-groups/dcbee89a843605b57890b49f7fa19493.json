@@ -1,1 +1,1 @@
-{"id":"dcbee89a843605b57890b49f7fa19493","fullName":"tests.test_model_select_gaps#test_resolve_model","name":"resolve_model: env id, policy raises, auto fallback to expensive/cheap","status":"passed","testResultsByEnv":{"default":"d3d62c7c3a582e145d3f5a4f4e3ed5e1"}}
+{"id":"dcbee89a843605b57890b49f7fa19493","fullName":"tests.test_model_select_gaps#test_resolve_model","name":"resolve_model: env id, policy raises, auto fallback to expensive/cheap","status":"passed","testResultsByEnv":{"default":"6af819562202967f8b0d8bc6893c25f4"}}

@@ -1,1 +1,1 @@
-{"id":"59f76e60cbd4d754e37254f7cb5d4c21","fullName":"tests.test_cheap_llm#test_cheap_llm_config_provider","name":"cheap_llm config section sets provider","status":"passed","testResultsByEnv":{"default":"68a79fdc364a5a016bdc9913873c413b"}}
+{"id":"59f76e60cbd4d754e37254f7cb5d4c21","fullName":"tests.test_cheap_llm#test_cheap_llm_config_provider","name":"cheap_llm config section sets provider","status":"passed","testResultsByEnv":{"default":"3082f47220063a21f92b6c27cc6d840e"}}

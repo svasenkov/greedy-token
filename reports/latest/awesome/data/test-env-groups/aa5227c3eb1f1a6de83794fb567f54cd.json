@@ -1,1 +1,1 @@
-{"id":"aa5227c3eb1f1a6de83794fb567f54cd","fullName":"tests.test_cheap_llm#test_cheap_llm_chat_openai_compat","name":"cheap_llm_chat uses OpenAI-compatible /v1/chat/completions","status":"passed","testResultsByEnv":{"default":"ddc6786fcd3a237620d2d863add58da6"}}
+{"id":"aa5227c3eb1f1a6de83794fb567f54cd","fullName":"tests.test_cheap_llm#test_cheap_llm_chat_openai_compat","name":"cheap_llm_chat uses OpenAI-compatible /v1/chat/completions","status":"passed","testResultsByEnv":{"default":"91db60224dcafd684923741b4de094f6"}}

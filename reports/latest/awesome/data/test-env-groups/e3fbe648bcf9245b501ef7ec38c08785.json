@@ -1,1 +1,1 @@
-{"id":"e3fbe648bcf9245b501ef7ec38c08785","fullName":"tests.test_settings_gaps#test_get_cheap_llm_registry_fallback","name":"get_cheap_llm_settings falls back when registry resolve fails","status":"passed","testResultsByEnv":{"default":"67e25abbc9aaaf62fd82148381b7c164"}}
+{"id":"e3fbe648bcf9245b501ef7ec38c08785","fullName":"tests.test_settings_gaps#test_get_cheap_llm_registry_fallback","name":"get_cheap_llm_settings falls back when registry resolve fails","status":"passed","testResultsByEnv":{"default":"f06919e18d4ed8b7e7177f65c360fd9d"}}

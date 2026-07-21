@@ -1,1 +1,1 @@
-{"id":"86ec385127832038625858d973135bb7","fullName":"tests.test_resource_probe#test_build_billing_event_fields","name":"test_build_billing_event_fields","status":"passed","testResultsByEnv":{"default":"52e06ed296aa753acd01d8fd2f6ef42d"}}
+{"id":"86ec385127832038625858d973135bb7","fullName":"tests.test_resource_probe#test_build_billing_event_fields","name":"test_build_billing_event_fields","status":"passed","testResultsByEnv":{"default":"bb1c80ffdfa5ec6964f3f3800a9a263c"}}

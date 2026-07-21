@@ -1,1 +1,1 @@
-{"id":"4fb844a63bbb2d35886dff35986cf64f","fullName":"tests.test_settings#test_example_workspace_config","name":"example_workspace_config returns YAML snippet","status":"passed","testResultsByEnv":{"default":"a1db594dee3d986171035e438160f0c6"}}
+{"id":"4fb844a63bbb2d35886dff35986cf64f","fullName":"tests.test_settings#test_example_workspace_config","name":"example_workspace_config returns YAML snippet","status":"passed","testResultsByEnv":{"default":"1432c94b073e6b3a8ae36b788d6e4a1e"}}

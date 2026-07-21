@@ -1,1 +1,1 @@
-{"id":"86d797f0efd71fb72d1b036ddf521405","fullName":"tests.test_budget_gaps#test_cursor_warn_bias","name":"cursor warn biases medium cursor task to available local LLM","status":"passed","testResultsByEnv":{"default":"f7827e032060a4240936c3473c229b50"}}
+{"id":"86d797f0efd71fb72d1b036ddf521405","fullName":"tests.test_budget_gaps#test_cursor_warn_bias","name":"cursor warn biases medium cursor task to available local LLM","status":"passed","testResultsByEnv":{"default":"ffaeead8b1e45a74760b723cef64d641"}}
