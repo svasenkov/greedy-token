@@ -23,7 +23,7 @@ export const PYRAMID_FUNNEL_TOP_TO_BOTTOM = [...PYRAMID_LAYERS].reverse();
 
 /** Palette A — dark theme (Allure data-theme="dark"; tokens.css :root). */
 export const PYRAMID_COLORS_DARK = {
-  unit: "#31bd58",
+  unit: "#94ca66",
   component: "#ffa833",
   integration: "#a65ac4",
   api: "#ffd833",
@@ -33,7 +33,7 @@ export const PYRAMID_COLORS_DARK = {
 
 /** Palette A — light theme (Allure data-theme="light"; tokens.css .theme-light). */
 export const PYRAMID_COLORS_LIGHT = {
-  unit: "#15803d",
+  unit: "#94ca66",
   component: "#ff8200",
   integration: "#7e22ce",
   api: "#e8bd00",
