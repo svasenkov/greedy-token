@@ -13,8 +13,8 @@ permissions:
 
 env:
   ALLURE_VERSION: "3.13.0"
-  ALLURE_ENDPOINT: ${{ vars.ALLURE_ENDPOINT || 'https://allure.autotests.cloud' }}
-  # TestOps: https://allure.autotests.cloud/project/5276
+  ALLURE_ENDPOINT: ${{ vars.ALLURE_ENDPOINT || 'https://allure.qa.guru' }}
+  # TestOps: https://allure.qa.guru/project/5276
   ALLURE_PROJECT_ID: ${{ vars.ALLURE_PROJECT_ID || '5276' }}
 
 jobs:
@@ -285,7 +285,7 @@ jobs:
           elif [ "${TESTOPS_UPLOAD_EXIT:-}" != "" ] && [ "${TESTOPS_UPLOAD_EXIT}" != "0" ]; then
             echo "- Allure TestOps upload: _failed (check ALLURE_TOKEN secret)_" >> "$GITHUB_STEP_SUMMARY"
           fi
-          echo "- TestOps project: [5276](https://allure.autotests.cloud/project/5276)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- TestOps project: [5276](https://allure.qa.guru/project/5276)" >> "$GITHUB_STEP_SUMMARY"
           if [ "${QUALITY_GATE_EXIT:-}" = "0" ]; then
             echo "- Allure 3 quality gate: passed (\`maxFailures: 0\`, \`minTestsCount: 546\`)" >> "$GITHUB_STEP_SUMMARY"
           elif [ -n "${QUALITY_GATE_EXIT:-}" ]; then
