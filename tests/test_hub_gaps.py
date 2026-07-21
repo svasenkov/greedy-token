@@ -319,7 +319,31 @@ def test_hub_handler_http(hub_home: Path) -> None:
         req = urllib.request.Request(f"{base}/api/health", method="OPTIONS")
         with urllib.request.urlopen(req, timeout=5) as resp:
             assert resp.status == 204
+
+        # Local browser Origin → CORS echoes that exact origin (not "*").
+        local_req = urllib.request.Request(
+            f"{base}/api/health", headers={"Origin": "http://localhost:5173"}
+        )
+        with urllib.request.urlopen(local_req, timeout=5) as resp:
+            assert resp.headers.get("Access-Control-Allow-Origin") == "http://localhost:5173"
+
+        # Foreign Origin → no CORS header at all (cross-site read blocked).
+        evil_req = urllib.request.Request(
+            f"{base}/api/health", headers={"Origin": "https://evil.example.com"}
+        )
+        with urllib.request.urlopen(evil_req, timeout=5) as resp:
+            assert resp.headers.get("Access-Control-Allow-Origin") is None
     finally:
         server.shutdown()
         server.server_close()
         thread.join(timeout=5)
+
+
+@allure.title("_origin_is_local: local hosts, foreign host, malformed origin")
+def test_origin_is_local() -> None:
+    assert serve_mod._origin_is_local("http://localhost:8787") is True
+    assert serve_mod._origin_is_local("http://127.0.0.1:5173") is True
+    assert serve_mod._origin_is_local("http://[::1]:9222") is True
+    assert serve_mod._origin_is_local("https://evil.example.com") is False
+    assert serve_mod._origin_is_local("") is False
+    assert serve_mod._origin_is_local("http://[") is False  # invalid IPv6 → ValueError

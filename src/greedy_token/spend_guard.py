@@ -10,7 +10,7 @@ from pathlib import Path
 
 from greedy_token.budget_ledger import headroom
 from greedy_token.model_select import ModelSpec, get_llm_registry
-from greedy_token.usage import log_path
+from greedy_token.usage import log_archive_paths, log_path
 
 SPEND_ENV = "GREEDY_EXPENSIVE_LLM"
 ALLOW_EXPENSIVE_ENV = "GREEDY_ALLOW_EXPENSIVE"
@@ -27,28 +27,31 @@ def _today_utc() -> str:
 
 
 def _load_today_spend() -> float:
-    path = log_path()
-    if not path.is_file():
-        return 0.0
+    # A mid-day log rotation moves earlier events into usage.jsonl.1, .2, …
+    # Reading only the active file would undercount today's spend and let the
+    # daily cap be bypassed, so scan the active log plus every rotated archive.
     day = _today_utc()
     total = 0.0
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line:
+    for path in log_archive_paths(log_path()):
+        if not path.is_file():
             continue
-        try:
-            event = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        ts = str(event.get("ts", ""))
-        if not ts.startswith(day):
-            continue
-        if event.get("billing_tier") != "expensive":
-            continue
-        try:
-            total += float(event.get("cost_usd") or 0)
-        except (TypeError, ValueError):
-            pass
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            ts = str(event.get("ts", ""))
+            if not ts.startswith(day):
+                continue
+            if event.get("billing_tier") != "expensive":
+                continue
+            try:
+                total += float(event.get("cost_usd") or 0)
+            except (TypeError, ValueError):
+                pass
     return total
 
 

@@ -102,13 +102,16 @@ def execute_plan(plan: RunPlan) -> tuple[int, str]:
             "Run the script manually if side effects are intended."
         )
     timeout = RG_TIMEOUT if plan.decision.target == "tool" else SCRIPT_TIMEOUT
-    proc = subprocess.run(
-        plan.command,
-        shell=True,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-    )
+    try:
+        proc = subprocess.run(
+            plan.command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        return 124, f"Command timed out after {timeout}s: {plan.command}"
     out = (proc.stdout or "") + (proc.stderr or "")
     return proc.returncode, out or plan.dry_run_output
 

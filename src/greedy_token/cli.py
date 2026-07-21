@@ -394,10 +394,14 @@ def cmd_llm_invoke(args: argparse.Namespace) -> int:
     root = find_workspace_root()
     system = args.system or ""
     user = args.user or ""
-    if args.system_file:
-        system = Path(args.system_file).read_text(encoding="utf-8")
-    if args.user_file:
-        user = Path(args.user_file).read_text(encoding="utf-8")
+    try:
+        if args.system_file:
+            system = Path(args.system_file).read_text(encoding="utf-8")
+        if args.user_file:
+            user = Path(args.user_file).read_text(encoding="utf-8")
+    except OSError as exc:
+        print(f"llm invoke: cannot read prompt file: {exc}", file=sys.stderr)
+        return 2
     if not user and not sys.stdin.isatty():
         user = sys.stdin.read()
     if not user.strip():

@@ -637,6 +637,29 @@ def test_format_report_with_events() -> None:
     assert "malformed lines skipped" in text
 
 
+@allure.story("Route quality")
+@allure.title("format_report renders quality block with empty by-tier / crystals")
+def test_format_report_quality_without_by_tier() -> None:
+    from greedy_token.usage import ReportSummary, format_report
+
+    summary = ReportSummary(events=1, since="7d")
+    # script_hits truthy so the quality block renders, but no per-tier breakdown
+    # and no override-heavy crystals → both optional sub-sections are skipped.
+    summary.quality = {
+        "override_rate_7d": 0.0,
+        "disable_threshold": 0.5,
+        "cheap_hold_rate": 1.0,
+        "override_events": 0,
+        "script_hits": 3,
+        "cheap_hits_by_tier": {},
+        "by_crystal": [],
+    }
+    text = format_report(summary)
+    assert "Route quality (not ML accuracy)" in text
+    assert "cheap hits by tier" not in text
+    assert "worst crystals by override" not in text
+
+
 @allure.story("Time filter")
 @allure.title("parse_since rejects invalid values")
 def test_parse_since_invalid() -> None:

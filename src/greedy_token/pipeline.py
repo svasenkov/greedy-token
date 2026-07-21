@@ -619,7 +619,10 @@ def _run_step(
             executed=False,
         )
 
-    if step.tier == "ollama":
+    # Runtime setup + availability check only when we will actually run the step.
+    # Dry-run (execute=False → can_run=False) must never require the cheap LLM
+    # to be up — it only prints the planned command.
+    if can_run and step.tier == "ollama":
         if step.profile:
             try:
                 resolved = resolve_model(step.profile, root=root)
@@ -629,21 +632,21 @@ def _run_step(
         else:
             apply_cheap_llm_env(root)
 
-    if step.tier == "ollama" and not ollama_available():
-        llm = get_cheap_llm_settings(root)
-        duration_ms = int((time.perf_counter() - t0) * 1000)
-        return StepResult(
-            step=step,
-            ok=False,
-            exit_code=1,
-            output=(
-                f"Cheap LLM unavailable ({llm.provider}, {llm.url}). "
-                "Start the runtime or use the expensive LLM path (Cursor)."
-            ),
-            duration_ms=duration_ms,
-            est_tokens=0,
-            executed=False,
-        )
+        if not ollama_available():
+            llm = get_cheap_llm_settings(root)
+            duration_ms = int((time.perf_counter() - t0) * 1000)
+            return StepResult(
+                step=step,
+                ok=False,
+                exit_code=1,
+                output=(
+                    f"Cheap LLM unavailable ({llm.provider}, {llm.url}). "
+                    "Start the runtime or use the expensive LLM path (Cursor)."
+                ),
+                duration_ms=duration_ms,
+                est_tokens=0,
+                executed=False,
+            )
 
     if can_run:
         try:

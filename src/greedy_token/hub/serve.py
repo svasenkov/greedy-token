@@ -12,6 +12,19 @@ from greedy_token.hub.api import handle_api, json_bytes
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
+# The hub binds to loopback and serves local telemetry (usage log path, spend,
+# session data). Only echo CORS for browser Origins that are themselves local —
+# never "*", which would let any visited website read this data cross-origin.
+_LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+
+def _origin_is_local(origin: str) -> bool:
+    try:
+        host = urlparse(origin).hostname
+    except ValueError:
+        return False
+    return host in _LOCAL_HOSTS
+
 
 class HubHandler(BaseHTTPRequestHandler):
     static_dir: Path = STATIC_DIR
@@ -20,8 +33,11 @@ class HubHandler(BaseHTTPRequestHandler):
         sys.stderr.write(f"greedy-hub {self.address_string()} - {fmt % args}\n")
 
     def _cors(self) -> None:
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        origin = self.headers.get("Origin")
+        if origin and _origin_is_local(origin):
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
+            self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
 
     def do_OPTIONS(self) -> None:
         self.send_response(204)

@@ -287,7 +287,7 @@ jobs:
           fi
           echo "- TestOps project: [5276](https://allure.qa.guru/project/5276)" >> "$GITHUB_STEP_SUMMARY"
           if [ "${QUALITY_GATE_EXIT:-}" = "0" ]; then
-            echo "- Allure 3 quality gate: passed (\`maxFailures: 0\`, \`minTestsCount: 562\`)" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Allure 3 quality gate: passed (\`maxFailures: 0\`, \`minTestsCount: 572\`)" >> "$GITHUB_STEP_SUMMARY"
           elif [ -n "${QUALITY_GATE_EXIT:-}" ]; then
             echo "- Allure 3 quality gate: **failed** (exit ${QUALITY_GATE_EXIT})" >> "$GITHUB_STEP_SUMMARY"
           fi

@@ -361,6 +361,53 @@ def test_cmd_init_bad_profile(capsys) -> None:
     assert code == 2
 
 
+@allure.story("Init")
+@allure.title("cmd_init surfaces install hints when ripgrep and ollama are missing")
+def test_cmd_init_detect_missing_tools(monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    monkeypatch.setattr("shutil.which", lambda name: None)
+    monkeypatch.setattr("greedy_token.wrappers.ollama_available", lambda *a, **k: False)
+    monkeypatch.setattr("greedy_token.settings.user_config_path", lambda: Path("/nope/config.yaml"))
+    code = cli.cmd_init(_ns(profile="solo", apply=False, force=False, json=False))
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "install ripgrep" in out
+    assert "ollama offline" in out
+
+
+@allure.story("Init")
+@allure.title("cmd_init --apply refuses to overwrite an existing config without --force")
+def test_cmd_init_apply_config_exists(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    cfg_path = tmp_path / "config.yaml"
+    cfg_path.write_text("llm: {}\n", encoding="utf-8")
+    monkeypatch.setattr("greedy_token.wrappers.ollama_available", lambda *a, **k: True)
+    monkeypatch.setattr("greedy_token.settings.user_config_path", lambda: cfg_path)
+    code = cli.cmd_init(_ns(profile="team", apply=True, force=False, json=False))
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "Config exists" in out
+
+
+@allure.story("Init")
+@allure.title("cmd_init --apply returns 1 when writing the config fails")
+def test_cmd_init_apply_write_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    cfg_path = tmp_path / "config.yaml"  # absent → config_exists False
+    monkeypatch.setattr("greedy_token.wrappers.ollama_available", lambda *a, **k: True)
+    monkeypatch.setattr("greedy_token.settings.user_config_path", lambda: cfg_path)
+
+    def boom(*a, **k):
+        raise OSError("disk full")
+
+    monkeypatch.setattr("greedy_token.settings.init_user_config", boom)
+    code = cli.cmd_init(_ns(profile="team", apply=True, force=True, json=False))
+    err = capsys.readouterr().err
+    assert code == 1
+    assert "disk full" in err
+
+
 @allure.story("Run")
 @allure.title("cmd_run --execute on cursor route exits non-zero with guidance")
 def test_cmd_run_execute_cursor_refused(minimal_workspace: Path, capsys) -> None:

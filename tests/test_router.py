@@ -235,3 +235,54 @@ def test_explain_route_cursor_fallback(minimal_workspace: Path) -> None:
     assert decision.route_id == "cursor-fallback"
     assert "fallback" in exp["reason"].lower()
 
+
+@allure.story("Explainable routing")
+@allure.title("explain_route: rationale fallback, budget_policy note, saved-est error")
+def test_explain_route_edge_branches(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import greedy_token.estimator as estimator
+    from greedy_token.router import RouteDecision, explain_route
+
+    # No matched patterns and not the cursor fallback → reason uses rationale;
+    # a budget_policy note is appended; cursor_saved_for failure → saved_est 0.
+    decision = RouteDecision(
+        target="python",
+        route_id="script-check-meta-sync",
+        confidence=1.0,
+        matched=[],
+        command="python scripts/meta-sync-check.py",
+        note="budget_policy: cheap tier forced by daily cap",
+        domains=[],
+        rationale="python tier chosen by policy",
+    )
+
+    def boom(*a, **k):
+        raise ValueError("estimator down")
+
+    monkeypatch.setattr(estimator, "cursor_saved_for", boom)
+    exp = explain_route(decision, "some policy-driven task", minimal_workspace)
+    attach_json("explanation", exp)
+    assert exp["reason"].startswith("python tier chosen by policy")
+    assert "budget_policy" in exp["reason"]
+    assert exp["saved_est"] == 0
+
+
+@allure.story("Explainable routing")
+@allure.title("explain_route: empty rationale falls back to generic tier reason")
+def test_explain_route_generic_reason(minimal_workspace: Path) -> None:
+    from greedy_token.router import RouteDecision, explain_route
+
+    decision = RouteDecision(
+        target="rag",
+        route_id="rag-lookup",
+        confidence=0.5,
+        matched=[],
+        command=None,
+        note="",
+        domains=[],
+        rationale="",
+    )
+    exp = explain_route(decision, "lookup something", minimal_workspace)
+    assert exp["reason"] == "rag tier, no explicit pattern"
+

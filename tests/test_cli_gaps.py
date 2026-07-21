@@ -129,6 +129,13 @@ def test_cmd_llm_invoke(minimal_workspace: Path, tmp_path: Path, monkeypatch: py
     monkeypatch.setattr(sys, "stdin", io.StringIO("ask something"))
     assert cli.cmd_llm_invoke(_invoke_ns()) == 1
 
+    # missing prompt file → exit 2 with a clean message (no traceback)
+    missing = tmp_path / "does-not-exist.txt"
+    code_missing = cli.cmd_llm_invoke(_invoke_ns(user_file=str(missing)))
+    err_missing = capsys.readouterr().err
+    assert code_missing == 2
+    assert "cannot read prompt file" in err_missing
+
 
 @allure.title("cmd_llm_list prints registry and models")
 def test_cmd_llm_list(minimal_workspace: Path, capsys) -> None:

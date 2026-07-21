@@ -202,7 +202,7 @@ def _build_tool_command(route: dict, task: str, root: Path) -> str:
     if tool == "jq":
         path_hint = route.get("json_path") or "docs/phase-manifest.json"
         return (
-            f"{root_cd_prefix(root)} jq -r '{route.get('jq_filter', '.')}' "
+            f"{root_cd_prefix(root)} jq -r {sh_quote(route.get('jq_filter', '.'))} "
             f"{sh_quote(path_hint)}"
         )
     globs = route.get("globs") or [

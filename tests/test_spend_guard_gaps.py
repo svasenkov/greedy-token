@@ -81,6 +81,25 @@ def test_load_today_spend(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
     assert spend_guard._load_today_spend() == pytest.approx(1.25)
 
 
+@allure.title("_load_today_spend also sums rotated archives for today")
+def test_load_today_spend_rotated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    log = tmp_path / "usage.jsonl"
+    monkeypatch.setenv("GREEDY_TOKEN_LOG", str(log))
+    today = datetime.now(UTC).strftime("%Y-%m-%d")
+    log.write_text(
+        json.dumps({"ts": f"{today}T09:00:00Z", "billing_tier": "expensive", "cost_usd": 0.5}) + "\n",
+        encoding="utf-8",
+    )
+    # earlier expensive event pushed into a rotated archive earlier today
+    archive = tmp_path / "usage.jsonl.1"
+    archive.write_text(
+        json.dumps({"ts": f"{today}T01:00:00Z", "billing_tier": "expensive", "cost_usd": 2.0}) + "\n"
+        + json.dumps({"ts": "1999-01-01T00:00:00Z", "billing_tier": "expensive", "cost_usd": 9}) + "\n",
+        encoding="utf-8",
+    )
+    assert spend_guard._load_today_spend() == pytest.approx(2.5)
+
+
 @allure.title("expensive_opt_in: disabled, cli flag, and env vars")
 def test_expensive_opt_in(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(spend_guard.SPEND_ENV, raising=False)

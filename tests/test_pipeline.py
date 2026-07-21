@@ -292,6 +292,33 @@ def test_pipeline_execute_skips_unavailable_ollama(minimal_workspace: Path) -> N
 
 
 @allure.story("Dry run")
+@allure.title("Pipeline dry-run of an Ollama step never requires the runtime")
+def test_pipeline_dry_run_ollama_no_runtime(minimal_workspace: Path) -> None:
+    other_skill = minimal_workspace / ".cursor" / "skills" / "other-skill"
+    other_skill.mkdir(parents=True, exist_ok=True)
+    (other_skill / "SKILL.md").write_text("# other-skill\n", encoding="utf-8")
+    with allure.step("Dry-run meta-audit with Ollama runtime down"):
+        with patch(
+            "greedy_token.pipeline.ollama_available", return_value=False
+        ) as mock_avail:
+            result = run_pipeline(
+                "meta-audit other-skill",
+                minimal_workspace,
+                execute=False,
+            )
+        attach_text("ollama step output", result.steps[1].output)
+    with allure.step("Verify the Ollama step is planned, not gated on availability"):
+        assert result.stopped_early is False
+        ollama_step = result.steps[1]
+        assert ollama_step.step.tier == "ollama"
+        assert ollama_step.ok is True
+        assert ollama_step.executed is False
+        assert "(dry-run)" in ollama_step.output
+        assert "Cheap LLM unavailable" not in ollama_step.output
+        mock_avail.assert_not_called()
+
+
+@allure.story("Dry run")
 @allure.title("Pipeline dry-run does not execute allowlisted steps")
 def test_pipeline_dry_run(minimal_workspace: Path) -> None:
     with allure.step("Dry-run check-meta-sync then rag pipeline"):

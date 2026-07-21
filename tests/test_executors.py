@@ -149,6 +149,36 @@ def test_execute_task_cursor_refuses_execute(minimal_workspace: Path) -> None:
         assert "Cursor" in result.output or "Agent chat" in result.output
 
 
+@patch("greedy_token.executors.subprocess.run")
+@allure.story("Execute safety")
+@allure.title("execute_plan returns exit 124 when the command times out")
+def test_execute_plan_timeout(mock_run, minimal_workspace: Path) -> None:
+    import subprocess
+
+    from greedy_token.executors import execute_plan, plan_run
+    from greedy_token.router import RouteDecision
+
+    mock_run.side_effect = subprocess.TimeoutExpired("cmd", 120)
+    decision = RouteDecision(
+        target="python",
+        route_id="script-check-meta-sync",
+        confidence=1.0,
+        matched=["meta"],
+        command="python scripts/meta-sync-check.py",
+        note="",
+        domains=[],
+        read_only=True,
+    )
+    plan = plan_run(decision, "check meta", minimal_workspace)
+    with allure.step("Run an executable plan whose subprocess times out"):
+        code, out = execute_plan(plan)
+        attach_text("execute output", out)
+        attach_text("exit code", str(code))
+    with allure.step("Verify timeout is caught and surfaced"):
+        assert code == 124
+        assert "timed out" in out
+
+
 @allure.story("Plan run")
 @allure.title("plan_run builds python tier command with wrapper read_only")
 def test_plan_run_python(minimal_workspace: Path) -> None:
