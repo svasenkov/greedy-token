@@ -1,4 +1,0 @@
-greedy-hub 127.0.0.1 - "GET /api/health HTTP/1.1" 200 -
-greedy-hub 127.0.0.1 - "GET / HTTP/1.1" 200 -
-greedy-hub 127.0.0.1 - "GET /../secret HTTP/1.1" 200 -
-greedy-hub 127.0.0.1 - "OPTIONS /api/health HTTP/1.1" 204 -

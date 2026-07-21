@@ -1,0 +1,1 @@
+{"id":"c793e3cbf0a9658c9c1d026cbf49280e","fullName":"tests.test_spend_guard_gaps#test_load_today_spend_rotated","name":"_load_today_spend also sums rotated archives for today","status":"passed","testResultsByEnv":{"default":"6d5b9b850a89bb3338577aac93aba28b"}}
