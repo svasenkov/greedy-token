@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="800" height="168" viewBox="0 0 800 168" role="img" aria-label="greedy-token metrics: 546 total, 99% pass rate">
-  <title>greedy-token on main · build #64 · passing</title>
+  <title>greedy-token on main · build #65 · passing</title>
   <defs>
     <linearGradient id="panel-bg-dark-full" x1="0" y1="0" x2="800" y2="168" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#242830"/>
@@ -12,7 +12,7 @@
   <text x="64" y="58" text-anchor="middle" fill="#008a56" font-family="ui-sans-serif,system-ui,sans-serif" font-size="13" font-weight="800">PASSING</text>
   <text x="64" y="78" text-anchor="middle" fill="#008a56" font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" font-weight="600">546 tests</text>
   <text x="128" y="36" fill="rgba(232,234,237,0.92)" font-family="ui-sans-serif,system-ui,sans-serif" font-size="18" font-weight="700">greedy-token</text>
-  <text x="128" y="56" fill="rgba(154,160,166,0.88)" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12">main · build #64 · passing</text>
+  <text x="128" y="56" fill="rgba(154,160,166,0.88)" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12">main · build #65 · passing</text>
   <text x="128" y="88" fill="rgba(232,234,237,0.88)" font-family="ui-sans-serif,system-ui,sans-serif" font-size="28" font-weight="700">546</text>
   <text x="188" y="88" fill="rgba(154,160,166,0.85)" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12">total</text>
   <text x="248" y="88" fill="#008a56" font-family="ui-sans-serif,system-ui,sans-serif" font-size="28" font-weight="700">542</text>
@@ -21,7 +21,7 @@
   <text x="394" y="88" fill="rgba(154,160,166,0.85)" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12">failed</text>
   <text x="560" y="72" fill="rgba(232,234,237,0.88)" font-family="ui-sans-serif,system-ui,sans-serif" font-size="22" font-weight="700">99%</text>
   <text x="560" y="92" fill="rgba(154,160,166,0.85)" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12">pass rate</text>
-  <text x="680" y="72" fill="rgba(232,234,237,0.88)" font-family="ui-sans-serif,system-ui,sans-serif" font-size="22" font-weight="700">20s</text>
+  <text x="680" y="72" fill="rgba(232,234,237,0.88)" font-family="ui-sans-serif,system-ui,sans-serif" font-size="22" font-weight="700">19s</text>
   <text x="680" y="92" fill="rgba(154,160,166,0.85)" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12">duration</text>
   <rect x="40" y="118" width="720" height="12" rx="6" fill="#3a4049"/>
   <rect x="40" y="118" width="714" height="12" rx="6" fill="#008a56"/>

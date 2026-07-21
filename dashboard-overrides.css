@@ -6,7 +6,7 @@
 
 :root {
   color-scheme: light;
-  --layer-unit: #15803d;
+  --layer-unit: #94ca66;
   --layer-component: #ff8200;
   --layer-integration: #7e22ce;
   --layer-api: #e8bd00;
@@ -17,7 +17,7 @@
 
 html[data-theme="dark"] {
   color-scheme: dark;
-  --layer-unit: #31bd58;
+  --layer-unit: #94ca66;
   --layer-component: #ffa833;
   --layer-integration: #a65ac4;
   --layer-api: #ffd833;
@@ -28,7 +28,7 @@ html[data-theme="dark"] {
 
 html[data-theme="light"] {
   color-scheme: light;
-  --layer-unit: #15803d;
+  --layer-unit: #94ca66;
   --layer-component: #ff8200;
   --layer-integration: #7e22ce;
   --layer-api: #e8bd00;

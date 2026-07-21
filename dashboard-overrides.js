@@ -12,7 +12,7 @@
   const CORNER_RATIO = 0.15;
   const PALETTE = {
     light: {
-      unit: "#15803d",
+      unit: "#94ca66",
       component: "#ff8200",
       integration: "#7e22ce",
       api: "#e8bd00",
@@ -21,7 +21,7 @@
       other: "#64748b",
     },
     dark: {
-      unit: "#31bd58",
+      unit: "#94ca66",
       component: "#ffa833",
       integration: "#a65ac4",
       api: "#ffd833",
