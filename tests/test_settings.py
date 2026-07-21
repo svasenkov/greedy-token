@@ -122,6 +122,50 @@ def test_format_shell_export() -> None:
         assert 'export CHEAP_LLM_PROVIDER="ollama"' in out
 
 
+@allure.story("Shell export")
+@allure.title("Shell export masks CHEAP_LLM_API_KEY by default and reveals on demand")
+def test_format_shell_export_masks_api_key() -> None:
+    from greedy_token.settings import CheapLlmSettings
+
+    secret = "sk-abc-123"
+    settings = CheapLlmSettings(
+        provider="openai_compat",
+        url="https://api.example.com/v1",
+        model="gpt-x",
+        source="env",
+        api_key=secret,
+    )
+    with allure.step("Format without reveal"):
+        masked = format_shell_export(settings)
+        attach_text("masked export", masked)
+    with allure.step("Verify secret masked as ***"):
+        assert 'export CHEAP_LLM_API_KEY="***"' in masked
+        assert secret not in masked
+    with allure.step("Format with reveal=True"):
+        revealed = format_shell_export(settings, reveal=True)
+    with allure.step("Verify real secret printed"):
+        assert f'export CHEAP_LLM_API_KEY="{secret}"' in revealed
+        assert "***" not in revealed
+
+
+@allure.story("Shell export")
+@allure.title("Shell export omits key line when no api_key even with reveal")
+def test_format_shell_export_no_key() -> None:
+    from greedy_token.settings import CheapLlmSettings
+
+    settings = CheapLlmSettings(
+        provider="ollama",
+        url="http://localhost:11434",
+        model="qwen",
+        source="default",
+        api_key="",
+    )
+    with allure.step("Format with reveal=True and empty api_key"):
+        out = format_shell_export(settings, reveal=True)
+    with allure.step("Verify no CHEAP_LLM_API_KEY line"):
+        assert "CHEAP_LLM_API_KEY" not in out
+
+
 @allure.story("Paths")
 @allure.title("Workspace config path points to .greedy-token.yaml in root")
 def test_workspace_config_path(tmp_path: Path) -> None:

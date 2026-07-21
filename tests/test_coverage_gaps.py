@@ -644,10 +644,15 @@ def test_settings_public_edges(
         monkeypatch.setenv("CHEAP_LLM_URL", "http://lm:1")
         monkeypatch.setenv("CHEAP_LLM_MODEL", "m")
         exported = format_shell_export(None, root=minimal_workspace)
-    assert 'CHEAP_LLM_API_KEY="sk-apply"' in exported
+        exported_reveal = format_shell_export(None, root=minimal_workspace, reveal=True)
+    assert 'CHEAP_LLM_API_KEY="***"' in exported
+    assert "sk-apply" not in exported
+    assert 'CHEAP_LLM_API_KEY="sk-apply"' in exported_reveal
 
     direct = format_shell_export(keyed)
-    assert 'CHEAP_LLM_API_KEY="sk-apply"' in direct
+    assert 'CHEAP_LLM_API_KEY="***"' in direct
+    assert "sk-apply" not in direct
+    assert 'CHEAP_LLM_API_KEY="sk-apply"' in format_shell_export(keyed, reveal=True)
 
     ollama_export = format_shell_export(OllamaSettings(url="http://o:1", model="om", source="t"))
     assert "OLLAMA_URL" in ollama_export

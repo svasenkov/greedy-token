@@ -211,7 +211,7 @@ Saved by executor (sum of per-step savings):
 | `greedy-token budget [--json] [--verbose]` | Split budget: metered API + Cursor estimate |
 | `greedy-token watch [--once] [--from-start]` | Tail hook advisory log (`~/.greedy-token/advisory.jsonl`) |
 | `greedy-token init [--profile solo\|team\|ci]` | Bootstrap: detect rg/python/ollama + write config/policy |
-| `greedy-token config [--init] [--export]` | Ollama URL/model settings |
+| `greedy-token config [--init] [--export] [--reveal]` | Ollama URL/model settings (`--export` masks `CHEAP_LLM_API_KEY` as `***`; `--reveal` prints it) |
 | `greedy-token hub serve [--host H] [--port N]` | Local ops dashboard (telemetry + crystallize) |
 | `greedy-token-mcp` | Start MCP server (stdio) |
 

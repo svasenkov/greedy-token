@@ -352,7 +352,14 @@ def cmd_config(args: argparse.Namespace) -> int:
 
     settings = apply_ollama_env(root)
     if args.export:
-        print(format_shell_export(settings, root=root))
+        reveal = getattr(args, "reveal", False)
+        if reveal and settings.api_key:
+            print(
+                "warning: --reveal prints CHEAP_LLM_API_KEY in plaintext; "
+                "it may be recorded in your shell history",
+                file=sys.stderr,
+            )
+        print(format_shell_export(settings, root=root, reveal=reveal))
         return 0
     print(format_config(settings, root=root))
     return 0
@@ -772,7 +779,12 @@ def build_parser() -> argparse.ArgumentParser:
     cfg.add_argument(
         "--export",
         action="store_true",
-        help="Print shell exports (CHEAP_LLM_* and OLLAMA_* aliases)",
+        help="Print shell exports (CHEAP_LLM_* and OLLAMA_* aliases; CHEAP_LLM_API_KEY masked)",
+    )
+    cfg.add_argument(
+        "--reveal",
+        action="store_true",
+        help="With --export, print the real CHEAP_LLM_API_KEY instead of *** (leaks to shell history)",
     )
     cfg.set_defaults(func=cmd_config)
 

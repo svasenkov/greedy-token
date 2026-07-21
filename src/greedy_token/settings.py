@@ -456,7 +456,21 @@ def format_config(settings: CheapLlmSettings | OllamaSettings | None = None, *, 
     return "\n".join(lines)
 
 
-def format_shell_export(settings: CheapLlmSettings | OllamaSettings | None = None, *, root: Path | None = None) -> str:
+MASKED_SECRET = "***"
+
+
+def format_shell_export(
+    settings: CheapLlmSettings | OllamaSettings | None = None,
+    *,
+    root: Path | None = None,
+    reveal: bool = False,
+) -> str:
+    """Render shell `export` lines for the cheap-LLM settings.
+
+    ``CHEAP_LLM_API_KEY`` is masked as ``***`` by default so piping into a
+    terminal (and shell history) never leaks the secret. Pass ``reveal=True``
+    to print the real key value.
+    """
     if settings is None:
         settings = get_cheap_llm_settings(root)
     elif isinstance(settings, OllamaSettings):
@@ -474,7 +488,8 @@ def format_shell_export(settings: CheapLlmSettings | OllamaSettings | None = Non
         f'export OLLAMA_MODEL="{settings.model}"',
     ]
     if settings.api_key:
-        lines.append(f'export CHEAP_LLM_API_KEY="{settings.api_key}"')
+        value = settings.api_key if reveal else MASKED_SECRET
+        lines.append(f'export CHEAP_LLM_API_KEY="{value}"')
     return "\n".join(lines)
 
 

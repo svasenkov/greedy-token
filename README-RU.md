@@ -210,7 +210,7 @@ Saved by executor (sum of per-step savings):
 | `greedy-token tokens PATH…` | Count tokens in paths |
 | `greedy-token compress` | Short prompt (stdin; `--ollama`) |
 | `greedy-token report [--since 7d]` | Usage telemetry aggregate |
-| `greedy-token config [--init] [--export]` | Ollama URL/model |
+| `greedy-token config [--init] [--export] [--reveal]` | Ollama URL/model (`--export` маскирует `CHEAP_LLM_API_KEY` как `***`; `--reveal` печатает секрет) |
 | `greedy-token-mcp` | MCP server (stdio) |
 
 Флаг `--no-log` отключает запись в log на один вызов.

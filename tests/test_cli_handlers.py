@@ -274,10 +274,101 @@ def test_cmd_config_show(minimal_workspace: Path, capsys) -> None:
 @allure.story("Config")
 @allure.title("cmd_config --export prints shell exports")
 def test_cmd_config_export(minimal_workspace: Path, capsys) -> None:
-    code = cli.cmd_config(_ns(init=False, url=None, model=None, provider=None, force=False, export=True))
+    code = cli.cmd_config(
+        _ns(init=False, url=None, model=None, provider=None, force=False, export=True, reveal=False)
+    )
     out = capsys.readouterr().out
     assert code == 0
     assert "export OLLAMA_URL" in out
+
+
+@allure.story("Config")
+@allure.title("cmd_config --export masks CHEAP_LLM_API_KEY by default")
+def test_cmd_config_export_masks_secret(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    from greedy_token.settings import CheapLlmSettings
+
+    secret = "sk-super-secret-value"
+    monkeypatch.setattr(
+        "greedy_token.cli.apply_ollama_env",
+        lambda root: CheapLlmSettings(
+            provider="openai_compat",
+            url="https://api.example.com/v1",
+            model="gpt-x",
+            source="env",
+            api_key=secret,
+        ),
+    )
+    with allure.step("Run config --export without --reveal"):
+        code = cli.cmd_config(
+            _ns(init=False, url=None, model=None, provider=None, force=False, export=True, reveal=False)
+        )
+    captured = capsys.readouterr()
+    with allure.step("Verify secret is masked and no history warning"):
+        assert code == 0
+        assert 'export CHEAP_LLM_API_KEY="***"' in captured.out
+        assert secret not in captured.out
+        assert secret not in captured.err
+        assert "shell history" not in captured.err
+
+
+@allure.story("Config")
+@allure.title("cmd_config --export --reveal prints secret with a stderr warning")
+def test_cmd_config_export_reveal(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    from greedy_token.settings import CheapLlmSettings
+
+    secret = "sk-super-secret-value"
+    monkeypatch.setattr(
+        "greedy_token.cli.apply_ollama_env",
+        lambda root: CheapLlmSettings(
+            provider="openai_compat",
+            url="https://api.example.com/v1",
+            model="gpt-x",
+            source="env",
+            api_key=secret,
+        ),
+    )
+    with allure.step("Run config --export --reveal"):
+        code = cli.cmd_config(
+            _ns(init=False, url=None, model=None, provider=None, force=False, export=True, reveal=True)
+        )
+    captured = capsys.readouterr()
+    with allure.step("Verify real secret printed and shell-history warning on stderr"):
+        assert code == 0
+        assert f'export CHEAP_LLM_API_KEY="{secret}"' in captured.out
+        assert "***" not in captured.out
+        assert "shell history" in captured.err
+
+
+@allure.story("Config")
+@allure.title("cmd_config --export --reveal without a key prints no warning")
+def test_cmd_config_export_reveal_no_key(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    from greedy_token.settings import CheapLlmSettings
+
+    monkeypatch.setattr(
+        "greedy_token.cli.apply_ollama_env",
+        lambda root: CheapLlmSettings(
+            provider="ollama",
+            url="http://localhost:11434",
+            model="qwen",
+            source="default",
+            api_key="",
+        ),
+    )
+    with allure.step("Run config --export --reveal with no api_key"):
+        code = cli.cmd_config(
+            _ns(init=False, url=None, model=None, provider=None, force=False, export=True, reveal=True)
+        )
+    captured = capsys.readouterr()
+    with allure.step("Verify no key line and no history warning"):
+        assert code == 0
+        assert "CHEAP_LLM_API_KEY" not in captured.out
+        assert captured.err == ""
 
 
 @allure.story("Config")
