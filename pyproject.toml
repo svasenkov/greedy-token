@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "allure-pytest>=2.16", "coverage>=7.0"]
+dev = ["pytest>=8.0", "allure-pytest>=2.16", "coverage>=7.0", "hypothesis>=6.0", "mutmut>=3.6"]
 mcp = ["mcp>=1.0"]
 
 [project.scripts]

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shlex
 import shutil
 from collections.abc import Iterator
 from pathlib import Path
@@ -61,11 +62,13 @@ def rg_path_for_shell() -> str:
 
 
 def sh_quote(value: str) -> str:
-    import re
+    """Quote a string as a single POSIX shell token.
 
-    if re.fullmatch(r"[\w@./:-]+", value):
-        return value
-    return "'" + value.replace("'", "'\"'\"'") + "'"
+    Delegates to :func:`shlex.quote` (the stdlib reference implementation) so
+    the output is provably shell-safe. See ``tests/test_security.py`` for the
+    hypothesis round-trip proof that ``shlex.split`` recovers the original.
+    """
+    return shlex.quote(value)
 
 
 def root_cd_prefix(root: Path) -> str:

@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import shlex
 from pathlib import Path
 from unittest.mock import patch
 
 import allure
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from greedy_token.router import _build_tool_command
-from greedy_token.tool_paths import root_cd_prefix, shell_args
+from greedy_token.tool_paths import root_cd_prefix, sh_quote, shell_args
 from greedy_token.wrappers import resolve_wrapper_command
 from tests.allure_reporting import attach_text
 
@@ -47,6 +50,35 @@ def test_shell_args_quotes_metacharacters() -> None:
         assert dangerous == "'foo; rm -rf /'"
         assert safe == "safe-name"
         assert spaced == "'two words'"
+
+
+# Chars that are dangerous in a shell if left unquoted, plus unicode.
+_QUOTE_ALPHABET = st.characters(
+    blacklist_categories=("Cs",),  # exclude lone surrogates (not valid in argv)
+) | st.sampled_from(list(" \t\n'\"\\;|&$`(){}[]<>*?#~!%+=,:.-"))
+
+
+@allure.story("Shell quoting")
+@allure.title("sh_quote output round-trips through shlex.split for arbitrary strings")
+@given(value=st.text(alphabet=_QUOTE_ALPHABET, max_size=64))
+def test_sh_quote_roundtrips_through_shell(value: str) -> None:
+    # A quoted token must parse back to exactly the original single argument,
+    # proving it is a shell-safe single token (equivalent to shlex.quote).
+    quoted = sh_quote(value)
+    assert shlex.split("cmd " + quoted)[1:] == [value]
+    # And it stays consistent with the stdlib reference implementation.
+    assert quoted == shlex.quote(value)
+
+
+@allure.story("Shell quoting")
+@allure.title("sh_quote neutralizes injection metacharacters as one token")
+def test_sh_quote_blocks_injection() -> None:
+    payload = "foo; rm -rf / && echo $(whoami) | cat `id`"
+    with allure.step("Quote an injection payload"):
+        quoted = sh_quote(payload)
+        attach_text("quoted payload", quoted)
+    with allure.step("Verify it parses back to a single, inert argument"):
+        assert shlex.split("cmd " + quoted)[1:] == [payload]
 
 
 @allure.story("Ripgrep command")
