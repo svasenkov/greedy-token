@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from statistics import median
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
@@ -45,6 +46,7 @@ def handle_api(path: str) -> tuple[int, dict]:
             "cursor_est_spent_usd": budget.cursor_est_spent_usd,
             "mode": budget.mode,
         }
+        payload["metrics"] = _operational_metrics(events, summary, budget)
         return 200, payload
 
     if route.startswith("/api/sessions"):
@@ -87,6 +89,36 @@ def handle_api(path: str) -> tuple[int, dict]:
         return 200, {"ok": True, "log_path": str(log_path())}
 
     return 404, {"error": "not found"}
+
+
+def _operational_metrics(events: list[dict], summary, budget) -> dict:
+    """Hub-only ops metrics: execution latency + cost/task next to coverage.
+
+    Latency from ``duration_ms`` samples (route/script/compress events that
+    recorded one). cost/task is the Cursor-estimate spend spread over calls —
+    what the window's traffic is charging against the soft budget.
+    """
+    durations = [
+        int(e["duration_ms"])
+        for e in events
+        if isinstance(e.get("duration_ms"), (int, float)) and e.get("event") != "script_override"
+    ]
+    calls = max(1, summary.events)
+    latency = {
+        "samples": len(durations),
+        "p50_ms": int(median(durations)) if durations else None,
+        "p95_ms": (
+            int(sorted(durations)[min(len(durations) - 1, int(round(0.95 * (len(durations) - 1))))])
+            if durations
+            else None
+        ),
+    }
+    return {
+        "latency": latency,
+        "cost_per_task_usd": round(budget.cursor_est_spent_usd / calls, 4),
+        "metered_cost_per_task_usd": round(budget.metered_spent_usd / calls, 4),
+        "saved_per_task_tokens": int(summary.to_dict()["totals"]["saved_vs_cursor"] / calls),
+    }
 
 
 def _tests_summary() -> dict:

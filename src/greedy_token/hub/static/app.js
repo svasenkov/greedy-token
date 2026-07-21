@@ -96,6 +96,7 @@ async function renderHome() {
   }).join("");
 
   const q = data.quality || {};
+  const m = data.metrics || {};
   const pct = (v) => `${Math.round((v ?? 0) * 100)}%`;
   const hasQuality = (q.script_hits || 0) > 0;
   const worst = (q.by_crystal || []).filter((c) => c.override_count > 0).slice(0, 5);
@@ -105,22 +106,31 @@ async function renderHome() {
     `<td>${c.reuse_action ? `<span style="color:var(--warn)">${c.reuse_action}</span>` : "—"}</td></tr>`
   ).join("");
   const overThreshold = hasQuality && (q.override_rate_7d ?? 0) >= (q.disable_threshold ?? 0.3);
+  const lat = m.latency || {};
+  const latencyValue = lat.p50_ms != null ? `${lat.p50_ms}ms` : "—";
+  const costValue = `$${(m.cost_per_task_usd ?? 0).toFixed(3)}`;
 
   document.getElementById("app").innerHTML = `
     <div class="grid">
       <div class="card"><h3>Saved vs Cursor</h3><div class="value">${fmt(totalSaved)}</div></div>
-      <div class="card"><h3>Script coverage</h3><div class="value">${coverage}%</div></div>
-      <div class="card" title="cheap script hits kept (not re-asked in Cursor)">
+      <div class="card" title="share of events routed to cheap tiers"><h3>Coverage</h3><div class="value">${coverage}%</div></div>
+      <div class="card" title="cheap hits kept across all cheap tiers (not re-asked in Cursor)">
         <h3>Cheap hold rate</h3>
         <div class="value">${hasQuality ? pct(q.cheap_hold_rate) : "—"}</div></div>
-      <div class="card" title="script_override events / script-tier hits (>= threshold: disable/re-shadow)">
+      <div class="card" title="script_override events / cheap-tier hits (>= threshold: disable/re-shadow)">
         <h3>Override rate</h3>
         <div class="value" style="${overThreshold ? "color:var(--tier-cursor)" : ""}">${hasQuality ? pct(q.override_rate_7d) : "—"}</div></div>
+      <div class="card" title="median route execution latency (${lat.samples || 0} samples with duration)">
+        <h3>Latency p50</h3>
+        <div class="value">${latencyValue}</div></div>
+      <div class="card" title="Cursor-estimate spend spread over ${totalCalls} calls in window">
+        <h3>Cost / task</h3>
+        <div class="value">${costValue}</div></div>
     </div>
     <div class="card">
       <h3>Route quality <span style="font-weight:400;opacity:.6">— not ML accuracy</span></h3>
       <table><thead><tr><th>Worst crystal</th><th>Override rate</th><th>Overrides/hits</th><th>Action</th></tr></thead>
-      <tbody>${worstRows || `<tr><td colspan=4 class=empty>${hasQuality ? "No overrides in window — routing holding" : "No script-tier hits yet"}</td></tr>`}</tbody></table>
+      <tbody>${worstRows || `<tr><td colspan=4 class=empty>${hasQuality ? "No overrides in window — routing holding" : "No cheap-tier hits yet"}</td></tr>`}</tbody></table>
     </div>
     <div class="card">
       <h3>Tier breakdown</h3>

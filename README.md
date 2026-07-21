@@ -203,7 +203,8 @@ Saved by executor (sum of per-step savings):
 | `greedy-token audit-context` | Rules/skills token audit |
 | `greedy-token tokens PATH…` | Count tokens in paths |
 | `greedy-token compress` | Short prompt (stdin; `--ollama`) |
-| `greedy-token report [--since 7d]` | Usage telemetry aggregate |
+| `greedy-token report [--since 7d]` | Usage telemetry + route quality (override_rate / cheap_hold_rate) |
+| `greedy-token init [--profile solo\|team\|ci]` | Bootstrap: detect rg/python/ollama + write config/policy |
 | `greedy-token config [--init] [--export]` | Ollama URL/model settings |
 | `greedy-token-mcp` | Start MCP server (stdio) |
 

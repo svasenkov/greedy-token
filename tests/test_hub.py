@@ -53,6 +53,12 @@ def test_api_summary_with_events(tmp_path, monkeypatch, minimal_workspace):
     assert "override_rate_7d" in quality
     assert "cheap_hold_rate" in quality
     assert "by_crystal" in quality
+    # Operational metrics: latency + cost/task next to coverage
+    metrics = payload["metrics"]
+    assert metrics["latency"]["samples"] == 1
+    assert metrics["latency"]["p50_ms"] == 1
+    assert "cost_per_task_usd" in metrics
+    assert "saved_per_task_tokens" in metrics
 
 
 @pytest.mark.unit
