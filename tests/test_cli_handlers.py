@@ -309,6 +309,58 @@ def test_cmd_config_init_without_workspace(
     assert "cheap llm settings" in out.lower() or "ollama" in out.lower()
 
 
+@allure.story("Init")
+@allure.title("cmd_init detect-only reports profile policy and tiers")
+def test_cmd_init_detect_only(monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    monkeypatch.setattr("greedy_token.wrappers.ollama_available", lambda *a, **k: True)
+    monkeypatch.setattr("greedy_token.settings.user_config_path", lambda: Path("/nope/config.yaml"))
+    code = cli.cmd_init(_ns(profile="solo", apply=False, force=False, json=False))
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "profile:  solo" in out
+    assert "policy: safe" in out
+    assert "--apply" in out
+
+
+@allure.story("Init")
+@allure.title("cmd_init --json returns detection payload")
+def test_cmd_init_json(monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    monkeypatch.setattr("greedy_token.wrappers.ollama_available", lambda *a, **k: False)
+    monkeypatch.setattr("greedy_token.settings.user_config_path", lambda: Path("/nope/config.yaml"))
+    code = cli.cmd_init(_ns(profile="ci", apply=False, force=False, json=True))
+    payload = json.loads(capsys.readouterr().out)
+    assert code == 0
+    assert payload["profile"] == "ci"
+    assert payload["recommended_policy"] == "cheap_only"
+    assert payload["ollama"] is False
+
+
+@allure.story("Init")
+@allure.title("cmd_init --apply writes config with profile policy")
+def test_cmd_init_apply_writes_policy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    import yaml
+
+    cfg_path = tmp_path / "config.yaml"
+    monkeypatch.setattr("greedy_token.wrappers.ollama_available", lambda *a, **k: True)
+    monkeypatch.setattr("greedy_token.settings.user_config_path", lambda: cfg_path)
+    code = cli.cmd_init(_ns(profile="team", apply=True, force=True, json=False))
+    out = capsys.readouterr().out
+    assert code == 0
+    assert cfg_path.is_file()
+    data = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
+    assert data["llm"]["policy"] == "hybrid"
+    assert "Wrote" in out
+
+
+@allure.story("Init")
+@allure.title("cmd_init rejects unknown profile")
+def test_cmd_init_bad_profile(capsys) -> None:
+    code = cli.cmd_init(_ns(profile="galaxy", apply=False, force=False, json=False))
+    assert code == 2
+
+
 @allure.story("Run")
 @allure.title("cmd_run --execute on cursor route exits non-zero with guidance")
 def test_cmd_run_execute_cursor_refused(minimal_workspace: Path, capsys) -> None:

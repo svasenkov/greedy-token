@@ -20,7 +20,17 @@ DEFAULT_LOG = Path.home() / ".greedy-token" / "usage.jsonl"
 DEFAULT_MAX_LOG_BYTES = 5 * 1024 * 1024
 DEFAULT_MAX_ROTATED = 5
 OVERRIDE_WINDOW_SEC = 900
+# Every non-escalation tier we "hold": a re-ask that escalates to cursor within
+# the window attributes an override against the prior cheap hit, regardless of
+# its tier. This makes cheap_hold_rate honest across all cheap tiers (not just
+# python/script). cursor is the escalation target; compress is a prompt helper.
+CHEAP_TIERS = frozenset({"tool", "python", "ollama", "rag", "script"})
+# Legacy subset: python/script were the only attributed tiers before cheap-tier
+# attribution landed. Kept for callers that still reference the script subset.
 SCRIPT_HIT_TIERS = frozenset({"python", "script"})
+OVERRIDE_EVENT = "script_override"
+# usage-override.md: override_rate >= 0.3 over 7d -> disable / re-shadow.
+OVERRIDE_DISABLE_THRESHOLD = 0.3
 
 _log_dir_ready = False
 
@@ -252,7 +262,7 @@ def build_script_override_event(
         "billing": {
             "spent_est": 0,
             "saved_est": 0,
-            "note": "override — prior script hit rejected by user/agent",
+            "note": "override — prior cheap hit rejected by user/agent",
         },
         "meta": {"reason": reason},
     }
@@ -268,14 +278,14 @@ def build_script_override_event(
     return event
 
 
-def find_prior_script_hit(
+def find_prior_cheap_hit(
     path: Path,
     task_normalized: str,
     when: datetime,
     *,
     window_sec: int = OVERRIDE_WINDOW_SEC,
 ) -> dict | None:
-    """Nearest prior python/script hit for the same normalized task within window."""
+    """Nearest prior cheap-tier hit for the same normalized task within window."""
     if not task_normalized or not path.is_file():
         return None
     window = timedelta(seconds=max(0, window_sec))
@@ -293,7 +303,7 @@ def find_prior_script_hit(
             if row.get("event") == "script_override":
                 continue
             tier = row.get("selected_tier", "")
-            if tier not in SCRIPT_HIT_TIERS:
+            if tier not in CHEAP_TIERS:
                 continue
             row_task = normalize_task(row.get("task_normalized") or row.get("task") or "")
             if row_task != task_normalized:
@@ -309,8 +319,12 @@ def find_prior_script_hit(
     return best
 
 
+# Legacy alias: attribution used to cover only python/script hits.
+find_prior_script_hit = find_prior_cheap_hit
+
+
 def maybe_emit_auto_script_override(event: dict, *, path: Path) -> None:
-    """After a cursor route write, attribute a prior python/script hit as override."""
+    """After a cursor route write, attribute a prior cheap-tier hit as override."""
     if event.get("event") == "script_override":
         return
     if event.get("selected_tier") != "cursor":
@@ -322,11 +336,11 @@ def maybe_emit_auto_script_override(event: dict, *, path: Path) -> None:
     when = _parse_event_ts(event)
     if when is None:
         return
-    prior = find_prior_script_hit(path, normalized, when, window_sec=OVERRIDE_WINDOW_SEC)
+    prior = find_prior_cheap_hit(path, normalized, when, window_sec=OVERRIDE_WINDOW_SEC)
     if prior is None:
         return
     previous_tier = prior.get("selected_tier") or "python"
-    if previous_tier not in SCRIPT_HIT_TIERS:  # pragma: no cover - prior hits are pre-filtered to SCRIPT_HIT_TIERS
+    if previous_tier not in CHEAP_TIERS:  # pragma: no cover - prior hits are pre-filtered to CHEAP_TIERS
         return
     crystal_id = prior.get("route_id") or prior.get("crystal_id")
     root_raw = event.get("root") or prior.get("root") or ""
@@ -523,6 +537,7 @@ class ReportSummary:
     by_tier: dict[str, TierStats] = field(default_factory=dict)
     top_routes: list[tuple[str, int]] = field(default_factory=list)
     counter_methods: dict[str, int] = field(default_factory=dict)
+    quality: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
@@ -544,11 +559,86 @@ class ReportSummary:
             },
             "top_routes": [{"route_id": rid, "count": n} for rid, n in self.top_routes],
             "counter_methods": self.counter_methods,
+            "quality": self.quality,
         }
+
+
+def quality_metrics(events: list[dict], *, since_label: str | None = None) -> dict:
+    """Route quality telemetry (NOT ML accuracy).
+
+    Two headline numbers over real traffic, per usage-override.md:
+      * override_rate = script_override events / cheap-tier hits
+      * cheap_hold_rate = 1 - override_rate (cheap hits kept, not re-asked)
+
+    Failures = script_override (weight 1.0). Cursor escalation on wiring is not a
+    failure. Auto-override attribution covers every cheap tier (tool/python/
+    ollama/rag/script), so the hold denominator spans all of them — no tier is
+    excluded and there is no fake 100% from unmeasured tiers. ``script_hits``
+    keeps its contract name but now counts all cheap hits; ``cheap_hits`` is the
+    canonical alias and ``cheap_hits_by_tier`` gives the per-tier breakdown.
+    """
+    cheap_hits_by_crystal: dict[str, int] = {}
+    override_by_crystal: dict[str, int] = {}
+    cheap_hits_by_tier: dict[str, int] = {}
+    cheap_hits_total = 0
+    override_total = 0
+
+    for event in events:
+        if event.get("event") == OVERRIDE_EVENT:
+            crystal = event.get("crystal_id") or event.get("route_id") or "unknown"
+            override_by_crystal[crystal] = override_by_crystal.get(crystal, 0) + 1
+            override_total += 1
+            continue
+        tier = event.get("selected_tier", "")
+        if tier in CHEAP_TIERS:
+            crystal = event.get("route_id") or "unknown"
+            cheap_hits_by_crystal[crystal] = cheap_hits_by_crystal.get(crystal, 0) + 1
+            cheap_hits_by_tier[tier] = cheap_hits_by_tier.get(tier, 0) + 1
+            cheap_hits_total += 1
+
+    override_rate = round(override_total / max(1, cheap_hits_total), 4)
+    cheap_hold_rate = round(max(0.0, 1.0 - override_rate), 4)
+
+    by_crystal: list[dict] = []
+    for crystal in set(cheap_hits_by_crystal) | set(override_by_crystal):
+        hits = cheap_hits_by_crystal.get(crystal, 0)
+        overrides = override_by_crystal.get(crystal, 0)
+        rate = round(overrides / max(1, hits), 4)
+        by_crystal.append(
+            {
+                "crystal_id": crystal,
+                "script_hits": hits,
+                "override_count": overrides,
+                "override_rate": rate,
+                "reuse_action": (
+                    "disable/re-shadow" if rate >= OVERRIDE_DISABLE_THRESHOLD else None
+                ),
+            }
+        )
+    by_crystal.sort(
+        key=lambda row: (-row["override_rate"], -row["override_count"], row["crystal_id"])
+    )
+
+    return {
+        "since": since_label,
+        "override_rate_7d": override_rate,
+        "cheap_hold_rate": cheap_hold_rate,
+        "script_hits": cheap_hits_total,
+        "cheap_hits": cheap_hits_total,
+        "cheap_hits_by_tier": dict(sorted(cheap_hits_by_tier.items())),
+        "override_events": override_total,
+        "disable_threshold": OVERRIDE_DISABLE_THRESHOLD,
+        "by_crystal": by_crystal,
+        "signal_scope": {
+            "with_override_signal": sorted(CHEAP_TIERS),
+            "no_signal_yet": {},
+        },
+    }
 
 
 def aggregate_events(events: list[dict], *, since_label: str | None = None) -> ReportSummary:
     summary = ReportSummary(events=len(events), since=since_label)
+    summary.quality = quality_metrics(events, since_label=since_label)
     route_counts: dict[str, int] = {}
     tier_order = ("tool", "python", "ollama", "rag", "cursor", "compress")
 
@@ -609,6 +699,33 @@ def format_report(summary: ReportSummary) -> str:
         lines.extend(["", "Top routes:"])
         for route_id, count in summary.top_routes:
             lines.append(f"  {route_id:<28} {count:>4}")
+
+    quality = summary.quality
+    if quality and quality.get("script_hits"):
+        lines.extend(
+            [
+                "",
+                "Route quality (not ML accuracy):",
+                f"  override_rate   {quality['override_rate_7d']:.0%}"
+                f"  (threshold {quality['disable_threshold']:.0%})",
+                f"  cheap_hold_rate {quality['cheap_hold_rate']:.0%}"
+                f"  ({quality['override_events']} overrides / {quality['script_hits']} cheap hits)",
+            ]
+        )
+        by_tier = quality.get("cheap_hits_by_tier") or {}
+        if by_tier:
+            parts = ", ".join(f"{t} {n}" for t, n in sorted(by_tier.items()))
+            lines.append(f"  cheap hits by tier: {parts}")
+        worst = [c for c in quality.get("by_crystal", []) if c["override_count"] > 0][:3]
+        if worst:
+            lines.append("  worst crystals by override:")
+            for crystal in worst:
+                flag = "  <- disable/re-shadow" if crystal["reuse_action"] else ""
+                lines.append(
+                    f"    {crystal['crystal_id']:<28} "
+                    f"{crystal['override_rate']:>5.0%} "
+                    f"({crystal['override_count']}/{crystal['script_hits']}){flag}"
+                )
 
     if summary.counter_methods:
         total = summary.events

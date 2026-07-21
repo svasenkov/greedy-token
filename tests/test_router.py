@@ -193,3 +193,45 @@ def test_format_decision_full(minimal_workspace: Path) -> None:
     )
     assert "New Cursor chat" in cursor_out
 
+
+@allure.story("Explainable routing")
+@allure.title("explain_route returns reason, matched, saved_est and runner_up")
+def test_explain_route_structure(minimal_workspace: Path) -> None:
+    from greedy_token.router import explain_route
+
+    decision = route_task("find baseUrl in sample.js", minimal_workspace)
+    exp = explain_route(decision, "find baseUrl in sample.js", minimal_workspace)
+    attach_json("explanation", exp)
+    assert exp["selected_tier"] == decision.target
+    assert exp["route_id"] == decision.route_id
+    assert exp["reason"]
+    assert exp["matched"] == list(decision.matched)
+    assert isinstance(exp["saved_est"], int)
+    # runner_up is either a cheaper/alternative tier or the cursor fallback
+    assert exp["runner_up"] is None or exp["runner_up"]["tier"] != decision.target
+
+
+@allure.story("Explainable routing")
+@allure.title("format_decision surfaces Why line for a matched route")
+def test_format_decision_why_line(minimal_workspace: Path) -> None:
+    from greedy_token.router import format_decision
+
+    out = format_decision(
+        route_task("find baseUrl in sample.js", minimal_workspace),
+        "find baseUrl in sample.js",
+        minimal_workspace,
+    )
+    assert "Why:" in out
+
+
+@allure.story("Explainable routing")
+@allure.title("explain_route on cursor fallback names the fallback reason")
+def test_explain_route_cursor_fallback(minimal_workspace: Path) -> None:
+    from greedy_token.router import explain_route
+
+    task = "explain quantum foam in repository layout"
+    decision = route_task(task, minimal_workspace)
+    exp = explain_route(decision, task, minimal_workspace)
+    assert decision.route_id == "cursor-fallback"
+    assert "fallback" in exp["reason"].lower()
+

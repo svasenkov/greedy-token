@@ -201,6 +201,9 @@ def _parse_registry(
         )
 
     policy_raw = str(llm_cfg.get("policy", "auto")).strip().lower()
+    # "safe" is product framing (controller) over cheap_only — no new budget engine.
+    if policy_raw == "safe":
+        policy_raw = "cheap_only"
     policy: LlmPolicy = (
         policy_raw
         if policy_raw in ("auto", "cheap_only", "expensive_only", "hybrid")

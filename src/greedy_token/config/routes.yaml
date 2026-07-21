@@ -318,6 +318,22 @@ routes:
     command: python scripts/infra/provider_balance.py
     note: "Provider balance analyzer — shadow crystallize, 0 LLM when promoted"
 
+  # shadow until 2026-07-29 — enabled false; promote after golden green + ≥3 hits
+  - id: python-access-diag
+    target: python
+    read_only: true
+    enabled: false
+    shadow_until: "2026-07-29T00:00:00Z"
+    patterns:
+      - access diag
+      - access-diag probe
+      - service account access
+      - jenkins access check
+      - selenoid access probe
+      - testops access probe
+    command: python scripts/access_diag.py
+    note: "Access-diag dispatcher — read-only probes, canon schema; shadow crystallize"
+
   - id: cursor-wiring
     target: cursor
     patterns:

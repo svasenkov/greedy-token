@@ -95,12 +95,32 @@ async function renderHome() {
     return `<span style="width:${pct}%;background:${tierColors[tier] || "#666"}" title="${tier}"></span>`;
   }).join("");
 
+  const q = data.quality || {};
+  const pct = (v) => `${Math.round((v ?? 0) * 100)}%`;
+  const hasQuality = (q.script_hits || 0) > 0;
+  const worst = (q.by_crystal || []).filter((c) => c.override_count > 0).slice(0, 5);
+  const worstRows = worst.map((c) =>
+    `<tr><td><code>${c.crystal_id}</code></td><td>${pct(c.override_rate)}</td>` +
+    `<td>${c.override_count}/${c.script_hits}</td>` +
+    `<td>${c.reuse_action ? `<span style="color:var(--warn)">${c.reuse_action}</span>` : "—"}</td></tr>`
+  ).join("");
+  const overThreshold = hasQuality && (q.override_rate_7d ?? 0) >= (q.disable_threshold ?? 0.3);
+
   document.getElementById("app").innerHTML = `
     <div class="grid">
       <div class="card"><h3>Saved vs Cursor</h3><div class="value">${fmt(totalSaved)}</div></div>
       <div class="card"><h3>Script coverage</h3><div class="value">${coverage}%</div></div>
-      <div class="card"><h3>Events</h3><div class="value">${data.events || 0}</div></div>
-      <div class="card"><h3>Budget mode</h3><div class="value" style="font-size:1rem">${data.budget?.mode || "—"}</div></div>
+      <div class="card" title="cheap script hits kept (not re-asked in Cursor)">
+        <h3>Cheap hold rate</h3>
+        <div class="value">${hasQuality ? pct(q.cheap_hold_rate) : "—"}</div></div>
+      <div class="card" title="script_override events / script-tier hits (>= threshold: disable/re-shadow)">
+        <h3>Override rate</h3>
+        <div class="value" style="${overThreshold ? "color:var(--tier-cursor)" : ""}">${hasQuality ? pct(q.override_rate_7d) : "—"}</div></div>
+    </div>
+    <div class="card">
+      <h3>Route quality <span style="font-weight:400;opacity:.6">— not ML accuracy</span></h3>
+      <table><thead><tr><th>Worst crystal</th><th>Override rate</th><th>Overrides/hits</th><th>Action</th></tr></thead>
+      <tbody>${worstRows || `<tr><td colspan=4 class=empty>${hasQuality ? "No overrides in window — routing holding" : "No script-tier hits yet"}</td></tr>`}</tbody></table>
     </div>
     <div class="card">
       <h3>Tier breakdown</h3>

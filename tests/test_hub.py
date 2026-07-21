@@ -47,6 +47,12 @@ def test_api_summary_with_events(tmp_path, monkeypatch, minimal_workspace):
     assert status == 200
     assert payload["events"] == 1
     assert "totals" in payload
+    # Route quality surfaced next to coverage_pct
+    assert "coverage_pct" in payload
+    quality = payload["quality"]
+    assert "override_rate_7d" in quality
+    assert "cheap_hold_rate" in quality
+    assert "by_crystal" in quality
 
 
 @pytest.mark.unit

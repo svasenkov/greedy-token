@@ -199,14 +199,31 @@ def test_auto_script_override_guards(log_file: Path) -> None:
         },
         path=log_file,
     )
-    # tool tier prior does not attribute
+
+    rows = [json.loads(line) for line in log_file.read_text(encoding="utf-8").splitlines() if line.strip()]
+    overrides = [r for r in rows if r.get("event") == "script_override"]
+    attach_json("overrides", overrides)
+    assert overrides == []
+
+
+@allure.story("Override events")
+@allure.title("Auto script_override attributes any cheap tier (tool/rag/ollama)")
+@pytest.mark.parametrize(
+    ("prior_tier", "prior_route"),
+    [("tool", "tool-rg-search"), ("rag", "rag-cli"), ("ollama", "ollama-audit-skill")],
+)
+def test_auto_override_attributes_cheap_tiers(
+    log_file: Path, prior_tier: str, prior_route: str
+) -> None:
+    from greedy_token.usage import append_event
+
     append_event(
         {
             "v": SCHEMA_VERSION,
-            "ts": "2026-07-14T12:22:00Z",
-            "task": "find baseUrl",
-            "selected_tier": "tool",
-            "route_id": "tool-rg-search",
+            "ts": "2026-07-14T12:00:00Z",
+            "task": "find baseUrl in stacks",
+            "selected_tier": prior_tier,
+            "route_id": prior_route,
         },
         path=log_file,
         emit_auto_override=False,
@@ -214,8 +231,8 @@ def test_auto_script_override_guards(log_file: Path) -> None:
     append_event(
         {
             "v": SCHEMA_VERSION,
-            "ts": "2026-07-14T12:23:00Z",
-            "task": "find baseUrl",
+            "ts": "2026-07-14T12:05:00Z",
+            "task": "find baseUrl in stacks",
             "selected_tier": "cursor",
             "route_id": "cursor-fallback",
         },
@@ -225,7 +242,10 @@ def test_auto_script_override_guards(log_file: Path) -> None:
     rows = [json.loads(line) for line in log_file.read_text(encoding="utf-8").splitlines() if line.strip()]
     overrides = [r for r in rows if r.get("event") == "script_override"]
     attach_json("overrides", overrides)
-    assert overrides == []
+    assert len(overrides) == 1
+    assert overrides[0]["previous_tier"] == prior_tier
+    assert overrides[0]["crystal_id"] == prior_route
+    assert overrides[0]["meta"]["reason"] == "user_reask"
 
 
 @allure.story("Savings estimate")
@@ -646,4 +666,126 @@ def test_rotate_log_noop(log_file: Path) -> None:
     assert rotate_log_if_needed(log_file) is False
     log_file.write_text("{}\n", encoding="utf-8")
     assert rotate_log_if_needed(log_file) is False
+
+
+def _script_hit(route_id: str, tier: str = "python") -> dict:
+    return {"v": 2, "cmd": "route", "selected_tier": tier, "route_id": route_id}
+
+
+def _override(crystal_id: str) -> dict:
+    return {
+        "v": 2,
+        "event": "script_override",
+        "selected_tier": "cursor",
+        "previous_tier": "python",
+        "crystal_id": crystal_id,
+        "route_id": crystal_id,
+    }
+
+
+@allure.story("Route quality")
+@allure.title("quality_metrics computes override_rate and cheap_hold_rate")
+def test_quality_metrics_rates() -> None:
+    from greedy_token.usage import quality_metrics
+
+    events = [
+        _script_hit("script-a"),
+        _script_hit("script-a"),
+        _script_hit("script-a"),
+        _script_hit("script-b"),
+        _override("script-a"),
+        {"selected_tier": "cursor", "route_id": "cursor-fallback"},
+    ]
+    q = quality_metrics(events, since_label="7d")
+    assert q["script_hits"] == 4
+    assert q["override_events"] == 1
+    assert q["override_rate_7d"] == round(1 / 4, 4)
+    assert q["cheap_hold_rate"] == round(1 - 1 / 4, 4)
+    attach_json("quality", q)
+
+
+@allure.story("Route quality")
+@allure.title("quality_metrics flags worst crystal above disable threshold")
+def test_quality_metrics_worst_crystal() -> None:
+    from greedy_token.usage import OVERRIDE_DISABLE_THRESHOLD, quality_metrics
+
+    events = [
+        _script_hit("script-bad"),
+        _script_hit("script-bad"),
+        _override("script-bad"),
+        _override("script-bad"),
+        _script_hit("script-good"),
+        _script_hit("script-good"),
+        _script_hit("script-good"),
+    ]
+    q = quality_metrics(events)
+    worst = q["by_crystal"][0]
+    assert worst["crystal_id"] == "script-bad"
+    assert worst["override_rate"] == 1.0
+    assert worst["override_rate"] >= OVERRIDE_DISABLE_THRESHOLD
+    assert worst["reuse_action"] == "disable/re-shadow"
+    good = next(c for c in q["by_crystal"] if c["crystal_id"] == "script-good")
+    assert good["override_count"] == 0
+    assert good["reuse_action"] is None
+
+
+@allure.story("Route quality")
+@allure.title("quality_metrics counts every cheap tier in the hold denominator")
+def test_quality_metrics_all_cheap_tiers() -> None:
+    from greedy_token.usage import quality_metrics
+
+    events = [
+        _script_hit("tool-rg", tier="tool"),
+        _script_hit("mcp-rag", tier="rag"),
+        {"selected_tier": "ollama", "route_id": "ollama-x"},
+        _script_hit("script-a"),
+    ]
+    q = quality_metrics(events)
+    # All four cheap tiers now count toward the denominator (no fake 100%).
+    assert q["script_hits"] == 4
+    assert q["cheap_hits"] == 4
+    assert q["cheap_hits_by_tier"] == {"ollama": 1, "python": 1, "rag": 1, "tool": 1}
+    assert q["cheap_hold_rate"] == 1.0
+    scope = q["signal_scope"]
+    assert scope["no_signal_yet"] == {}
+    assert scope["with_override_signal"] == sorted({"tool", "python", "ollama", "rag", "script"})
+
+
+@allure.story("Route quality")
+@allure.title("quality_metrics attributes overrides across cheap tiers")
+def test_quality_metrics_cheap_tier_override_rate() -> None:
+    from greedy_token.usage import quality_metrics
+
+    events = [
+        _script_hit("tool-rg", tier="tool"),
+        _script_hit("tool-rg", tier="tool"),
+        _script_hit("rag-cli", tier="rag"),
+        _script_hit("rag-cli", tier="rag"),
+        _override("tool-rg"),
+        _override("rag-cli"),
+    ]
+    q = quality_metrics(events)
+    assert q["cheap_hits"] == 4
+    assert q["override_events"] == 2
+    assert q["override_rate_7d"] == round(2 / 4, 4)
+    assert q["cheap_hold_rate"] == round(1 - 2 / 4, 4)
+    worst = q["by_crystal"][0]
+    assert worst["override_rate"] == 0.5
+
+
+@allure.story("Route quality")
+@allure.title("quality_metrics is empty-safe and surfaced in aggregate_events")
+def test_quality_metrics_empty_and_summary() -> None:
+    from greedy_token.usage import aggregate_events, quality_metrics
+
+    q = quality_metrics([])
+    assert q["override_rate_7d"] == 0.0
+    assert q["cheap_hold_rate"] == 1.0
+    assert q["by_crystal"] == []
+
+    summary = aggregate_events([_script_hit("script-a"), _override("script-a")], since_label="7d")
+    payload = summary.to_dict()
+    assert payload["quality"]["override_rate_7d"] == 1.0
+    text = format_report(summary)
+    assert "Route quality" in text
 

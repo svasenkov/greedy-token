@@ -511,6 +511,58 @@ def route_task(task: str, root: Path | None = None) -> RouteDecision:
     )
 
 
+def _runner_up(task: str, root: Path, selected_target: str) -> tuple[str, RouteDecision] | None:
+    """Next-best alternative tier: first matched tier != selected, else cursor fallback."""
+    scan = route_task_all_tiers(task, root)
+    for tier, decision in scan:
+        if tier == selected_target:
+            continue
+        if decision.matched:
+            return tier, decision
+    for tier, decision in scan:
+        if tier == "cursor" and tier != selected_target:
+            return tier, decision
+    return None
+
+
+def explain_route(decision: RouteDecision, task: str, root: Path) -> dict:
+    """Structured explainability for a route decision (Phase 2: explainable routing)."""
+    if decision.matched:
+        reason = f"matched {decision.route_id} on: {', '.join(decision.matched)}"
+    elif decision.route_id == "cursor-fallback":
+        reason = "no cheaper tier matched — Cursor fallback"
+    else:
+        reason = decision.rationale or f"{decision.target} tier, no explicit pattern"
+    if decision.note.startswith("budget_policy"):
+        reason = f"{reason}; {decision.note}"
+
+    try:
+        from greedy_token.estimator import cursor_saved_for
+
+        saved_est = cursor_saved_for(root, task, decision.est_tokens, decision.target)
+    except (ImportError, OSError, ValueError):
+        saved_est = 0
+
+    runner = _runner_up(task, root, decision.target)
+    runner_up = None
+    if runner is not None:
+        tier, alt = runner
+        runner_up = {
+            "tier": tier,
+            "route_id": alt.route_id,
+            "est_tokens": alt.est_tokens,
+        }
+
+    return {
+        "selected_tier": decision.target,
+        "route_id": decision.route_id,
+        "reason": reason,
+        "matched": list(decision.matched),
+        "saved_est": saved_est,
+        "runner_up": runner_up,
+    }
+
+
 def format_decision(decision: RouteDecision, task: str, root: Path) -> str:
     lines = [
         f"Task: {task}",
@@ -539,4 +591,14 @@ def format_decision(decision: RouteDecision, task: str, root: Path) -> str:
         lines.append(f"Try: greedy-token rag \"{task}\"")
     if decision.target == "cursor":
         lines.append("→ New Cursor chat; skill from docs/skills-map.md if available.")
+
+    exp = explain_route(decision, task, root)
+    lines.append(f"Why: {exp['reason']}")
+    if exp["runner_up"]:
+        ru = exp["runner_up"]
+        lines.append(
+            f"Runner-up: {ru['tier'].upper()} ({ru['route_id']}, est ~{ru['est_tokens']:,})"
+        )
+    if exp["saved_est"]:
+        lines.append(f"Saved est: ~{exp['saved_est']:,} tokens vs Cursor")
     return "\n".join(lines)

@@ -495,6 +495,97 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     return 0
 
 
+INIT_PROFILE_POLICY = {"solo": "safe", "team": "hybrid", "ci": "cheap_only"}
+
+
+def detect_environment() -> dict:
+    """Detect executor prerequisites for tiers (Phase 4 bootstrap)."""
+    import platform
+    import shutil
+
+    from greedy_token.settings import user_config_path
+    from greedy_token.wrappers import ollama_available
+
+    cfg_path = user_config_path()
+    return {
+        "ripgrep": shutil.which("rg") is not None,
+        "python_version": platform.python_version(),
+        "python_ok": sys.version_info >= (3, 12),
+        "ollama": ollama_available(),
+        "config_path": str(cfg_path),
+        "config_exists": cfg_path.is_file(),
+    }
+
+
+def cmd_init(args: argparse.Namespace) -> int:
+    profile = (getattr(args, "profile", None) or "solo").lower()
+    if profile not in INIT_PROFILE_POLICY:
+        print("--profile must be one of: solo | team | ci", file=sys.stderr)
+        return 2
+
+    env = detect_environment()
+    policy = INIT_PROFILE_POLICY[profile]
+    env["profile"] = profile
+    env["recommended_policy"] = policy
+
+    if args.json and not args.apply:
+        print(json.dumps(env, indent=2, ensure_ascii=False))
+        return 0
+
+    def mark(ok: bool) -> str:
+        return "OK" if ok else "missing"
+
+    lines = [
+        "greedy-token init",
+        f"  profile:  {profile}  (policy: {policy})",
+        f"  ripgrep:  {mark(env['ripgrep'])}  — tool tier (find/search)",
+        f"  python:   {env['python_version']}"
+        f"{'' if env['python_ok'] else '  (need >= 3.12)'}  — python/script tier",
+        f"  ollama:   {mark(env['ollama'])}  — cheap LLM tier",
+    ]
+    if not env["ripgrep"]:
+        lines.append("  ! install ripgrep for the tool tier (brew install ripgrep)")
+    if not env["ollama"]:
+        lines.append("  · ollama offline — cheap LLM tier skipped; tool/python/rag still work")
+
+    if not args.apply:
+        lines.extend(
+            [
+                "",
+                "Next:",
+                f"  greedy-token init --profile {profile} --apply   # write config with policy={policy}",
+                "  greedy-token doctor --apply                     # pick optimal local model",
+                "  greedy-token config                             # show effective config",
+            ]
+        )
+        print("\n".join(lines))
+        return 0
+
+    from greedy_token.settings import init_user_config, user_config_path
+
+    if env["config_exists"] and not args.force:
+        lines.append("")
+        lines.append(f"Config exists: {env['config_path']} (use --force to overwrite)")
+        print("\n".join(lines))
+        return 0
+
+    try:
+        import yaml
+
+        path = init_user_config(force=args.force)
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        data.setdefault("llm", {})["policy"] = policy
+        with path.open("w", encoding="utf-8") as fh:
+            yaml.safe_dump(data, fh, default_flow_style=False, allow_unicode=True, sort_keys=False)
+    except (FileExistsError, FileNotFoundError, ValueError, OSError) as exc:
+        print(exc, file=sys.stderr)
+        return 1
+
+    lines.extend(["", f"Wrote {path} (policy: {policy})", "Next: greedy-token doctor --apply"])
+    print("\n".join(lines))
+    return 0
+
+
 def cmd_budget(args: argparse.Namespace) -> int:
     from greedy_token.budget_ledger import aggregate_budget, format_budget_line
 
@@ -735,6 +826,21 @@ def build_parser() -> argparse.ArgumentParser:
     doc.add_argument("--paid", action="store_true", help="Include paid model economy recommendations")
     doc.add_argument("--json", action="store_true", help="JSON output")
     doc.set_defaults(func=cmd_doctor)
+
+    ini = sub.add_parser(
+        "init",
+        help="Bootstrap: detect rg/python/ollama + profile (solo|team|ci) over config/doctor",
+    )
+    ini.add_argument(
+        "--profile",
+        default="solo",
+        choices=("solo", "team", "ci"),
+        help="Setup profile: solo=safe, team=hybrid, ci=cheap_only (default: solo)",
+    )
+    ini.add_argument("--apply", action="store_true", help="Write ~/.greedy-token/config.yaml with the profile policy")
+    ini.add_argument("--force", action="store_true", help="Overwrite existing config on --apply")
+    ini.add_argument("--json", action="store_true", help="JSON detection output (detect-only)")
+    ini.set_defaults(func=cmd_init)
 
     bud = sub.add_parser("budget", help="Split budget view: metered API + Cursor estimate")
     bud.add_argument("--json", action="store_true", help="JSON output")

@@ -131,6 +131,35 @@ def test_expensive_only_policy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     assert resolved.billing_tier == "expensive"
 
 
+def test_safe_policy_aliases_cheap_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "greedy_token.model_select.user_config_path",
+        lambda: tmp_path / "missing.yaml",
+    )
+    cfg = {
+        "llm": {
+            "policy": "safe",
+            "expensive": {
+                "opt_in": True,
+                "models": [
+                    {"id": "yandex-lite", "enabled": True, "model": "yandexgpt-lite", "profiles": ["*"]}
+                ],
+            },
+            "cheap": {
+                "models": [
+                    {"id": "fast", "enabled": True, "model": "qwen:7b", "profiles": ["*"]}
+                ]
+            },
+        }
+    }
+    (tmp_path / ".greedy-token.yaml").write_text(yaml.safe_dump(cfg), encoding="utf-8")
+    reg = get_llm_registry(tmp_path)
+    assert reg.policy == "cheap_only"
+    # safe mode keeps the cheap model even though an expensive one is opted in
+    resolved = resolve_model("", root=tmp_path)
+    assert resolved.billing_tier == "cheap"
+
+
 def test_list_models_and_registry(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "greedy_token.model_select.user_config_path",
