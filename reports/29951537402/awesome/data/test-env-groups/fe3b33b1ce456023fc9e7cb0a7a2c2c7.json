@@ -1,0 +1,1 @@
+{"id":"fe3b33b1ce456023fc9e7cb0a7a2c2c7","fullName":"tests.test_calibration#test_formula_confidence","name":"formula_confidence keeps the legacy min(0.95, 0.45 + score*0.12)","status":"passed","testResultsByEnv":{"default":"bfc5662f5aab6c860c3b71180f53b480"}}

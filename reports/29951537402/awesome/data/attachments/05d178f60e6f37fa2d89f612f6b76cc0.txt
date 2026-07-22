@@ -1,0 +1,32 @@
+== greedy-token doctor ==
+
+Hardware
+  tier:      cpu_only
+  RAM:       14.5 / 15.6 GB
+  VRAM est:  0.0 GB (cpu_only)
+  CPU cores: 4
+
+Ollama
+  url:       http://localhost:11434
+  status:    unavailable
+  configured: qwen2.5-coder:7b-instruct-q4_K_M
+  installed: (none)
+
+Recommendations
+  pull: ollama pull qwen2.5-coder:7b-instruct-q4_K_M
+
+Warnings
+  ⚠ Ollama unavailable at http://localhost:11434
+Budget (Jul): metered $0.00/$50 (0%) · cursor est. ~$0/$30 (0%)
+{
+  "metered_spent_usd": 0.0,
+  "metered_cap_usd": 50.0,
+  "metered_remaining_usd": 50.0,
+  "metered_pct": 0.0,
+  "cursor_est_spent_usd": 0.0,
+  "cursor_est_cap_usd": 30.0,
+  "cursor_est_remaining_usd": 30.0,
+  "cursor_est_pct": 0.0,
+  "mode": "normal",
+  "period_label": "Jul"
+}

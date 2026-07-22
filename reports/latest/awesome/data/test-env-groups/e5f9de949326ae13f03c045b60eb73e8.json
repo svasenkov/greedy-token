@@ -1,0 +1,1 @@
+{"id":"e5f9de949326ae13f03c045b60eb73e8","fullName":"tests.test_crystallize_l3#test_promote_errors","name":"promote: missing route and non-shadow route raise ValueError","status":"passed","testResultsByEnv":{"default":"7e5f3a08baeb6fee26f725ce40348fe4"}}

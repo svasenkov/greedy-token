@@ -1,0 +1,1 @@
+{"id":"5e9466a5d5b2d3791c03ee468cdbe141","fullName":"tests.test_calibration#test_confidence_calibrated_bucket","name":"Bucket with >= min events: confidence = 1 - override_rate (calibrated)","status":"passed","testResultsByEnv":{"default":"dfe7e7c076e0067ba994694bc9d6361c"}}

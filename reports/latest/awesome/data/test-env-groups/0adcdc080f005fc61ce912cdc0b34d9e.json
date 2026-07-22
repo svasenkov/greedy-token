@@ -1,0 +1,1 @@
+{"id":"0adcdc080f005fc61ce912cdc0b34d9e","fullName":"tests.test_calibration#test_confidence_min_events_param","name":"min_events is a parameter (threshold floors at 1)","status":"passed","testResultsByEnv":{"default":"e828141a7089d72df4097a886e59c667"}}

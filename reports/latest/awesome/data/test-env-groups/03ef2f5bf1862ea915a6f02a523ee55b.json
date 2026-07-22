@@ -1,0 +1,1 @@
+{"id":"03ef2f5bf1862ea915a6f02a523ee55b","fullName":"tests.test_calibration#test_cache_and_reset","name":"Telemetry scan is cached per process; reset re-reads the log","status":"passed","testResultsByEnv":{"default":"45b06dec30766e905367e6aff0f6fa18"}}

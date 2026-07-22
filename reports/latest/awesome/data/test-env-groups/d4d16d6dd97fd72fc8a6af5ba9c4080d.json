@@ -1,0 +1,1 @@
+{"id":"d4d16d6dd97fd72fc8a6af5ba9c4080d","fullName":"tests.test_crystallize_l3#test_append_lifecycle_event_no_extra","name":"append_lifecycle_event without extra writes the bare stage event","status":"passed","testResultsByEnv":{"default":"c7d65b89d4c6d5bfa58dd2f83f73bf30"}}
