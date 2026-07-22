@@ -376,7 +376,6 @@ def cmd_pipeline(args: argparse.Namespace) -> int:
         execute=args.execute,
         stop_on_error=not args.continue_on_error,
         profile=getattr(args, "profile", "") or "",
-        escalate=getattr(args, "escalate", False),
     )
     print(format_pipeline_response(result, root))
     return 0 if result.all_ok else 1
