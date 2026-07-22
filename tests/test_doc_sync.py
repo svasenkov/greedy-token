@@ -12,12 +12,19 @@ import re
 from pathlib import Path
 
 import allure
+import pytest
 
 from greedy_token import cli
 from greedy_token.pipeline import PIPELINE_AUTO_RUN
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 README = REPO_ROOT / "README.md"
+
+# (readme path, CLI-table heading) — EN and RU use slightly different headings.
+READMES = [
+    pytest.param(REPO_ROOT / "README.md", "## CLI commands", id="en"),
+    pytest.param(REPO_ROOT / "README-RU.md", "## CLI", id="ru"),
+]
 
 pytestmark = [
     allure.epic("Docs"),
@@ -66,9 +73,9 @@ def _argparse_command_paths(parser: argparse.ArgumentParser) -> set[str]:
     return paths
 
 
-def _readme_command_paths(markdown: str) -> set[str]:
-    """Command paths documented in the `## CLI commands` table."""
-    section = _section(markdown, "## CLI commands")
+def _readme_command_paths(markdown: str, cli_heading: str) -> set[str]:
+    """Command paths documented in the CLI table."""
+    section = _section(markdown, cli_heading)
     paths: set[str] = set()
     for code in _inline_code(section):
         if not code.startswith("greedy-token "):
@@ -88,9 +95,10 @@ def _readme_command_paths(markdown: str) -> set[str]:
 
 @allure.story("CLI table")
 @allure.title("README CLI table matches argparse subcommands exactly")
-def test_readme_cli_table_matches_argparse() -> None:
-    markdown = README.read_text(encoding="utf-8")
-    documented = _readme_command_paths(markdown)
+@pytest.mark.parametrize(("readme", "cli_heading"), READMES)
+def test_readme_cli_table_matches_argparse(readme: Path, cli_heading: str) -> None:
+    markdown = readme.read_text(encoding="utf-8")
+    documented = _readme_command_paths(markdown, cli_heading)
     actual = _argparse_command_paths(cli.build_parser())
     allure.attach(
         "\n".join(sorted(documented)), "documented", allure.attachment_type.TEXT
@@ -98,18 +106,18 @@ def test_readme_cli_table_matches_argparse() -> None:
     allure.attach("\n".join(sorted(actual)), "argparse", allure.attachment_type.TEXT)
     missing = actual - documented
     stale = documented - actual
-    assert not missing, f"CLI commands missing from README: {sorted(missing)}"
-    assert not stale, f"README lists non-existent CLI commands: {sorted(stale)}"
+    assert not missing, f"CLI commands missing from {readme.name}: {sorted(missing)}"
+    assert not stale, f"{readme.name} lists non-existent CLI commands: {sorted(stale)}"
 
 
 @allure.story("Pipeline allowlist")
 @allure.title("README auto-run list matches PIPELINE_AUTO_RUN")
-def test_readme_auto_run_matches_pipeline() -> None:
-    markdown = README.read_text(encoding="utf-8")
+@pytest.mark.parametrize(("readme", "cli_heading"), READMES)
+def test_readme_auto_run_matches_pipeline(readme: Path, cli_heading: str) -> None:
+    markdown = readme.read_text(encoding="utf-8")
+    # Both EN and RU reference PIPELINE_AUTO_RUN on exactly one line.
     auto_line = next(
-        line
-        for line in markdown.splitlines()
-        if "PIPELINE_AUTO_RUN" in line and "Auto-execute" in line
+        line for line in markdown.splitlines() if "PIPELINE_AUTO_RUN" in line
     )
     # The allowlisted step ids are the backticked tokens after the em-dash.
     tail = auto_line.split("—", 1)[1]
@@ -125,14 +133,15 @@ def test_readme_auto_run_matches_pipeline() -> None:
 
 @allure.story("MCP tools")
 @allure.title("README MCP tool count matches @mcp.tool() registrations")
-def test_readme_mcp_tool_count_matches_code() -> None:
-    markdown = README.read_text(encoding="utf-8")
+@pytest.mark.parametrize(("readme", "cli_heading"), READMES)
+def test_readme_mcp_tool_count_matches_code(readme: Path, cli_heading: str) -> None:
+    markdown = readme.read_text(encoding="utf-8")
     mcp_source = (REPO_ROOT / "src" / "greedy_token" / "mcp.py").read_text(encoding="utf-8")
     registered = len(re.findall(r"^@mcp\.tool\(\)", mcp_source, flags=re.MULTILINE))
     assert registered > 0
 
     match = re.search(r"\*\*(\d+) MCP tools\*\*", markdown)
-    assert match, "README must state the MCP tool count as **N MCP tools**"
+    assert match, f"{readme.name} must state the MCP tool count as **N MCP tools**"
     documented_count = int(match.group(1))
     allure.attach(
         f"documented={documented_count} registered={registered}",

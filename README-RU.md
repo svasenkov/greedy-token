@@ -85,11 +85,11 @@ greedy-token **не** дообучает (fine-tune) модели и не отп
 
 ## Охват и roadmap
 
-Сейчас основной сценарий — **Cursor + Ollama + workspace**. CLI и MCP не привязаны к IDE. **v0.6.3** — Cursor dogfood: `beforeSubmitPrompt` route hook **выключен** по умолчанию (без блока Send); ссылки TestOps → `allure.qa.guru`. Наследует **v0.6.2** coverage/CI harden + Allure palette SSOT, **v0.6.0** crystallize L2 (`script_override`, CLI `override`, `scripts lint`, shadow routes, `hub serve`, budget / llm invoke) и **v0.6.1** раздел «не дообучаем модели». **v0.5.8** — минимальный search: один `greedy_token_search` на find; docstrings MCP и шаблон cursor rule запрещают route/usage вместе с search. **v0.5.7** — SSOT версии из `pyproject.toml` (без hardcode в `__init__`), `./scripts/release-gate.sh TARGET`, auto-sync `minTestsCount` из pytest collection. **v0.5.6** — честный search footer, e2e MCP stdio `pipeline execute=true`, удалён мёртвый `SearchResult.spent_tokens`. **v0.5.5** — `config --init` без workspace (PyPI bootstrap), отказ `run --execute` на cursor tier, telemetry cheap_llm по workspace. **v0.5.3+** — честность pipeline: multi-word `search-rag`, dry-run footer (`saved=0`), RAG через `rag_est_tokens` (`cheap_llm.provider: ollama | openai_compat`). Paid agent APIs (`expensive_llm`) — opt-in / roadmap.
+Сейчас основной сценарий — **Cursor + Ollama + workspace**. CLI и MCP не привязаны к IDE. **v0.7.0** — релиз про качество маршрутизации: `explain_route()` показывает **Why / Runner-up / Saved est** в `route` (CLI + MCP); `report` / `hub` получают блок качества маршрутов (`override_rate` / `cheap_hold_rate` / `by_crystal`); честная атрибуция override по **всем** cheap-тирам (`CHEAP_TIERS`); алиас политики `safe` для `cheap_only`; bootstrap `init --profile solo|team|ci`; операционные метрики hub (latency p50/p95 + cost/task). Наследует **v0.6.3** — Cursor dogfood: `beforeSubmitPrompt` route hook **выключен** по умолчанию (без блока Send); ссылки TestOps → `allure.qa.guru`. Наследует **v0.6.2** coverage/CI harden + Allure palette SSOT, **v0.6.0** crystallize L2 (`script_override`, CLI `override`, `scripts lint`, shadow routes, `hub serve`, budget / llm invoke) и **v0.6.1** раздел «не дообучаем модели». **v0.5.8** — минимальный search: один `greedy_token_search` на find; docstrings MCP и шаблон cursor rule запрещают route/usage вместе с search. **v0.5.7** — SSOT версии из `pyproject.toml` (без hardcode в `__init__`), `./scripts/release-gate.sh TARGET`, auto-sync `minTestsCount` из pytest collection. **v0.5.6** — честный search footer, e2e MCP stdio `pipeline execute=true`, удалён мёртвый `SearchResult.spent_tokens`. **v0.5.5** — `config --init` без workspace (PyPI bootstrap), отказ `run --execute` на cursor tier, telemetry cheap_llm по workspace. **v0.5.3+** — честность pipeline: multi-word `search-rag`, dry-run footer (`saved=0`), RAG через `rag_est_tokens` (`cheap_llm.provider: ollama | openai_compat`). Paid agent APIs (`expensive_llm`) — opt-in / roadmap.
 
 **Полная матрица (✅ / ❌ / 🔜) + критерии + GitHub issues:** [docs/ROADMAP-RU.md](docs/ROADMAP-RU.md) · [docs/ROADMAP.md](docs/ROADMAP.md)
 
-| Зона | ✅ сейчас (v0.6.3) | 🔜 дальше |
+| Зона | ✅ сейчас (v0.7.0) | 🔜 дальше |
 |------|-------------------|-----------|
 | Executors | `tool`, `python`, `ollama` (через `cheap_llm`), `rag` | paid bulk APIs; Crystal IR store |
 | Agent host | Cursor MCP + token baseline | Claude Desktop, Continue |
@@ -209,8 +209,16 @@ Saved by executor (sum of per-step savings):
 | `greedy-token audit-context` | Rules/skills token audit |
 | `greedy-token tokens PATH…` | Count tokens in paths |
 | `greedy-token compress` | Short prompt (stdin; `--ollama`) |
-| `greedy-token report [--since 7d]` | Usage telemetry aggregate |
+| `greedy-token report [--since 7d]` | Usage telemetry + качество маршрутов (override_rate / cheap_hold_rate) |
+| `greedy-token override …` | Записать telemetry-событие `script_override` |
+| `greedy-token llm invoke --profile P` | Headless multi-model LLM invoke (`--system/-user[-file]`, stdin, `--json`) |
+| `greedy-token llm list` | Список сконфигурированных LLM-моделей |
+| `greedy-token doctor` | Проба железа + Ollama-моделей; рекомендация локальной модели |
+| `greedy-token budget [--json] [--verbose]` | Split budget: metered API + оценка Cursor |
+| `greedy-token watch [--once] [--from-start]` | Tail hook advisory log (`~/.greedy-token/advisory.jsonl`) |
+| `greedy-token init [--profile solo\|team\|ci]` | Bootstrap: detect rg/python/ollama + запись config/policy |
 | `greedy-token config [--init] [--export] [--reveal]` | Ollama URL/model (`--export` маскирует `CHEAP_LLM_API_KEY` как `***`; `--reveal` печатает секрет) |
+| `greedy-token hub serve [--host H] [--port N]` | Локальный ops-дашборд (telemetry + crystallize) |
 | `greedy-token-mcp` | MCP server (stdio) |
 
 Флаг `--no-log` отключает запись в log на один вызов.
@@ -327,9 +335,9 @@ cheap_llm:
 
 ## Безопасность `--execute`
 
-Авто-запуск: read-only шаги (rg, check-meta-sync, pipeline allowlist).
+Авто-запуск (read-only или stdout-only): tool-tier `rg` / `jq`, плюс pipeline-шаги из `PIPELINE_AUTO_RUN` (`src/greedy_token/pipeline.py`) — `check-meta-sync`, `configurator-boolean-audit`, `audit-skill`, `classify-file`, `search`, `read-hits`, `rag`.
 
-Rsync / migrate / batch-inventory — только dry-run из pipeline.
+Всё остальное (rsync / migrate / batch-inventory, не-allowlisted wrappers) — только dry-run, если не запущено вручную.
 
 ## Лицензия
 
