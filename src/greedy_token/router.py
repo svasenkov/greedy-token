@@ -34,7 +34,9 @@ THIN_CONTEXT_NOTE = "thin context for edit task — prefer cursor: + pin files"
 
 
 def has_edit_verbs(task: str) -> bool:
-    return bool(EDIT_VERBS.search(task or ""))
+    # equivalent: the "" default only applies to a falsy task, and neither "" nor
+    # any junk-string default matches an edit verb → result is False either way.
+    return bool(EDIT_VERBS.search(task or ""))  # pragma: no mutate
 
 
 @dataclass

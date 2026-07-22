@@ -713,3 +713,385 @@ def test_runner_up_branches(minimal_workspace: Path) -> None:
             runner3 = _runner_up("t", minimal_workspace, "tool")
         assert runner3 is not None
         assert runner3[0] == "rag"  # break would have jumped to the cursor fallback
+
+
+# --- Mutation kill-tests: route_task / route_task_all_tiers orchestration ---
+
+
+def _future() -> str:
+    return (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+
+
+@allure.title("route_task_all_tiers: root/fallback-tier threading, tier-none id, shadow on fallback")
+def test_route_task_all_tiers_fallback_wiring(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cfg = {
+        "routes": [
+            {"id": "sh", "target": "cursor", "patterns": ["alpha"], "shadow_until": _future()},
+        ],
+        "cursor_fallback": {"message": "Open a chat.\nsecond"},
+    }
+    monkeypatch.setattr(router, "load_routes_config", lambda: cfg)
+    monkeypatch.setattr(router, "ollama_available", lambda: True)
+    # Distinct sentinel: if `root or find_workspace_root()` is mutated to consult
+    # find_workspace_root, the recorded root diverges from minimal_workspace.
+    monkeypatch.setattr(router, "find_workspace_root", lambda: Path("/sentinel-root"))
+
+    best_roots: list = []
+
+    def spy_best(routes, text, task, root):
+        best_roots.append(root)
+        return None  # force every tier down the fallback path
+
+    monkeypatch.setattr(router, "_best_in_tier", spy_best)
+
+    fb_roots: list = []
+    orig_fb = router._fallback_for_tier
+
+    def spy_fb(tier, task, root, cfg_):
+        fb_roots.append(root)
+        return orig_fb(tier, task, root, cfg_)
+
+    monkeypatch.setattr(router, "_fallback_for_tier", spy_fb)
+
+    res = router.route_task_all_tiers("do alpha", minimal_workspace)
+
+    with allure.step("all five tiers returned in order"):
+        assert [t for t, _ in res] == list(router.TIER_ORDER)
+    with allure.step("root threaded into _best_in_tier for every tier (kills root=None/and/arg-None)"):
+        assert best_roots == [minimal_workspace] * 5
+    with allure.step("root threaded into _fallback_for_tier (kills root=None arg)"):
+        assert fb_roots == [minimal_workspace] * 5
+    d = dict(res)
+    with allure.step("fallback route_id is '<tier>-none' (kills tier=None → 'None-none')"):
+        assert d["python"].route_id == "python-none"
+    with allure.step("shadow id applied on the fallback path (kills _with_shadow(fallback, None))"):
+        assert d["python"].shadow_route_id == "sh"
+
+
+@allure.title("route_task_all_tiers: per-tier target selection and shadow on matched path")
+def test_route_task_all_tiers_selection(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cfg = {
+        "routes": [
+            {"id": "tool-a", "target": "tool", "patterns": ["alpha"]},
+            {"id": "python-b", "target": "python", "patterns": ["alpha"]},
+            {"id": "sh", "target": "cursor", "patterns": ["alpha"], "shadow_until": _future()},
+        ],
+    }
+    monkeypatch.setattr(router, "load_routes_config", lambda: cfg)
+    monkeypatch.setattr(router, "ollama_available", lambda: True)
+
+    d = dict(router.route_task_all_tiers("do alpha", minimal_workspace))
+    with allure.step("tool tier picks the tool-targeted route (kills target == → !=)"):
+        assert d["tool"].route_id == "tool-a"
+        assert d["python"].route_id == "python-b"
+    with allure.step("shadow id applied on the matched path (kills _with_shadow(best, None))"):
+        assert d["tool"].shadow_route_id == "sh"
+
+
+@allure.title("route_task_all_tiers: missing 'routes' key defaults to [] (kills None default)")
+def test_route_task_all_tiers_missing_routes(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(router, "load_routes_config", lambda: {})
+    monkeypatch.setattr(router, "ollama_available", lambda: True)
+    res = router.route_task_all_tiers("t", minimal_workspace)
+    assert [t for t, _ in res] == list(router.TIER_ORDER)
+
+
+@allure.title("route_task: selected route threads task/root to budget policy and applies shadow")
+def test_route_task_selection_budget_shadow(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cfg = {
+        "routes": [
+            {"id": "tool-a", "target": "tool", "patterns": ["alpha"]},
+            {"id": "sh", "target": "cursor", "patterns": ["alpha"], "shadow_until": _future()},
+        ],
+    }
+    monkeypatch.setattr(router, "load_routes_config", lambda: cfg)
+    monkeypatch.setattr(router, "ollama_available", lambda: True)
+    monkeypatch.setattr(router, "find_workspace_root", lambda: Path("/sentinel-root"))
+
+    best_roots: list = []
+    orig_best = router._best_in_tier
+
+    def spy_best(routes, text, task, root):
+        best_roots.append(root)
+        return orig_best(routes, text, task, root)
+
+    monkeypatch.setattr(router, "_best_in_tier", spy_best)
+
+    bp: dict = {}
+
+    def spy_bp(best, task, root):
+        bp["task"] = task
+        bp["root"] = root
+        return best
+
+    monkeypatch.setattr("greedy_token.budget_policy.apply_budget_policy", spy_bp)
+
+    dec = router.route_task("do alpha", minimal_workspace)
+    with allure.step("tool route selected and returned"):
+        assert dec.route_id == "tool-a"
+    with allure.step("shadow id applied on the return path (kills _with_shadow(..., None))"):
+        assert dec.shadow_route_id == "sh"
+    with allure.step("root threaded into _best_in_tier (kills root and find_workspace_root)"):
+        assert best_roots[0] == minimal_workspace
+    with allure.step("task/root threaded into apply_budget_policy (kills task=None/root=None)"):
+        assert bp["task"] == "do alpha"
+        assert bp["root"] == minimal_workspace
+
+
+@allure.title("route_task: non-ollama match with ollama down is NOT skipped (kills and → or)")
+def test_route_task_ollama_and_not_or(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cfg = {"routes": [{"id": "tool-a", "target": "tool", "patterns": ["alpha"]}]}
+    monkeypatch.setattr(router, "load_routes_config", lambda: cfg)
+    monkeypatch.setattr(router, "ollama_available", lambda: False)
+    monkeypatch.setattr("greedy_token.budget_policy.apply_budget_policy", lambda b, t, r: b)
+    dec = router.route_task("do alpha", minimal_workspace)
+    assert dec.route_id == "tool-a"  # `or` would skip a non-ollama tier when ollama is down
+
+
+@allure.title("route_task: unavailable-ollama tier continues to next tier (kills continue → break)")
+def test_route_task_ollama_continue(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cfg = {
+        "routes": [
+            {"id": "oll-a", "target": "ollama", "patterns": ["alpha"]},
+            {"id": "rag-a", "target": "rag", "patterns": ["alpha"], "domains": ["config"]},
+        ]
+    }
+    monkeypatch.setattr(router, "load_routes_config", lambda: cfg)
+    monkeypatch.setattr(router, "ollama_available", lambda: False)
+    monkeypatch.setattr("greedy_token.budget_policy.apply_budget_policy", lambda b, t, r: b)
+    dec = router.route_task("do alpha", minimal_workspace)
+    assert dec.route_id == "rag-a"  # `break` would skip rag and hit the cursor fallback
+
+
+@allure.title("route_task: cursor fallback exact fields (message, first-line rationale, 0.35, high)")
+def test_route_task_cursor_fallback_exact(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cfg = {
+        "routes": [{"id": "tool-a", "target": "tool", "patterns": ["alpha"]}],
+        "cursor_fallback": {"message": "Open a chat.\nsecond line"},
+    }
+    monkeypatch.setattr(router, "load_routes_config", lambda: cfg)
+    monkeypatch.setattr(router, "ollama_available", lambda: True)
+
+    seen_root: dict = {}
+    orig_est = router._token_estimate_for_route
+
+    def spy_est(target, *, task, root):
+        seen_root["root"] = root
+        return orig_est(target, task=task, root=root)
+
+    monkeypatch.setattr(router, "_token_estimate_for_route", spy_est)
+
+    dec = router.route_task("zzzqqq nomatch", minimal_workspace)
+    with allure.step("identity fields"):
+        assert dec.target == "cursor"
+        assert dec.route_id == "cursor-fallback"
+        assert dec.confidence == 0.35
+        assert dec.matched == []
+        assert dec.command is None
+        assert dec.domains == []
+    with allure.step("note is the full configured message; rationale is only its first line"):
+        assert dec.note == "Open a chat.\nsecond line"
+        assert dec.rationale == "Open a chat."
+    with allure.step("complexity is the cursor estimate 'high'; est_tokens root-dependent > 0"):
+        assert dec.complexity == "high"
+        assert dec.est_tokens > 0
+    with allure.step("real root threaded into the cursor token estimate (kills root=None)"):
+        assert seen_root["root"] == minimal_workspace
+
+
+@allure.title("route_task: missing 'routes' key defaults to [] (kills None/removed default)")
+def test_route_task_missing_routes_key(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(router, "load_routes_config", lambda: {"cursor_fallback": {"message": "m"}})
+    monkeypatch.setattr(router, "ollama_available", lambda: True)
+    # cfg.get("routes", None) would make the shadow scan iterate None → crash.
+    dec = router.route_task("anything", minimal_workspace)
+    assert dec.route_id == "cursor-fallback"
+
+
+@allure.title("route_task: cursor fallback without cursor_fallback cfg → estimate rationale, no crash")
+def test_route_task_cursor_fallback_missing_cfg(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cfg = {"routes": [{"id": "tool-a", "target": "tool", "patterns": ["alpha"]}]}
+    monkeypatch.setattr(router, "load_routes_config", lambda: cfg)
+    monkeypatch.setattr(router, "ollama_available", lambda: True)
+    dec = router.route_task("zzzqqq nomatch", minimal_workspace)
+    # cfg.get("cursor_fallback", None) would crash on None.get(...) here.
+    assert dec.route_id == "cursor-fallback"
+    assert dec.rationale.startswith("Wiring/architecture")
+
+
+# --- Mutation kill-tests: explain_route ---
+
+
+@allure.title("explain_route: matched reason, saved/runner-up wiring, exact args threaded")
+def test_explain_route_matched_wiring(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dec = _decision(matched=["a", "b"], route_id="rid", target="tool", est_tokens=50)
+
+    seen_cs: dict = {}
+
+    def fake_cs(root, task, est, target):
+        seen_cs.update(root=root, task=task, est=est, target=target)
+        return 777
+
+    monkeypatch.setattr("greedy_token.estimator.cursor_saved_for", fake_cs)
+
+    seen_ru: dict = {}
+    alt = _decision(route_id="alt-route", est_tokens=999)
+
+    def fake_ru(task, root, target):
+        seen_ru.update(root=root, target=target)
+        return ("python", alt)
+
+    monkeypatch.setattr(router, "_runner_up", fake_ru)
+
+    out = router.explain_route(dec, "mytask", minimal_workspace)
+    with allure.step("reason joins matched tokens with ', ' (kills join-string mutant)"):
+        assert out["reason"] == "matched rid on: a, b"
+    with allure.step("cursor_saved_for gets real root + decision.target (kills None args)"):
+        assert seen_cs["root"] == minimal_workspace
+        assert seen_cs["target"] == "tool"
+        assert out["saved_est"] == 777
+    with allure.step("_runner_up gets real root (kills root=None); dict built (kills runner=None)"):
+        assert seen_ru["root"] == minimal_workspace
+        assert out["runner_up"] == {"tier": "python", "route_id": "alt-route", "est_tokens": 999}
+
+
+@allure.title("explain_route: cursor-fallback reason string; None runner-up stays None")
+def test_explain_route_fallback_reason(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("greedy_token.estimator.cursor_saved_for", lambda *a, **k: 0)
+    monkeypatch.setattr(router, "_runner_up", lambda *a, **k: None)
+    dec = _decision(matched=[], route_id="cursor-fallback", target="cursor", rationale="x")
+    out = router.explain_route(dec, "t", minimal_workspace)
+    with allure.step("exact fallback reason (kills case/verbatim string mutants)"):
+        assert out["reason"] == "no cheaper tier matched — Cursor fallback"
+    with allure.step("no runner → runner_up is None, not '' (kills init '' mutant)"):
+        assert out["runner_up"] is None
+
+
+# --- Mutation kill-tests: format_decision ---
+
+
+@allure.title("format_decision: full exact output for a tool route (all lines/joins/case)")
+def test_format_decision_exact(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from greedy_token.tool_paths import root_cd_prefix
+
+    monkeypatch.setattr(
+        router,
+        "explain_route",
+        lambda decision, task, root: {
+            "reason": "WHYTEXT",
+            "runner_up": {"tier": "tool", "route_id": "ru", "est_tokens": 1234},
+            "saved_est": 555,
+        },
+    )
+    prefix = root_cd_prefix(minimal_workspace)
+    dec = RouteDecision(
+        target="tool", route_id="rid", confidence=0.5, matched=["a", "b"],
+        command="scripts/x.sh --run", note="distinct-note", domains=["config"],
+        complexity="low", est_tokens=1000, rationale="the rationale",
+        read_only=True, tool="rg", shadow_route_id="sh1",
+    )
+    out = router.format_decision(dec, "mytask", minimal_workspace)
+    expected = "\n".join(
+        [
+            "Task: mytask",
+            "Route: TOOL  (rid, 50%)",
+            "Complexity: low",
+            "Est. tokens: 1,000",
+            "Rationale: the rationale",
+            "Matched: a, b",
+            "Shadow match (log-only): sh1",
+            "Note: distinct-note",
+            f"Command: {prefix} scripts/x.sh --run",
+            "Execute: read-only (greedy-token run --execute OK)",
+            "Why: WHYTEXT",
+            "Runner-up: TOOL (ru, est ~1,234)",
+            "Saved est: ~555 tokens vs Cursor",
+        ]
+    )
+    with allure.step("byte-exact output (kills upper→lower, joins, prefix, string, \\n-join mutants)"):
+        assert out == expected
+    with allure.step("tool target with domains does NOT emit a RAG line (kills and → or)"):
+        assert "RAG domains" not in out
+
+
+@allure.title("format_decision: branch variants (note-dedup, cd cmd, dry-run, rag, cursor)")
+def test_format_decision_branch_variants(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        router,
+        "explain_route",
+        lambda decision, task, root: {"reason": "r", "runner_up": None, "saved_est": 0},
+    )
+
+    def _d(**kw) -> RouteDecision:
+        base = dict(
+            target="tool", route_id="r", confidence=0.9, matched=[], command=None,
+            note="", domains=[], complexity="low", est_tokens=0, rationale="rat",
+        )
+        base.update(kw)
+        return RouteDecision(**base)
+
+    with allure.step("note already inside rationale → no Note line (kills and → or)"):
+        out = router.format_decision(_d(note="dup", rationale="x dup y"), "t", minimal_workspace)
+        assert "Note:" not in out
+
+    with allure.step("command already starting 'cd ' is NOT prefixed (kills 'cd ' case + not-flip)"):
+        out2 = router.format_decision(_d(command="cd /x && go"), "t", minimal_workspace)
+        assert "\nCommand: cd /x && go\n" in out2 + "\n"
+
+    with allure.step("non-read-only command emits the dry-run line (exact line, kills XX-wrap)"):
+        out3 = router.format_decision(
+            _d(command="scripts/x.sh", read_only=False), "t", minimal_workspace
+        )
+        assert "Execute: not read-only — dry-run only; run script manually" in out3.split("\n")
+
+    with allure.step("rag target with domains → exact RAG domains line + Try line"):
+        out4 = router.format_decision(
+            _d(target="rag", domains=["d1", "d2"]), "mytask", minimal_workspace
+        )
+        assert "RAG domains: d1, d2" in out4
+        assert 'Try: greedy-token rag "mytask"' in out4
+
+    with allure.step("cursor target → exact new-chat hint line (exact line, kills XX-wrap)"):
+        out5 = router.format_decision(_d(target="cursor"), "t", minimal_workspace)
+        assert "→ New Cursor chat; skill from docs/skills-map.md if available." in out5.split("\n")
+
+
+@allure.title("format_decision: threads the real root into explain_route (kills root=None)")
+def test_format_decision_threads_root(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: dict = {}
+
+    def spy_er(decision, task, root):
+        seen["root"] = root
+        return {"reason": "r", "runner_up": None, "saved_est": 0}
+
+    monkeypatch.setattr(router, "explain_route", spy_er)
+    router.format_decision(_decision(), "t", minimal_workspace)
+    assert seen["root"] == minimal_workspace
