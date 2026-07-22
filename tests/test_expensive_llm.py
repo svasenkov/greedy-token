@@ -30,7 +30,8 @@ def _resolved(*, provider: str, url: str = "", api_key: str = "", model: str = "
         url=url,
         model=model,
         profiles=("*",),
-        tier="expensive",
+        locality="remote",
+        billing="metered",
         cost_per_1m_usd=1.0,
         api_key=api_key,
     )

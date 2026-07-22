@@ -555,7 +555,7 @@ def cmd_llm_list(args: argparse.Namespace) -> int:
     for spec in list_models(root):
         state = "on" if spec.enabled else "off"
         lines.append(
-            f"  {spec.id:<16} [{spec.tier}] {state}  {spec.provider}/{spec.model}  "
+            f"  {spec.id:<16} [{reg.tier_of(spec)}] {state}  {spec.provider}/{spec.model}  "
             f"profiles={','.join(spec.profiles)}"
         )
     print("\n".join(lines))

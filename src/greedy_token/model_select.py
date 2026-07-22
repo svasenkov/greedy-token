@@ -23,8 +23,17 @@ from greedy_token.settings import (
 
 LlmPolicy = Literal["auto", "cheap_only", "expensive_only", "hybrid"]
 ModelTier = Literal["cheap", "expensive"]
+ModelLocality = Literal["local", "remote"]
+ModelBilling = Literal["free", "metered"]
 LlmProvider = Literal["ollama", "openai_compat", "yandex_gpt"]
 SelectionMode = Literal["fixed", "auto"]
+
+# ADR-0001: tier is derived, never stored. Metered models at or below this
+# USD-per-1M-tokens threshold count as cheap; config key
+# llm.cheap_cost_threshold_per_1m_usd overrides it.
+DEFAULT_CHEAP_COST_THRESHOLD_PER_1M_USD = 0.2
+
+_LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "0.0.0.0", "::1"})
 
 _env_model_warned = False
 
@@ -37,10 +46,30 @@ class ModelSpec:
     url: str
     model: str
     profiles: tuple[str, ...]
-    tier: ModelTier
-    cost_per_1m_usd: float = 0.0
+    locality: ModelLocality = "local"
+    billing: ModelBilling = "free"
+    cost_per_1m_usd: float | None = None
     api_key: str = ""
     api_key_env: str = ""
+
+
+def derive_tier(
+    spec: ModelSpec,
+    *,
+    cheap_cost_threshold_per_1m_usd: float = DEFAULT_CHEAP_COST_THRESHOLD_PER_1M_USD,
+) -> ModelTier:
+    """Single source of truth for the cheap/expensive tier (ADR-0001).
+
+    free → cheap; metered at or below the cost threshold → cheap; otherwise
+    (above threshold, or metered with unknown cost) → expensive. Locality
+    never affects the tier.
+    """
+    if spec.billing == "free":
+        return "cheap"
+    cost = spec.cost_per_1m_usd
+    if cost is not None and cost <= cheap_cost_threshold_per_1m_usd:
+        return "cheap"
+    return "expensive"
 
 
 @dataclass(frozen=True)
@@ -64,6 +93,13 @@ class LlmRegistry:
     cheap_models: tuple[ModelSpec, ...]
     expensive_models: tuple[ModelSpec, ...]
     source: str = "default"
+    cheap_cost_threshold_per_1m_usd: float = DEFAULT_CHEAP_COST_THRESHOLD_PER_1M_USD
+
+    def tier_of(self, spec: ModelSpec) -> ModelTier:
+        """Derived tier under this registry's configured cost threshold."""
+        return derive_tier(
+            spec, cheap_cost_threshold_per_1m_usd=self.cheap_cost_threshold_per_1m_usd
+        )
 
 
 @dataclass(frozen=True)
@@ -100,6 +136,44 @@ def _normalize_provider(value: str | None) -> LlmProvider | None:
     return None
 
 
+def _normalize_locality(value: Any) -> ModelLocality | None:
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip().lower()
+    if normalized in ("local", "remote"):
+        return normalized  # type: ignore[return-value]
+    return None
+
+
+def _normalize_billing(value: Any) -> ModelBilling | None:
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip().lower()
+    if normalized in ("free", "metered"):
+        return normalized  # type: ignore[return-value]
+    return None
+
+
+def _infer_locality(url: str) -> ModelLocality:
+    from urllib.parse import urlsplit
+
+    if not url:
+        return "remote"
+    host = (urlsplit(url).hostname or "").lower()
+    return "local" if host in _LOCAL_HOSTS else "remote"
+
+
+def _parse_cost(raw: dict[str, Any]) -> float | None:
+    """Explicit cost (or legacy token_price alias); absent/unparsable → None (unknown)."""
+    cost_raw = raw.get("cost_per_1m_usd", raw.get("token_price"))
+    if cost_raw is None:
+        return None
+    try:
+        return float(cost_raw)
+    except (TypeError, ValueError):
+        return None
+
+
 def _parse_profiles(raw: Any) -> tuple[str, ...]:
     if raw is None:
         return ("*",)
@@ -111,24 +185,30 @@ def _parse_profiles(raw: Any) -> tuple[str, ...]:
     return ("*",)
 
 
-def _parse_model_entry(raw: dict[str, Any], *, tier: ModelTier) -> ModelSpec | None:
+def _parse_model_entry(raw: dict[str, Any], *, section: ModelTier = "cheap") -> ModelSpec | None:
+    """Parse one model entry. *section* is a legacy shim (ADR-0001): entries from
+    llm.expensive.models[] default to metered billing so an unknown cost still
+    derives the expensive tier."""
     model_id = str(raw.get("id", "")).strip()
     if not model_id:
         return None
     provider = _normalize_provider(raw.get("provider")) or (
-        "yandex_gpt" if tier == "expensive" else DEFAULT_CHEAP_LLM_PROVIDER
+        "yandex_gpt" if section == "expensive" else DEFAULT_CHEAP_LLM_PROVIDER
     )
-    url = str(raw.get("url", DEFAULT_CHEAP_LLM_URL if tier == "cheap" else "")).strip().rstrip("/")
-    model = str(raw.get("model", DEFAULT_CHEAP_LLM_MODEL if tier == "cheap" else "")).strip()
+    url = str(raw.get("url", DEFAULT_CHEAP_LLM_URL if section == "cheap" else "")).strip().rstrip("/")
+    model = str(raw.get("model", DEFAULT_CHEAP_LLM_MODEL if section == "cheap" else "")).strip()
     api_key_env = str(raw.get("api_key_env", "")).strip()
     api_key = str(raw.get("api_key", "")).strip()
     if api_key_env and not api_key:
         api_key = os.environ.get(api_key_env, "").strip()
-    cost_raw = raw.get("cost_per_1m_usd", raw.get("token_price", 0))
-    try:
-        cost = float(cost_raw) if cost_raw is not None else 0.0
-    except (TypeError, ValueError):
-        cost = 0.0
+    cost = _parse_cost(raw)
+    billing = _normalize_billing(raw.get("billing"))
+    if billing is None:
+        if section == "expensive":
+            billing = "metered"
+        else:
+            billing = "metered" if cost is not None and cost > 0 else "free"
+    locality = _normalize_locality(raw.get("locality")) or _infer_locality(url)
     return ModelSpec(
         id=model_id,
         enabled=bool(raw.get("enabled", raw.get("turned_on", True))),
@@ -136,7 +216,8 @@ def _parse_model_entry(raw: dict[str, Any], *, tier: ModelTier) -> ModelSpec | N
         url=url,
         model=model,
         profiles=_parse_profiles(raw.get("profiles")),
-        tier=tier,
+        locality=locality,
+        billing=billing,
         cost_per_1m_usd=cost,
         api_key=api_key,
         api_key_env=api_key_env,
@@ -151,8 +232,9 @@ def _legacy_default_model(cheap: CheapLlmSettings) -> ModelSpec:
         url=cheap.url,
         model=cheap.model,
         profiles=("*",),
-        tier="cheap",
-        cost_per_1m_usd=0.0,
+        locality=_infer_locality(cheap.url),
+        billing="free",
+        cost_per_1m_usd=None,
         api_key=cheap.api_key,
     )
 
@@ -217,7 +299,7 @@ def _parse_registry(
     cheap_models: list[ModelSpec] = []
     for entry in cheap_section.get("models") or []:
         if isinstance(entry, dict):
-            spec = _parse_model_entry(entry, tier="cheap")
+            spec = _parse_model_entry(entry, section="cheap")
             if spec:
                 cheap_models.append(spec)
     if not cheap_models:
@@ -226,9 +308,18 @@ def _parse_registry(
     expensive_models: list[ModelSpec] = []
     for entry in expensive_section.get("models") or []:
         if isinstance(entry, dict):
-            spec = _parse_model_entry(entry, tier="expensive")
+            spec = _parse_model_entry(entry, section="expensive")
             if spec:
                 expensive_models.append(spec)
+
+    try:
+        cheap_cost_threshold = float(
+            llm_cfg.get(
+                "cheap_cost_threshold_per_1m_usd", DEFAULT_CHEAP_COST_THRESHOLD_PER_1M_USD
+            )
+        )
+    except (TypeError, ValueError):
+        cheap_cost_threshold = DEFAULT_CHEAP_COST_THRESHOLD_PER_1M_USD
 
     cheap_sel = str(cheap_section.get("selection", "auto")).strip().lower()
     cheap_selection: SelectionMode = "auto" if cheap_sel == "auto" else "fixed"
@@ -274,6 +365,7 @@ def _parse_registry(
         cheap_models=tuple(cheap_models),
         expensive_models=tuple(expensive_models),
         source=source,
+        cheap_cost_threshold_per_1m_usd=cheap_cost_threshold,
     )
 
 
@@ -367,7 +459,7 @@ def resolve_model(
                     spec=spec,
                     settings=_spec_to_settings(spec, source="env"),
                     profile=profile or base_profile,
-                    billing_tier=spec.tier,
+                    billing_tier=registry.tier_of(spec),
                 )
 
     cheap_pool = _enabled_pool(registry, "cheap")
@@ -467,16 +559,17 @@ def escalation_chain_from(
         spec = by_id.get(mid)
         if spec is None:
             continue
-        if spec.tier == "expensive" and registry.policy == "cheap_only":
+        tier = registry.tier_of(spec)
+        if tier == "expensive" and registry.policy == "cheap_only":
             continue
-        if spec.tier == "expensive" and not registry.expensive_opt_in:
+        if tier == "expensive" and not registry.expensive_opt_in:
             continue
         out.append(
             ResolvedModel(
                 spec=spec,
                 settings=_spec_to_settings(spec, source=registry.source),
                 profile=start.profile,
-                billing_tier=spec.tier,
+                billing_tier=tier,
             )
         )
         steps += 1

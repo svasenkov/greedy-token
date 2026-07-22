@@ -80,9 +80,9 @@ def check_expensive_allowed(
     cli_allow: bool = False,
     est_cost_usd: float = 0.0,
 ) -> SpendDecision:
-    if spec.tier != "expensive":
-        return SpendDecision(allowed=True)
     registry = get_llm_registry(root)
+    if registry.tier_of(spec) != "expensive":
+        return SpendDecision(allowed=True)
     if not registry.expensive_opt_in:
         return SpendDecision(
             allowed=False,
@@ -113,7 +113,8 @@ def check_expensive_allowed(
 
 
 def estimate_cost_usd(spec: ModelSpec, eval_tokens: int | None) -> float:
+    cost = spec.cost_per_1m_usd
     # equivalent: <= 0 vs < 0 — cost==0 still yields 0.0 product.
-    if eval_tokens is None or spec.cost_per_1m_usd <= 0:
+    if eval_tokens is None or cost is None or cost <= 0:
         return 0.0
-    return (eval_tokens / 1_000_000) * spec.cost_per_1m_usd
+    return (eval_tokens / 1_000_000) * cost

@@ -32,9 +32,11 @@ pytestmark = pytest.mark.unit
 
 
 def _spec(model_id: str, *, tier: str = "cheap", enabled: bool = True, profiles=("*",)) -> ModelSpec:
+    # ADR-0001: tier is derived — "cheap" → free billing, "expensive" → metered
+    # billing with unknown cost (conservatively expensive).
     return ModelSpec(
         id=model_id, enabled=enabled, provider="ollama", url="http://x", model=f"m-{model_id}",
-        profiles=tuple(profiles), tier=tier,  # type: ignore[arg-type]
+        profiles=tuple(profiles), billing="free" if tier == "cheap" else "metered",
     )
 
 
@@ -66,18 +68,110 @@ def test_provider_and_profiles() -> None:
 
 @allure.title("_parse_model_entry: no id, cost fallback, api_key from env")
 def test_parse_model_entry(monkeypatch: pytest.MonkeyPatch) -> None:
-    assert _parse_model_entry({}, tier="cheap") is None
+    assert _parse_model_entry({}, section="cheap") is None
 
     monkeypatch.setenv("MY_KEY_ENV", "sk-from-env")
     spec = _parse_model_entry(
-        {"id": "m1", "api_key_env": "MY_KEY_ENV", "cost_per_1m_usd": "not-a-number"}, tier="cheap"
+        {"id": "m1", "api_key_env": "MY_KEY_ENV", "cost_per_1m_usd": "not-a-number"}, section="cheap"
     )
     assert spec is not None
     assert spec.api_key == "sk-from-env"
-    assert spec.cost_per_1m_usd == 0.0
+    assert spec.cost_per_1m_usd is None  # unparsable → unknown (ADR-0001)
 
-    exp = _parse_model_entry({"id": "y", "cost_per_1m_usd": 12}, tier="expensive")
+    exp = _parse_model_entry({"id": "y", "cost_per_1m_usd": 12}, section="expensive")
     assert exp is not None and exp.provider == "yandex_gpt" and exp.cost_per_1m_usd == 12.0
+
+
+@allure.title("derive_tier (ADR-0001): free, metered vs threshold, unknown cost")
+def test_derive_tier() -> None:
+    free = _spec("f")  # billing=free
+    assert ms.derive_tier(free) == "cheap"
+
+    metered_cheap = _parse_model_entry(
+        {"id": "mini", "billing": "metered", "cost_per_1m_usd": 0.05}, section="cheap"
+    )
+    assert ms.derive_tier(metered_cheap) == "cheap"  # 0.05 <= default 0.2
+
+    metered_over = _parse_model_entry(
+        {"id": "big", "billing": "metered", "cost_per_1m_usd": 2.5}, section="cheap"
+    )
+    assert ms.derive_tier(metered_over) == "expensive"
+    # custom threshold flips it back to cheap
+    assert ms.derive_tier(metered_over, cheap_cost_threshold_per_1m_usd=3.0) == "cheap"
+
+    unknown_cost = _spec("y", tier="expensive")  # metered, cost None
+    assert ms.derive_tier(unknown_cost) == "expensive"
+    # locality never affects the tier
+    assert ms.derive_tier(ms.ModelSpec(
+        id="loc", enabled=True, provider="ollama", url="http://x", model="m",
+        profiles=("*",), locality="remote", billing="free",
+    )) == "cheap"
+
+
+@allure.title("attribute parsing: billing/locality defaults, explicit overrides")
+def test_parse_model_entry_attributes() -> None:
+    # cheap section, no cost → free + local (default ollama url is localhost)
+    plain = _parse_model_entry({"id": "a"}, section="cheap")
+    assert plain.billing == "free" and plain.locality == "local"
+
+    # cheap section, cost > 0 → metered by default
+    paid = _parse_model_entry(
+        {"id": "b", "url": "https://api.example.com/v1", "cost_per_1m_usd": 0.15},
+        section="cheap",
+    )
+    assert paid.billing == "metered" and paid.locality == "remote"
+
+    # expensive section without cost → metered (legacy shim), no url → remote
+    legacy_exp = _parse_model_entry({"id": "y", "model": "yg"}, section="expensive")
+    assert legacy_exp.billing == "metered" and legacy_exp.cost_per_1m_usd is None
+    assert legacy_exp.locality == "remote"
+    assert ms.derive_tier(legacy_exp) == "expensive"
+
+    # explicit attributes win over inference
+    explicit = _parse_model_entry(
+        {"id": "c", "billing": "metered", "locality": "remote"}, section="cheap"
+    )
+    assert explicit.billing == "metered" and explicit.locality == "remote"
+
+    # token_price legacy alias still read
+    alias = _parse_model_entry({"id": "d", "token_price": 7}, section="cheap")
+    assert alias.cost_per_1m_usd == 7.0
+
+
+@allure.title("_normalize_locality/_normalize_billing/_infer_locality branches")
+def test_attribute_normalizers() -> None:
+    assert ms._normalize_locality(None) is None
+    assert ms._normalize_locality("bogus") is None
+    assert ms._normalize_locality(" Local ") == "local"
+    assert ms._normalize_billing(123) is None
+    assert ms._normalize_billing("junk") is None
+    assert ms._normalize_billing("Metered") == "metered"
+
+    assert ms._infer_locality("") == "remote"
+    assert ms._infer_locality("http://localhost:11434") == "local"
+    assert ms._infer_locality("http://127.0.0.1:8000") == "local"
+    assert ms._infer_locality("https://api.openai.com/v1") == "remote"
+
+
+@allure.title("llm.cheap_cost_threshold_per_1m_usd parsed with default fallback")
+def test_threshold_parsing() -> None:
+    legacy = CheapLlmSettings("ollama", "http://x", "m", "s")
+    reg = _parse_registry(
+        {"cheap_cost_threshold_per_1m_usd": 0.5, "cheap": {"models": [{"id": "f"}]}},
+        legacy_cheap=legacy, source="test",
+    )
+    assert reg.cheap_cost_threshold_per_1m_usd == 0.5
+
+    reg_bad = _parse_registry(
+        {"cheap_cost_threshold_per_1m_usd": "junk", "cheap": {"models": [{"id": "f"}]}},
+        legacy_cheap=legacy, source="test",
+    )
+    assert reg_bad.cheap_cost_threshold_per_1m_usd == ms.DEFAULT_CHEAP_COST_THRESHOLD_PER_1M_USD
+
+    # tier_of applies the registry threshold, not the default
+    spec = _parse_model_entry({"id": "m", "billing": "metered", "cost_per_1m_usd": 0.4}, section="cheap")
+    assert reg.tier_of(spec) == "cheap"        # 0.4 <= 0.5
+    assert reg_bad.tier_of(spec) == "expensive"  # 0.4 > 0.2
 
 
 @allure.title("_pick_from_pool: empty, auto, fixed default, no-match fallback")

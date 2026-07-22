@@ -21,7 +21,9 @@ pytestmark = [
 ]
 
 
-def _spec(tier: str = "expensive", cost: float = 10.0) -> ModelSpec:
+def _spec(tier: str = "expensive", cost: float | None = 10.0) -> ModelSpec:
+    # ADR-0001: tier is derived — "cheap" maps to free billing, "expensive" to
+    # metered billing (cost 10.0 default is far above the cheap threshold).
     return ModelSpec(
         id="yandex-lite",
         enabled=True,
@@ -29,7 +31,8 @@ def _spec(tier: str = "expensive", cost: float = 10.0) -> ModelSpec:
         url="",
         model="m",
         profiles=("*",),
-        tier=tier,  # type: ignore[arg-type]
+        locality="remote",
+        billing="free" if tier == "cheap" else "metered",
         cost_per_1m_usd=cost,
     )
 
@@ -136,11 +139,11 @@ def test_expensive_opt_in(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @allure.title("check_expensive_allowed: cheap tier, opt-in gates, caps")
 def test_check_expensive_allowed(monkeypatch: pytest.MonkeyPatch) -> None:
-    # cheap tier always allowed
+    # derived-cheap tier (free billing) always allowed, even with opt_in off
+    monkeypatch.setattr(spend_guard, "get_llm_registry", lambda root: _registry(opt_in=False))
     assert spend_guard.check_expensive_allowed(_spec(tier="cheap")).allowed is True
 
     # registry opt_in disabled — exact reason (kills message + allowed=None mutants)
-    monkeypatch.setattr(spend_guard, "get_llm_registry", lambda root: _registry(opt_in=False))
     dec = spend_guard.check_expensive_allowed(_spec())
     assert dec.allowed is False
     assert dec.reason == "expensive LLM disabled (llm.expensive.opt_in=false)"
