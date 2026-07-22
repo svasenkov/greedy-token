@@ -7,8 +7,14 @@ import allure
 import pytest
 
 from greedy_token.pipeline import (
+    PipelineResult,
+    PipelineStep,
+    StepResult,
+    StepSavingsRow,
     compute_step_savings,
+    format_executor_savings_summary,
     format_pipeline_footer,
+    format_pipeline_step_savings_table,
     parse_pipeline,
     run_pipeline,
 )
@@ -471,6 +477,95 @@ def test_pipeline_step_timeout(mock_run, minimal_workspace: Path) -> None:
     result = run_pipeline("check-meta-sync", minimal_workspace, execute=True)
     assert result.steps[0].exit_code == 124
     assert "timed out" in result.steps[0].output
+
+
+def _row(**kw) -> StepSavingsRow:
+    base = dict(
+        index=1, step_id="check-meta-sync", tier="python", duration_ms=83,
+        spent=0, baseline=9487, saved=9487, billing="script — 0 LLM spend",
+        executor_sub="script",
+    )
+    base.update(kw)
+    return StepSavingsRow(**base)
+
+
+@allure.story("Savings table")
+@allure.title("format_pipeline_step_savings_table emits exact header and row")
+def test_format_savings_table_exact() -> None:
+    assert format_pipeline_step_savings_table([]) == []
+    lines = format_pipeline_step_savings_table([_row(index=1, duration_ms=83, spent=0, baseline=9487, saved=9487)])
+    assert lines[0] == "Per-step savings (if each step were a separate naive Cursor chat):"
+    # Exact header line pins column labels (kills case/text mutations).
+    assert lines[1] == (
+        f"  {'#':>2}  {'step':<22} {'executor':<8} {'ms':>6} "
+        f"{'spent':>7} {'baseline':>9} {'saved':>9}  billing"
+    )
+    # Exact data row pins the format string and numeric grouping.
+    assert lines[2] == (
+        f"  {1:>2}  {'check-meta-sync':<22} {'script':<8} {83:>6} "
+        f"{0:>7,} {9487:>9,} {9487:>9,}  script — 0 LLM spend"
+    )
+
+
+@allure.story("Savings table")
+@allure.title("format_pipeline_step_savings_table falls back to tier when executor_sub empty")
+def test_format_savings_table_executor_fallback() -> None:
+    lines = format_pipeline_step_savings_table([_row(executor_sub="", tier="ollama")])
+    assert " ollama   " in lines[2]
+
+
+@allure.story("Executor summary")
+@allure.title("format_executor_savings_summary aggregates per-tier with exact math")
+def test_format_executor_summary_math() -> None:
+    assert format_executor_savings_summary([]) == []
+    rows = [
+        _row(tier="python", spent=100, saved=200),
+        _row(tier="python", spent=5, saved=6),
+        _row(tier="tool", spent=1, saved=9),
+    ]
+    lines = format_executor_savings_summary(rows)
+    # Iterates tiers in fixed order: tool before python.
+    assert lines[0] == "Saved by executor (sum of per-step savings):"
+    assert lines[1] == f"  {'rg (disk search)':<28} steps=1  spent ~1  saved ~9"
+    # python: spent 100+5=105, saved 200+6=206, count=2 — kills tuple arithmetic mutants.
+    assert lines[2] == f"  {'python (script)':<28} steps=2  spent ~105  saved ~206"
+
+
+@allure.story("Compute savings")
+@allure.title("compute_step_savings enumerates from 1, threads root, and clamps saved")
+def test_compute_step_savings_math(minimal_workspace: Path) -> None:
+    steps = [
+        StepResult(
+            step=PipelineStep("check-meta-sync", "python", "meta-label", command="c"),
+            ok=True, exit_code=0, output="", duration_ms=1, est_tokens=100, executed=True,
+        ),
+        StepResult(
+            step=PipelineStep("audit-skill", "ollama", "audit-label", command="c"),
+            ok=True, exit_code=0, output="", duration_ms=1, est_tokens=50, executed=True,
+        ),
+        StepResult(
+            step=PipelineStep("rag", "rag", "rag-label", command=None),
+            ok=True, exit_code=0, output="", duration_ms=1, est_tokens=0, executed=False,
+        ),
+    ]
+    result = PipelineResult(task="t", steps=steps)
+    seen_roots: list[object] = []
+
+    def fake_baseline(root, label):
+        seen_roots.append(root)
+        return {"meta-label": 1000, "audit-label": 50, "rag-label": 999}[label]
+
+    with patch("greedy_token.pipeline.cursor_baseline", fake_baseline):
+        rows = compute_step_savings(result, minimal_workspace)
+
+    assert [r.index for r in rows] == [1, 2, 3]  # enumerate starts at 1
+    assert all(r == minimal_workspace for r in seen_roots)  # root threaded, not None
+    # baseline - spent, clamped at 0 (kills baseline+spent and max(1,...)).
+    assert rows[0].saved == 900  # 1000 - 100
+    assert rows[1].saved == 0  # max(0, 50 - 50)
+    # dry-run step never claims savings.
+    assert rows[2].saved == 0
+    assert rows[2].billing == "dry-run — not executed"
 
 
 @allure.story("Continue on error")
