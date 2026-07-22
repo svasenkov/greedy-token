@@ -5,6 +5,13 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+# BASE_CURSOR_OVERHEAD re-exported for backward compatibility; the resolved
+# overhead (calibrated config → default-estimate) comes from cursor_overhead().
+from greedy_token.baseline import (  # noqa: F401
+    BASE_CURSOR_OVERHEAD,
+    baseline_source,
+    cursor_overhead,
+)
 from greedy_token.paths import find_workspace_root, load_routes_config
 from greedy_token.tokens import count_tokens
 from greedy_token.tool_paths import rg_path_for_shell, root_cd_prefix, sh_quote
@@ -19,8 +26,6 @@ COMPLEXITY_BY_TARGET = {
     "rag": "low",
     "cursor": "high",
 }
-
-BASE_CURSOR_OVERHEAD = 6000
 # Rough fallback when docs/rag index is empty / unavailable (route pre-flight only).
 RAG_READ_TOKENS_FALLBACK = 1800
 
@@ -224,13 +229,7 @@ def _build_tool_command(route: dict, task: str, root: Path) -> str:
         "!.venv/**",
         "!.cursor/hooks/**",
     ]
-    search_paths = route.get("search_paths") or [
-        "projects",
-        "docs",
-        "stacks",
-        "scripts",
-        "generators",
-    ]
+    search_paths = route.get("search_paths") or ["."]
     max_count = route.get("max_count", 50)
     glob_flags = " ".join(f"-g {sh_quote(g)}" for g in globs)
     paths = " ".join(search_paths)
@@ -271,7 +270,7 @@ def _token_estimate_for_route(
             )
         return (
             "medium",
-            task_tokens + BASE_CURSOR_OVERHEAD,
+            task_tokens + cursor_overhead(),
             "Cheap LLM unavailable — would fall back to expensive Cursor path.",
         )
     if target == "rag":
@@ -291,7 +290,7 @@ def _token_estimate_for_route(
     rules_tokens = sum(i.estimate.tokens for i in audit_context(root) if i.always_on)
     return (
         complexity,
-        rules_tokens + task_tokens + BASE_CURSOR_OVERHEAD,
+        rules_tokens + task_tokens + cursor_overhead(),
         "Wiring/architecture — requires expensive LLM (Cursor agent chat with rules context).",
     )
 
@@ -612,5 +611,7 @@ def format_decision(decision: RouteDecision, task: str, root: Path) -> str:
             f"Runner-up: {ru['tier'].upper()} ({ru['route_id']}, est ~{ru['est_tokens']:,})"
         )
     if exp["saved_est"]:
-        lines.append(f"Saved est: ~{exp['saved_est']:,} tokens vs Cursor")
+        lines.append(
+            f"Saved est: ~{exp['saved_est']:,} tokens vs Cursor (baseline: {baseline_source()})"
+        )
     return "\n".join(lines)

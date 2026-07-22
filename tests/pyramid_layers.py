@@ -5,6 +5,7 @@ from __future__ import annotations
 # Keys match automator PYRAMID_LAYER_MAPPINGS / Java @Layer values.
 LAYER_BY_MODULE: dict[str, str] = {
     # unit — pure logic, no subprocess / external IO
+    "test_baseline": "unit",
     "test_budget": "unit",
     "test_budget_policy": "unit",
     "test_resource_probe": "unit",

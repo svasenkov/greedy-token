@@ -70,9 +70,10 @@ pytest_add_cli_args = [
     "--ignore=tests/test_pyramid_layer_colors.py",
     "--ignore=tests/test_mcp_stdio.py",
 ]
-# README files are read by tests/test_doc_sync.py, so they must exist in the
-# copied mutants/ working tree too.
-also_copy = ["README.md", "README-RU.md"]
+# README files are read by tests/test_doc_sync.py, and examples/routes/ backs
+# the conftest minimal_workspace fixture, so they must exist in the copied
+# mutants/ working tree too.
+also_copy = ["README.md", "README-RU.md", "examples/routes/"]
 
 [tool.coverage.run]
 source = ["src/greedy_token"]

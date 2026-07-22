@@ -214,9 +214,9 @@ def test_build_tool_command_rg_exact(minimal_workspace: Path) -> None:
     prefix = root_cd_prefix(minimal_workspace)
     rg = rg_path_for_shell()
 
-    with allure.step("Default route → default globs / search-paths / max-count 50"):
+    with allure.step("Default route → default globs / generic '.' search path / max-count 50"):
         globs = ["!.git/**", "!node_modules/**", "!build/**", "!.venv/**", "!.cursor/hooks/**"]
-        paths = ["projects", "docs", "stacks", "scripts", "generators"]
+        paths = ["."]
         glob_flags = " ".join(f"-g {sh_quote(g)}" for g in globs)
         expected = (
             f"{prefix} {rg} -n --max-columns 200 -F {sh_quote('baseUrl')} "
@@ -1029,7 +1029,7 @@ def test_format_decision_exact(
             "Execute: read-only (greedy-token run --execute OK)",
             "Why: WHYTEXT",
             "Runner-up: TOOL (ru, est ~1,234)",
-            "Saved est: ~555 tokens vs Cursor",
+            "Saved est: ~555 tokens vs Cursor (baseline: default-estimate)",
         ]
     )
     with allure.step("byte-exact output (kills upper→lower, joins, prefix, string, \\n-join mutants)"):

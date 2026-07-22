@@ -7,11 +7,12 @@ from pathlib import Path
 from typing import Literal
 import os
 
+from greedy_token.baseline import SOURCE_DEFAULT, baseline_source, get_baseline_settings
 from greedy_token.context_audit import audit_context
 from greedy_token.estimator import cursor_baseline, cursor_saved_for
 from greedy_token.paths import find_workspace_root
 from greedy_token.rag_search import RagHit
-from greedy_token.router import BASE_CURSOR_OVERHEAD, RouteDecision, route_task_all_tiers
+from greedy_token.router import RouteDecision, route_task_all_tiers
 from greedy_token.settings import FooterStyle, get_cheap_llm_settings, get_footer_settings
 from greedy_token.tokens import count_tokens
 from greedy_token.usage import append_event, build_route_event
@@ -41,6 +42,8 @@ class CursorBaselineBreakdown:
     rules: int
     task: int
     overhead: int
+    # Overhead source: measured | calibrated | default-estimate
+    source: str = SOURCE_DEFAULT
 
     @property
     def total(self) -> int:
@@ -50,10 +53,12 @@ class CursorBaselineBreakdown:
 def cursor_baseline_breakdown(root: Path, task: str) -> CursorBaselineBreakdown:
     items = audit_context(root)
     rules = sum(i.estimate.tokens for i in items if i.always_on)
+    baseline_settings = get_baseline_settings()
     return CursorBaselineBreakdown(
         rules=rules,
         task=count_tokens(task).tokens,
-        overhead=BASE_CURSOR_OVERHEAD,
+        overhead=baseline_settings.overhead_tokens,
+        source=baseline_settings.source,
     )
 
 
@@ -119,12 +124,15 @@ def format_savings_lines(
     tier: str = "",
     executor_sub: str | None = None,
     spent_note: str | None = None,
+    source: str | None = None,
 ) -> list[str]:
     if saved is None:
         saved = max(0, baseline - spent)
+    if source is None:
+        source = baseline_source()
     return [
-        title,
-        f"  {BASELINE_LABEL}  ~{baseline:,}",
+        f"{title} (baseline: {source})",
+        f"  {BASELINE_LABEL}  ~{baseline:,}  ({source})",
         format_spent_line(
             spent,
             tier=tier,
@@ -132,7 +140,7 @@ def format_savings_lines(
             note=spent_note,
             indent="  ",
         ),
-        f"  Saved:             ~{saved:,}  (= baseline − spent)",
+        f"  Saved:             ~{saved:,}  (= baseline − spent; baseline: {source})",
     ]
 
 
@@ -258,7 +266,8 @@ def _format_tool_footer_compact(ctx: ToolFooterContext) -> str:
     lines = [
         "",
         "---",
-        f"> **Greedy token** · `{ctx.executor_sub}`{duration} · saved **~{ctx.saved:,}**",
+        f"> **Greedy token** · `{ctx.executor_sub}`{duration} · saved **~{ctx.saved:,}**"
+        f" (baseline: {ctx.breakdown.source})",
         f"> spent ~{ctx.est_tokens:,} · naive ~{ctx.baseline:,} · {ctx.billing_short}{route}",
     ]
     lines.extend(extras)
@@ -287,8 +296,8 @@ def _format_tool_footer_markdown(ctx: ToolFooterContext) -> str:
             "| | tokens |",
             "|:--|--:|",
             f"| spent | ~{ctx.est_tokens:,} |",
-            f"| naive Cursor | ~{ctx.baseline:,} |",
-            f"| **saved** | **~{ctx.saved:,}** |",
+            f"| naive Cursor ({ctx.breakdown.source}) | ~{ctx.baseline:,} |",
+            f"| **saved** (baseline: {ctx.breakdown.source}) | **~{ctx.saved:,}** |",
             "",
             f"{ctx.billing_short}{route}",
             "---",
@@ -339,9 +348,9 @@ def _format_tool_footer_full(ctx: ToolFooterContext) -> str:
         [
             "",
             "Cursor agent chat (naive — same task, no MCP tool)",
-            f"  Always-on rules: ~{ctx.breakdown.rules:,}",
-            f"  Task prompt:     ~{ctx.breakdown.task:,}",
-            f"  Agent overhead:  ~{ctx.breakdown.overhead:,}",
+            f"  Always-on rules: ~{ctx.breakdown.rules:,}  (measured)",
+            f"  Task prompt:     ~{ctx.breakdown.task:,}  (measured)",
+            f"  Agent overhead:  ~{ctx.breakdown.overhead:,}  ({ctx.breakdown.source})",
             f"  {TOTAL_BASELINE_LABEL}  ~{ctx.baseline:,}",
             "",
         ]
@@ -359,6 +368,7 @@ def _format_tool_footer_full(ctx: ToolFooterContext) -> str:
             saved=ctx.saved,
             tier=ctx.tier,
             executor_sub=ctx.executor_sub,
+            source=ctx.breakdown.source,
         )
     )
     for extra in _policy_footer_lines(ctx.root):

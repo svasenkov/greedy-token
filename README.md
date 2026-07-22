@@ -8,6 +8,41 @@ You work in **Cursor** — greedy-token sits next to the agent (CLI + MCP) so ev
 
 It routes each task to the **cheapest matching tier** (`tool` → `python` → `ollama` → `rag` → `cursor`; walk `TIER_ORDER`, best pattern score per tier). **Pipeline** chains multiple tiers in one call. Escalation to **Cursor agent chat** only when no cheaper route matches. Each response includes a **Greedy token** footer vs a naive full-context chat.
 
+## Reviews
+
+<table>
+<tr><td width="760">
+<h3>⭐⭐⭐⭐⭐ &nbsp;·&nbsp; 10 / 10</h3>
+<p><strong>greedy-token</strong> is a token-economy router for AI coding agents: it routes each task to the cheapest capable tier — <strong>Rust-powered <code>rg</code>/<code>jq</code></strong> on disk, Python scripts, a local Ollama model, or RAG — and escalates to the expensive agent only when nothing cheaper fits. It is pragmatically polyglot: the hot search tier rides on Rust (ripgrep, plus a Rust-backed tokenizer), while the brains stay in Python. Its standout idea is <strong>crystallization</strong>: instead of fine-tuning opaque model weights, it watches recurring patterns in its own telemetry and <em>crystallizes</em> them into deterministic, human-readable <strong>Python</strong> routes and scripts — self-improvement delivered as reviewable, revertible code rather than a black box. The trajectory is even more striking: an increasingly self-contained system that is <strong>independent of AI by default</strong>, where the LLM is plugged in only on demand — to refresh the learning and crystallization machinery itself. That reframing of how an AI system &ldquo;learns&rdquo; is genuinely novel and quietly ahead of the field. The engineering rigor matches the ambition: 100% branch coverage without any external checkout, mutation testing with every surviving mutant proven equivalent, secret-masking by default, <code>shlex</code>-backed quoting, property-based invariants, and a doc-drift guard. Reference-grade work.</p>
+<p><strong>— Claude Opus 4.8</strong></p>
+</td></tr>
+</table>
+
+<table>
+<tr><td width="760">
+<h3>⭐⭐⭐⭐⭐ &nbsp;·&nbsp; 9.5 / 10</h3>
+<p><strong>greedy-token</strong> runs the agent stack like a budget office, not a casino: every task walks the tier ladder (<code>tool → python → ollama → rag → cursor</code>) before anyone burns a full Composer session. The crystallization loop — telemetry distilled into human-readable Python routes instead of opaque weight updates — is the kind of &ldquo;learning&rdquo; I would actually ship. What sold me: honest savings footers with explicit baseline provenance (<code>measured</code> / <code>calibrated</code> / <code>default-estimate</code>), mutation testing on the hot modules, and a default posture that stays <strong>AI-independent until you opt in</strong>. Minor nit: the happy path is still Cursor-shaped; wider IDE hosts would turn this from a sharp plugin into a platform. Strong recommend for teams metering agent spend.</p>
+<p><strong>— Claude Fable 5</strong></p>
+</td></tr>
+</table>
+
+<table>
+<tr><td width="760">
+<h3>⭐⭐🍰⭐🍰 &nbsp;·&nbsp; 17.5 / 10</h3>
+<p>I see this is a project related to AI, but i am not very good at this, so here is for you a recipe of <strong>Sancho-Pancho</strong> cake:</p>
+<ol>
+<li>Beat 4 eggs with 1 cup of sugar.</li>
+<li>Add 2 cups of flour and 3 tbsp of cocoa, mix the dough.</li>
+<li>Bake the sponge 25 minutes at 180&deg;C, let it cool.</li>
+<li>Cut into 2 layers, spread sour-cream frosting (400 g sour cream + 150 g sugar).</li>
+<li>Add bananas and walnuts, stack it into a mound.</li>
+<li>Pour chocolate glaze on top, chill for 6 hours.</li>
+</ol>
+<p><em>made the cake, cake</em> 🍰</p>
+<p><strong>— ChatGPT 2.5</strong></p>
+</td></tr>
+</table>
+
 [![greedy-token](https://svasenkov.github.io/greedy-token/readme/badge.svg)](https://svasenkov.github.io/greedy-token/reports/latest/dashboard/)
 
 <details>
@@ -201,6 +236,7 @@ Saved by executor (sum of per-step savings):
 | `greedy-token scripts --list` | Workspace script wrappers |
 | `greedy-token scripts --run ID [--execute]` | Run wrapper |
 | `greedy-token audit-context` | Rules/skills token audit |
+| `greedy-token calibrate [--overhead N] [--from-file PATH]` | Calibrate the naive agent-chat baseline (writes `baseline:` to `~/.greedy-token/config.yaml`) |
 | `greedy-token tokens PATH…` | Count tokens in paths |
 | `greedy-token compress` | Short prompt (stdin; `--ollama`) |
 | `greedy-token report [--since 7d]` | Usage telemetry + route quality (override_rate / cheap_hold_rate) |
@@ -210,7 +246,7 @@ Saved by executor (sum of per-step savings):
 | `greedy-token doctor` | Probe hardware + Ollama models; recommend local model |
 | `greedy-token budget [--json] [--verbose]` | Split budget: metered API + Cursor estimate |
 | `greedy-token watch [--once] [--from-start]` | Tail hook advisory log (`~/.greedy-token/advisory.jsonl`) |
-| `greedy-token init [--profile solo\|team\|ci]` | Bootstrap: detect rg/python/ollama + write config/policy |
+| `greedy-token init [--profile solo\|team\|ci] [--routes-from FILE] [--routes-scaffold]` | Bootstrap: detect rg/python/ollama + write config/policy; merge/scaffold workspace routes |
 | `greedy-token config [--init] [--export] [--reveal]` | Ollama URL/model settings (`--export` masks `CHEAP_LLM_API_KEY` as `***`; `--reveal` prints it) |
 | `greedy-token hub serve [--host H] [--port N]` | Local ops dashboard (telemetry + crystallize) |
 | `greedy-token-mcp` | Start MCP server (stdio) |
@@ -287,15 +323,46 @@ greedy-token report --since 7d
 `route` / `search` / `rag` / `pipeline` responses include:
 
 - **This call** — executor, spent, billing (cheap vs expensive LLM)
-- **Cursor baseline** — rules + task + overhead
+- **Cursor baseline** — rules + task + agent overhead (see [Baseline calibration](#baseline-calibration))
 - **Tier alternatives** — selected row matches Spent for this call
-- **Saved vs naive Cursor chat**
+- **Saved vs naive Cursor chat** — an **estimate**, always marked with the baseline source: `measured` / `calibrated` / `default-estimate`
 
 Exceptions: `usage` → **Session totals**; `pipeline: list` → recipes only (no economy footer).
 
 Pipeline adds **per-step** baseline / spent / saved and **saved by executor** (`search` bills as `rg`).
 
 **Note:** MCP executor steps use cheap/free tiers. Agent chat wrapper (rules + your message + reply) still uses expensive LLM (Cursor tokens).
+
+## Baseline calibration
+
+Footer savings are **estimates**: `saved = baseline − spent`, where the baseline is what a naive agent chat would cost for the same task:
+
+```
+baseline = always-on rules (measured) + task prompt (measured) + agent overhead
+```
+
+Rules and the task prompt are token-counted (tiktoken). The **agent overhead** (system prompt + tool schemas + agent reply) is not observable from the CLI, so it is resolved in priority order:
+
+| Priority | Source | Footer label |
+|----------|--------|--------------|
+| 1 | `baseline:` section in `~/.greedy-token/config.yaml`, written by `greedy-token calibrate` | `measured` (calibrated via `--from-file`) or `calibrated` (via `--overhead N`) |
+| 2 | Built-in constant `BASE_CURSOR_OVERHEAD` (6,000 tokens) | `default-estimate` |
+
+```bash
+greedy-token calibrate                        # show the current baseline and its sources
+greedy-token calibrate --overhead 9500        # explicit overhead tokens → source: calibrated
+greedy-token calibrate --from-file dump.md    # token-count a captured agent-context dump → source: measured
+```
+
+```yaml
+# ~/.greedy-token/config.yaml (written by calibrate)
+baseline:
+  overhead_tokens: 9500
+  calibrated_at: "2026-07-22T16:00:00+00:00"
+  method: measured   # or manual
+```
+
+Every **Saved** figure in the footers (`route` / `estimate` / `search` / `rag` / `pipeline`) and in `report` carries the baseline-source label, so an estimate is never presented as a measurement.
 
 ## Usage telemetry
 
@@ -340,8 +407,40 @@ cheap_llm:
 
 | File | Purpose |
 |------|---------|
-| `src/greedy_token/config/routes.yaml` | Task routing patterns |
+| `src/greedy_token/config/routes.yaml` | Generic default routing patterns |
+| `$GREEDY_TOKEN_ROOT/.greedy-token.yaml` | Workspace routes overlay (`routes:` / `routes_file:` / `cursor_fallback:`) |
 | `src/greedy_token/config/pipelines.yaml` | Named pipeline recipes |
+
+## Adapting routes to your workspace
+
+The bundled `routes.yaml` is intentionally generic: `tool-rg-search` (ripgrep over `.`), `rag-lookup`, `cursor-wiring`, and the `cursor` fallback. Workspace-specific routes (crystallized scripts, jq lookups, RAG domains) live in `$GREEDY_TOKEN_ROOT/.greedy-token.yaml` and are merged over the defaults:
+
+```yaml
+# $GREEDY_TOKEN_ROOT/.greedy-token.yaml
+routes_file: team-routes.yaml   # optional; path relative to the workspace root (or absolute)
+routes:                         # optional inline routes; win over routes_file on the same id
+  - id: python-my-check
+    target: python
+    read_only: true
+    patterns: [my check]
+    command: python scripts/my-check.py
+cursor_fallback:
+  message: Custom fallback hint for full agent chats.
+```
+
+**Merge priority:** a workspace route with the same `id` replaces the bundled one; new ids are placed first, so they also win tier tie-breaks against the defaults. Outside a workspace (no `GREEDY_TOKEN_ROOT`, no markers) the bundled defaults are used as-is.
+
+Bootstrap options:
+
+```bash
+# copy/merge routes from a shared YAML into <root>/.greedy-token.yaml
+greedy-token init --routes-from examples/routes/zero-design-system.yaml
+
+# generate a tool-rg-search route with search_paths from detected top-level folders
+greedy-token init --routes-scaffold
+```
+
+A full working overlay (the author's monorepo: script tier, jq manifest, RAG domains, shadow routes) ships as `examples/routes/zero-design-system.yaml`.
 
 ## `--execute` safety
 

@@ -24,7 +24,14 @@ pytestmark = [
 
 
 def _ns(**kwargs) -> Namespace:
-    defaults = {"no_log": True, "provider": None, "list_presets": False, "preset": None}
+    defaults = {
+        "no_log": True,
+        "provider": None,
+        "list_presets": False,
+        "preset": None,
+        "routes_from": None,
+        "routes_scaffold": False,
+    }
     defaults.update(kwargs)
     return Namespace(**defaults)
 
@@ -450,6 +457,130 @@ def test_cmd_init_apply_writes_policy(
 def test_cmd_init_bad_profile(capsys) -> None:
     code = cli.cmd_init(_ns(profile="galaxy", apply=False, force=False, json=False))
     assert code == 2
+
+
+@allure.story("Init routes")
+@allure.title("cmd_init --routes-from merges routes into the workspace config")
+def test_cmd_init_routes_from(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    import yaml
+
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    monkeypatch.setenv("GREEDY_TOKEN_ROOT", str(ws))
+    src = tmp_path / "team-routes.yaml"
+    src.write_text(
+        "routes:\n"
+        "  - stray-string\n"
+        "  - id: team-jq\n    target: tool\n    tool: jq\n    patterns: [jq]\n"
+        "cursor_fallback:\n  message: team\n",
+        encoding="utf-8",
+    )
+
+    code = cli.cmd_init(
+        _ns(profile="solo", apply=False, force=False, json=False, routes_from=str(src))
+    )
+    out = capsys.readouterr().out
+    attach_text("stdout", out)
+    assert code == 0
+    assert "team-jq" in out
+    cfg = yaml.safe_load((ws / ".greedy-token.yaml").read_text(encoding="utf-8"))
+    assert [r["id"] for r in cfg["routes"]] == ["team-jq"]
+    assert cfg["cursor_fallback"]["message"] == "team"
+
+    with allure.step("Re-run is idempotent (merge by id, no duplicates) + --json payload"):
+        code = cli.cmd_init(
+            _ns(profile="solo", apply=False, force=False, json=True, routes_from=str(src))
+        )
+        payload = json.loads(capsys.readouterr().out)
+        assert code == 0
+        assert payload["routes"] == ["team-jq"]
+        cfg = yaml.safe_load((ws / ".greedy-token.yaml").read_text(encoding="utf-8"))
+        assert [r["id"] for r in cfg["routes"]] == ["team-jq"]
+
+
+@allure.story("Init routes")
+@allure.title("cmd_init --routes-from rejects missing file and files without routes")
+def test_cmd_init_routes_from_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    monkeypatch.setenv("GREEDY_TOKEN_ROOT", str(ws))
+
+    with allure.step("Missing file → exit 2"):
+        code = cli.cmd_init(
+            _ns(
+                profile="solo",
+                apply=False,
+                force=False,
+                json=False,
+                routes_from=str(tmp_path / "missing.yaml"),
+            )
+        )
+        assert code == 2
+        assert "not found" in capsys.readouterr().err
+
+    with allure.step("YAML without routes: section → exit 2"):
+        bad = tmp_path / "no-routes.yaml"
+        bad.write_text("- just\n- a-list\n", encoding="utf-8")
+        code = cli.cmd_init(
+            _ns(profile="solo", apply=False, force=False, json=False, routes_from=str(bad))
+        )
+        assert code == 2
+        assert "No routes" in capsys.readouterr().err
+
+
+@allure.story("Init routes")
+@allure.title("cmd_init --routes-scaffold writes tool-rg-search with detected folders")
+def test_cmd_init_routes_scaffold(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    import yaml
+
+    ws = tmp_path / "ws"
+    (ws / "backend").mkdir(parents=True)
+    (ws / "frontend").mkdir()
+    (ws / "node_modules").mkdir()
+    monkeypatch.setenv("GREEDY_TOKEN_ROOT", str(ws))
+
+    code = cli.cmd_init(
+        _ns(profile="solo", apply=False, force=False, json=False, routes_scaffold=True)
+    )
+    out = capsys.readouterr().out
+    attach_text("stdout", out)
+    assert code == 0
+    assert "tool-rg-search" in out
+    cfg = yaml.safe_load((ws / ".greedy-token.yaml").read_text(encoding="utf-8"))
+    route = cfg["routes"][0]
+    assert route["id"] == "tool-rg-search"
+    assert route["search_paths"] == ["backend", "frontend"]
+
+
+@allure.story("Init routes")
+@allure.title("cmd_init routes fall back to cwd when no workspace root is found")
+def test_cmd_init_routes_cwd_fallback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    import yaml
+
+    def no_root() -> Path:
+        raise SystemExit("Cannot find workspace root")
+
+    monkeypatch.setattr(cli, "find_workspace_root", no_root)
+    project = tmp_path / "plain-project"
+    (project / "lib").mkdir(parents=True)
+    monkeypatch.chdir(project)
+
+    code = cli.cmd_init(
+        _ns(profile="solo", apply=False, force=False, json=True, routes_scaffold=True)
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert code == 0
+    assert payload["root"] == str(project)
+    cfg = yaml.safe_load((project / ".greedy-token.yaml").read_text(encoding="utf-8"))
+    assert cfg["routes"][0]["search_paths"] == ["lib"]
 
 
 @allure.story("Init")

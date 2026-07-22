@@ -69,9 +69,25 @@ def workspace_root(monkeypatch: pytest.MonkeyPatch) -> Path:
     return root
 
 
+# Workspace routes overlay (the author's monorepo routes) — merged over the
+# bundled generic routes.yaml via .greedy-token.yaml, same as the real workspace.
+WORKSPACE_ROUTES_EXAMPLE = (
+    Path(__file__).resolve().parents[1]
+    / "examples"
+    / "routes"
+    / "zero-design-system.yaml"
+)
+
+
 @allure.title("Minimal workspace")
 @pytest.fixture
 def minimal_workspace(tmp_path: Path) -> Path:
+    (tmp_path / "workspace-routes.yaml").write_text(
+        WORKSPACE_ROUTES_EXAMPLE.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    (tmp_path / ".greedy-token.yaml").write_text(
+        "routes_file: workspace-routes.yaml\n", encoding="utf-8"
+    )
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "phase-manifest.json").write_text("{}", encoding="utf-8")
     (tmp_path / "scripts").mkdir()

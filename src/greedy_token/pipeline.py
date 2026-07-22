@@ -11,6 +11,7 @@ from pathlib import Path
 
 import yaml
 
+from greedy_token.baseline import baseline_source
 from greedy_token.budget import (
     BASELINE_LABEL,
     TOTAL_BASELINE_LABEL,
@@ -145,11 +146,17 @@ def compute_step_savings(result: PipelineResult, root: Path) -> list[StepSavings
     return rows
 
 
-def format_pipeline_step_savings_table(rows: list[StepSavingsRow]) -> list[str]:
+def format_pipeline_step_savings_table(
+    rows: list[StepSavingsRow],
+    *,
+    source: str | None = None,
+) -> list[str]:
     if not rows:
         return []
+    if source is None:
+        source = baseline_source()
     lines = [
-        "Per-step savings (if each step were a separate naive Cursor chat):",
+        f"Per-step savings (if each step were a separate naive Cursor chat; baseline: {source}):",
         f"  {'#':>2}  {'step':<22} {'executor':<8} {'ms':>6} {'spent':>7} {'baseline':>9} {'saved':>9}  billing",
     ]
     for row in rows:
@@ -161,14 +168,20 @@ def format_pipeline_step_savings_table(rows: list[StepSavingsRow]) -> list[str]:
     return lines
 
 
-def format_executor_savings_summary(rows: list[StepSavingsRow]) -> list[str]:
+def format_executor_savings_summary(
+    rows: list[StepSavingsRow],
+    *,
+    source: str | None = None,
+) -> list[str]:
     if not rows:
         return []
+    if source is None:
+        source = baseline_source()
     by_tier: dict[str, tuple[int, int, int]] = {}
     for row in rows:
         spent, saved, count = by_tier.get(row.tier, (0, 0, 0))
         by_tier[row.tier] = (spent + row.spent, saved + row.saved, count + 1)
-    lines = ["Saved by executor (sum of per-step savings):"]
+    lines = [f"Saved by executor (sum of per-step savings; baseline: {source}):"]
     for tier in ("tool", "python", "ollama", "rag", "cursor"):
         if tier not in by_tier:
             continue
@@ -796,6 +809,7 @@ def format_pipeline_response(
 def format_pipeline_footer(result: PipelineResult, root: Path) -> str:
     breakdown = cursor_baseline_breakdown(root, result.task)
     baseline = breakdown.total
+    source = breakdown.source
     total_spent = result.total_est_tokens
     saved = max(0, baseline - total_spent)
     llm = get_cheap_llm_settings(root)
@@ -807,9 +821,9 @@ def format_pipeline_footer(result: PipelineResult, root: Path) -> str:
         "Greedy token — pipeline",
         "",
     ]
-    lines.extend(format_pipeline_step_savings_table(step_rows))
+    lines.extend(format_pipeline_step_savings_table(step_rows, source=source))
     lines.append("")
-    lines.extend(format_executor_savings_summary(step_rows))
+    lines.extend(format_executor_savings_summary(step_rows, source=source))
 
     lines.extend(["", "Run log:"])
     lines.append(
@@ -852,9 +866,9 @@ def format_pipeline_footer(result: PipelineResult, root: Path) -> str:
             f"Pipeline total: {result.total_duration_ms / 1000:.1f} s · ~{total_spent:,} LLM tokens spent",
             "",
             "Combined naive Cursor chat (whole pipeline as one agent task)",
-            f"  Always-on rules: ~{breakdown.rules:,}",
-            f"  Task prompt:     ~{breakdown.task:,}",
-            f"  Agent overhead:  ~{breakdown.overhead:,}",
+            f"  Always-on rules: ~{breakdown.rules:,}  (measured)",
+            f"  Task prompt:     ~{breakdown.task:,}  (measured)",
+            f"  Agent overhead:  ~{breakdown.overhead:,}  ({source})",
             f"  {TOTAL_BASELINE_LABEL}  ~{baseline:,}",
             "",
         ]
@@ -864,10 +878,10 @@ def format_pipeline_footer(result: PipelineResult, root: Path) -> str:
         # Pure dry-run: do not claim baseline−0 as "saved".
         lines.extend(
             [
-                "Saved vs naive Cursor chat",
-                f"  {BASELINE_LABEL}  ~{baseline:,}",
+                f"Saved vs naive Cursor chat (baseline: {source})",
+                f"  {BASELINE_LABEL}  ~{baseline:,}  ({source})",
                 f"  Spent (MCP executor, LLM tokens): ~{total_spent:,}  (dry-run — steps not executed)",
-                "  Saved:             ~0  (dry-run; re-run with execute=true / --execute)",
+                f"  Saved:             ~0  (dry-run; re-run with execute=true / --execute; baseline: {source})",
             ]
         )
     else:
@@ -877,6 +891,7 @@ def format_pipeline_footer(result: PipelineResult, root: Path) -> str:
                 spent=total_spent,
                 saved=saved,
                 spent_note="sum of pipeline steps",
+                source=source,
             )
         )
     lines.extend(

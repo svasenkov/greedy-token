@@ -4,6 +4,7 @@ import argparse
 import json
 import sys
 import time
+from pathlib import Path
 
 from greedy_token.context_audit import audit_context, render_audit
 from greedy_token.estimator import estimate_task, format_estimate
@@ -129,6 +130,107 @@ def cmd_run(args: argparse.Namespace) -> int:
 def cmd_audit_context(_: argparse.Namespace) -> int:
     items = audit_context()
     print(render_audit(items))
+    return 0
+
+
+def cmd_calibrate(args: argparse.Namespace) -> int:
+    """Calibrate the naive agent-chat baseline (agent overhead) for this workspace."""
+    from greedy_token.baseline import (
+        METHOD_MANUAL,
+        METHOD_MEASURED,
+        get_baseline_settings,
+        write_baseline_config,
+    )
+
+    root = find_workspace_root()
+    rules_tokens = sum(i.estimate.tokens for i in audit_context(root) if i.always_on)
+    current = get_baseline_settings()
+
+    if args.overhead is not None and args.from_file:
+        print("calibrate: use either --overhead N or --from-file PATH, not both", file=sys.stderr)
+        return 2
+
+    overhead: int | None = None
+    method = ""
+    if args.overhead is not None:
+        if args.overhead <= 0:
+            print("calibrate: --overhead must be a positive token count", file=sys.stderr)
+            return 2
+        overhead = args.overhead
+        method = METHOD_MANUAL
+    elif args.from_file:
+        dump = Path(args.from_file).expanduser()
+        if not dump.is_file():
+            print(f"calibrate: file not found: {dump}", file=sys.stderr)
+            return 2
+        from greedy_token.tokens import count_tokens
+
+        overhead = count_tokens(dump.read_text(encoding="utf-8", errors="replace")).tokens
+        if overhead <= 0:
+            print(f"calibrate: {dump} is empty — nothing to measure", file=sys.stderr)
+            return 2
+        method = METHOD_MEASURED
+
+    if overhead is None:
+        # Status view: show the current baseline and how to calibrate it.
+        if args.json:
+            print(
+                json.dumps(
+                    {
+                        "rules_tokens": rules_tokens,
+                        "overhead_tokens": current.overhead_tokens,
+                        "source": current.source,
+                        "calibrated_at": current.calibrated_at or None,
+                    },
+                    indent=2,
+                    ensure_ascii=False,
+                )
+            )
+            return 0
+        print(
+            "\n".join(
+                [
+                    "greedy-token calibrate — naive agent-chat baseline",
+                    f"  Always-on rules:  ~{rules_tokens:,} tokens  (measured)",
+                    f"  Agent overhead:   ~{current.overhead_tokens:,} tokens  ({current.source})",
+                    "  Baseline per task = rules + task prompt + agent overhead",
+                    "",
+                    "Footer savings are estimates vs this baseline. Calibrate the overhead:",
+                    "  greedy-token calibrate --overhead N         # explicit tokens -> source: calibrated",
+                    "  greedy-token calibrate --from-file DUMP.md  # count a captured agent-context dump -> source: measured",
+                ]
+            )
+        )
+        return 0
+
+    path = write_baseline_config(overhead, method=method)
+    updated = get_baseline_settings()
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "config": str(path),
+                    "rules_tokens": rules_tokens,
+                    "overhead_tokens": updated.overhead_tokens,
+                    "source": updated.source,
+                    "method": updated.method,
+                    "calibrated_at": updated.calibrated_at,
+                },
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return 0
+    print(
+        "\n".join(
+            [
+                f"Calibrated agent overhead: ~{updated.overhead_tokens:,} tokens ({updated.source})",
+                f"  Always-on rules:  ~{rules_tokens:,} tokens  (measured)",
+                f"  Wrote baseline to {path}  (calibrated_at {updated.calibrated_at})",
+                f"Footers now mark savings with baseline source: {updated.source}.",
+            ]
+        )
+    )
     return 0
 
 
@@ -527,7 +629,63 @@ def detect_environment() -> dict:
     }
 
 
+def _init_routes_root() -> Path:
+    """Workspace root for init route writes — cwd when no workspace is detected."""
+    try:
+        return find_workspace_root()
+    except SystemExit:
+        return Path.cwd()
+
+
+def cmd_init_routes(args: argparse.Namespace, root: Path) -> int:
+    """Handle init --routes-from FILE / --routes-scaffold."""
+    import yaml
+
+    from greedy_token.paths import (
+        WORKSPACE_CONFIG_NAME,
+        scaffold_routes_overlay,
+        upsert_workspace_routes,
+    )
+
+    written: list[str] = []
+    if args.routes_from:
+        src = Path(args.routes_from).expanduser()
+        if not src.is_file():
+            print(f"Routes file not found: {src}", file=sys.stderr)
+            return 2
+        data = yaml.safe_load(src.read_text(encoding="utf-8"))
+        routes = data.get("routes") if isinstance(data, dict) else None
+        if not routes:
+            print(f"No routes: section in {src}", file=sys.stderr)
+            return 2
+        upsert_workspace_routes(root, data)
+        written.extend(str(r["id"]) for r in routes if isinstance(r, dict) and r.get("id"))
+    if args.routes_scaffold:
+        overlay = scaffold_routes_overlay(root)
+        upsert_workspace_routes(root, overlay)
+        written.extend(str(r["id"]) for r in overlay["routes"])
+
+    config_path = root / WORKSPACE_CONFIG_NAME
+    if args.json:
+        print(
+            json.dumps(
+                {"root": str(root), "config": str(config_path), "routes": written},
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return 0
+    lines = [f"Merged {len(written)} route(s) into {config_path}:"]
+    lines.extend(f"  - {rid}" for rid in written)
+    lines.append('Verify: greedy-token route "<task>"')
+    print("\n".join(lines))
+    return 0
+
+
 def cmd_init(args: argparse.Namespace) -> int:
+    if args.routes_from or args.routes_scaffold:
+        return cmd_init_routes(args, _init_routes_root())
+
     profile = (getattr(args, "profile", None) or "solo").lower()
     if profile not in INIT_PROFILE_POLICY:
         print("--profile must be one of: solo | team | ci", file=sys.stderr)
@@ -699,6 +857,25 @@ def build_parser() -> argparse.ArgumentParser:
         func=cmd_audit_context
     )
 
+    cal = sub.add_parser(
+        "calibrate",
+        help="Calibrate the naive agent-chat baseline (writes baseline: to ~/.greedy-token/config.yaml)",
+    )
+    cal.add_argument(
+        "--overhead",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Agent overhead tokens (system prompt + tool schemas + reply) — explicit input",
+    )
+    cal.add_argument(
+        "--from-file",
+        metavar="PATH",
+        help="Measure the overhead by counting tokens of a captured agent-context dump",
+    )
+    cal.add_argument("--json", action="store_true", help="JSON output")
+    cal.set_defaults(func=cmd_calibrate)
+
     t = sub.add_parser("tokens", help="Count tokens in paths")
     t.add_argument("paths", nargs="+", help="Files or directories")
     t.set_defaults(func=cmd_tokens)
@@ -855,6 +1032,16 @@ def build_parser() -> argparse.ArgumentParser:
     ini.add_argument("--apply", action="store_true", help="Write ~/.greedy-token/config.yaml with the profile policy")
     ini.add_argument("--force", action="store_true", help="Overwrite existing config on --apply")
     ini.add_argument("--json", action="store_true", help="JSON detection output (detect-only)")
+    ini.add_argument(
+        "--routes-from",
+        metavar="FILE",
+        help="Merge routes from a YAML file into <root>/.greedy-token.yaml (workspace overlay)",
+    )
+    ini.add_argument(
+        "--routes-scaffold",
+        action="store_true",
+        help="Generate a tool-rg-search route with search_paths from detected top-level folders",
+    )
     ini.set_defaults(func=cmd_init)
 
     bud = sub.add_parser("budget", help="Split budget view: metered API + Cursor estimate")

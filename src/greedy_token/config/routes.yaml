@@ -1,7 +1,13 @@
-# Task routing — aligned with docs/migration-prompts.md § Greedy token rules
+# Task routing — generic defaults, portable across workspaces.
 #
 # Tier order (tool-first): tool → python → ollama → rag → cursor
 # First matching tier wins (best score within tier).
+#
+# Workspace-specific routes live in $GREEDY_TOKEN_ROOT/.greedy-token.yaml
+# (inline `routes:` or a `routes_file:` pointer) and are merged over these
+# defaults: same id replaces the bundled route, new ids win tier tie-breaks.
+# Example overlay: examples/routes/zero-design-system.yaml.
+# Bootstrap: greedy-token init --routes-from FILE | --routes-scaffold.
 
 routes:
   - id: tool-rg-search
@@ -29,179 +35,15 @@ routes:
       - "!.venv/**"
       - "!.cursor/hooks/**"
     search_paths:
-      - projects
-      - docs
-      - stacks
-      - scripts
-      - generators
+      - "."
 
-  - id: tool-jq-manifest
-    target: tool
-    tool: jq
-    read_only: true
-    patterns:
-      - jq
-      - json field
-      - parse json
-      - phase-manifest json
-    json_path: docs/phase-manifest.json
-    jq_filter: .
-    note: "Structured JSON lookup — jq, 0 LLM"
-
-  - id: python-rsync
-    target: python
-    read_only: false
-    patterns:
-      - rsync
-      - migrate
-      - phase1-rsync
-      - mechanical copy
-      - bulk copy
-    command: ./scripts/migrate/phase1-rsync.sh
-    note: "0 tokens — shell rsync"
-
-  - id: python-meta-sync-check
-    target: python
-    read_only: true
-    patterns:
-      - check-meta-sync
-      - meta sync
-      - phase-manifest
-      - phase manifest drift
-      - skills-map sync
-    command: python scripts/meta-sync-check.py
-    note: "meta_sync_clean gate — crystallized script tier, 0 LLM"
-
-  - id: python-gen-env
-    target: python
-    read_only: false
-    patterns:
-      - gen-env-configs
-      - env config generate
-      - properties sync script
-    command: python stacks/java-spring/scripts/gen-env-configs.py
-    note: "Deterministic config generation"
-
-  - id: python-openapi-diff
-    target: python
-    read_only: true
-    patterns:
-      - openapi diff
-      - contract drift
-      - stacks/_contract
-    command: python scripts/openapi-diff.py
-    note: "contract_lint gate — crystallized script tier, 0 LLM"
-
-  - id: python-java-matrix-plan
-    target: python
-    read_only: true
-    patterns:
-      - java matrix fanout
-      - java matrix plan
-      - selenium variant plan
-    command: python scripts/java-matrix-plan.py
-    note: "java-matrix-fanout plan — crystallized script tier, 0 LLM"
-
-  - id: python-sonar-gate-wait
-    target: python
-    read_only: true
-    patterns:
-      - sonar gate
-      - quality gate wait
-      - sonar.qa.guru
-    command: python scripts/sonar-gate-wait.py
-    note: "sonar_quality_gate — crystallized script tier, 0 LLM"
-
-  - id: python-crystallize-report
-    target: python
-    read_only: true
-    patterns:
-      - crystallize report
-      - crystallize candidates
-      - coverage report script
-    command: python scripts/crystallize-report.py
-    note: "script-crystallize candidates from usage.jsonl, 0 LLM"
-
-  - id: python-configurator-boolean-audit
-    target: python
-    read_only: true
-    patterns:
-      - meta-audit configurator-boolean
-      - configurator boolean audit
-      - plaque-field-seg drift
-    command: python scripts/configurator-boolean-audit.py
-    note: "configurator-boolean canon drift gate — crystallized script tier, 0 LLM"
-
-  - id: python-ssh-check
-    target: python
-    read_only: true
-    patterns:
-      - ssh check
-      - ssh smoke
-      - ssh access canon
-      - qaguru ssh
-      - infra ssh probe
-    command: python scripts/infra-ssh/check.py
-    note: "infra SSH smoke — crystallized script tier, 0 LLM"
-
-  - id: python-ollama-health
-    target: python
-    read_only: true
-    patterns:
-      - ollama doctor
-      - ollama health
-      - local model setup
-      - ollama preset
-    command: python scripts/ollama-health.py
-    note: "Ollama health / presets — crystallized script tier"
-
-  - id: python-greedy-context-smoke
-    target: python
-    read_only: true
-    patterns:
-      - context smoke
-      - greedy context smoke
-      - cheap tier smoke
-      - context quality matrix
-    command: python scripts/greedy-context-smoke.py
-    note: "Cheap-tier context smoke matrix — crystallized script tier, 0 LLM"
-
-  - id: python-rag-eval
-    target: python
-    read_only: true
-    patterns:
-      - rag eval
-      - rag golden
-      - rag retrieval recall
-      - rag hit rate
-    command: python scripts/rag-eval.py
-    note: "RAG retrieval golden eval — recall@k/MRR by chunk id, 0 LLM"
-
-  - id: ollama-inventory
-    target: ollama
-    read_only: false
-    patterns:
-      - batch inventory
-      - classify files
-      - file inventory
-      - migration inventory
-      - apply-inventory
-    command: ./scripts/ollama/batch-inventory.sh
-    note: "Bulk classify via cheap LLM"
-
-  - id: ollama-audit-skill
-    target: ollama
-    read_only: true
-    patterns:
-      - audit skill
-      - skill audit
-      - review skill md
-    command: ./scripts/ollama/audit-skill.sh
-    note: "Skill quality audit — Ollama stdout-only, not Cursor"
-
-  - id: rag-ru-lookup
+  - id: rag-lookup
     target: rag
     patterns:
+      - what is
+      - how does
+      - what does
+      - difference between
       - что такое
       - объясни
       - расскажи
@@ -209,130 +51,8 @@ routes:
       - для чего
       - что значит
       - в чём разница
-    domains: [config, testing, stacks, analytics]
-    note: "RU Q&A — docs/rag lookup before full Agent context"
-
-  - id: rag-config-keys
-    target: rag
-    patterns:
-      - test config
-      - -d flag
-      - testconfig
-      - env profile
-      - baseurl
-      - base url
-      - healthcheck
-      - property override
-    domains: [config]
-    note: "Lookup docs/rag/config/ — TestConfig keys, env profiles, overrides"
-
-  - id: rag-testing-patterns
-    target: rag
-    patterns:
-      - page object
-      - po locator
-      - test pyramid
-      - test layer
-      - allure attach
-      - ci workflow
-      - allurerc
-    domains: [testing, testing-header]
-    note: "Testing patterns — read chunk, don't re-derive in chat"
-
-  - id: rag-analytics
-    target: rag
-    patterns:
-      - quality gate
-      - allure dashboard
-      - analytics grid
-      - sparkline
-      - allure agent
-      - metrics catalog
-      - chart matrix
-      - allure shell
-      - analytics index
-    domains: [analytics]
-    note: "Lookup docs/rag/analytics/ — Allure dashboard, quality gate, grid"
-
-  - id: rag-stacks
-    target: rag
-    patterns:
-      - stack template
-      - openapi contract
-      - pyramid-map
-      - flows/login
-    domains: [stacks]
-    note: "stacks/_contract + docs/rag/stacks/"
-
-  - id: python-resolve-testops-project
-    target: python
-    read_only: true
-    patterns:
-      - resolve testops project
-      - resolve_testops_project
-      - testops project context
-    command: python scripts/resolve_testops_project.py
-    note: "TMS automator — resolve TestOps project/workflow (consumer repo script)"
-
-  - id: python-sync-testops-layer
-    target: python
-    read_only: true
-    patterns:
-      - sync testops layer
-      - sync_testops_layer_mappings
-      - testops layer mapping
-    command: python scripts/sync_testops_layer_mappings.py
-    note: "TMS automator — sync Test Layer mappings (consumer repo script)"
-
-  - id: python-sync-testops-component
-    target: python
-    read_only: true
-    patterns:
-      - sync testops component
-      - sync_testops_component_mappings
-      - testops component mapping
-    command: python scripts/sync_testops_component_mappings.py
-    note: "TMS automator — sync Component mappings (consumer repo script)"
-
-  - id: python-auth-storage-probe
-    target: python
-    read_only: true
-    patterns:
-      - auth storage probe
-      - auth_storage_probe
-      - tms auth probe
-      - testops auth storage
-    command: python scripts/auth_storage_probe.py
-    note: "TMS automator — crystallized auth/session probe (script tier)"
-
-  # shadow until 2026-07-22 — enabled false; promote after golden green
-  - id: python-provider-balance
-    target: python
-    read_only: true
-    enabled: false
-    shadow_until: "2026-07-22T00:00:00Z"
-    patterns:
-      - provider balance
-      - balance analyzer
-      - infra burn
-    command: python scripts/infra/provider_balance.py
-    note: "Provider balance analyzer — shadow crystallize, 0 LLM when promoted"
-
-  # shadow until 2026-07-29 — enabled false; promote after golden green + ≥3 hits
-  - id: python-access-diag
-    target: python
-    read_only: true
-    enabled: false
-    shadow_until: "2026-07-29T00:00:00Z"
-    patterns:
-      - access diag
-      - access-diag probe
-      - service account access
-      - jenkins access check
-      - selenoid access probe
-      - testops access probe
-    command: python scripts/access_diag.py
-    note: "Access-diag dispatcher — read-only probes, canon schema; shadow crystallize"
+    domains: []
+    note: "Docs/RAG lookup before full agent context"
 
   - id: cursor-wiring
     target: cursor
@@ -351,6 +71,6 @@ routes:
 
 cursor_fallback:
   message: |
-    Нет точного match — скорее всего Cursor/Claude.
-    Проверь: один чат = одна зона (agent-scope.mdc).
-    Перед чатом: greedy-token audit-context && greedy-token rag "<topic>".
+    No exact route match — most likely a full agent (Cursor) task.
+    Keep the chat scoped: one chat = one zone.
+    Before the chat: greedy-token audit-context && greedy-token rag "<topic>".

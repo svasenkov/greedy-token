@@ -545,10 +545,17 @@ class ReportSummary:
     quality: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
+        from greedy_token.baseline import get_baseline_settings
+
+        baseline_settings = get_baseline_settings()
         return {
             "events": self.events,
             "skipped_lines": self.skipped_lines,
             "since": self.since,
+            "baseline": {
+                "overhead_tokens": baseline_settings.overhead_tokens,
+                "source": baseline_settings.source,
+            },
             "by_tier": {
                 tier: {
                     "count": stats.count,
@@ -699,6 +706,18 @@ def format_report(summary: ReportSummary) -> str:
             f"  {tier:<10} {stats.count:>6} {stats.est_tokens:>12,} "
             f"{stats.saved_vs_cursor:>16,}{note}"
         )
+
+    from greedy_token.baseline import SOURCE_DEFAULT, get_baseline_settings
+
+    baseline_settings = get_baseline_settings()
+    baseline_line = (
+        f"Baseline source: {baseline_settings.source} "
+        f"(agent overhead ~{baseline_settings.overhead_tokens:,} tokens) — "
+        "saved_vs_cursor is an estimate vs this baseline"
+    )
+    if baseline_settings.source == SOURCE_DEFAULT:
+        baseline_line += "; run greedy-token calibrate"
+    lines.extend(["", baseline_line])
 
     if summary.top_routes:
         lines.extend(["", "Top routes:"])

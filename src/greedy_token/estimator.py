@@ -3,9 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from greedy_token.baseline import baseline_source, cursor_overhead
 from greedy_token.context_audit import audit_context
 from greedy_token.router import (
-    BASE_CURSOR_OVERHEAD,
     COMPLEXITY_BY_TARGET,
     RouteDecision,
     route_task,
@@ -30,7 +30,7 @@ def cursor_baseline(root: Path, task: str) -> int:
     items = audit_context(root)
     rules = sum(i.estimate.tokens for i in items if i.always_on)
     task_tokens = count_tokens(task).tokens
-    return rules + task_tokens + BASE_CURSOR_OVERHEAD
+    return rules + task_tokens + cursor_overhead()
 
 
 def cursor_saved_for(root: Path, task: str, est_tokens: int, target: str) -> int:
@@ -86,12 +86,13 @@ def format_estimate(estimate: TaskEstimate, task: str, root: Path) -> str:
         spent_line += "  (docs/rag chunks read into context)"
     elif target == "cursor":
         spent_line += "  (expensive LLM — full agent path)"
+    source = baseline_source()
     lines.extend(
         [
             "",
-            f"Baseline (naive agent chat):  ~{baseline:,}",
+            f"Baseline (naive agent chat):  ~{baseline:,}  ({source})",
             spent_line,
-            f"Saved:             ~{estimate.cursor_saved:,}  (= baseline − spent)",
+            f"Saved:             ~{estimate.cursor_saved:,}  (= baseline − spent; baseline: {source})",
         ]
     )
     if estimate.ollama_note:

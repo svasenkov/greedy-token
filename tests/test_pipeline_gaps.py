@@ -465,7 +465,9 @@ def _patch_footer_helpers(monkeypatch: pytest.MonkeyPatch, savings) -> dict:
     cap: dict = {}
     monkeypatch.setattr(
         pl, "cursor_baseline_breakdown",
-        lambda r, t: SimpleNamespace(total=1000, rules=100, task=200, overhead=300),
+        lambda r, t: SimpleNamespace(
+            total=1000, rules=100, task=200, overhead=300, source="default-estimate"
+        ),
     )
     monkeypatch.setattr(
         pl, "get_cheap_llm_settings",
@@ -511,9 +513,9 @@ def test_footer_exact_mixed(minimal_workspace: Path, monkeypatch: pytest.MonkeyP
         "Pipeline total: 0.0 s · ~30 LLM tokens spent",
         "",
         "Combined naive Cursor chat (whole pipeline as one agent task)",
-        "  Always-on rules: ~100",
-        "  Task prompt:     ~200",
-        "  Agent overhead:  ~300",
+        "  Always-on rules: ~100  (measured)",
+        "  Task prompt:     ~200  (measured)",
+        "  Agent overhead:  ~300  (default-estimate)",
         "  Total (naive agent chat):  ~1,000",
         "",
         "SAV_A",
@@ -526,8 +528,14 @@ def test_footer_exact_mixed(minimal_workspace: Path, monkeypatch: pytest.MonkeyP
     ]
     with allure.step("exact footer body, line by line"):
         assert footer.split("\n") == expected
-    with allure.step("format_savings_lines gets clamped saved=970 and the pipeline spent_note"):
-        assert cap == {"baseline": 1000, "spent": 30, "saved": 970, "spent_note": "sum of pipeline steps"}
+    with allure.step("format_savings_lines gets clamped saved=970, the pipeline spent_note, and baseline source"):
+        assert cap == {
+            "baseline": 1000,
+            "spent": 30,
+            "saved": 970,
+            "spent_note": "sum of pipeline steps",
+            "source": "default-estimate",
+        }
 
 
 @allure.title("format_pipeline_footer: ollama executor names GREEDY_LLM_MODEL_ID when set")
@@ -582,15 +590,15 @@ def test_footer_exact_pure_dry(minimal_workspace: Path, monkeypatch: pytest.Monk
         "Pipeline total: 0.0 s · ~0 LLM tokens spent",
         "",
         "Combined naive Cursor chat (whole pipeline as one agent task)",
-        "  Always-on rules: ~100",
-        "  Task prompt:     ~200",
-        "  Agent overhead:  ~300",
+        "  Always-on rules: ~100  (measured)",
+        "  Task prompt:     ~200  (measured)",
+        "  Agent overhead:  ~300  (default-estimate)",
         "  Total (naive agent chat):  ~1,000",
         "",
-        "Saved vs naive Cursor chat",
-        "  Baseline (naive agent chat):  ~1,000",
+        "Saved vs naive Cursor chat (baseline: default-estimate)",
+        "  Baseline (naive agent chat):  ~1,000  (default-estimate)",
         "  Spent (MCP executor, LLM tokens): ~0  (dry-run — steps not executed)",
-        "  Saved:             ~0  (dry-run; re-run with execute=true / --execute)",
+        "  Saved:             ~0  (dry-run; re-run with execute=true / --execute; baseline: default-estimate)",
         "",
         "Note: Per-step baseline assumes a separate agent chat per step (rules+overhead each time).",
         "Pipeline total baseline = one agent chat for the full pipeline task.",

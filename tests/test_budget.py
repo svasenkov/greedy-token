@@ -31,10 +31,10 @@ def test_format_savings_lines() -> None:
         attach_text("footer lines", "\n".join(lines))
     with allure.step("Verify canonical Greedy token block"):
         assert lines == [
-            "Saved vs naive Cursor chat",
-            "  Baseline (naive agent chat):  ~11,607",
+            "Saved vs naive Cursor chat (baseline: default-estimate)",
+            "  Baseline (naive agent chat):  ~11,607  (default-estimate)",
             "  Spent (MCP executor, LLM tokens): ~0  (ripgrep on disk — 0 LLM spend)",
-            "  Saved:             ~11,607  (= baseline − spent)",
+            "  Saved:             ~11,607  (= baseline − spent; baseline: default-estimate)",
         ]
 
 
@@ -68,7 +68,7 @@ def test_format_tool_footer_detailed_breakdown(minimal_workspace: Path) -> None:
         assert "Spent (MCP executor, LLM tokens):" in footer
         assert "ripgrep on disk — 0 LLM spend" in footer
         assert "Saved:" in footer
-        assert "(= baseline − spent)" in footer
+        assert "(= baseline − spent; baseline: default-estimate)" in footer
         baseline = cursor_baseline(minimal_workspace, task)
         assert f"~{baseline:,}" in footer
 
@@ -240,7 +240,7 @@ def test_format_tool_footer_markdown(minimal_workspace: Path) -> None:
     attach_text("markdown footer", footer)
     assert "### Greedy token" in footer
     assert "| spent |" in footer
-    assert "| **saved** |" in footer
+    assert "| **saved** (baseline: default-estimate) |" in footer
 
 
 @allure.story("Footer style")

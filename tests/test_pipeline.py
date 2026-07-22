@@ -494,7 +494,10 @@ def _row(**kw) -> StepSavingsRow:
 def test_format_savings_table_exact() -> None:
     assert format_pipeline_step_savings_table([]) == []
     lines = format_pipeline_step_savings_table([_row(index=1, duration_ms=83, spent=0, baseline=9487, saved=9487)])
-    assert lines[0] == "Per-step savings (if each step were a separate naive Cursor chat):"
+    assert lines[0] == (
+        "Per-step savings (if each step were a separate naive Cursor chat; "
+        "baseline: default-estimate):"
+    )
     # Exact header line pins column labels (kills case/text mutations).
     assert lines[1] == (
         f"  {'#':>2}  {'step':<22} {'executor':<8} {'ms':>6} "
@@ -525,7 +528,7 @@ def test_format_executor_summary_math() -> None:
     ]
     lines = format_executor_savings_summary(rows)
     # Iterates tiers in fixed order: tool before python.
-    assert lines[0] == "Saved by executor (sum of per-step savings):"
+    assert lines[0] == "Saved by executor (sum of per-step savings; baseline: default-estimate):"
     assert lines[1] == f"  {'rg (disk search)':<28} steps=1  spent ~1  saved ~9"
     # python: spent 100+5=105, saved 200+6=206, count=2 — kills tuple arithmetic mutants.
     assert lines[2] == f"  {'python (script)':<28} steps=2  spent ~105  saved ~206"
@@ -726,7 +729,9 @@ def test_format_pipeline_footer_exact(minimal_workspace: Path, monkeypatch: pyte
 
     def fake_breakdown(root, task):
         seen["breakdown"] = (root, task)
-        return SimpleNamespace(total=1000, rules=100, task=200, overhead=300)
+        return SimpleNamespace(
+            total=1000, rules=100, task=200, overhead=300, source="default-estimate"
+        )
 
     def fake_llm(root):
         seen["llm"] = root
@@ -773,7 +778,7 @@ def test_format_pipeline_footer_spent_by_executor(minimal_workspace: Path, monke
         _sr("s-cur", "cursor", label="e", est_tokens=50, executed=True),
     ]
     result = PipelineResult(task="t", steps=steps)
-    monkeypatch.setattr(P, "cursor_baseline_breakdown", lambda root, task: SimpleNamespace(total=9999, rules=1, task=2, overhead=3))
+    monkeypatch.setattr(P, "cursor_baseline_breakdown", lambda root, task: SimpleNamespace(total=9999, rules=1, task=2, overhead=3, source="default-estimate"))
     monkeypatch.setattr(P, "get_cheap_llm_settings", lambda root: SimpleNamespace(provider="prov", model="mod", url="http://x"))
     monkeypatch.setattr(P, "compute_step_savings", lambda res, root: [])
 
