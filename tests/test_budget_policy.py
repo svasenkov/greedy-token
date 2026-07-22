@@ -49,6 +49,59 @@ def test_metered_spent_today(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     assert metered_spent_today(log) == 0.5
 
 
+def test_mixed_log_stored_and_derived_tiers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ADR-0001: usage.jsonl mixing stored billing.tier events (written before the
+    derive_tier migration) with new derived-tier events must aggregate correctly
+    in the budget report and in spend_guard._load_today_spend."""
+    from greedy_token import spend_guard
+    from greedy_token.budget_ledger import build_billing_event_fields
+
+    log = tmp_path / "usage.jsonl"
+    monkeypatch.setenv("GREEDY_TOKEN_LOG", str(log))
+    day = datetime.now(UTC).strftime("%Y-%m-%d")
+
+    # Old events, read as stored: v1 legacy field and v2 stored billing block.
+    old_v1 = {"ts": f"{day}T01:00:00Z", "billing_tier": "expensive", "cost_usd": 0.5}
+    old_v2 = {
+        "ts": f"{day}T02:00:00Z",
+        "billing_tier": "expensive",
+        "cost_usd": 0.25,
+        "billing": {"tier": "metered", "cost_usd": 0.25},
+    }
+    # New events write the *derived* tier into the same schema fields.
+    derived_exp = {
+        "ts": f"{day}T03:00:00Z",
+        "billing_tier": "expensive",
+        "cost_usd": 0.75,
+        **build_billing_event_fields(billing_tier="expensive", cost_usd=0.75, model_id="pricey"),
+    }
+    assert derived_exp["billing"] == {"tier": "metered", "cost_usd": 0.75, "model_id": "pricey"}
+    # Sub-threshold metered model derives cheap: logged cost stays, but it is
+    # accounted under the cheap tier, not the metered ledger.
+    derived_cheap = {
+        "ts": f"{day}T04:00:00Z",
+        "billing_tier": "cheap",
+        "cost_usd": 0.01,
+        **build_billing_event_fields(billing_tier="cheap", cost_usd=0.01, model_id="groq"),
+    }
+    cursor_event = {"ts": f"{day}T05:00:00Z", "selected_tier": "cursor", "cursor_baseline": 1_000_000}
+
+    log.write_text(
+        "\n".join(json.dumps(e) for e in (old_v1, old_v2, derived_exp, derived_cheap, cursor_event)) + "\n",
+        encoding="utf-8",
+    )
+
+    snap = aggregate_budget(path=log)
+    assert snap.metered_spent_usd == pytest.approx(1.5)  # 0.5 + 0.25 + 0.75, cheap excluded
+    settings = get_budget_settings()
+    assert snap.cursor_est_spent_usd == pytest.approx(settings.cursor_usd_per_1m_tokens, abs=0.01)
+
+    assert metered_spent_today(log) == pytest.approx(1.5)
+    assert spend_guard._load_today_spend() == pytest.approx(1.5)
+
+
 def test_policy_footer_extras() -> None:
     lines = policy_footer_extras()
     assert len(lines) >= 1

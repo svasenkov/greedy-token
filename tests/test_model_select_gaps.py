@@ -41,12 +41,16 @@ def _spec(model_id: str, *, tier: str = "cheap", enabled: bool = True, profiles=
 
 
 def _registry(**kw) -> LlmRegistry:
+    # cheap_models/expensive_models kwargs are merged into the unified pool
+    # (ADR-0001 phase 2); tier still derives from each spec's attributes.
+    cheap = tuple(kw.pop("cheap_models", (_spec("fast"),)))
+    expensive = tuple(kw.pop("expensive_models", ()))
     base = dict(
         policy="auto", cheap_selection="fixed", cheap_default_id="fast",
         expensive_opt_in=False, expensive_selection="fixed", expensive_default_id="yandex-lite",
         daily_cap_usd=5.0,
         escalation=EscalationConfig(enabled=True, chain=("fast",), triggers=("empty_output",), max_steps=2),
-        cheap_models=(_spec("fast"),), expensive_models=(), source="test",
+        models=cheap + expensive, source="test",
     )
     base.update(kw)
     return LlmRegistry(**base)
@@ -172,6 +176,49 @@ def test_threshold_parsing() -> None:
     spec = _parse_model_entry({"id": "m", "billing": "metered", "cost_per_1m_usd": 0.4}, section="cheap")
     assert reg.tier_of(spec) == "cheap"        # 0.4 <= 0.5
     assert reg_bad.tier_of(spec) == "expensive"  # 0.4 > 0.2
+
+
+@allure.title("unified pool: tier from attributes, not from the config section")
+def test_unified_pool_derived_tiers(monkeypatch: pytest.MonkeyPatch) -> None:
+    legacy = CheapLlmSettings("ollama", "http://x", "m", "s")
+    cfg = {
+        "cheap": {
+            "models": [
+                {"id": "fast", "model": "m7"},
+                # declared cheap, but priced above the threshold → derives expensive
+                {"id": "pricey", "model": "big", "cost_per_1m_usd": 2.5},
+            ]
+        },
+        "expensive": {
+            # declared expensive, but sub-threshold metered cost → derives cheap
+            "models": [{"id": "groq", "model": "llama", "cost_per_1m_usd": 0.05}],
+        },
+    }
+    reg = _parse_registry(cfg, legacy_cheap=legacy, source="test")
+    assert [m.id for m in reg.models] == ["fast", "pricey", "groq"]
+    assert [m.id for m in reg.cheap_models] == ["fast", "groq"]
+    assert [m.id for m in reg.expensive_models] == ["pricey"]
+    assert [m.id for m in ms._enabled_pool(reg, "cheap")] == ["fast", "groq"]
+    assert [m.id for m in ms._enabled_pool(reg, "expensive")] == ["pricey"]
+    # default escalation chain follows the derived cheap pool
+    assert reg.escalation.chain == ("fast", "groq")
+
+    # resolve under cheap_only can now pick the derived-cheap ex-"expensive" model
+    monkeypatch.setattr(ms, "get_llm_registry", lambda root=None: reg)
+    monkeypatch.delenv("GREEDY_LLM_MODEL_ID", raising=False)
+    resolved = resolve_model("", root=None)
+    assert resolved.model_id == "fast"
+    assert resolved.billing_tier == "cheap"
+
+
+@allure.title("cheap default falls back to the whole pool when nothing derives cheap")
+def test_default_id_fallback_no_derived_cheap() -> None:
+    legacy = CheapLlmSettings("ollama", "http://x", "m", "s")
+    cfg = {"cheap": {"models": [{"id": "pricey", "model": "big", "cost_per_1m_usd": 5.0}]}}
+    reg = _parse_registry(cfg, legacy_cheap=legacy, source="test")
+    assert reg.cheap_models == ()
+    assert reg.cheap_default_id == "pricey"  # falls back to models[0]
+    assert reg.expensive_default_id == "pricey"  # derived expensive pool
 
 
 @allure.title("_pick_from_pool: empty, auto, fixed default, no-match fallback")

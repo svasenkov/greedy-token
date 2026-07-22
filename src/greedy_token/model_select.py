@@ -90,8 +90,7 @@ class LlmRegistry:
     expensive_default_id: str
     daily_cap_usd: float
     escalation: EscalationConfig
-    cheap_models: tuple[ModelSpec, ...]
-    expensive_models: tuple[ModelSpec, ...]
+    models: tuple[ModelSpec, ...]
     source: str = "default"
     cheap_cost_threshold_per_1m_usd: float = DEFAULT_CHEAP_COST_THRESHOLD_PER_1M_USD
 
@@ -100,6 +99,16 @@ class LlmRegistry:
         return derive_tier(
             spec, cheap_cost_threshold_per_1m_usd=self.cheap_cost_threshold_per_1m_usd
         )
+
+    @property
+    def cheap_models(self) -> tuple[ModelSpec, ...]:
+        """Deprecated (ADR-0001): derived view over the unified pool."""
+        return tuple(m for m in self.models if self.tier_of(m) == "cheap")
+
+    @property
+    def expensive_models(self) -> tuple[ModelSpec, ...]:
+        """Deprecated (ADR-0001): derived view over the unified pool."""
+        return tuple(m for m in self.models if self.tier_of(m) == "expensive")
 
 
 @dataclass(frozen=True)
@@ -277,8 +286,7 @@ def _parse_registry(
                 triggers=("empty_output", "low_confidence", "json_parse_fail", "explicit_profile"),
                 max_steps=2,
             ),
-            cheap_models=(default,),
-            expensive_models=(),
+            models=(default,),
             source=source,
         )
 
@@ -321,12 +329,26 @@ def _parse_registry(
     except (TypeError, ValueError):
         cheap_cost_threshold = DEFAULT_CHEAP_COST_THRESHOLD_PER_1M_USD
 
+    # Unified pool (ADR-0001 phase 2): tier is derived, defaults come from the
+    # derived views, not from the config section a model was declared in.
+    models: list[ModelSpec] = cheap_models + expensive_models
+    derived_cheap = [
+        m
+        for m in models
+        if derive_tier(m, cheap_cost_threshold_per_1m_usd=cheap_cost_threshold) == "cheap"
+    ]
+    derived_expensive = [
+        m
+        for m in models
+        if derive_tier(m, cheap_cost_threshold_per_1m_usd=cheap_cost_threshold) == "expensive"
+    ]
+
     cheap_sel = str(cheap_section.get("selection", "auto")).strip().lower()
     cheap_selection: SelectionMode = "auto" if cheap_sel == "auto" else "fixed"
     exp_sel = str(expensive_section.get("selection", "fixed")).strip().lower()
     expensive_selection: SelectionMode = "auto" if exp_sel == "auto" else "fixed"
 
-    chain_raw = esc_section.get("chain") or [m.id for m in cheap_models]
+    chain_raw = esc_section.get("chain") or [m.id for m in derived_cheap]
     chain = tuple(str(x).strip() for x in chain_raw if str(x).strip())
     triggers_raw = esc_section.get("triggers") or [
         "empty_output",
@@ -349,11 +371,15 @@ def _parse_registry(
     return LlmRegistry(
         policy=policy,
         cheap_selection=cheap_selection,
-        cheap_default_id=str(cheap_section.get("default_id", cheap_models[0].id)).strip(),
+        cheap_default_id=str(
+            cheap_section.get("default_id", derived_cheap[0].id if derived_cheap else models[0].id)
+        ).strip(),
         expensive_opt_in=bool(expensive_section.get("opt_in", False)),
         expensive_selection=expensive_selection,
         expensive_default_id=str(
-            expensive_section.get("default_id", expensive_models[0].id if expensive_models else "yandex-lite")
+            expensive_section.get(
+                "default_id", derived_expensive[0].id if derived_expensive else "yandex-lite"
+            )
         ).strip(),
         daily_cap_usd=daily_cap,
         escalation=EscalationConfig(
@@ -362,8 +388,7 @@ def _parse_registry(
             triggers=triggers,
             max_steps=max(0, max_steps),
         ),
-        cheap_models=tuple(cheap_models),
-        expensive_models=tuple(expensive_models),
+        models=tuple(models),
         source=source,
         cheap_cost_threshold_per_1m_usd=cheap_cost_threshold,
     )
@@ -382,7 +407,7 @@ def get_llm_registry(root: Path | None = None) -> LlmRegistry:
 
 def list_models(root: Path | None = None) -> list[ModelSpec]:
     reg = get_llm_registry(root)
-    return list(reg.cheap_models) + list(reg.expensive_models)
+    return list(reg.models)
 
 
 def _profile_matches(spec: ModelSpec, profile: str) -> bool:
@@ -393,9 +418,8 @@ def _profile_matches(spec: ModelSpec, profile: str) -> bool:
 
 
 def _enabled_pool(registry: LlmRegistry, tier: ModelTier) -> list[ModelSpec]:
-    if tier == "cheap":
-        return [m for m in registry.cheap_models if m.enabled]
-    return [m for m in registry.expensive_models if m.enabled]
+    """Enabled models of the *derived* tier from the unified pool (ADR-0001)."""
+    return [m for m in registry.models if m.enabled and registry.tier_of(m) == tier]
 
 
 def _spec_to_settings(spec: ModelSpec, *, source: str) -> CheapLlmSettings:

@@ -47,8 +47,7 @@ def _registry(*, opt_in: bool = True, daily_cap: float = 5.0) -> LlmRegistry:
         expensive_default_id="yandex-lite",
         daily_cap_usd=daily_cap,
         escalation=EscalationConfig(enabled=True, chain=(), triggers=(), max_steps=2),
-        cheap_models=(),
-        expensive_models=(_spec(),),
+        models=(_spec(),),
         source="test",
     )
 
