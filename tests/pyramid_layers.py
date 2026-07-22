@@ -33,6 +33,7 @@ LAYER_BY_MODULE: dict[str, str] = {
     "test_router_gaps": "unit",
     "test_scripts_lint_gaps": "unit",
     "test_code_search_gaps": "unit",
+    "test_executors_gaps": "unit",
     "test_settings_gaps": "unit",
     "test_tokens": "unit",
     "test_tool_output": "unit",
