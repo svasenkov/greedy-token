@@ -6,7 +6,7 @@
 # Workspace-specific routes live in $GREEDY_TOKEN_ROOT/.greedy-token.yaml
 # (inline `routes:` or a `routes_file:` pointer) and are merged over these
 # defaults: same id replaces the bundled route, new ids win tier tie-breaks.
-# Example overlay: examples/routes/zero-design-system.yaml.
+# Example overlay: examples/routes/workspace-routes.yaml.
 # Bootstrap: greedy-token init --routes-from FILE | --routes-scaffold.
 
 routes:

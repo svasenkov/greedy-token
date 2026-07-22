@@ -187,7 +187,7 @@ cp examples/cursor/rules/greedy-token.mdc .cursor/rules/greedy-token.mdc
 
 Далее: **Settings → MCP → greedy-token → Enable → Refresh** → **новый** Agent chat.
 
-Должно быть **5 MCP tools**, включая `greedy_token_pipeline`.
+Должно быть **6 MCP tools**, включая `greedy_token_pipeline` и `greedy_token_crystallize`.
 
 ## MCP tools
 
@@ -198,8 +198,9 @@ cp examples/cursor/rules/greedy-token.mdc .cursor/rules/greedy-token.mdc
 | `greedy_token_route` | Куда нести задачу + token footer |
 | `greedy_token_pipeline` | Цепочка search/tool → python → ollama → rag |
 | `greedy_token_usage` | Сводка экономии из `~/.greedy-token/usage.jsonl` |
+| `greedy_token_crystallize` | L3 safe mode: `action=draft|promote|reject` + `crystal_id` (без auto-apply) |
 
-**Footers:** `route` / `search` / `rag` / `pipeline` — полный блок **Greedy token** (This call → Tier alternatives → Saved). `usage` — **Session totals** (не полный single-tool footer). `pipeline: list` — только список рецептов, без economy footer.
+**Footers:** `route` / `search` / `rag` / `pipeline` — полный блок **Greedy token** (This call → Tier alternatives → Saved). `usage` — **Session totals** (не полный single-tool footer). `pipeline: list` и `greedy_token_crystallize` — только plain text, без economy footer.
 
 ### Pipeline (несколько шагов)
 
@@ -488,13 +489,13 @@ Bootstrap:
 
 ```bash
 # скопировать/смержить роуты из общего YAML в <root>/.greedy-token.yaml
-greedy-token init --routes-from examples/routes/zero-design-system.yaml
+greedy-token init --routes-from examples/routes/workspace-routes.yaml
 
 # сгенерировать tool-rg-search с search_paths из обнаруженных top-level папок
 greedy-token init --routes-scaffold
 ```
 
-Полный рабочий оверлей (монорепо автора: script tier, jq manifest, RAG-домены, shadow-роуты) лежит в `examples/routes/zero-design-system.yaml`.
+Полный рабочий оверлей (script tier, jq manifest, RAG-домены, shadow-роуты) лежит в `examples/routes/workspace-routes.yaml`.
 
 ## Безопасность `--execute`
 

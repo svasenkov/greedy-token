@@ -17,6 +17,7 @@ from greedy_token.paths import find_workspace_root
 from greedy_token.settings import apply_ollama_env
 from greedy_token.pipeline import format_pipeline_response, list_pipelines, run_pipeline
 from greedy_token.rag_search import format_hits, search_rag
+from greedy_token.crystallize_l3 import DraftResult, draft_crystal, promote_crystal, reject_crystal
 from greedy_token.router import format_decision, route_task
 from greedy_token.tokens import count_tokens
 from greedy_token.usage import aggregate_events, format_report, load_events, log_path, parse_since
@@ -191,6 +192,63 @@ def greedy_token_pipeline(task: str, execute: bool = False, profile: str = "") -
         profile=profile.strip(),
     )
     return format_pipeline_response(result, root)
+
+
+def _format_draft_result(result: DraftResult) -> str:
+    lines = [
+        f"Draft crystal: {result.crystal_id}  (source: {result.source})",
+        f"  Pattern: {result.pattern}  (hits: {result.hits})",
+        f"  Script:  {result.draft_path}",
+        f"  Route:   shadow until {result.shadow_until} (log-only, does not affect route_task)",
+        f"  Config:  {result.config_path}",
+    ]
+    if result.lint_ok:
+        lines.append("  Lint:    scripts lint OK")
+    else:
+        lines.append("  Lint:    FAILED")
+        lines.extend(f"    {v['id']}: {v['detail']}" for v in result.lint_violations)
+    lines.append(
+        f"Review the script, then: greedy-token crystallize promote {result.crystal_id}"
+    )
+    return "\n".join(lines)
+
+
+def _format_promote_result(result: dict, crystal_id: str) -> str:
+    pattern = (result["route"].get("patterns") or [""])[0]
+    return (
+        f"Promoted {crystal_id}: shadow → active in {result['config']}\n"
+        f'Verify: greedy-token route "{pattern}"'
+    )
+
+
+def _format_reject_result(result: dict, crystal_id: str) -> str:
+    return (
+        f"Rejected {crystal_id}: "
+        f"route removed={result['removed_route']}, draft removed={result['removed_draft']}"
+    )
+
+
+@mcp.tool()
+def greedy_token_crystallize(action: str, crystal_id: str, since: str = "30d") -> str:
+    """L3 safe-mode crystallization: draft | promote | reject. No auto-apply — same semantics as ``greedy-token crystallize`` CLI."""
+    root = find_workspace_root()
+    act = action.strip().lower()
+    if act == "draft":
+        try:
+            result = draft_crystal(crystal_id, root=root, since=since)
+        except ValueError as exc:
+            raise ValueError(f"crystallize draft: {exc}") from exc
+        return _format_draft_result(result)
+    if act == "promote":
+        try:
+            result = promote_crystal(crystal_id, root=root)
+        except ValueError as exc:
+            raise ValueError(f"crystallize promote: {exc}") from exc
+        return _format_promote_result(result, crystal_id)
+    if act == "reject":
+        result = reject_crystal(crystal_id, root=root)
+        return _format_reject_result(result, crystal_id)
+    raise ValueError(f"crystallize: unknown action {action!r} (expected draft, promote, or reject)")
 
 
 def main() -> None:

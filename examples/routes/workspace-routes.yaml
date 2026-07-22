@@ -1,7 +1,7 @@
-# Workspace routes overlay — zero-design-system (the author's monorepo).
+# Workspace routes overlay — merge over bundled src/greedy_token/config/routes.yaml.
 #
 # Wire it up via $GREEDY_TOKEN_ROOT/.greedy-token.yaml:
-#   routes_file: projects/greedy-token-home/greedy-token/examples/routes/zero-design-system.yaml
+#   routes_file: projects/greedy-token-home/greedy-token/examples/routes/workspace-routes.yaml
 #
 # Merge rules (over the bundled generic src/greedy_token/config/routes.yaml):
 #   - same id  → this route replaces the bundled one (tool-rg-search below);
@@ -312,25 +312,23 @@ routes:
     command: python scripts/auth_storage_probe.py
     note: "TMS automator — crystallized auth/session probe (script tier)"
 
-  # shadow until 2026-07-22 — enabled false; promote after golden green
+  # promoted 2026-07-22 — golden green; 0 shadow hits (criteria: golden only)
   - id: python-provider-balance
     target: python
     read_only: true
-    enabled: false
-    shadow_until: "2026-07-22T00:00:00Z"
     patterns:
       - provider balance
       - balance analyzer
       - infra burn
     command: python scripts/infra/provider_balance.py
-    note: "Provider balance analyzer — shadow crystallize, 0 LLM when promoted"
+    note: "Provider balance analyzer — live script tier, 0 LLM"
 
-  # shadow until 2026-07-29 — enabled false; promote after golden green + ≥3 hits
+  # shadow until 2026-08-05 — reject promote 2026-07-22: golden green, 0/3 hits
   - id: python-access-diag
     target: python
     read_only: true
     enabled: false
-    shadow_until: "2026-07-29T00:00:00Z"
+    shadow_until: "2026-08-05T00:00:00Z"
     patterns:
       - access diag
       - access-diag probe

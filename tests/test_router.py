@@ -157,10 +157,10 @@ def test_disabled_shadow_route_is_skipped(minimal_workspace: Path) -> None:
     from datetime import datetime, timezone
 
     fixed_now = datetime(2026, 7, 1, tzinfo=timezone.utc)
-    with allure.step("Route task matching provider balance shadow route"), patch(
+    with allure.step("Route task matching access-diag shadow route"), patch(
         "greedy_token.router._now", return_value=fixed_now
     ):
-        decision = route_task("provider balance", minimal_workspace)
+        decision = route_task("access diag", minimal_workspace)
         attach_json(
             "decision",
             {
@@ -170,9 +170,9 @@ def test_disabled_shadow_route_is_skipped(minimal_workspace: Path) -> None:
             },
         )
     with allure.step("Verify disabled shadow route is skipped but logged"):
-        assert decision.route_id != "python-provider-balance"
+        assert decision.route_id != "python-access-diag"
         assert decision.target == "cursor"
-        assert decision.shadow_route_id == "python-provider-balance"
+        assert decision.shadow_route_id == "python-access-diag"
 
 
 @allure.story("Token estimate")

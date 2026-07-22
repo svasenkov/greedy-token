@@ -25,8 +25,8 @@ def _assert_greedy_token_footer(text: str) -> None:
 
 
 @allure.story("Server handshake")
-@allure.title("MCP stdio server advertises five greedy-token tools")
-def test_mcp_stdio_lists_five_tools(minimal_workspace: Path) -> None:
+@allure.title("MCP stdio server advertises six greedy-token tools")
+def test_mcp_stdio_lists_six_tools(minimal_workspace: Path) -> None:
     async def _list(session):
         tools = await session.list_tools()
         return [t.name for t in tools.tools]
@@ -34,13 +34,14 @@ def test_mcp_stdio_lists_five_tools(minimal_workspace: Path) -> None:
     with allure.step("List MCP stdio tools"):
         names = run_mcp(minimal_workspace, _list)
         attach_text("tool names", "\n".join(names))
-    with allure.step("Verify five greedy-token tools are advertised"):
+    with allure.step("Verify six greedy-token tools are advertised"):
         assert names == [
             "greedy_token_route",
             "greedy_token_rag",
             "greedy_token_search",
             "greedy_token_usage",
             "greedy_token_pipeline",
+            "greedy_token_crystallize",
         ]
 
 
@@ -158,3 +159,57 @@ def test_mcp_stdio_usage_empty_log(minimal_workspace: Path, tmp_path: Path) -> N
     with allure.step("Verify empty log message"):
         assert "No events since 7d" in text
         assert f"Log: {log_file}" in text
+
+
+CRYSTAL_ID = "script-summarize-weekly-spend-report-table"
+
+
+@allure.story("Crystallize tool")
+@allure.title("MCP stdio crystallize draft→promote→reject matches CLI safe-mode flow")
+def test_mcp_stdio_crystallize_l3_flow(
+    minimal_workspace: Path,
+    crystal_home: Path,
+    no_cheap_llm: None,
+) -> None:
+    async def _draft(session):
+        return await session.call_tool(
+            "greedy_token_crystallize",
+            {"action": "draft", "crystal_id": CRYSTAL_ID},
+        )
+
+    async def _promote(session):
+        return await session.call_tool(
+            "greedy_token_crystallize",
+            {"action": "promote", "crystal_id": CRYSTAL_ID},
+        )
+
+    async def _reject(session):
+        return await session.call_tool(
+            "greedy_token_crystallize",
+            {"action": "reject", "crystal_id": CRYSTAL_ID},
+        )
+
+    with allure.step("Call greedy_token_crystallize draft via MCP stdio"):
+        log_path = crystal_home / "usage.jsonl"
+        draft = run_mcp(minimal_workspace, _draft, log_path=log_path)
+        draft_text = tool_text(draft)
+        attach_text("draft response", draft_text)
+    with allure.step("Verify draft output matches CLI semantics"):
+        assert "Draft crystal:" in draft_text
+        assert "shadow until" in draft_text
+        assert "scripts lint OK" in draft_text
+
+    with allure.step("Call greedy_token_crystallize promote via MCP stdio"):
+        promote = run_mcp(minimal_workspace, _promote, log_path=log_path)
+        promote_text = tool_text(promote)
+        attach_text("promote response", promote_text)
+    with allure.step("Verify promote output"):
+        assert "shadow → active" in promote_text
+
+    with allure.step("Call greedy_token_crystallize reject via MCP stdio"):
+        reject = run_mcp(minimal_workspace, _reject, log_path=log_path)
+        reject_text = tool_text(reject)
+        attach_text("reject response", reject_text)
+    with allure.step("Verify reject output"):
+        assert "Rejected" in reject_text
+        assert "route removed=True" in reject_text

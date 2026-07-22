@@ -12,6 +12,10 @@ from tests.ollama_stub import clear_ollama_probe_cache, install_ollama_scripts, 
 from tests.pyramid_layers import layer_for_module
 from tests.testops_ids import TESTOPS_IDS
 
+from datetime import datetime, timezone
+
+from greedy_token.usage import append_event
+
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
@@ -69,13 +73,12 @@ def workspace_root(monkeypatch: pytest.MonkeyPatch) -> Path:
     return root
 
 
-# Workspace routes overlay (the author's monorepo routes) — merged over the
-# bundled generic routes.yaml via .greedy-token.yaml, same as the real workspace.
+# Workspace routes overlay — merged over bundled routes.yaml via .greedy-token.yaml.
 WORKSPACE_ROUTES_EXAMPLE = (
     Path(__file__).resolve().parents[1]
     / "examples"
     / "routes"
-    / "zero-design-system.yaml"
+    / "workspace-routes.yaml"
 )
 
 
@@ -133,6 +136,37 @@ def minimal_workspace(tmp_path: Path) -> Path:
     (skill_dir / "SKILL.md").write_text("# configurator-boolean\n", encoding="utf-8")
 
     return tmp_path
+
+
+def _seed_crystal_candidate(log: Path, task: str, hits: int = 5) -> None:
+    ts = datetime.now(timezone.utc).isoformat()
+    for _ in range(hits):
+        append_event(
+            {"ts": ts, "selected_tier": "cursor", "task": task, "route_id": "cursor-fallback"},
+            path=log,
+        )
+
+
+@allure.title("Crystallize candidate home")
+@pytest.fixture
+def crystal_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Isolated GREEDY_TOKEN_HOME + usage log with one seeded LLM-tier candidate."""
+    home = tmp_path / "gt-home"
+    home.mkdir()
+    monkeypatch.setenv("GREEDY_TOKEN_HOME", str(home))
+    log = home / "usage.jsonl"
+    monkeypatch.setenv("GREEDY_TOKEN_LOG", str(log))
+    _seed_crystal_candidate(log, "summarize weekly spend report table")
+    return home
+
+
+@allure.title("Disable cheap LLM for deterministic crystallize drafts")
+@pytest.fixture
+def no_cheap_llm(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "greedy_token.cheap_llm.cheap_llm_available",
+        lambda settings, timeout=2.0: False,
+    )
 
 
 @allure.title("Ollama stub server")

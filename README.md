@@ -187,7 +187,7 @@ cp examples/cursor/rules/greedy-token.mdc .cursor/rules/greedy-token.mdc
 
 Then: **Settings → MCP → greedy-token → Enable → Refresh** → **new** Agent chat.
 
-Expected: **5 MCP tools** (including `greedy_token_pipeline`).
+Expected: **6 MCP tools** (including `greedy_token_pipeline` and `greedy_token_crystallize`).
 
 ## MCP tools
 
@@ -198,8 +198,9 @@ Expected: **5 MCP tools** (including `greedy_token_pipeline`).
 | `greedy_token_route` | Recommend tier + token footer |
 | `greedy_token_pipeline` | Multi-step chain (search/tool → python → ollama → rag) |
 | `greedy_token_usage` | Aggregate savings from `~/.greedy-token/usage.jsonl` |
+| `greedy_token_crystallize` | L3 safe mode: `action=draft|promote|reject` + `crystal_id` (no auto-apply) |
 
-**Footers:** `route` / `search` / `rag` / `pipeline` append the full **Greedy token** block (This call → Tier alternatives → Saved). `usage` appends **Session totals** (not the full single-tool footer). `pipeline: list` returns the recipe list only — no economy footer.
+**Footers:** `route` / `search` / `rag` / `pipeline` append the full **Greedy token** block (This call → Tier alternatives → Saved). `usage` appends **Session totals** (not the full single-tool footer). `pipeline: list` and `greedy_token_crystallize` return plain text only — no economy footer.
 
 ### Pipeline (multi-step)
 
@@ -480,13 +481,13 @@ Bootstrap options:
 
 ```bash
 # copy/merge routes from a shared YAML into <root>/.greedy-token.yaml
-greedy-token init --routes-from examples/routes/zero-design-system.yaml
+greedy-token init --routes-from examples/routes/workspace-routes.yaml
 
 # generate a tool-rg-search route with search_paths from detected top-level folders
 greedy-token init --routes-scaffold
 ```
 
-A full working overlay (the author's monorepo: script tier, jq manifest, RAG domains, shadow routes) ships as `examples/routes/zero-design-system.yaml`.
+A full working overlay (script tier, jq manifest, RAG domains, shadow routes) ships as `examples/routes/workspace-routes.yaml`.
 
 ## `--execute` safety
 

@@ -7,6 +7,7 @@ import allure
 import pytest
 
 from greedy_token.mcp import (
+    greedy_token_crystallize,
     greedy_token_pipeline,
     greedy_token_rag,
     greedy_token_route,
@@ -159,3 +160,90 @@ def test_mcp_usage_empty_log(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     with allure.step("Verify empty log message"):
         assert "No events since 7d" in out
         assert f"Log: {log_file}" in out
+
+
+CRYSTAL_ID = "script-summarize-weekly-spend-report-table"
+
+
+@allure.story("Crystallize tool")
+@allure.title("MCP crystallize draft returns CLI-equivalent text")
+def test_mcp_crystallize_draft(
+    minimal_workspace: Path,
+    crystal_home: Path,
+    no_cheap_llm: None,
+) -> None:
+    with allure.step("Call greedy_token_crystallize draft"):
+        out = greedy_token_crystallize("draft", CRYSTAL_ID)
+        attach_text("draft response", out)
+    with allure.step("Verify draft text"):
+        assert "Draft crystal:" in out
+        assert "shadow until" in out
+        assert "scripts lint OK" in out
+
+
+@allure.story("Crystallize tool")
+@allure.title("MCP crystallize promote and reject follow draft")
+def test_mcp_crystallize_promote_reject(
+    minimal_workspace: Path,
+    crystal_home: Path,
+    no_cheap_llm: None,
+) -> None:
+    greedy_token_crystallize("draft", CRYSTAL_ID)
+    with allure.step("Call greedy_token_crystallize promote"):
+        out = greedy_token_crystallize("promote", CRYSTAL_ID)
+        attach_text("promote response", out)
+    with allure.step("Verify promote text"):
+        assert "shadow → active" in out
+
+    greedy_token_crystallize("draft", CRYSTAL_ID)
+    with allure.step("Call greedy_token_crystallize reject"):
+        out = greedy_token_crystallize("reject", CRYSTAL_ID)
+        attach_text("reject response", out)
+    with allure.step("Verify reject text"):
+        assert "route removed=True" in out
+
+
+@allure.story("Crystallize tool")
+@allure.title("MCP crystallize draft includes lint failures in text output")
+def test_mcp_crystallize_draft_lint_failed(
+    minimal_workspace: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from greedy_token.crystallize_l3 import DraftResult
+    from pathlib import Path as PathCls
+
+    result = DraftResult(
+        crystal_id=CRYSTAL_ID,
+        pattern="bad pattern",
+        hits=3,
+        draft_path=PathCls("draft.py"),
+        config_path=PathCls("cfg.yaml"),
+        shadow_until="2030-01-01T00:00:00Z",
+        source="template",
+        lint_ok=False,
+        lint_violations=[{"id": "script-missing", "detail": "no script on disk"}],
+    )
+    monkeypatch.setattr(
+        "greedy_token.mcp.draft_crystal",
+        lambda cid, *, root, since: result,
+    )
+    with allure.step("Call greedy_token_crystallize draft with lint failure"):
+        out = greedy_token_crystallize("draft", CRYSTAL_ID)
+        attach_text("draft response", out)
+    with allure.step("Verify lint failure is surfaced"):
+        assert "Lint:    FAILED" in out
+        assert "script-missing" in out
+
+
+@allure.story("Crystallize tool")
+@allure.title("MCP crystallize surfaces draft/promote errors and unknown action")
+def test_mcp_crystallize_errors(minimal_workspace: Path) -> None:
+    with allure.step("draft missing crystal raises"):
+        with pytest.raises(ValueError, match="crystallize draft:"):
+            greedy_token_crystallize("draft", "script-missing")
+    with allure.step("promote without draft raises"):
+        with pytest.raises(ValueError, match="crystallize promote:"):
+            greedy_token_crystallize("promote", CRYSTAL_ID)
+    with allure.step("unknown action raises"):
+        with pytest.raises(ValueError, match="unknown action"):
+            greedy_token_crystallize("bogus", CRYSTAL_ID)

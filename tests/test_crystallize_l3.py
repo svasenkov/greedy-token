@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from argparse import Namespace
-from datetime import datetime, timezone
 from pathlib import Path
 
 import allure
@@ -17,8 +16,9 @@ from greedy_token.hub.crystallize import crystal_timeline, list_crystals, load_l
 from greedy_token.paths import remove_workspace_route, workspace_config_routes
 from greedy_token.router import route_task
 from greedy_token.scripts_lint import lint_routes
-from greedy_token.usage import append_event
 from tests.allure_reporting import attach_text
+
+from tests.conftest import _seed_crystal_candidate as _seed_candidate
 
 pytestmark = [
     allure.epic("Crystallize"),
@@ -31,40 +31,13 @@ TASK = "summarize weekly spend report table"
 CRYSTAL_ID = "script-summarize-weekly-spend-report-table"
 
 
-def _seed_candidate(log: Path, task: str = TASK, hits: int = 5) -> None:
-    ts = datetime.now(timezone.utc).isoformat()
-    for _ in range(hits):
-        append_event(
-            {"ts": ts, "selected_tier": "cursor", "task": task, "route_id": "cursor-fallback"},
-            path=log,
-        )
-
-
-@pytest.fixture
-def crystal_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Isolated GREEDY_TOKEN_HOME + usage log with one seeded LLM-tier candidate."""
-    home = tmp_path / "gt-home"
-    home.mkdir()
-    monkeypatch.setenv("GREEDY_TOKEN_HOME", str(home))
-    log = home / "usage.jsonl"
-    monkeypatch.setenv("GREEDY_TOKEN_LOG", str(log))
-    _seed_candidate(log)
-    return home
-
-
 def _ns(**kwargs) -> Namespace:
     defaults = {"no_log": True, "json": False, "since": "30d"}
     defaults.update(kwargs)
     return Namespace(**defaults)
 
 
-@pytest.fixture
-def no_cheap_llm(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Force the deterministic template path (a dev machine may run real Ollama)."""
-    monkeypatch.setattr(
-        "greedy_token.cheap_llm.cheap_llm_available",
-        lambda settings, timeout=2.0: False,
-    )
+# crystal_home and no_cheap_llm fixtures live in tests/conftest.py
 
 
 # ---------------------------------------------------------------- draft
