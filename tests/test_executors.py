@@ -362,3 +362,227 @@ def test_infer_rag_domains() -> None:
     assert testing == ["testing"]
     assert _infer_rag_domains("random question") is None
 
+
+# Every keyword must map to its exact domain. This pins the routing vocabulary so
+# any single-token edit (case flip, wording change) is caught.
+_DOMAIN_TOKENS = [
+    ("quality gate", "analytics"),
+    ("allure dashboard", "analytics"),
+    ("analytics grid", "analytics"),
+    ("sparkline", "analytics"),
+    ("allure agent", "analytics"),
+    ("metrics catalog", "analytics"),
+    ("chart matrix", "analytics"),
+    ("allure shell", "analytics"),
+    ("analytics index", "analytics"),
+    ("page object", "testing"),
+    ("po locator", "testing"),
+    ("selenide", "testing"),
+    ("test pyramid", "testing"),
+    ("test layer", "testing"),
+    ("ci workflow", "testing"),
+    ("allurerc", "testing"),
+    ("testconfig", "config"),
+    ("test config", "config"),
+    ("baseurl", "config"),
+    ("base url", "config"),
+    ("healthcheck", "config"),
+    ("configurator", "config"),
+    ("-d flag", "config"),
+    ("property override", "config"),
+    ("stack", "stacks"),
+    ("openapi", "stacks"),
+    ("spring", "stacks"),
+    ("flows/login", "stacks"),
+]
+
+
+@allure.story("RAG domains")
+@allure.title("_infer_rag_domains maps every keyword to its exact domain")
+@pytest.mark.parametrize(("token", "domain"), _DOMAIN_TOKENS)
+def test_infer_rag_domains_every_token(token: str, domain: str) -> None:
+    from greedy_token.executors import _infer_rag_domains
+
+    result = _infer_rag_domains(f"please handle {token} for me")
+    assert result is not None
+    assert domain in result
+
+
+@allure.story("Execute safety")
+@allure.title("execute_plan uses RG_TIMEOUT for tool tier and SCRIPT_TIMEOUT otherwise")
+@pytest.mark.parametrize(
+    ("target", "expected_attr"),
+    [("tool", "RG_TIMEOUT"), ("python", "SCRIPT_TIMEOUT")],
+)
+def test_execute_plan_timeout_selection(
+    target: str, expected_attr: str, minimal_workspace: Path
+) -> None:
+    from greedy_token import tool_paths
+    from greedy_token.executors import RunPlan, execute_plan
+    from greedy_token.router import RouteDecision
+
+    plan = RunPlan(
+        decision=RouteDecision(
+            target=target, route_id="x", confidence=1.0, matched=[], command="echo hi",
+            note="", domains=[], read_only=True,
+        ),
+        command="echo hi",
+        dry_run_output="echo hi",
+        executable=True,
+    )
+    captured: dict[str, object] = {}
+
+    class _Proc:
+        returncode = 0
+        stdout = "out"
+        stderr = ""
+
+    def fake_run(cmd, **kwargs):
+        captured.update(kwargs)
+        return _Proc()
+
+    with patch("greedy_token.executors.subprocess.run", fake_run):
+        code, _ = execute_plan(plan)
+    assert captured["timeout"] == getattr(tool_paths, expected_attr)
+    assert code == 0
+
+
+@allure.story("Execute safety")
+@allure.title("execute_plan concatenates stdout and stderr and passes returncode")
+def test_execute_plan_stdout_stderr_concat() -> None:
+    from greedy_token.executors import RunPlan, execute_plan
+    from greedy_token.router import RouteDecision
+
+    plan = RunPlan(
+        decision=RouteDecision(
+            target="python", route_id="x", confidence=1.0, matched=[], command="c",
+            note="", domains=[], read_only=True,
+        ),
+        command="c",
+        dry_run_output="DRY",
+        executable=True,
+    )
+
+    class _Proc:
+        returncode = 7
+        stdout = "OUT-"
+        stderr = "ERR"
+
+    with patch("greedy_token.executors.subprocess.run", lambda cmd, **kw: _Proc()):
+        code, out = execute_plan(plan)
+    assert code == 7
+    assert out == "OUT-ERR"
+
+
+@allure.story("Execute safety")
+@allure.title("execute_plan falls back to dry-run output when command prints nothing")
+def test_execute_plan_empty_output_uses_dry_run() -> None:
+    from greedy_token.executors import RunPlan, execute_plan
+    from greedy_token.router import RouteDecision
+
+    plan = RunPlan(
+        decision=RouteDecision(
+            target="python", route_id="x", confidence=1.0, matched=[], command="c",
+            note="", domains=[], read_only=True,
+        ),
+        command="c",
+        dry_run_output="DRY-RUN-FALLBACK",
+        executable=True,
+    )
+
+    class _Proc:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    with patch("greedy_token.executors.subprocess.run", lambda cmd, **kw: _Proc()):
+        code, out = execute_plan(plan)
+    assert out == "DRY-RUN-FALLBACK"
+
+
+@allure.story("Execute safety")
+@allure.title("execute_plan refuse message is exact and returns exit 1")
+def test_execute_plan_refuse_message_exact() -> None:
+    from greedy_token.executors import RunPlan, execute_plan
+    from greedy_token.router import RouteDecision
+
+    plan = RunPlan(
+        decision=RouteDecision(
+            target="ollama", route_id="x", confidence=1.0, matched=[], command="c",
+            note="", domains=[], read_only=False,
+        ),
+        command="c",
+        dry_run_output="DRY",
+        executable=False,
+    )
+    code, out = execute_plan(plan)
+    assert code == 1
+    assert out == (
+        "Refusing --execute: route is not read-only.\n"
+        "Dry-run:\nDRY\n\n"
+        "Run the script manually if side effects are intended."
+    )
+
+
+@allure.story("RAG fallback")
+@allure.title("_rag_fallback_output threads inferred domains and limit=5 into search_rag")
+def test_rag_fallback_output_search_args(minimal_workspace: Path) -> None:
+    from greedy_token import executors
+
+    calls: list[dict] = []
+
+    def fake_search(task, root, *, domains=None, limit=None):
+        calls.append({"task": task, "root": root, "domains": domains, "limit": limit})
+        return ["hit"] if domains else []
+
+    with patch.object(executors, "search_rag", fake_search), patch.object(
+        executors, "format_hits", lambda task, hits: f"FMT:{task}:{len(hits)}"
+    ):
+        out = executors._rag_fallback_output("allure dashboard metrics", minimal_workspace)
+    # First call uses inferred domains + limit=5; result formatted via format_hits.
+    assert calls[0]["domains"] == ["analytics"]
+    assert calls[0]["limit"] == 5
+    assert out == "FMT:allure dashboard metrics:1"
+
+
+@allure.story("RAG fallback")
+@allure.title("_rag_fallback_output retries with domains=None then returns None when empty")
+def test_rag_fallback_output_second_call_and_empty(minimal_workspace: Path) -> None:
+    from greedy_token import executors
+
+    calls: list[dict] = []
+
+    def fake_search(task, root, *, domains=None, limit=None):
+        calls.append({"domains": domains, "limit": limit})
+        return []
+
+    with patch.object(executors, "search_rag", fake_search):
+        out = executors._rag_fallback_output("allure dashboard", minimal_workspace)
+    assert out is None
+    # Second (fallback) call drops the domain filter but keeps limit=5.
+    assert calls[1]["domains"] is None
+    assert calls[1]["limit"] == 5
+
+
+@allure.story("Plan run")
+@allure.title("plan_run rag passes task and hits to format_hits in order")
+def test_plan_run_rag_format_args(minimal_workspace: Path) -> None:
+    from greedy_token import executors
+    from greedy_token.router import RouteDecision
+
+    seen: dict[str, object] = {}
+
+    with patch.object(executors, "search_rag", lambda task, root, **kw: ["h1", "h2"]), patch.object(
+        executors,
+        "format_hits",
+        lambda task, hits: seen.update({"task": task, "hits": hits}) or "FMT",
+    ):
+        decision = RouteDecision(
+            target="rag", route_id="rag", confidence=1.0, matched=[], command=None,
+            note="", domains=["config"],
+        )
+        plan = executors.plan_run(decision, "baseUrl question", minimal_workspace)
+    assert plan.dry_run_output == "FMT"
+    assert seen["task"] == "baseUrl question"
+    assert seen["hits"] == ["h1", "h2"]
+
