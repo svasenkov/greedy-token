@@ -25,26 +25,70 @@ def _step(step_id: str, **kw) -> PipelineStep:
 
 
 @allure.title("read-hits: dry-run, missing prior output, and unparseable hits")
-def test_read_hits_early_returns(tmp_path: Path) -> None:
+def test_read_hits_early_returns(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from unittest.mock import Mock
+
     step = _step("read-hits", tier="tool")
+    # Each _run_read_hits call reads perf_counter exactly twice (t0 + end); pin a
+    # 2.0 s delta so duration_ms is deterministically 2000 across every branch.
+    monkeypatch.setattr(
+        pl.time, "perf_counter", Mock(side_effect=[0.0, 2.0, 10.0, 12.0, 20.0, 22.0])
+    )
 
-    dry = pl._run_read_hits(step, tmp_path, prior_search_output="x:1:y", execute=False)
-    assert dry.ok and not dry.executed and "dry-run" in dry.output
+    with allure.step("Dry-run branch: not executed, exit 0, exact output/engine"):
+        dry = pl._run_read_hits(step, tmp_path, prior_search_output="x:1:y", execute=False)
+        assert dry.step is step
+        assert dry.ok is True
+        assert dry.exit_code == 0
+        assert dry.output == "(dry-run) read-hits from prior search"
+        assert dry.est_tokens == 0
+        assert dry.executed is False
+        assert dry.engine == "read-hits"
+        assert dry.duration_ms == 2000
 
-    none = pl._run_read_hits(step, tmp_path, prior_search_output=None, execute=True)
-    assert not none.ok and "no prior search" in none.output
+    with allure.step("No prior output: failed, exit 1, executed"):
+        none = pl._run_read_hits(step, tmp_path, prior_search_output=None, execute=True)
+        assert none.step is step
+        assert none.ok is False
+        assert none.exit_code == 1
+        assert none.output == "read-hits: no prior search step output to enrich"
+        assert none.est_tokens == 0
+        assert none.executed is True
+        assert none.engine == "read-hits"
+        assert none.duration_ms == 2000
 
-    empty = pl._run_read_hits(step, tmp_path, prior_search_output="no hits here", execute=True)
-    assert empty.ok and "no path:line hits" in empty.output
+    with allure.step("Unparseable prior output: ok, exit 0, executed, zero tokens"):
+        empty = pl._run_read_hits(step, tmp_path, prior_search_output="no hits here", execute=True)
+        assert empty.step is step
+        assert empty.ok is True
+        assert empty.exit_code == 0
+        assert empty.output == "read-hits: no path:line hits parsed from prior search"
+        assert empty.est_tokens == 0
+        assert empty.executed is True
+        assert empty.engine == "read-hits"
+        assert empty.duration_ms == 2000
 
 
 @allure.title("read-hits: enriches parsed hits honouring the file mode arg")
 def test_read_hits_file_mode(tmp_path: Path) -> None:
+    import re
+
     target = tmp_path / "sample.txt"
     target.write_text("alpha\nbeta\ngamma\n", encoding="utf-8")
     step = _step("read-hits", tier="tool", args="file")
     out = pl._run_read_hits(step, tmp_path, prior_search_output="sample.txt:2:beta", execute=True)
-    assert out.ok and out.executed and "sample.txt" in out.output
+    with allure.step("Exact result fields for the enrich branch"):
+        assert out.step is step
+        assert out.ok is True
+        assert out.exit_code == 0
+        assert out.executed is True
+        assert out.engine == "read-hits"
+        assert out.output.startswith("read-hits: 1 file(s) · ~")
+        assert "files: sample.txt" in out.output
+    with allure.step("est_tokens matches the token count reported in the header"):
+        m = re.search(r"~(\d+) tokens", out.output)
+        assert m is not None
+        assert out.est_tokens == int(m.group(1))
 
 
 @allure.title("rag step tolerates missing/empty prior search files")

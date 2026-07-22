@@ -568,6 +568,161 @@ def test_compute_step_savings_math(minimal_workspace: Path) -> None:
     assert rows[2].billing == "dry-run — not executed"
 
 
+def _sr(step_id: str, tier: str, *, engine: str = "", executed: bool = True,
+        ok: bool = True, exit_code: int = 0, output: str = "", duration_ms: int = 1,
+        est_tokens: int = 0, label: str = "l", args: str = "") -> StepResult:
+    return StepResult(
+        step=PipelineStep(step_id, tier, label, args=args),
+        ok=ok, exit_code=exit_code, output=output, duration_ms=duration_ms,
+        est_tokens=est_tokens, executed=executed, engine=engine,
+    )
+
+
+@allure.story("Executor sub")
+@allure.title("_executor_sub_for_step maps search/tool to engine, else to tier")
+def test_executor_sub_for_step() -> None:
+    from greedy_token.pipeline import _executor_sub_for_step
+
+    with allure.step("step_id 'search' uses the engine (or 'rg' when empty)"):
+        assert _executor_sub_for_step(_sr("search", "ollama", engine="rg")) == "rg"
+        assert _executor_sub_for_step(_sr("search", "ollama", engine="")) == "rg"
+    with allure.step("tier 'tool' uses the engine even for non-search step_id"):
+        assert _executor_sub_for_step(_sr("other", "tool", engine="customeng")) == "customeng"
+    with allure.step("otherwise falls back to the step tier"):
+        assert _executor_sub_for_step(_sr("other", "python", engine="")) == "python"
+
+
+@allure.story("Estimate tokens")
+@allure.title("_estimate_step_tokens: 0 for tool/python; output+extra for ollama/rag")
+def test_estimate_step_tokens_branches(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import greedy_token.pipeline as P
+    from greedy_token.tokens import count_tokens
+
+    with allure.step("tool/python executors cost 0 LLM tokens"):
+        assert P._estimate_step_tokens(PipelineStep("x", "tool", "l"), "big output", minimal_workspace) == 0
+        assert P._estimate_step_tokens(PipelineStep("x", "python", "l"), "big output", minimal_workspace) == 0
+
+    with allure.step("ollama default branch = tokens of the output"):
+        est = P._estimate_step_tokens(PipelineStep("other", "ollama", "l"), "hello world", minimal_workspace)
+        assert est == count_tokens("hello world").tokens
+
+    with allure.step("ollama audit-skill adds the skill file's tokens"):
+        skill_file = minimal_workspace / "skillfile.md"
+        skill_file.write_text("skill body text here", encoding="utf-8")
+        step = PipelineStep("audit-skill", "ollama", "l", args="skillfile.md")
+        est = P._estimate_step_tokens(step, "out", minimal_workspace)
+        assert est == count_tokens("skill body text here").tokens + count_tokens("out").tokens
+        assert est > count_tokens("out").tokens
+
+
+@allure.story("Estimate tokens")
+@allure.title("_estimate_step_tokens: rag branch threads root/limit into search_rag")
+def test_estimate_step_tokens_rag(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import greedy_token.pipeline as P
+    from greedy_token.tokens import count_tokens
+
+    seen: dict = {}
+
+    def fake_search_rag(args, root, limit):
+        seen["call"] = (args, root, limit)
+        return ["hit"]
+
+    monkeypatch.setattr(P, "search_rag", fake_search_rag)
+    monkeypatch.setattr("greedy_token.budget.rag_est_tokens", lambda hits, root: 42)
+    step = PipelineStep("x", "rag", "l", args="myquery")
+    with allure.step("rag estimate = rag_est_tokens + tokens(query); search_rag(args, root, limit=5)"):
+        est = P._estimate_step_tokens(step, "out", minimal_workspace)
+        attach_json("search_rag call", [str(x) for x in seen["call"]])
+        assert seen["call"] == ("myquery", minimal_workspace, 5)
+        assert est == 42 + count_tokens("myquery").tokens
+
+
+@allure.story("Wrapper args")
+@allure.title("_resolve_wrapper_args resolves a skill name to its SKILL.md path")
+def test_resolve_wrapper_args_skill(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import greedy_token.pipeline as P
+
+    monkeypatch.setattr(P, "find_workspace_root", lambda: minimal_workspace)
+    skill = minimal_workspace / ".cursor" / "skills" / "myskill"
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text("x", encoding="utf-8")
+    with allure.step("Known skill resolves to exact relative SKILL.md path"):
+        got = P._resolve_wrapper_args("audit-skill", "myskill")
+        assert got == ".cursor/skills/myskill/SKILL.md"
+    with allure.step("Unknown skill raises FileNotFoundError with a descriptive message"):
+        with pytest.raises(FileNotFoundError, match="Skill not found"):
+            P._resolve_wrapper_args("audit-skill", "nonexistent-skill")
+
+
+@allure.story("Pipeline body")
+@allure.title("format_pipeline_body emits exact per-step lines and status/mode")
+def test_format_pipeline_body_exact() -> None:
+    from greedy_token.pipeline import format_pipeline_body
+
+    steps = [
+        _sr("check-meta-sync", "python", label="meta", output="line-out", duration_ms=5, est_tokens=1234, executed=True, ok=True),
+        _sr("audit-skill", "ollama", label="aud", output="", duration_ms=7, est_tokens=0, executed=False, ok=False, exit_code=2),
+    ]
+    result = PipelineResult(task="t1", steps=steps, stopped_early=True)
+    body = format_pipeline_body(result)
+    lines = body.split("\n")
+    assert lines[0] == "Pipeline: t1"
+    assert lines[1] == "Steps: 2 (stopped early)"
+    assert lines[2] == ""
+    assert lines[3] == "── Step 1/2: meta [python/ran] OK · 5ms · ~1,234 tok"
+    assert lines[4] == "line-out"
+    assert lines[5] == ""
+    assert lines[6] == "── Step 2/2: aud [ollama/dry-run] FAIL(2) · 7ms · ~0 tok"
+    # rstrip() (not lstrip()) trims the trailing blank line.
+    assert not body.endswith("\n")
+
+
+@allure.story("Pipeline footer")
+@allure.title("format_pipeline_footer threads root, exact run-log header, clamped saved")
+def test_format_pipeline_footer_exact(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import re
+    from types import SimpleNamespace
+
+    import greedy_token.pipeline as P
+
+    result = PipelineResult(
+        task="mytask",
+        steps=[_sr("audit-skill", "ollama", label="aud", output="x", duration_ms=12, est_tokens=1000, executed=True, ok=True)],
+    )
+    seen: dict = {}
+
+    def fake_breakdown(root, task):
+        seen["breakdown"] = (root, task)
+        return SimpleNamespace(total=1000, rules=100, task=200, overhead=300)
+
+    def fake_llm(root):
+        seen["llm"] = root
+        return SimpleNamespace(provider="prov", model="mod", url="http://x")
+
+    def fake_savings(res, root):
+        seen["savings"] = (res, root)
+        return []
+
+    monkeypatch.setattr(P, "cursor_baseline_breakdown", fake_breakdown)
+    monkeypatch.setattr(P, "get_cheap_llm_settings", fake_llm)
+    monkeypatch.setattr(P, "compute_step_savings", fake_savings)
+
+    footer = P.format_pipeline_footer(result, minimal_workspace)
+    lines = footer.split("\n")
+    with allure.step("Every helper receives the real root, not None"):
+        assert seen["breakdown"] == (minimal_workspace, "mytask")
+        assert seen["llm"] == minimal_workspace
+        assert seen["savings"] == (result, minimal_workspace)
+    with allure.step("Exact run-log header + row"):
+        assert "Run log:" in lines
+        assert f"  {'step':<28} {'tier':<8} {'ms':>6} {'tokens':>8}  status" in lines
+        assert f"  {'audit-skill':<28} {'ollama':<8} {12:>6} {1000:>8,} OK" in footer
+    with allure.step("saved is clamped to max(0, baseline - spent) = 0"):
+        m = re.search(r"Saved:\s+~([\d,]+)", footer)
+        assert m is not None
+        assert m.group(1) == "0"
+
+
 @allure.story("Continue on error")
 @allure.title("Pipeline continue-on-error keeps running after failure")
 def test_pipeline_continue_on_error(minimal_workspace: Path) -> None:
