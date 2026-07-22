@@ -61,7 +61,10 @@ only_mutate = [
 ]
 # Keep each mutant run quiet. Skip the node/allure dashboard test — it needs
 # repo assets (.github/, allure/*.mjs) that are not part of the mutants tree and
-# does not exercise any of the hot modules under mutation.
+# does not exercise any of the hot modules under mutation. Skip the
+# mutation-equivalents guard too: mutmut duplicates every `# equivalent:`
+# marker across the generated mutant copies, so the source↔registry sync can
+# only be checked in the real tree (release gate), never inside mutants/.
 pytest_add_cli_args = [
     "-q",
     "--no-header",
@@ -69,6 +72,7 @@ pytest_add_cli_args = [
     "no:cacheprovider",
     "--ignore=tests/test_pyramid_layer_colors.py",
     "--ignore=tests/test_mcp_stdio.py",
+    "--ignore=tests/test_mutation_equivalents.py",
 ]
 # README files are read by tests/test_doc_sync.py, and examples/routes/ backs
 # the conftest minimal_workspace fixture, so they must exist in the copied

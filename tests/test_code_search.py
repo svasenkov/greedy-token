@@ -709,6 +709,31 @@ def test_glob_name_matches_tie_break(tmp_path: Path, monkeypatch: pytest.MonkeyP
         assert got == [d.resolve(), s.resolve()]
 
 
+@allure.story("Glob name matches")
+@allure.title("resolve_search_path_detail asks for dirs (want_dir=True) then files (want_dir=False)")
+def test_resolve_search_path_detail_want_dir_contract(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import greedy_token.code_search as cs
+
+    root = tmp_path.resolve()
+    calls: list[object] = []
+
+    def fake_glob(root_arg: Path, name: str, *, want_dir: object) -> list[Path]:
+        calls.append(want_dir)
+        return []
+
+    monkeypatch.setattr(cs, "_glob_name_matches", fake_glob)
+    with allure.step("Unresolvable bare name falls through dir glob then file glob"):
+        detail = cs.resolve_search_path_detail("no-such-name", root)
+        assert detail.reason == "not_found"
+    with allure.step("want_dir is exactly True then exactly False (kills None/flip mutants)"):
+        attach_text("want_dir calls", repr(calls))
+        assert calls == [True, False]
+        assert calls[0] is True
+        assert calls[1] is False
+
+
 @allure.story("Path resolve error")
 @allure.title("_path_resolve_error: ambiguous message lists candidates + ellipsis at 8")
 def test_path_resolve_error_ambiguous(tmp_path: Path) -> None:

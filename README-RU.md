@@ -320,6 +320,16 @@ mutmut show <id>                 # diff одного мутанта
 Mutation testing не входит в `release-gate.sh` (медленно); запускай при изменении
 горячего модуля. Цель — mutation score ~100% по этим модулям.
 
+**Golden-реестр эквивалентных мутантов:** каждый выживший мутант либо убит
+новым тестом, либо доказан эквивалентным — помечен в исходнике комментарием
+`# equivalent: <доказательство>` (плюс `# pragma: no mutate`, если мутация ещё
+и подавлена) и инвентаризирован в `docs/mutation-equivalents.yaml`: одна запись
+на маркер (module, symbol, reason, proof), якорь — файл + текст маркера, а не
+нестабильные mutmut-id. Drift-guard `tests/test_mutation_equivalents.py`
+сверяет исходники и реестр в обе стороны: новый pragma/equivalent без записи в
+реестре — красный тест, как и запись без маркера. Новая запись попадает в
+реестр только вместе с маркером в исходнике и доказательством через ревью.
+
 **Слайсы по layer:** модуль → `tests/pyramid_layers.py` → Allure label `layer` + pytest marker (`-m unit|component|integration|e2e`). В CI matrix job `tests` гоняет каждый слой отдельно.
 
 Интеграционные тесты (реальные файлы workspace) запускаются, если в checkout есть `stacks/java-spring/`. `GREEDY_TOKEN_ROOT` переопределяет корень workspace.

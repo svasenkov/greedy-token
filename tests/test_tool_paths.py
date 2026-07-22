@@ -216,6 +216,36 @@ def test_resolve_rg_duplicate_continue(tmp_path: Path, monkeypatch: pytest.Monke
 
 
 @allure.story("Ripgrep")
+@allure.title("resolve_rg: a repeated candidate is stat'ed once (seen-set dedup works)")
+def test_resolve_rg_dedup_stats_duplicate_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    valid = tmp_path / "valid-rg"
+    valid.write_text("#!/bin/sh\n", encoding="utf-8")
+    valid.chmod(0o755)
+
+    class _CountingCandidate:
+        """Hashable candidate that records how often it is stat'ed."""
+
+        def __init__(self) -> None:
+            self.stat_calls = 0
+
+        def resolve(self) -> "_CountingCandidate":
+            return self
+
+        def is_file(self) -> bool:
+            self.stat_calls += 1
+            return False
+
+    dup = _CountingCandidate()
+    monkeypatch.setattr(tool_paths, "_rg_candidates", lambda: iter([dup, dup, valid]))
+    with allure.step("Duplicate candidate resolves but is stat'ed exactly once"):
+        assert resolve_rg() == valid.resolve()
+        attach_text("stat calls", str(dup.stat_calls))
+        # kills seen.add(None) / dropped seen.add(resolved): with a broken seen
+        # set the second occurrence would be re-checked (stat_calls == 2).
+        assert dup.stat_calls == 1
+
+
+@allure.story("Ripgrep")
 @allure.title("rg_path_for_shell quotes the resolved rg path when found")
 def test_rg_path_for_shell_found(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(tool_paths, "resolve_rg", lambda: Path("/x/rg bin"))

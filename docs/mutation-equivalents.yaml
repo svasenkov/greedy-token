@@ -1,0 +1,266 @@
+# Golden registry of accepted-equivalent mutants (mutmut).
+#
+# Policy: every surviving mutant is either killed by a test or proven equivalent.
+# A proven-equivalent site is marked in src/greedy_token/ with an
+# `# equivalent: <proof>` comment — plus `# pragma: no mutate` on the code line
+# when the mutation is also suppressed — and MUST have exactly one entry here.
+#
+# Anchors: file + normalized marker comment text (whitespace-collapsed), NOT
+# mutmut ids — mutant ids are unstable across runs and mutmut versions.
+# Drift guard: tests/test_mutation_equivalents.py fails when a source marker has
+# no registry entry, a registry entry has no source marker, or a
+# `# pragma: no mutate` appears without an `# equivalent:` proof.
+#
+# Adding an entry: only together with the source marker, in the same change,
+# with a proof that passed review. Do not record mutmut ids here.
+equivalents:
+  - module: code_search.py
+    symbol: _python_search_file
+    reason: >-
+      local UTF-8 locale + errors="replace" → utf-8/UTF-8/None and strict/replace
+      decode identically for the ASCII/valid-UTF-8 files scanned.
+    proof: >-
+      The files this fallback scans are ASCII/valid UTF-8 on a UTF-8 locale, so
+      encoding mutations (utf-8/UTF-8/None) and errors mutations (replace/strict)
+      decode byte-identical text and produce the same hits.
+    pragma: true
+
+  - module: code_search.py
+    symbol: _python_search_tree
+    reason: >-
+      encoding/errors variants decode valid files identically.
+    proof: >-
+      The tree scan reads valid UTF-8 files only; any encoding/errors variant of
+      read_text decodes the same lines, so hit output is unchanged.
+    pragma: true
+
+  - module: code_search.py
+    symbol: enrich_search_hits
+    reason: >-
+      encoding/errors variants decode valid files identically.
+    proof: >-
+      Enrichment re-reads files that already decoded as valid UTF-8 during the
+      search, so encoding/errors mutations yield identical text and blocks.
+    pragma: true
+
+  - module: code_search.py
+    symbol: search_code
+    reason: >-
+      initial None sentinel is only truthiness-checked below and is always
+      reassigned before real use, so a falsy "" default routes identically.
+    proof: >-
+      `resolved` is read only through `if resolved and …` truthiness guards and
+      is reassigned from path resolution before any attribute access, so
+      mutating the initial None to "" (another falsy value) can never change
+      which branch runs.
+    pragma: false
+
+  - module: executors.py
+    symbol: _rag_fallback_output
+    reason: >-
+      domains defaults to None — dropping the kwarg is the same call.
+    proof: >-
+      search_rag declares domains=None as its default, so passing domains=None
+      explicitly and dropping the kwarg are the exact same call.
+    pragma: true
+
+  - module: pipeline.py
+    symbol: format_executor_savings_summary
+    reason: >-
+      this loop only visits keys that exist in TIER_LABELS, so the `tier` default
+      is unreachable (get default → None/removed is a no-op).
+    proof: >-
+      The loop iterates a fixed tier tuple whose members are all TIER_LABELS
+      keys, so the .get default is dead code — mutating or removing it is never
+      observable.
+    pragma: true
+
+  - module: pipeline.py
+    symbol: _load_pipelines_config
+    reason: >-
+      path segments are case-insensitive on the local (macOS/APFS) filesystem, so
+      "config"/"pipelines.yaml" case-flips resolve identically.
+    proof: >-
+      On the case-insensitive macOS/APFS filesystem a case-flipped path segment
+      resolves to the same file, so the mutant loads identical config.
+    pragma: true
+
+  - module: pipeline.py
+    symbol: _load_pipelines_config
+    reason: >-
+      file is ASCII YAML; utf-8/UTF-8/locale-default decode the same.
+    proof: >-
+      pipelines.yaml is pure ASCII, so utf-8, UTF-8, and the locale default all
+      decode it to the same text and the same parsed config.
+    pragma: true
+
+  - module: pipeline.py
+    symbol: _bind_recipe_args
+    reason: >-
+      the two length checks above guarantee len(need_pos) == len(positional)
+      here, so strict True/False/None never changes behaviour.
+    proof: >-
+      Both length-mismatch cases raise before the zip is reached, so zip always
+      sees equal-length lists and the strict flag can never fire.
+    pragma: true
+
+  - module: pipeline.py
+    symbol: _resolve_wrapper_args
+    reason: >-
+      this branch is only reached when `arg` has no "/" (checked above), so
+      skill_path always stays under root → rejection (and its hint) is
+      unreachable.
+    proof: >-
+      A bare skill name without "/" always yields a path under
+      root/.cursor/skills, so _reject_outside_root never rejects here and
+      mutations of the call (or its hint kwarg) are unobservable.
+    pragma: true
+
+  - module: pipeline.py
+    symbol: _estimate_step_tokens
+    reason: >-
+      errors="replace" + local UTF-8 locale means utf-8/UTF-8/None decode to the
+      same token count.
+    proof: >-
+      The skill file is valid UTF-8 on a UTF-8 locale, so encoding/errors
+      mutations decode the same text and count_tokens returns the same number.
+    pragma: true
+
+  - module: pipeline.py
+    symbol: format_pipeline_footer
+    reason: >-
+      loop only visits keys present in TIER_LABELS → default unreachable.
+    proof: >-
+      The footer loop iterates the fixed tier tuple, every member of which is a
+      TIER_LABELS key, so the .get default branch is dead code.
+    pragma: true
+
+  - module: pipeline.py
+    symbol: format_pipeline_footer
+    reason: >-
+      unset → "" and None are both falsy for the check below.
+    proof: >-
+      When GREEDY_LLM_MODEL_ID is unset, the "" default and a mutated None
+      default are both falsy, so the `if model_id:` branch behaves identically.
+    pragma: true
+
+  - module: pipeline.py
+    symbol: list_pipelines
+    reason: >-
+      absent → "" and None are both falsy for the `if desc:` guard below.
+    proof: >-
+      A recipe without a description yields "" or, mutated, None — both falsy
+      for the `if desc:` guard, so the rendered listing is unchanged.
+    pragma: true
+
+  - module: router.py
+    symbol: has_edit_verbs
+    reason: >-
+      the "" default only applies to a falsy task, and neither "" nor any
+      junk-string default matches an edit verb → result is False either way.
+    proof: >-
+      The `or ""` fallback is used only when task is falsy, and no mutated
+      default string contains an edit verb, so the regex finds nothing and the
+      function returns False either way.
+    pragma: true
+
+  - module: router.py
+    symbol: _parse_shadow_until
+    reason: >-
+      any non-empty junk default parses to the same None result.
+    proof: >-
+      The default applies only when shadow_until is missing/falsy; a junk
+      default fails datetime.fromisoformat and the except branch returns the
+      same None as the empty-string path.
+    pragma: true
+
+  - module: router.py
+    symbol: _extract_search_query
+    reason: >-
+      .lower()/.upper() induce the same tie-break ordering.
+    proof: >-
+      .lower() and .upper() are consistent case-fold maps over the candidate
+      tokens, so as the final sort key they produce the same tie-break order and
+      the same winning token.
+    pragma: true
+
+  - module: router.py
+    symbol: _build_tool_command
+    reason: >-
+      the "rg" default is only compared against "jq" below, so any non-"jq"
+      default routes to the same ripgrep branch.
+    proof: >-
+      The tool default is only ever compared against "jq"; any mutated non-"jq"
+      default falls through to the identical ripgrep branch.
+    pragma: true
+
+  - module: router.py
+    symbol: _decision_from_route
+    reason: >-
+      bool() of the missing-key default is False whether it is False/None/absent.
+    proof: >-
+      When read_only is missing from the route, bool() of the default is False
+      whether the default is False, None, or dropped — read_only computes
+      identically.
+    pragma: true
+
+  - module: router.py
+    symbol: _best_in_tier
+    reason: >-
+      scores are never negative, and a 0 score never beats best_score.
+    proof: >-
+      _score_patterns never returns a negative score and best_score starts at
+      0.0, so a 0 score skipped by `<= 0` would also lose the `score >
+      best_score` comparison — `<` vs `<=` is unobservable.
+    pragma: true
+
+  - module: spend_guard.py
+    symbol: _load_today_spend
+    reason: >-
+      encoding=None/"UTF-8" decode identically on UTF-8 locale.
+    proof: >-
+      Usage logs are UTF-8 on a UTF-8 locale, so encoding=None, "utf-8" and
+      "UTF-8" decode the same lines and the spend total is unchanged.
+    pragma: false
+
+  - module: spend_guard.py
+    symbol: _load_today_spend
+    reason: >-
+      default "" vs None/dropped/"XXXX" only when ts key is absent; str(...)
+      still won't start with today's date → same skip branch.
+    proof: >-
+      The default matters only for events without a ts key; str() of "" or of
+      any mutated default still does not start with today's date, so the event
+      is skipped either way.
+    pragma: false
+
+  - module: spend_guard.py
+    symbol: expensive_opt_in
+    reason: >-
+      default "" vs "XXXX" — unset env; "XXXX" not in accepted tokens → same
+      False.
+    proof: >-
+      With SPEND_ENV unset, the default is only compared against the accepted
+      token set ("1"/"true"/"yes"/"on"); neither "" nor a junk default is in it,
+      so the check stays False.
+    pragma: false
+
+  - module: spend_guard.py
+    symbol: expensive_opt_in
+    reason: >-
+      default "" vs "XXXX" — unset env; "XXXX" not in accepted tokens → same
+      False.
+    proof: >-
+      Same argument for ALLOW_EXPENSIVE_ENV: with the env var unset, neither ""
+      nor a junk default is in the accepted token set, so the result stays
+      False.
+    pragma: false
+
+  - module: spend_guard.py
+    symbol: estimate_cost_usd
+    reason: >-
+      <= 0 vs < 0 — cost==0 still yields 0.0 product.
+    proof: >-
+      With cost_per_1m_usd == 0 the early return gives 0.0 and the fall-through
+      product is also 0.0, so `<= 0` vs `< 0` returns the same value.
+    pragma: false

@@ -490,6 +490,8 @@ def search_code(
     if not query:
         return SearchResult(text="Error: query is required.", engine="rg")
 
+    # equivalent: initial None sentinel is only truthiness-checked below and is
+    # always reassigned before real use, so a falsy "" default routes identically.
     resolved: Path | None = None
     if path:
         hint = path.strip()

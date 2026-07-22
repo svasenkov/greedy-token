@@ -312,6 +312,17 @@ mutmut show <id>                 # inspect a single mutant diff
 Mutation testing is not part of `release-gate.sh` (it is slow); run it when
 changing a hot module. The goal is a ~100% mutation score on those modules.
 
+**Equivalent-mutant golden registry:** every surviving mutant is either killed
+by a new test or proven equivalent — marked in the source with an
+`# equivalent: <proof>` comment (plus `# pragma: no mutate` where the mutation
+is also suppressed) and inventoried in `docs/mutation-equivalents.yaml`, one
+entry per marker (module, symbol, reason, proof), anchored to file + marker
+text rather than unstable mutmut ids. The drift guard
+`tests/test_mutation_equivalents.py` compares source and registry in both
+directions: a new pragma/equivalent without a registry entry is red, and so is
+an entry whose marker is gone. New entries land only together with the source
+marker, with a proof that passed review.
+
 **Layer slices:** module → `tests/pyramid_layers.py` → Allure label `layer` + pytest marker (`-m unit|component|integration|e2e`). CI matrix job `tests` runs each slice separately.
 
 Optional integration tests (real workspace files) run when the checkout includes `stacks/java-spring/`; set `GREEDY_TOKEN_ROOT` to override the workspace root.
