@@ -531,6 +531,39 @@ def test_format_executor_summary_math() -> None:
     assert lines[2] == f"  {'python (script)':<28} steps=2  spent ~105  saved ~206"
 
 
+@allure.story("Executor summary")
+@allure.title("format_executor_savings_summary emits every tier in canonical order")
+def test_format_executor_summary_all_tiers() -> None:
+    # One row per tier exercises each string literal in the iteration tuple and
+    # forces the "continue" (skip missing tier) path between present tiers.
+    rows = [
+        _row(tier="cursor", spent=50, saved=60),
+        _row(tier="tool", spent=1, saved=2),
+        _row(tier="rag", spent=7, saved=8),
+        _row(tier="ollama", spent=3, saved=4),
+        _row(tier="python", spent=5, saved=6),
+    ]
+    lines = format_executor_savings_summary(rows)
+    # Canonical order tool, python, ollama, rag, cursor — regardless of input order.
+    assert lines[1] == f"  {'rg (disk search)':<28} steps=1  spent ~1  saved ~2"
+    assert lines[2] == f"  {'python (script)':<28} steps=1  spent ~5  saved ~6"
+    assert lines[3] == f"  {'ollama (cheap LLM)':<28} steps=1  spent ~3  saved ~4"
+    assert lines[4] == f"  {'rag (docs/rag read)':<28} steps=1  spent ~7  saved ~8"
+    assert lines[5] == f"  {'cursor (expensive LLM)':<28} steps=1  spent ~50  saved ~60"
+
+
+@allure.story("Executor summary")
+@allure.title("format_executor_savings_summary skips missing tiers with continue, not break")
+def test_format_executor_summary_skips_missing_tiers() -> None:
+    # tool present, python/ollama/rag absent, cursor present: a `break` on the
+    # first missing tier would drop the trailing cursor row.
+    rows = [_row(tier="tool", spent=1, saved=2), _row(tier="cursor", spent=9, saved=10)]
+    lines = format_executor_savings_summary(rows)
+    assert lines[1] == f"  {'rg (disk search)':<28} steps=1  spent ~1  saved ~2"
+    assert lines[2] == f"  {'cursor (expensive LLM)':<28} steps=1  spent ~9  saved ~10"
+    assert len(lines) == 3
+
+
 @allure.story("Compute savings")
 @allure.title("compute_step_savings enumerates from 1, threads root, and clamps saved")
 def test_compute_step_savings_math(minimal_workspace: Path) -> None:
@@ -721,6 +754,36 @@ def test_format_pipeline_footer_exact(minimal_workspace: Path, monkeypatch: pyte
         m = re.search(r"Saved:\s+~([\d,]+)", footer)
         assert m is not None
         assert m.group(1) == "0"
+
+
+@allure.story("Pipeline footer")
+@allure.title("format_pipeline_footer 'Spent by executor' covers every tier + notes")
+def test_format_pipeline_footer_spent_by_executor(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from types import SimpleNamespace
+
+    import greedy_token.pipeline as P
+
+    # One executed step per tier exercises every tier string in the loop tuple,
+    # the ollama/tool/python note special-casing, and the continue (skip) path.
+    steps = [
+        _sr("s-tool", "tool", label="a", est_tokens=10, executed=True),
+        _sr("s-py", "python", label="b", est_tokens=20, executed=True),
+        _sr("s-oll", "ollama", label="c", est_tokens=30, executed=True),
+        _sr("s-rag", "rag", label="d", est_tokens=40, executed=True),
+        _sr("s-cur", "cursor", label="e", est_tokens=50, executed=True),
+    ]
+    result = PipelineResult(task="t", steps=steps)
+    monkeypatch.setattr(P, "cursor_baseline_breakdown", lambda root, task: SimpleNamespace(total=9999, rules=1, task=2, overhead=3))
+    monkeypatch.setattr(P, "get_cheap_llm_settings", lambda root: SimpleNamespace(provider="prov", model="mod", url="http://x"))
+    monkeypatch.setattr(P, "compute_step_savings", lambda res, root: [])
+
+    footer = P.format_pipeline_footer(result, minimal_workspace)
+    with allure.step("Each tier renders once, in canonical order, with the right note"):
+        assert f"  {'rg (disk search) (0 LLM spend)':<32} steps=1  ~10 tok" in footer
+        assert f"  {'python (script) (0 LLM spend)':<32} steps=1  ~20 tok" in footer
+        assert f"  {'ollama (cheap LLM) (prov/mod, cheap)':<32} steps=1  ~30 tok" in footer
+        assert f"  {'rag (docs/rag read)':<32} steps=1  ~40 tok" in footer
+        assert f"  {'cursor (expensive LLM)':<32} steps=1  ~50 tok" in footer
 
 
 @allure.story("Continue on error")
