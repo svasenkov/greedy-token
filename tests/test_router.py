@@ -5,8 +5,10 @@ from unittest.mock import patch
 
 import allure
 import pytest
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
 
-from greedy_token.router import route_task, route_task_all_tiers
+from greedy_token.router import TIER_ORDER, route_task, route_task_all_tiers
 from tests.allure_reporting import attach_json, attach_text
 
 pytestmark = [
@@ -15,6 +17,34 @@ pytestmark = [
     allure.feature("Task router"),
     allure.suite("Task router"),
 ]
+
+
+@allure.story("Invariants")
+@allure.title("route_task never raises and always yields a valid tier for arbitrary input")
+@given(
+    task=st.text(max_size=120)
+    | st.text(alphabet=st.characters(blacklist_categories=("Cs",)), max_size=120)
+)
+@settings(max_examples=200, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture])
+def test_route_task_total_on_arbitrary_input(minimal_workspace: Path, task: str) -> None:
+    # ollama pinned unavailable => deterministic, network-free routing.
+    with patch("greedy_token.router.ollama_available", return_value=False):
+        decision = route_task(task, minimal_workspace)
+    assert decision.target in set(TIER_ORDER)
+    assert decision.target
+    assert decision.est_tokens >= 0
+    assert isinstance(decision.route_id, str) and decision.route_id
+
+
+@allure.story("Invariants")
+@allure.title("route_task stays valid when the cheap LLM tier is available")
+@given(task=st.text(max_size=120))
+@settings(max_examples=100, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture])
+def test_route_task_total_with_ollama_available(minimal_workspace: Path, task: str) -> None:
+    with patch("greedy_token.router.ollama_available", return_value=True):
+        decision = route_task(task, minimal_workspace)
+    assert decision.target in set(TIER_ORDER)
+    assert decision.est_tokens >= 0
 
 
 @allure.story("Tool tier")
@@ -101,7 +131,14 @@ def test_route_task_all_tiers_has_five_rows(minimal_workspace: Path) -> None:
 @allure.story("Shadow routes")
 @allure.title("Disabled shadow route does not execute script tier")
 def test_disabled_shadow_route_is_skipped(minimal_workspace: Path) -> None:
-    with allure.step("Route task matching provider balance shadow route"):
+    # Pin "now" inside the configured shadow window so the assertion does not
+    # depend on the wall clock (the shadow_until date would otherwise expire).
+    from datetime import datetime, timezone
+
+    fixed_now = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    with allure.step("Route task matching provider balance shadow route"), patch(
+        "greedy_token.router._now", return_value=fixed_now
+    ):
         decision = route_task("provider balance", minimal_workspace)
         attach_json(
             "decision",

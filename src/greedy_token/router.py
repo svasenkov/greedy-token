@@ -82,10 +82,15 @@ def _parse_shadow_until(route: dict) -> datetime | None:
     return until
 
 
+def _now() -> datetime:
+    """Current UTC time. Indirected so shadow-window tests are deterministic."""
+    return datetime.now(timezone.utc)
+
+
 def _route_status(route: dict) -> str:
     """active | shadow | inactive — shadow = log-only match until shadow_until."""
     until = _parse_shadow_until(route)
-    if until is not None and datetime.now(timezone.utc) < until:
+    if until is not None and _now() < until:
         return "shadow"
     if route.get("enabled") is False:
         return "inactive"
