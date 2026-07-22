@@ -458,6 +458,8 @@ cheap_llm:
 
 Проектный override (опционально): `.greedy-token.yaml` в корне workspace.
 
+Multi-model реестр ([ADR-0001](docs/adr/0001-unified-model-spec-derived-tier.md)): единый список `llm.models[]`; tier cheap/expensive *выводится* из атрибутов модели — `billing: free|metered`, `cost_per_1m_usd`, порог `llm.cheap_cost_threshold_per_1m_usd` (default 0.2 USD за 1M токенов). `locality: local|remote` на tier не влияет. Старые секции `llm.cheap.models[]` / `llm.expensive.models[]` продолжают читаться. Шаблоны: `examples/presets/`.
+
 ## Конфиг маршрутизации
 
 | Файл | Назначение |

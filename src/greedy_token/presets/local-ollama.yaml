@@ -1,28 +1,32 @@
-# Dev preset — local Ollama fast + smart, both turned on
+# Dev preset — local Ollama fast + smart, both enabled
 # greedy-token config --init --preset local-ollama
+# Unified model list (ADR-0001): tier is derived from billing/cost, not stored.
 
 llm:
   policy: auto
+  models:
+    - id: ollama-fast
+      enabled: true
+      provider: ollama
+      url: http://localhost:11434
+      model: qwen2.5-coder:7b-instruct-q4_K_M
+      locality: local
+      billing: free
+      profiles: [classify, tms-classify, compress]
+    - id: ollama-smart
+      enabled: true
+      provider: ollama
+      url: http://localhost:11434
+      model: qwen2.5-coder:14b-instruct-q4_K_M
+      locality: local
+      billing: free
+      profiles: [generate, audit, tms-generate]
   cheap:
     default_id: ollama-fast
     selection: auto
-    models:
-      - id: ollama-fast
-        turned_on: true
-        provider: ollama
-        url: http://localhost:11434
-        model: qwen2.5-coder:7b-instruct-q4_K_M
-        profiles: [classify, tms-classify, compress]
-      - id: ollama-smart
-        turned_on: true
-        provider: ollama
-        url: http://localhost:11434
-        model: qwen2.5-coder:14b-instruct-q4_K_M
-        profiles: [generate, audit, tms-generate]
   expensive:
     opt_in: false
     daily_cap_usd: 5
-    models: []
   escalation:
     enabled: true
     chain: [ollama-fast, ollama-smart]

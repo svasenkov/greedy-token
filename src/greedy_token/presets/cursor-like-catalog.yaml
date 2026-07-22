@@ -1,110 +1,126 @@
-# Cursor-like model catalog — local Ollama on; all paid cloud turned off
+# Cursor-like model catalog — local Ollama on; all paid cloud disabled
 # greedy-token config --init --preset cursor-like-catalog
 # Anthropic / Gemini stubs: see examples/presets/README.md (not in this file)
+#
+# Unified model list (ADR-0001): tier is derived — billing: free → cheap,
+# metered ≤ llm.cheap_cost_threshold_per_1m_usd (default 0.2) → cheap,
+# otherwise expensive. The old duplicated groq-llama/groq-70b pair (the same
+# llama-3.3-70b-versatile model in both tiers) is merged into one entry.
 
 llm:
   policy: auto
+  models:
+    - id: ollama-fast
+      enabled: true
+      provider: ollama
+      url: http://localhost:11434
+      model: qwen2.5-coder:7b-instruct-q4_K_M
+      locality: local
+      billing: free
+      profiles: [classify, tms-classify, compress]
+    - id: ollama-smart
+      enabled: true
+      provider: ollama
+      url: http://localhost:11434
+      model: qwen2.5-coder:14b-instruct-q4_K_M
+      locality: local
+      billing: free
+      profiles: [generate, audit, tms-generate]
+    - id: openai-mini
+      enabled: false
+      provider: openai_compat
+      url: https://api.openai.com/v1
+      model: gpt-4o-mini
+      locality: remote
+      billing: metered
+      cost_per_1m_usd: 0.15   # ≤ threshold → derives cheap
+      api_key_env: OPENAI_API_KEY
+      profiles: [classify, compress]
+    - id: groq-llama
+      enabled: false
+      provider: openai_compat
+      url: https://api.groq.com/openai/v1
+      model: llama-3.3-70b-versatile
+      locality: remote
+      billing: metered
+      cost_per_1m_usd: 0.05   # ≤ threshold → derives cheap
+      api_key_env: GROQ_API_KEY
+      profiles: [classify, generate]
+    - id: mistral-small
+      enabled: false
+      provider: openai_compat
+      url: https://api.mistral.ai/v1
+      model: mistral-small-latest
+      locality: remote
+      billing: metered
+      cost_per_1m_usd: 0.1    # ≤ threshold → derives cheap
+      api_key_env: MISTRAL_API_KEY
+      profiles: [classify]
+    - id: openai-gpt4o
+      enabled: false
+      provider: openai_compat
+      url: https://api.openai.com/v1
+      model: gpt-4o
+      locality: remote
+      billing: metered
+      cost_per_1m_usd: 2.5
+      api_key_env: OPENAI_API_KEY
+      profiles: [generate, tms-generate-fallback]
+    - id: openai-o4-mini
+      enabled: false
+      provider: openai_compat
+      url: https://api.openai.com/v1
+      model: o4-mini
+      locality: remote
+      billing: metered
+      cost_per_1m_usd: 1.1
+      api_key_env: OPENAI_API_KEY
+      profiles: [generate]
+    - id: mistral-large
+      enabled: false
+      provider: openai_compat
+      url: https://api.mistral.ai/v1
+      model: mistral-large-latest
+      locality: remote
+      billing: metered
+      cost_per_1m_usd: 2
+      api_key_env: MISTRAL_API_KEY
+      profiles: [generate]
+    - id: deepseek-chat
+      enabled: false
+      provider: openai_compat
+      url: https://api.deepseek.com/v1
+      model: deepseek-chat
+      locality: remote
+      billing: metered
+      cost_per_1m_usd: 0.27
+      api_key_env: DEEPSEEK_API_KEY
+      profiles: [generate]
+    - id: yandex-lite
+      enabled: false
+      provider: yandex_gpt
+      model: yandexgpt-lite
+      locality: remote
+      billing: metered
+      cost_per_1m_usd: 7
+      api_key_env: YANDEX_GPT_API_KEY
+      profiles: [escalate, crystallize-verify]
+    - id: yandex-pro
+      enabled: false
+      provider: yandex_gpt
+      model: yandexgpt
+      locality: remote
+      billing: metered
+      cost_per_1m_usd: 12
+      api_key_env: YANDEX_GPT_API_KEY
+      profiles: [generate-fallback]
   cheap:
     default_id: ollama-fast
     selection: auto
-    models:
-      - id: ollama-fast
-        turned_on: true
-        provider: ollama
-        url: http://localhost:11434
-        model: qwen2.5-coder:7b-instruct-q4_K_M
-        profiles: [classify, tms-classify, compress]
-        cost_per_1m_usd: 0
-      - id: ollama-smart
-        turned_on: true
-        provider: ollama
-        url: http://localhost:11434
-        model: qwen2.5-coder:14b-instruct-q4_K_M
-        profiles: [generate, audit, tms-generate]
-        cost_per_1m_usd: 0
-      - id: openai-mini
-        turned_on: false
-        provider: openai_compat
-        url: https://api.openai.com/v1
-        model: gpt-4o-mini
-        api_key_env: OPENAI_API_KEY
-        profiles: [classify, compress]
-        cost_per_1m_usd: 0.15
-      - id: groq-llama
-        turned_on: false
-        provider: openai_compat
-        url: https://api.groq.com/openai/v1
-        model: llama-3.3-70b-versatile
-        api_key_env: GROQ_API_KEY
-        profiles: [classify]
-        cost_per_1m_usd: 0.05
-      - id: mistral-small
-        turned_on: false
-        provider: openai_compat
-        url: https://api.mistral.ai/v1
-        model: mistral-small-latest
-        api_key_env: MISTRAL_API_KEY
-        profiles: [classify]
-        cost_per_1m_usd: 0.1
   expensive:
     opt_in: false
     daily_cap_usd: 10
     default_id: openai-gpt4o
-    models:
-      - id: openai-gpt4o
-        turned_on: false
-        provider: openai_compat
-        url: https://api.openai.com/v1
-        model: gpt-4o
-        api_key_env: OPENAI_API_KEY
-        profiles: [generate, tms-generate-fallback]
-        cost_per_1m_usd: 2.5
-      - id: openai-o4-mini
-        turned_on: false
-        provider: openai_compat
-        url: https://api.openai.com/v1
-        model: o4-mini
-        api_key_env: OPENAI_API_KEY
-        profiles: [generate]
-        cost_per_1m_usd: 1.1
-      - id: mistral-large
-        turned_on: false
-        provider: openai_compat
-        url: https://api.mistral.ai/v1
-        model: mistral-large-latest
-        api_key_env: MISTRAL_API_KEY
-        profiles: [generate]
-        cost_per_1m_usd: 2
-      - id: deepseek-chat
-        turned_on: false
-        provider: openai_compat
-        url: https://api.deepseek.com/v1
-        model: deepseek-chat
-        api_key_env: DEEPSEEK_API_KEY
-        profiles: [generate]
-        cost_per_1m_usd: 0.27
-      - id: groq-70b
-        turned_on: false
-        provider: openai_compat
-        url: https://api.groq.com/openai/v1
-        model: llama-3.3-70b-versatile
-        api_key_env: GROQ_API_KEY
-        profiles: [generate]
-        cost_per_1m_usd: 0.05
-      - id: yandex-lite
-        turned_on: false
-        provider: yandex_gpt
-        model: yandexgpt-lite
-        api_key_env: YANDEX_GPT_API_KEY
-        profiles: [escalate, crystallize-verify]
-        cost_per_1m_usd: 7
-      - id: yandex-pro
-        turned_on: false
-        provider: yandex_gpt
-        model: yandexgpt
-        api_key_env: YANDEX_GPT_API_KEY
-        profiles: [generate-fallback]
-        cost_per_1m_usd: 12
   escalation:
     enabled: true
     chain: [ollama-fast, ollama-smart, openai-gpt4o, yandex-lite]

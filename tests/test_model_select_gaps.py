@@ -211,6 +211,35 @@ def test_unified_pool_derived_tiers(monkeypatch: pytest.MonkeyPatch) -> None:
     assert resolved.billing_tier == "cheap"
 
 
+@allure.title("llm.models[] unified list: junk skipped, sections deduped, no legacy default")
+def test_parse_registry_unified_models_list() -> None:
+    legacy = CheapLlmSettings("ollama", "http://legacy", "legacy-m", "s")
+    cfg = {
+        "models": [
+            "junk",
+            {"no_id": True},
+            {"id": "fast", "model": "m7"},
+            {"id": "paid", "model": "big", "billing": "metered", "cost_per_1m_usd": 2.5},
+        ],
+        # deprecated section lists still read; duplicate id is skipped
+        "cheap": {"models": [{"id": "fast", "model": "shadowed"}, {"id": "extra", "model": "mx"}]},
+        "expensive": {"models": [{"id": "y", "model": "yg"}]},
+    }
+    reg = _parse_registry(cfg, legacy_cheap=legacy, source="test")
+    assert [m.id for m in reg.models] == ["fast", "paid", "extra", "y"]
+    # first occurrence wins — llm.models[] entry, not the section duplicate
+    assert next(m for m in reg.models if m.id == "fast").model == "m7"
+    # llm.models[] present → no injected legacy "default" model
+    assert all(m.id != "default" for m in reg.models)
+    assert [m.id for m in reg.cheap_models] == ["fast", "extra"]
+    assert [m.id for m in reg.expensive_models] == ["paid", "y"]
+
+    # unified list alone (no sections) also suppresses the legacy default
+    reg2 = _parse_registry({"models": [{"id": "solo", "model": "m"}]}, legacy_cheap=legacy, source="test")
+    assert [m.id for m in reg2.models] == ["solo"]
+    assert reg2.cheap_default_id == "solo"
+
+
 @allure.title("cheap default falls back to the whole pool when nothing derives cheap")
 def test_default_id_fallback_no_derived_cheap() -> None:
     legacy = CheapLlmSettings("ollama", "http://x", "m", "s")

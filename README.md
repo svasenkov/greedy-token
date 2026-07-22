@@ -450,6 +450,8 @@ cheap_llm:
   model: qwen2.5-coder:7b-instruct-q4_K_M
 ```
 
+Multi-model registry ([ADR-0001](docs/adr/0001-unified-model-spec-derived-tier.md)): declare one unified `llm.models[]` list; the cheap/expensive tier is *derived* from each model's attributes — `billing: free|metered`, `cost_per_1m_usd`, threshold `llm.cheap_cost_threshold_per_1m_usd` (default 0.2 USD per 1M tokens). `locality: local|remote` never affects the tier. Legacy `llm.cheap.models[]` / `llm.expensive.models[]` sections are still read. Templates: `examples/presets/`.
+
 ## Routing config
 
 | File | Purpose |

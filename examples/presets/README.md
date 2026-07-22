@@ -1,6 +1,8 @@
 # LLM model presets
 
-Copy-paste templates for `~/.greedy-token/config.yaml`. Paid cloud models default to **`turned_on: false`**; enable manually with API keys and `llm.expensive.opt_in`.
+Copy-paste templates for `~/.greedy-token/config.yaml`. Paid cloud models default to **`enabled: false`** (legacy `turned_on:` is still read); enable manually with API keys and `llm.expensive.opt_in`.
+
+All presets use the unified `llm.models[]` list ([ADR-0001](../../docs/adr/0001-unified-model-spec-derived-tier.md)): the cheap/expensive tier is **derived** from `billing` + `cost_per_1m_usd` (threshold `llm.cheap_cost_threshold_per_1m_usd`, default 0.2 USD/1M), never stored. Legacy `llm.cheap.models[]` / `llm.expensive.models[]` sections keep working.
 
 ```bash
 greedy-token config --init --preset local-ollama-3
@@ -48,7 +50,7 @@ OpenAI, Groq, Mistral, DeepSeek in presets use **`openai_compat`** + provider ba
 
 ## Pending providers (README only — not in YAML)
 
-These are **not executable** until native adapters ship. Do not add to `llm.*.models[]` with `turned_on: true` before the executor exists.
+These are **not executable** until native adapters ship. Do not add to `llm.models[]` with `enabled: true` before the executor exists.
 
 | id | model slug | api_key_env | Issue | Role |
 |----|------------|-------------|-------|------|
@@ -57,8 +59,8 @@ These are **not executable** until native adapters ship. Do not add to `llm.*.mo
 
 Enable paid models:
 
-1. Set `turned_on: true` (or `enabled: true`) on the model entry
+1. Set `enabled: true` (legacy `turned_on:` also works) on the model entry
 2. Export the matching `api_key_env`
-3. For expensive tier: `llm.expensive.opt_in: true` and `GREEDY_EXPENSIVE_LLM=1` / `--allow-expensive`
+3. For the derived expensive tier (metered above the cost threshold): `llm.expensive.opt_in: true` and `GREEDY_EXPENSIVE_LLM=1` / `--allow-expensive`
 
 See [docs/cloud-api.md](../../../docs/greedy-token/cloud-api.md) (monorepo) and [ROADMAP-RU.md](../../docs/ROADMAP-RU.md).

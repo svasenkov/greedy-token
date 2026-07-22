@@ -83,10 +83,35 @@ def test_cursor_catalog_paid_models_off(tmp_path: Path, monkeypatch: pytest.Monk
 @pytest.mark.unit
 def test_cursor_catalog_has_no_anthropic_stub_in_yaml() -> None:
     payload = load_preset_yaml("cursor-like-catalog")
-    all_models = payload["llm"]["cheap"]["models"] + payload["llm"]["expensive"]["models"]
-    ids = {m["id"] for m in all_models}
+    ids = {m["id"] for m in payload["llm"]["models"]}
     assert "anthropic-sonnet" not in ids
     assert "gemini-pro" not in ids
+
+
+@pytest.mark.unit
+def test_cursor_catalog_unified_models_derived_tiers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ADR-0001 phase 3: single llm.models[] list; tier derives from billing/cost.
+    The old groq-llama/groq-70b duplicate is merged into one sub-threshold entry."""
+    cfg_path = tmp_path / "config.yaml"
+    monkeypatch.setattr("greedy_token.settings.user_config_path", lambda: cfg_path)
+    monkeypatch.setattr("greedy_token.model_select.user_config_path", lambda: cfg_path)
+
+    init_user_config_from_preset(preset="cursor-like-catalog", force=True)
+    reg = get_llm_registry(tmp_path)
+
+    ids = [m.id for m in reg.models]
+    assert "groq-70b" not in ids
+    assert ids.count("groq-llama") == 1
+
+    tiers = {m.id: reg.tier_of(m) for m in reg.models}
+    assert tiers["ollama-fast"] == "cheap"        # free
+    assert tiers["groq-llama"] == "cheap"         # metered 0.05 <= 0.2
+    assert tiers["openai-mini"] == "cheap"        # metered 0.15 <= 0.2
+    assert tiers["deepseek-chat"] == "expensive"  # metered 0.27 > 0.2
+    assert tiers["openai-gpt4o"] == "expensive"
+    assert tiers["yandex-pro"] == "expensive"
 
 
 @pytest.mark.unit
@@ -98,7 +123,7 @@ def test_init_user_config_from_preset_writes_file(tmp_path: Path, monkeypatch: p
     assert out == cfg_path
     assert cfg_path.is_file()
     written = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
-    assert written["llm"]["cheap"]["models"][0]["id"] == "fast"
+    assert written["llm"]["models"][0]["id"] == "fast"
 
 
 @pytest.mark.unit

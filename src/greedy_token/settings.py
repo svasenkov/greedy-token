@@ -449,7 +449,7 @@ def format_config(settings: CheapLlmSettings | OllamaSettings | None = None, *, 
             "  greedy-token config --init --preset local-ollama",
             "  greedy-token config --list-presets",
             "",
-            "Multi-model: use llm.cheap.models[] + profiles (see docs/ROADMAP-RU.md).",
+            "Multi-model: use llm.models[] + profiles (see docs/adr/0001-unified-model-spec-derived-tier.md).",
             "Prefer: greedy-token llm invoke --profile tms-classify over CHEAP_LLM_MODEL env.",
         ]
     )

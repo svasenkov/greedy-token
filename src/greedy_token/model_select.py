@@ -304,13 +304,21 @@ def _parse_registry(
     expensive_section = _section(llm_cfg, "expensive")
     esc_section = _section(llm_cfg, "escalation")
 
+    # New unified list (ADR-0001 phase 3): llm.models[] with explicit attributes.
+    unified_models: list[ModelSpec] = []
+    for entry in llm_cfg.get("models") or []:
+        if isinstance(entry, dict):
+            spec = _parse_model_entry(entry)
+            if spec:
+                unified_models.append(spec)
+
     cheap_models: list[ModelSpec] = []
     for entry in cheap_section.get("models") or []:
         if isinstance(entry, dict):
             spec = _parse_model_entry(entry, section="cheap")
             if spec:
                 cheap_models.append(spec)
-    if not cheap_models:
+    if not cheap_models and not unified_models:
         cheap_models.append(_legacy_default_model(legacy_cheap))
 
     expensive_models: list[ModelSpec] = []
@@ -329,9 +337,16 @@ def _parse_registry(
     except (TypeError, ValueError):
         cheap_cost_threshold = DEFAULT_CHEAP_COST_THRESHOLD_PER_1M_USD
 
-    # Unified pool (ADR-0001 phase 2): tier is derived, defaults come from the
-    # derived views, not from the config section a model was declared in.
-    models: list[ModelSpec] = cheap_models + expensive_models
+    # Unified pool (ADR-0001): llm.models[] first, then the deprecated section
+    # lists, skipping duplicate ids (first occurrence wins). Tier is derived,
+    # defaults come from the derived views, not from the declaring section.
+    models: list[ModelSpec] = []
+    seen_ids: set[str] = set()
+    for spec in (*unified_models, *cheap_models, *expensive_models):
+        if spec.id in seen_ids:
+            continue
+        seen_ids.add(spec.id)
+        models.append(spec)
     derived_cheap = [
         m
         for m in models
