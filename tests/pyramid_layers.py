@@ -36,6 +36,7 @@ LAYER_BY_MODULE: dict[str, str] = {
     "test_settings_gaps": "unit",
     "test_tokens": "unit",
     "test_tool_output": "unit",
+    "test_doc_sync": "unit",
     # component — module wiring, mocks, minimal_workspace fixtures
     "test_coverage_gaps": "component",
     "test_executors": "component",

@@ -510,6 +510,11 @@ def load_events(path: Path, *, since: datetime | None = None) -> tuple[list[dict
                 except json.JSONDecodeError:
                     skipped += 1
                     continue
+                if not isinstance(event, dict):
+                    # A bare `null`, list, or scalar line (e.g. from a truncated
+                    # concurrent write) is not a usage event — skip it.
+                    skipped += 1
+                    continue
                 if since is not None:
                     ts = _parse_event_ts(event)
                     if ts is None:

@@ -399,6 +399,34 @@ def test_load_events_skips_bad_lines(log_file: Path) -> None:
         assert skipped == 1
 
 
+@allure.story("Log loading")
+@allure.title("Event loader skips non-dict JSON lines (bare null / list)")
+def test_load_events_skips_non_dict_lines(log_file: Path) -> None:
+    # A concurrent truncated write can leave a valid-JSON but non-object line
+    # (e.g. `null`); it must be skipped, not crash the loader.
+    log_file.write_text(
+        '{"cmd":"route","ts":"2026-07-07T00:00:00Z","selected_tier":"tool"}\n'
+        "null\n"
+        "[1, 2, 3]\n"
+        "42\n"
+        '{"cmd":"estimate","ts":"2026-07-07T01:00:00Z","selected_tier":"rag"}\n',
+        encoding="utf-8",
+    )
+    with allure.step("Load events from a log with non-dict lines"):
+        events, skipped = load_events(log_file)
+    with allure.step("Verify only dict events load and the rest are skipped"):
+        assert len(events) == 2
+        assert skipped == 3
+        # With a since filter, the non-dict lines must also be skipped safely.
+        from datetime import datetime, timezone
+
+        events2, skipped2 = load_events(
+            log_file, since=datetime(2020, 1, 1, tzinfo=timezone.utc)
+        )
+        assert len(events2) == 2
+        assert skipped2 == 3
+
+
 @allure.story("Error handling")
 @allure.title("Usage log append logs warning when write fails")
 def test_append_failure(monkeypatch: pytest.MonkeyPatch, capsys, tmp_path: Path) -> None:
@@ -523,6 +551,19 @@ def test_log_path_custom(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Non
     custom = tmp_path / "custom.jsonl"
     monkeypatch.setenv("GREEDY_TOKEN_LOG", str(custom))
     assert log_path() == custom
+
+
+@allure.story("Logging paths")
+@allure.title("log_path falls back to DEFAULT_LOG when GREEDY_TOKEN_LOG is unset or disabled")
+@pytest.mark.parametrize("value", [None, "0", "false", "off", "no"])
+def test_log_path_default(monkeypatch: pytest.MonkeyPatch, value) -> None:
+    from greedy_token.usage import DEFAULT_LOG, log_path
+
+    if value is None:
+        monkeypatch.delenv("GREEDY_TOKEN_LOG", raising=False)
+    else:
+        monkeypatch.setenv("GREEDY_TOKEN_LOG", value)
+    assert log_path() == DEFAULT_LOG
 
 
 @allure.story("Event builders")

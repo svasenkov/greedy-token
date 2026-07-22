@@ -173,6 +173,15 @@ def _greedy_token_root_env(monkeypatch: pytest.MonkeyPatch, minimal_workspace: P
     monkeypatch.setenv("GREEDY_TOKEN_ROOT", str(minimal_workspace))
 
 
+@allure.title("Isolate usage log from the developer HOME")
+@pytest.fixture(autouse=True)
+def _isolate_usage_log(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Default the telemetry log to a per-test temp file so the suite never reads
+    from or writes to the real ~/.greedy-token/usage.jsonl. Tests that need a
+    specific log path still override GREEDY_TOKEN_LOG themselves."""
+    monkeypatch.setenv("GREEDY_TOKEN_LOG", str(tmp_path / "usage.jsonl"))
+
+
 @pytest.hookimpl(tryfirst=True)
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     """Auto-mark tests with pyramid layer for pytest -m and CI matrix slices."""
