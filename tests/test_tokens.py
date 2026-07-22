@@ -6,6 +6,8 @@ from unittest.mock import patch
 
 import allure
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from greedy_token.tokens import count_texts, count_tokens
 from tests.allure_reporting import attach_json, attach_text
@@ -29,6 +31,35 @@ def test_count_tokens_uses_tiktoken() -> None:
         assert est.tokens > 0
         assert est.chars == len(text)
         assert "tiktoken" in est.method or "heuristic" in est.method
+
+
+@allure.story("Invariants")
+@allure.title("count_tokens is non-negative and faithfully reports char length")
+@given(text=st.text(max_size=128))
+@settings(max_examples=200)
+def test_count_tokens_invariants(text: str) -> None:
+    est = count_tokens(text)
+    # Never negative; tokens are exactly zero only for the empty string.
+    assert est.tokens >= 0
+    assert (est.tokens == 0) == (text == "")
+    # The chars field always mirrors the raw input length.
+    assert est.chars == len(text)
+    assert est.method in ("tiktoken/cl100k_base", "heuristic/4")
+
+
+@allure.story("Invariants")
+@allure.title("Heuristic token estimate is monotonic in input length")
+@given(base=st.text(max_size=64), extra=st.text(max_size=64))
+@settings(max_examples=200)
+def test_heuristic_estimate_monotonic(base: str, extra: str) -> None:
+    # Force the deterministic heuristic path (our own formula), which must be
+    # monotonic by input length even though raw BPE tokenizers are not.
+    with patch("tiktoken.get_encoding", side_effect=RuntimeError("no tiktoken")):
+        shorter = count_tokens(base)
+        longer = count_tokens(base + extra)
+    assert shorter.method == "heuristic/4"
+    assert len(base) <= len(base + extra)
+    assert shorter.tokens <= longer.tokens
 
 
 @allure.story("Batch counting")
