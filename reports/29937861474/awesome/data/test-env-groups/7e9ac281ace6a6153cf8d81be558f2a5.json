@@ -1,0 +1,1 @@
+{"id":"7e9ac281ace6a6153cf8d81be558f2a5","fullName":"tests.test_router_gaps#test_fallback_for_tier_exact","name":"_fallback_for_tier: exact RouteDecision fields for cursor and non-cursor tiers","status":"passed","testResultsByEnv":{"default":"6020929bf8c093216c24af897b8e55c1"}}

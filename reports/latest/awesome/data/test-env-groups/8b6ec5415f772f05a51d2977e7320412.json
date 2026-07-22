@@ -1,0 +1,1 @@
+{"id":"8b6ec5415f772f05a51d2977e7320412","fullName":"tests.test_code_search_gaps#test_resolve_detail_dot_ghost_root","name":"resolve_search_path_detail: hint '.' under a non-existent root → 'not_found'","status":"passed","testResultsByEnv":{"default":"864105292ea44ef7f63a4a4d671117f7"}}

@@ -1,0 +1,1 @@
+{"id":"6bd3c5fd700804e5c452159424e68e1d","fullName":"tests.test_usage#test_load_events_skips_non_dict_lines","name":"Event loader skips non-dict JSON lines (bare null / list)","status":"passed","testResultsByEnv":{"default":"48adca43bef1c7d4e5f46efb7c890ff2"}}

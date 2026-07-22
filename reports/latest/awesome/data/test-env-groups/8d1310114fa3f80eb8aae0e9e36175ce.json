@@ -1,0 +1,1 @@
+{"id":"8d1310114fa3f80eb8aae0e9e36175ce","fullName":"tests.test_pipeline_gaps#test_resolve_wrapper_args_errors","name":"_resolve_wrapper_args: exact empty-arg errors for classify-file and audit-skill","status":"passed","testResultsByEnv":{"default":"9a1ed4da1b777c4a12c777dfe7f31a70"}}

@@ -1,0 +1,1 @@
+{"id":"3507e7ca8339301631f4549f850ab880","fullName":"tests.test_code_search#test_glob_name_matches_skips_outside","name":"_glob_name_matches: matches outside root skipped with continue","status":"passed","testResultsByEnv":{"default":"c7f4aeff281e65879befeb84a2fb5af1"}}

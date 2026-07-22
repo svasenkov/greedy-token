@@ -1,0 +1,1 @@
+{"id":"b4b8387b1832d2e2099b6ed9f5dc3d88","fullName":"tests.test_executors_gaps#test_execute_task_filtered_three_lines_no_append","name":"execute_task tool tier: filtered≠raw with exactly 3 lines → no RAG append (kills <3 boundary)","status":"passed","testResultsByEnv":{"default":"5b61638ec21c55a97c43ca736db6e523"}}

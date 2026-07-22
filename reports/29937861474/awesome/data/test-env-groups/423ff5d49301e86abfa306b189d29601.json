@@ -1,0 +1,1 @@
+{"id":"423ff5d49301e86abfa306b189d29601","fullName":"tests.test_code_search_gaps#test_enrich_top_of_file_clamp","name":"enrich_search_hits: start clamps to 1 for a top-of-file hit (kills max(2,..))","status":"passed","testResultsByEnv":{"default":"b03bdd6980b8438b4069cae0bb3bbea7"}}

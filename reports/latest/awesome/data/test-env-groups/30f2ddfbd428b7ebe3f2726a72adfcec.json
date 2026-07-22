@@ -1,0 +1,1 @@
+{"id":"30f2ddfbd428b7ebe3f2726a72adfcec","fullName":"tests.test_code_search_gaps#test_finalize_no_hits_zero_counters","name":"_finalize_search: body with no parseable hits keeps counters at 0","status":"passed","testResultsByEnv":{"default":"b56fecfe638f28aaca1c93a721c3d2cc"}}

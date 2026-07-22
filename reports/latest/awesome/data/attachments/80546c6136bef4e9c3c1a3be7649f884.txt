@@ -1,0 +1,7 @@
+audit-skill
+check-meta-sync
+classify-file
+configurator-boolean-audit
+rag
+read-hits
+search

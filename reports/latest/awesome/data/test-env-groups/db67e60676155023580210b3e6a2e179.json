@@ -1,0 +1,1 @@
+{"id":"db67e60676155023580210b3e6a2e179","fullName":"tests.test_code_search_gaps#test_enrich_file_mode_exact","name":"enrich_search_hits: full-file mode emits exact body and rel header","status":"passed","testResultsByEnv":{"default":"ec6b383b3715010db640cc2518bbe583"}}

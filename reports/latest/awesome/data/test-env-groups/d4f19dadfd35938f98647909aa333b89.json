@@ -1,0 +1,1 @@
+{"id":"d4f19dadfd35938f98647909aa333b89","fullName":"tests.test_pipeline_gaps#test_parse_segment_fields","name":"_parse_segment: read-hits/wrapper branches yield exact PipelineStep fields","status":"passed","testResultsByEnv":{"default":"d868b2b513a92e585eff2d21b3346e44"}}

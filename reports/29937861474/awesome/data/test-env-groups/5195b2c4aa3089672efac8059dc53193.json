@@ -1,0 +1,1 @@
+{"id":"5195b2c4aa3089672efac8059dc53193","fullName":"tests.test_code_search_gaps#test_parse_hit_lines_prefix_skips","name":"parse_hit_lines: 'Search:'/'(' prefixed lines are skipped; real hits parse","status":"passed","testResultsByEnv":{"default":"ecf9e6e0b77fce33382750b586548f50"}}

@@ -1,0 +1,1 @@
+{"id":"e9d3450a1f110b364ab63b956b47ceb1","fullName":"tests.test_code_search_gaps#test_search_code_file_command_not_found_fallback","name":"search_code: file-scoped rg 'command not found' output falls back to python scan","status":"passed","testResultsByEnv":{"default":"21f0832ef9ef00912856b4853a1d5984"}}

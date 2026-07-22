@@ -1,0 +1,1 @@
+{"id":"2a5a0810da7895b17a30aa4d19f0d972","fullName":"tests.test_executors_gaps#test_plan_run_ollama_guard_and","name":"plan_run ollama tier: empty command → 'and' guard falls through to fallback","status":"passed","testResultsByEnv":{"default":"eb76e71ea173f885fba7ffe809a97c57"}}

@@ -1,0 +1,1 @@
+{"id":"e861ff8218b720bc7545c907758ae11a","fullName":"tests.test_code_search_gaps#test_search_code_file_no_match_engine_python","name":"search_code: scoped-file no-match with rg absent → engine 'python'","status":"passed","testResultsByEnv":{"default":"575db07979f613aabd24d487cc58b0ff"}}

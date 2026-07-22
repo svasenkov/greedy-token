@@ -1,1 +1,0 @@
-Processing request of type ListToolsRequest

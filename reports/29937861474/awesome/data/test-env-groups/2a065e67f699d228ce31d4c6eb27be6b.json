@@ -1,0 +1,1 @@
+{"id":"2a065e67f699d228ce31d4c6eb27be6b","fullName":"tests.test_code_search_gaps#test_python_search_tree_missing_scope_continue","name":"_python_search_tree: a missing scope dir is skipped via continue (not break)","status":"passed","testResultsByEnv":{"default":"2420cde3ab067b61afb0ca814126b581"}}

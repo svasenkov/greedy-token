@@ -1,0 +1,1 @@
+{"id":"a453a53a9b46e6336136b9721a978213","fullName":"tests.test_tool_paths#test_rg_candidates_path_unset","name":"_rg_candidates tolerates an unset PATH (kills None/'XXXX' PATH defaults)","status":"passed","testResultsByEnv":{"default":"0ce2c437fd40c95034b6cb9b4fc47d0c"}}

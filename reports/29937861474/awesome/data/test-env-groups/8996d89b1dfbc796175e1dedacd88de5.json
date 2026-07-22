@@ -1,0 +1,1 @@
+{"id":"8996d89b1dfbc796175e1dedacd88de5","fullName":"tests.test_router#test_route_task_total_on_arbitrary_input","name":"route_task never raises and always yields a valid tier for arbitrary input","status":"passed","testResultsByEnv":{"default":"f5dc5a944c646db1b112c6c25c9e613e"}}

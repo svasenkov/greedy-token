@@ -1,0 +1,1 @@
+{"id":"290dbe7961a95181be4e1d6b0fd5cc70","fullName":"tests.test_spend_guard_gaps#test_today_utc_is_utc_calendar_day","name":"_today_utc uses UTC calendar date, not local","status":"passed","testResultsByEnv":{"default":"4b84facc534d1699cfce242c3e0c534a"}}
