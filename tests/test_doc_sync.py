@@ -15,6 +15,7 @@ import allure
 import pytest
 
 from greedy_token import cli
+from greedy_token.calibration import BUCKET_BOUNDS, CALIBRATION_MIN_EVENTS, bucket_label
 from greedy_token.pipeline import PIPELINE_AUTO_RUN
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -154,3 +155,15 @@ def test_readme_mcp_tool_count_matches_code(readme: Path, cli_heading: str) -> N
     section = _section(markdown, "## MCP tools")
     tool_rows = re.findall(r"^\|\s*`greedy_token_\w+`\s*\|", section, flags=re.MULTILINE)
     assert len(tool_rows) == registered
+
+
+@allure.story("Confidence calibration")
+@allure.title("README calibration section matches code constants (threshold + buckets)")
+@pytest.mark.parametrize(("readme", "cli_heading"), READMES)
+def test_readme_calibration_matches_code(readme: Path, cli_heading: str) -> None:
+    markdown = readme.read_text(encoding="utf-8")
+    with allure.step(f"threshold documented as min n={CALIBRATION_MIN_EVENTS}"):
+        assert f"min n={CALIBRATION_MIN_EVENTS}" in markdown
+    with allure.step("every score bucket label from code is documented"):
+        for index in range(len(BUCKET_BOUNDS) + 1):
+            assert f"`{bucket_label(index)}`" in markdown, bucket_label(index)

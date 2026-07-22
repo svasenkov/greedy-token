@@ -538,6 +538,35 @@ def test_footer_exact_mixed(minimal_workspace: Path, monkeypatch: pytest.MonkeyP
         }
 
 
+@allure.title("format_pipeline_footer threads breakdown.source into both savings headings")
+def test_footer_threads_breakdown_source(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The footer must reuse the breakdown's source snapshot, not re-resolve the
+    ambient config (here: default-estimate) inside the table helpers."""
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        pl, "cursor_baseline_breakdown",
+        lambda r, t: SimpleNamespace(
+            total=1000, rules=100, task=200, overhead=300, source="calibrated"
+        ),
+    )
+    monkeypatch.setattr(
+        pl, "get_cheap_llm_settings",
+        lambda r: SimpleNamespace(provider="prov", model="mod", url="http://x"),
+    )
+    result = PipelineResult(
+        task="t", steps=[_footer_sr("s1", "tool", est_tokens=0, executed=True)]
+    )
+    footer = pl.format_pipeline_footer(result, minimal_workspace)
+    with allure.step("both savings headings carry the breakdown source, not the ambient one"):
+        assert (
+            "Per-step savings (if each step were a separate naive Cursor chat; "
+            "baseline: calibrated):"
+        ) in footer
+        assert "Saved by executor (sum of per-step savings; baseline: calibrated):" in footer
+        assert "baseline: default-estimate" not in footer
+
+
 @allure.title("format_pipeline_footer: ollama executor names GREEDY_LLM_MODEL_ID when set")
 def test_footer_exact_model_id(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GREEDY_LLM_MODEL_ID", "qwen:7b")

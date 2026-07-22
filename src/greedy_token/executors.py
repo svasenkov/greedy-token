@@ -183,7 +183,8 @@ def _rag_fallback_output(task: str, root: Path) -> str | None:
     domains = _infer_rag_domains(task)
     hits = search_rag(task, root, domains=domains, limit=5)
     if not hits:
-        hits = search_rag(task, root, domains=None, limit=5)
+        # equivalent: domains defaults to None — dropping the kwarg is the same call.
+        hits = search_rag(task, root, domains=None, limit=5)  # pragma: no mutate
     if not hits:
         return None
     return format_hits(task, hits)
@@ -219,7 +220,7 @@ def execute_task(task: str, root: Path | None = None) -> TaskRunResult:
                         decision=decision,
                         output=note + rag_out,
                         used_rag_fallback=True,
-                        exit_code=0,
+                        # exit_code stays at the dataclass default 0.
                     )
                 return TaskRunResult(
                     decision=decision,
@@ -235,7 +236,7 @@ def execute_task(task: str, root: Path | None = None) -> TaskRunResult:
                         decision=decision,
                         output=note,
                         used_rag_fallback=True,
-                        exit_code=0,
+                        # exit_code stays at the dataclass default 0.
                     )
                 return TaskRunResult(decision=decision, output=note, exit_code=code)
             return TaskRunResult(decision=decision, output=filtered, exit_code=code)

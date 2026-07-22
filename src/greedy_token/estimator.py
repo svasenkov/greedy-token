@@ -8,6 +8,7 @@ from greedy_token.context_audit import audit_context
 from greedy_token.router import (
     COMPLEXITY_BY_TARGET,
     RouteDecision,
+    confidence_label,
     route_task,
     route_task_all_tiers,
 )
@@ -65,6 +66,7 @@ def format_estimate(estimate: TaskEstimate, task: str, root: Path) -> str:
     lines = [
         f"Task: {task}",
         f"Route: {d.target.upper()}  ({d.route_id}, {d.confidence:.0%})",
+        f"Confidence: {d.confidence:.0%} — {confidence_label(d)}",
         f"Complexity: {estimate.complexity}",
         f"Est. executor tokens: {estimate.est_tokens:,}",
         f"Rationale: {estimate.rationale}",

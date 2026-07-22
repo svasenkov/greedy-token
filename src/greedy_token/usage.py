@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from greedy_token.calibration import CALIBRATION_MIN_EVENTS, calibration_report
 from greedy_token.estimator import cursor_baseline, cursor_saved_for
 from greedy_token.router import RouteDecision, route_task_all_tiers
 from greedy_token.settings import get_ollama_settings
@@ -169,6 +170,10 @@ def build_route_event(
         "tier_scan": tier_scan if tier_scan is not None else build_tier_scan(task, root),
         "executor": executor,
     }
+    if decision.raw_score > 0:
+        # Feeds confidence calibration (score buckets); see calibration.py.
+        event["raw_score"] = round(decision.raw_score, 4)
+        event["confidence_source"] = decision.confidence_source
     if getattr(decision, "shadow_route_id", None):
         event["shadow_route_id"] = decision.shadow_route_id
         event["shadow"] = True
@@ -651,6 +656,7 @@ def quality_metrics(events: list[dict], *, since_label: str | None = None) -> di
 def aggregate_events(events: list[dict], *, since_label: str | None = None) -> ReportSummary:
     summary = ReportSummary(events=len(events), since=since_label)
     summary.quality = quality_metrics(events, since_label=since_label)
+    summary.quality["calibration"] = calibration_report(events)
     route_counts: dict[str, int] = {}
     tier_order = ("tool", "python", "ollama", "rag", "cursor", "compress")
 
@@ -750,6 +756,27 @@ def format_report(summary: ReportSummary) -> str:
                     f"{crystal['override_rate']:>5.0%} "
                     f"({crystal['override_count']}/{crystal['script_hits']}){flag}"
                 )
+
+    calibration = (summary.quality or {}).get("calibration") or []
+    if calibration:
+        lines.extend(
+            [
+                "",
+                "Confidence calibration (score buckets, "
+                f"min n={CALIBRATION_MIN_EVENTS}):",
+                f"  {'bucket':<12} {'n':>5} {'predicted':>10} {'actual':>8}  status",
+            ]
+        )
+        for row in calibration:
+            status = (
+                "calibrated"
+                if row["calibrated"]
+                else f"uncalibrated (n<{CALIBRATION_MIN_EVENTS})"
+            )
+            lines.append(
+                f"  {row['bucket']:<12} {row['n']:>5} "
+                f"{row['predicted']:>10.0%} {row['actual']:>8.0%}  {status}"
+            )
 
     if summary.counter_methods:
         total = summary.events

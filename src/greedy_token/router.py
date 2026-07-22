@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -11,6 +11,11 @@ from greedy_token.baseline import (  # noqa: F401
     BASE_CURSOR_OVERHEAD,
     baseline_source,
     cursor_overhead,
+)
+from greedy_token.calibration import (
+    SOURCE_CALIBRATED,
+    SOURCE_FORMULA,
+    confidence_for_score,
 )
 from greedy_token.paths import find_workspace_root, load_routes_config
 from greedy_token.tokens import count_tokens
@@ -59,6 +64,9 @@ class RouteDecision:
     read_only: bool = False
     tool: str | None = None
     shadow_route_id: str | None = None
+    raw_score: float = 0.0
+    confidence_source: str = SOURCE_FORMULA
+    calibration_n: int = 0
 
 
 def _normalize(text: str) -> str:
@@ -304,7 +312,10 @@ def _decision_from_route(
     root: Path,
 ) -> RouteDecision:
     target = route["target"]
-    confidence = min(0.95, 0.45 + score * 0.12)
+    # Telemetry-calibrated when the score bucket has enough events, else the
+    # legacy formula min(0.95, 0.45 + score * 0.12) marked "uncalibrated".
+    calibration = confidence_for_score(score)
+    confidence = calibration.confidence
     # Tool routes are forced read-only below; for every other tier the default is
     # False, so a literal False here is equivalent to `target == "tool"`.
     # equivalent: bool() of the missing-key default is False whether it is False/None/absent.
@@ -342,6 +353,9 @@ def _decision_from_route(
         rationale=rationale,
         read_only=read_only,
         tool=route.get("tool"),
+        raw_score=score,
+        confidence_source=calibration.source,
+        calibration_n=calibration.n,
     )
 
 
@@ -378,21 +392,7 @@ def _best_shadow_match(routes: list[dict], text: str) -> tuple[str | None, float
 def _with_shadow(decision: RouteDecision, shadow_route_id: str | None) -> RouteDecision:
     if not shadow_route_id or decision.shadow_route_id == shadow_route_id:
         return decision
-    return RouteDecision(
-        target=decision.target,
-        route_id=decision.route_id,
-        confidence=decision.confidence,
-        matched=decision.matched,
-        command=decision.command,
-        note=decision.note,
-        domains=decision.domains,
-        complexity=decision.complexity,
-        est_tokens=decision.est_tokens,
-        rationale=decision.rationale,
-        read_only=decision.read_only,
-        tool=decision.tool,
-        shadow_route_id=shadow_route_id,
-    )
+    return replace(decision, shadow_route_id=shadow_route_id)
 
 
 def route_task_all_tiers(task: str, root: Path | None = None) -> list[tuple[str, RouteDecision]]:
@@ -462,21 +462,7 @@ def _apply_thin_context_penalty(decision: RouteDecision, task: str) -> RouteDeci
     rationale = decision.rationale
     if THIN_CONTEXT_NOTE not in rationale:
         rationale = f"{rationale} {THIN_CONTEXT_NOTE}".strip()
-    return RouteDecision(
-        target=decision.target,
-        route_id=decision.route_id,
-        confidence=new_conf,
-        matched=decision.matched,
-        command=decision.command,
-        note=note,
-        domains=decision.domains,
-        complexity=decision.complexity,
-        est_tokens=decision.est_tokens,
-        rationale=rationale,
-        read_only=decision.read_only,
-        tool=decision.tool,
-        shadow_route_id=decision.shadow_route_id,
-    )
+    return replace(decision, confidence=new_conf, note=note, rationale=rationale)
 
 
 def route_task(task: str, root: Path | None = None) -> RouteDecision:
@@ -536,6 +522,13 @@ def _runner_up(task: str, root: Path, selected_target: str) -> tuple[str, RouteD
     return None
 
 
+def confidence_label(decision: RouteDecision) -> str:
+    """Where the confidence number comes from: telemetry or the raw formula."""
+    if decision.confidence_source == SOURCE_CALIBRATED:
+        return f"calibrated (n={decision.calibration_n})"
+    return "formula (uncalibrated)"
+
+
 def explain_route(decision: RouteDecision, task: str, root: Path) -> dict:
     """Structured explainability for a route decision (Phase 2: explainable routing)."""
     if decision.matched:
@@ -569,6 +562,9 @@ def explain_route(decision: RouteDecision, task: str, root: Path) -> dict:
         "route_id": decision.route_id,
         "reason": reason,
         "matched": list(decision.matched),
+        "confidence": round(decision.confidence, 4),
+        "confidence_source": decision.confidence_source,
+        "calibration_n": decision.calibration_n,
         "saved_est": saved_est,
         "runner_up": runner_up,
     }
@@ -578,6 +574,7 @@ def format_decision(decision: RouteDecision, task: str, root: Path) -> str:
     lines = [
         f"Task: {task}",
         f"Route: {decision.target.upper()}  ({decision.route_id}, {decision.confidence:.0%})",
+        f"Confidence: {decision.confidence:.0%} — {confidence_label(decision)}",
         f"Complexity: {decision.complexity}",
         f"Est. tokens: {decision.est_tokens:,}",
         f"Rationale: {decision.rationale}",
