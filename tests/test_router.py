@@ -186,7 +186,6 @@ def test_ollama_est_tokens_nonzero(mock_ollama, minimal_workspace: Path) -> None
             "ollama",
             task="audit skill configurator-boolean",
             root=minimal_workspace,
-            read_only=True,
         )
         attach_json("estimate", {"complexity": complexity, "est_tokens": est, "rationale": rationale})
     with allure.step("Verify est_tokens is positive cheap-LLM spend"):

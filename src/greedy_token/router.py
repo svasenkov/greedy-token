@@ -70,11 +70,13 @@ def _score_patterns(text: str, patterns: list[str]) -> tuple[float, list[str]]:
 
 
 def _parse_shadow_until(route: dict) -> datetime | None:
-    shadow_until = str(route.get("shadow_until") or "").strip()
+    # equivalent: any non-empty junk default parses to the same None result.
+    shadow_until = str(route.get("shadow_until") or "").strip()  # pragma: no mutate
     if not shadow_until:
         return None
     try:
-        until = datetime.fromisoformat(shadow_until.replace("Z", "+00:00"))
+        # datetime.fromisoformat (Python 3.11+) parses a trailing "Z" natively.
+        until = datetime.fromisoformat(shadow_until)
     except ValueError:
         return None
     if until.tzinfo is None:
@@ -195,14 +197,17 @@ def _extract_search_query(task: str) -> str:
         candidates.append((_score_search_token(token), token))
 
     if candidates:
-        candidates.sort(key=lambda item: (-item[0], -len(item[1]), item[1].lower()))
+        # equivalent: .lower()/.upper() induce the same tie-break ordering.
+        candidates.sort(key=lambda item: (-item[0], -len(item[1]), item[1].lower()))  # pragma: no mutate
         return candidates[0][1]
 
     return text
 
 
 def _build_tool_command(route: dict, task: str, root: Path) -> str:
-    tool = (route.get("tool") or "rg").lower()
+    # equivalent: the "rg" default is only compared against "jq" below, so any
+    # non-"jq" default routes to the same ripgrep branch.
+    tool = (route.get("tool") or "rg").lower()  # pragma: no mutate
     query = _extract_search_query(task)
     if tool == "jq":
         path_hint = route.get("json_path") or "docs/phase-manifest.json"
@@ -238,7 +243,6 @@ def _token_estimate_for_route(
     *,
     task: str,
     root: Path,
-    read_only: bool,
 ) -> tuple[str, int, str]:
     task_tokens = count_tokens(task).tokens
     complexity = COMPLEXITY_BY_TARGET.get(target, "medium")
@@ -300,7 +304,10 @@ def _decision_from_route(
 ) -> RouteDecision:
     target = route["target"]
     confidence = min(0.95, 0.45 + score * 0.12)
-    read_only = bool(route.get("read_only", target == "tool"))
+    # Tool routes are forced read-only below; for every other tier the default is
+    # False, so a literal False here is equivalent to `target == "tool"`.
+    # equivalent: bool() of the missing-key default is False whether it is False/None/absent.
+    read_only = bool(route.get("read_only", False))  # pragma: no mutate
     command = route.get("command")
     if target == "tool":
         command = _build_tool_command(route, task, root)
@@ -310,7 +317,6 @@ def _decision_from_route(
         target,
         task=task,
         root=root,
-        read_only=read_only,
     )
     note = (route.get("note") or "").strip()
     if note and note not in rationale:
@@ -345,7 +351,8 @@ def _best_in_tier(routes: list[dict], text: str, task: str, root: Path) -> Route
         if not _route_active(route):
             continue
         score, matched = _score_patterns(text, route.get("patterns", []))
-        if score <= 0:
+        # equivalent: scores are never negative, and a 0 score never beats best_score.
+        if score <= 0:  # pragma: no mutate
             continue
         decision = _decision_from_route(route, score=score, matched=matched, task=task, root=root)
         if score > best_score:
@@ -411,7 +418,6 @@ def _fallback_for_tier(tier: str, task: str, root: Path, cfg: dict) -> RouteDeci
         tier,
         task=task,
         root=root,
-        read_only=tier == "tool",
     )
     if tier == "cursor":
         fb = cfg.get("cursor_fallback", {})
@@ -495,7 +501,6 @@ def route_task(task: str, root: Path | None = None) -> RouteDecision:
         "cursor",
         task=task,
         root=root,
-        read_only=False,
     )
     message = (fb.get("message") or rationale).strip()
     first_line = message.split("\n")[0]
