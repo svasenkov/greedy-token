@@ -47,6 +47,27 @@ def test_route_task_total_with_ollama_available(minimal_workspace: Path, task: s
     assert decision.est_tokens >= 0
 
 
+@allure.story("Scoring")
+@allure.title("_score_patterns accumulates per-match weight and length bonus")
+def test_score_patterns_accumulates() -> None:
+    from greedy_token.router import _score_patterns
+
+    with allure.step("Two matching patterns accumulate (score is not overwritten)"):
+        score_both, matched = _score_patterns("alpha beta", ["alpha", "beta"])
+        score_one, _ = _score_patterns("alpha beta", ["alpha"])
+        assert matched == ["alpha", "beta"]
+        assert score_both > score_one
+    with allure.step("Exact weight: each match adds 1.0 + min(len/20, 2.0)"):
+        expected = (1.0 + min(len("alpha") / 20.0, 2.0)) + (1.0 + min(len("beta") / 20.0, 2.0))
+        assert score_both == expected
+    with allure.step("Length bonus is capped at 2.0 for long patterns"):
+        long_pat = "x" * 100
+        score_long, _ = _score_patterns(long_pat, [long_pat])
+        assert score_long == 1.0 + 2.0
+    with allure.step("No match yields a zero score and empty match list"):
+        assert _score_patterns("zzz", ["alpha"]) == (0.0, [])
+
+
 @allure.story("Tool tier")
 @allure.title("Route find task to tool tier with read-only plan")
 def test_route_find_goes_to_tool(minimal_workspace: Path) -> None:
