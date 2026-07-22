@@ -118,17 +118,35 @@ greedy-token **не** дообучает (fine-tune) модели и не отп
 - «Обучение» здесь = новые детерминированные routes/scripts из телеметрии (`crystallize-report`) — читаемый, проверяемый и откатываемый код, а не веса модели.
 - Телеметрия (`~/.greedy-token/usage.jsonl`) остаётся локальной и нужна только для отчётов об экономии; отключить — `GREEDY_TOKEN_LOG=0`.
 
+## Кристаллизация L3 (safe mode)
+
+L3 замыкает цикл кристаллизации — кандидат из телеметрии → draft-скрипт → ревью человеком → активный роут — **без silent auto-apply** на любом шаге:
+
+```text
+кандидат (повторяющаяся LLM-задача)     greedy-token hub / crystallize report
+   → crystallize draft <crystal_id>     draft-скрипт + shadow-роут (+7d, log-only)
+   → ревью draft человеком              .greedy-token/drafts/<crystal_id>.py
+   → crystallize promote <crystal_id>   shadow → active   (или: reject — удалить draft + роут)
+```
+
+- **`crystallize draft ID`** генерирует draft Python-скрипт в `.greedy-token/drafts/ID.py`. Тело пишет **cheap LLM** (провайдер `cheap_llm`), а если он недоступен — детерминированный шаблон-скелет (docstring с pattern/hits, argparse CLI, TODO-тело). Draft проходит существующий `scripts lint` (blocklist паттернов + проверка существования скрипта). Вместе с draft регистрируется **shadow-роут** в workspace-конфиге (`$GREEDY_TOKEN_ROOT/.greedy-token.yaml`, **не** пакетный `routes.yaml`): `target: python`, `shadow_until` +7 дней, `enabled: false`. Shadow-роут **не влияет на `route_task`** — потенциальный матч только логируется (`Shadow match (log-only): …`).
+- **`crystallize promote ID`** — после ревью человеком: снимает `shadow_until`/`enabled: false`, роут становится активным и начинает выигрывать python-tier.
+- **`crystallize reject ID`** — удаляет draft-скрипт и роут.
+
+Каждый переход пишет lifecycle-событие (`draft` → `shadow` → `promoted` / `rejected`) в `~/.greedy-token/crystallize-lifecycle.jsonl`; hub (`hub serve` → Crystals) показывает новые стадии на таймлайне кристалла.
+
 ## Охват и roadmap
 
-Сейчас основной сценарий — **Cursor + Ollama + workspace**. CLI и MCP не привязаны к IDE. **v0.7.2** — hardening качества/строгости (без новых фич): mutation testing по «горячим» модулям (`./scripts/mutation.sh`), `config --export` маскирует `CHEAP_LLM_API_KEY` по умолчанию (`--reveal` — показать), `sh_quote` делегирован в `shlex.quote` с hypothesis-доказательством round-trip, property-based инварианты для оценки токенов и маршрутизации, а также guard от рассинхрона README↔код (`tests/test_doc_sync.py`). Наследует **v0.7.0** — релиз про качество маршрутизации: `explain_route()` показывает **Why / Runner-up / Saved est** в `route` (CLI + MCP); `report` / `hub` получают блок качества маршрутов (`override_rate` / `cheap_hold_rate` / `by_crystal`); честная атрибуция override по **всем** cheap-тирам (`CHEAP_TIERS`); алиас политики `safe` для `cheap_only`; bootstrap `init --profile solo|team|ci`; операционные метрики hub (latency p50/p95 + cost/task). Наследует **v0.6.3** — Cursor dogfood: `beforeSubmitPrompt` route hook **выключен** по умолчанию (без блока Send); ссылки TestOps → `allure.qa.guru`. Наследует **v0.6.2** coverage/CI harden + Allure palette SSOT, **v0.6.0** crystallize L2 (`script_override`, CLI `override`, `scripts lint`, shadow routes, `hub serve`, budget / llm invoke) и **v0.6.1** раздел «не дообучаем модели». **v0.5.8** — минимальный search: один `greedy_token_search` на find; docstrings MCP и шаблон cursor rule запрещают route/usage вместе с search. **v0.5.7** — SSOT версии из `pyproject.toml` (без hardcode в `__init__`), `./scripts/release-gate.sh TARGET`, auto-sync `minTestsCount` из pytest collection. **v0.5.6** — честный search footer, e2e MCP stdio `pipeline execute=true`, удалён мёртвый `SearchResult.spent_tokens`. **v0.5.5** — `config --init` без workspace (PyPI bootstrap), отказ `run --execute` на cursor tier, telemetry cheap_llm по workspace. **v0.5.3+** — честность pipeline: multi-word `search-rag`, dry-run footer (`saved=0`), RAG через `rag_est_tokens` (`cheap_llm.provider: ollama | openai_compat`). Paid agent APIs (`expensive_llm`) — opt-in / roadmap.
+Сейчас основной сценарий — **Cursor + Ollama + workspace**. CLI и MCP не привязаны к IDE. **v0.8.0** — кристаллизация L3 в **safe mode** (без silent auto-apply): `crystallize draft` генерирует ревьюабельный draft-скрипт (cheap LLM, а при недоступном LLM — детерминированный шаблон-скелет) плюс log-only **shadow-роут** в workspace-конфиге; `crystallize promote` / `reject` после ревью человеком; lifecycle-стадии `draft → shadow → promoted / rejected` в hub. Плюс portable routes (`init --routes-from FILE` / `--routes-scaffold`), `greedy-token calibrate` (источник базлайна `measured` / `calibrated` / `default-estimate` в каждом футере) и калиброванная по телеметрии confidence маршрутов (блок calibration в `report`, provenance `calibrated (n=…)` в `route`). Наследует **v0.7.2** — hardening качества/строгости (без новых фич): mutation testing по «горячим» модулям (`./scripts/mutation.sh`), `config --export` маскирует `CHEAP_LLM_API_KEY` по умолчанию (`--reveal` — показать), `sh_quote` делегирован в `shlex.quote` с hypothesis-доказательством round-trip, property-based инварианты для оценки токенов и маршрутизации, а также guard от рассинхрона README↔код (`tests/test_doc_sync.py`). Наследует **v0.7.0** — релиз про качество маршрутизации: `explain_route()` показывает **Why / Runner-up / Saved est** в `route` (CLI + MCP); `report` / `hub` получают блок качества маршрутов (`override_rate` / `cheap_hold_rate` / `by_crystal`); честная атрибуция override по **всем** cheap-тирам (`CHEAP_TIERS`); алиас политики `safe` для `cheap_only`; bootstrap `init --profile solo|team|ci`; операционные метрики hub (latency p50/p95 + cost/task). Наследует **v0.6.3** — Cursor dogfood: `beforeSubmitPrompt` route hook **выключен** по умолчанию (без блока Send); ссылки TestOps → `allure.qa.guru`. Наследует **v0.6.2** coverage/CI harden + Allure palette SSOT, **v0.6.0** crystallize L2 (`script_override`, CLI `override`, `scripts lint`, shadow routes, `hub serve`, budget / llm invoke) и **v0.6.1** раздел «не дообучаем модели». **v0.5.8** — минимальный search: один `greedy_token_search` на find; docstrings MCP и шаблон cursor rule запрещают route/usage вместе с search. **v0.5.7** — SSOT версии из `pyproject.toml` (без hardcode в `__init__`), `./scripts/release-gate.sh TARGET`, auto-sync `minTestsCount` из pytest collection. **v0.5.6** — честный search footer, e2e MCP stdio `pipeline execute=true`, удалён мёртвый `SearchResult.spent_tokens`. **v0.5.5** — `config --init` без workspace (PyPI bootstrap), отказ `run --execute` на cursor tier, telemetry cheap_llm по workspace. **v0.5.3+** — честность pipeline: multi-word `search-rag`, dry-run footer (`saved=0`), RAG через `rag_est_tokens` (`cheap_llm.provider: ollama | openai_compat`). Paid agent APIs (`expensive_llm`) — opt-in / roadmap.
 
 **Полная матрица (✅ / ❌ / 🔜) + критерии + GitHub issues:** [docs/ROADMAP-RU.md](docs/ROADMAP-RU.md) · [docs/ROADMAP.md](docs/ROADMAP.md)
 
-| Зона | ✅ сейчас (v0.7.2) | 🔜 дальше |
+| Зона | ✅ сейчас (v0.8.0) | 🔜 дальше |
 |------|-------------------|-----------|
 | Executors | `tool`, `python`, `ollama` (через `cheap_llm`), `rag` | paid bulk APIs; Crystal IR store |
+| Кристаллизация | L2 telemetry + **L3 safe mode** (`crystallize draft` → shadow → `promote` / `reject`) | — (silent auto-apply сознательно не планируется) |
 | Agent host | Cursor MCP + token baseline | Claude Desktop, Continue |
-| Конфиг | `cheap_llm.provider` + алиасы `OLLAMA_*` / `ollama:` | silent L3 auto-codegen (deferred) |
+| Конфиг | `cheap_llm.provider` + алиасы `OLLAMA_*` / `ollama:` | team route presets |
 
 ## Установка
 
@@ -245,8 +263,11 @@ Saved by executor (sum of per-step savings):
 | `greedy-token calibrate [--overhead N] [--from-file PATH]` | Калибровка базлайна naive агент-чата (пишет `baseline:` в `~/.greedy-token/config.yaml`) |
 | `greedy-token tokens PATH…` | Count tokens in paths |
 | `greedy-token compress` | Short prompt (stdin; `--ollama`) |
-| `greedy-token report [--since 7d]` | Usage telemetry + качество маршрутов (override_rate / cheap_hold_rate) |
+| `greedy-token report [--since 7d]` | Usage telemetry + качество маршрутов (override_rate / cheap_hold_rate) + калибровка confidence |
 | `greedy-token override …` | Записать telemetry-событие `script_override` |
+| `greedy-token crystallize draft ID [--since 30d]` | L3 safe mode: draft-скрипт (`.greedy-token/drafts/`) + shadow-роут (+7d, log-only) |
+| `greedy-token crystallize promote ID` | После ревью человеком: shadow → active (снять `shadow_until`) |
+| `greedy-token crystallize reject ID` | Удалить draft-скрипт и его роут; записать стадию `rejected` |
 | `greedy-token llm invoke --profile P` | Headless multi-model LLM invoke (`--system/-user[-file]`, stdin, `--json`) |
 | `greedy-token llm list` | Список сконфигурированных LLM-моделей |
 | `greedy-token doctor` | Проба железа + Ollama-моделей; рекомендация локальной модели |
@@ -365,6 +386,31 @@ baseline:
 ```
 
 Каждая цифра **Saved** в футерах (`route` / `estimate` / `search` / `rag` / `pipeline`) и в `report` помечена источником базлайна — оценка никогда не выдаётся за измерение.
+
+## Качество маршрутов: калибровка confidence
+
+Раньше **confidence** маршрута считался по чистой формуле (`min(0.95, 0.45 + score × 0.12)`) — псевдовероятность. Теперь он калибруется по вашей же телеметрии (`~/.greedy-token/usage.jsonl`):
+
+- Каждое событие роутинга со score пишет в лог `raw_score`; score попадает в бакеты (`[0, 2)`, `[2, 4)`, `[4, 6)`, `[6, 8)`, `[8, +)`).
+- Фактическая точность бакета = `1 − override_rate` — события override (`greedy-token override`, авто-атрибуция re-ask) засчитываются против последнего cheap-хита по той же нормализованной задаче.
+- Бакет с **≥ 20 событиями** (`CALIBRATION_MIN_EVENTS`) — **калиброванный**: confidence берётся из телеметрии, в выводе маршрута — `calibrated (n=…)`. Ниже порога — fallback на формулу с пометкой `formula (uncalibrated)`.
+- **Monotonic sanity:** калиброванные значения клэмпятся неубывающими по бакетам — больший score никогда не даёт меньший калиброванный confidence.
+- Скан телеметрии **кэшируется на процесс** — роутинг не перечитывает `usage.jsonl` на каждый вызов.
+
+Вывод `route` / `estimate` и `explain_route()` (CLI + MCP) показывают источник:
+
+```text
+Confidence: 80% — calibrated (n=25)     # или: Confidence: 57% — formula (uncalibrated)
+```
+
+`greedy-token report` добавляет блок калибровки — бакет → predicted (формула) vs actual (телеметрия) vs n:
+
+```text
+Confidence calibration (score buckets, min n=20):
+  bucket           n  predicted   actual  status
+  [2, 4)          25        75%      80%  calibrated
+  [4, 6)           3        95%     100%  uncalibrated (n<20)
+```
 
 ## Телеметрия
 

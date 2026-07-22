@@ -118,17 +118,35 @@ greedy-token does **not** fine-tune models and never ships your code or usage da
 - "Learning" here means new deterministic routes/scripts distilled from telemetry (`crystallize-report`) — readable, reviewable, revertible code, not model weights.
 - Telemetry (`~/.greedy-token/usage.jsonl`) stays local and only powers savings reports; disable with `GREEDY_TOKEN_LOG=0`.
 
+## Crystallization L3 (safe mode)
+
+L3 closes the crystallization loop — telemetry candidate → draft script → human review → active route — with **no silent auto-apply** at any step:
+
+```text
+candidate (repeated LLM task)          greedy-token hub / crystallize report
+   → crystallize draft <crystal_id>    draft script + shadow route (+7d, log-only)
+   → human review of the draft         .greedy-token/drafts/<crystal_id>.py
+   → crystallize promote <crystal_id>  shadow → active   (or: reject — delete draft + route)
+```
+
+- **`crystallize draft ID`** generates a draft Python script in `.greedy-token/drafts/ID.py`. The body comes from the **cheap LLM** (`cheap_llm` provider) when available; otherwise a deterministic template skeleton (docstring with pattern/hits, argparse CLI, TODO body). The draft passes the existing `scripts lint` (pattern blocklist + script-exists check). Alongside the draft a **shadow route** is registered in the workspace config (`$GREEDY_TOKEN_ROOT/.greedy-token.yaml`, never the bundled `routes.yaml`): `target: python`, `shadow_until` +7 days, `enabled: false`. A shadow route **never affects `route_task`** — a potential match is only logged (`Shadow match (log-only): …`).
+- **`crystallize promote ID`** — after human review: removes `shadow_until`/`enabled: false`, the route goes active and starts winning the python tier.
+- **`crystallize reject ID`** — deletes the draft script and removes the route.
+
+Every transition appends a lifecycle event (`draft` → `shadow` → `promoted` / `rejected`) to `~/.greedy-token/crystallize-lifecycle.jsonl`; the hub (`hub serve` → Crystals) shows the new stages on the crystal timeline.
+
 ## Scope & roadmap
 
-Today the happy path is **Cursor + Ollama + workspace**. CLI and MCP are IDE-agnostic. **v0.7.2** — quality/rigor hardening (no new features): mutation testing on the hot modules (`./scripts/mutation.sh`), `config --export` masks `CHEAP_LLM_API_KEY` by default (`--reveal` to show), `sh_quote` delegated to `shlex.quote` with a hypothesis round-trip proof, property-based invariants for token estimation + routing, and a README↔code doc-drift guard (`tests/test_doc_sync.py`). Inherits **v0.7.0** — route-quality release: `explain_route()` surfaces **Why / Runner-up / Saved est** in `route` (CLI + MCP); `report` / `hub` gain a route-quality block (`override_rate` / `cheap_hold_rate` / `by_crystal`); honest cheap-tier override attribution across **all** cheap tiers (`CHEAP_TIERS`); `safe` policy alias for `cheap_only`; `init --profile solo|team|ci` bootstrap; hub operational metrics (latency p50/p95 + cost/task). Inherits **v0.6.3** — Cursor dogfood: `beforeSubmitPrompt` route hook **off** by default (no Send block); TestOps links → `allure.qa.guru`. Inherits **v0.6.2** coverage/CI harden + Allure palette SSOT, **v0.6.0** crystallize L2 (`script_override`, CLI `override`, `scripts lint`, shadow routes, `hub serve`, budget / llm invoke) and **v0.6.1** no-model-training docs. **v0.5.8** — minimal code search: one `greedy_token_search` per find task; MCP tool docstrings and cursor rule template forbid route/usage alongside search. **v0.5.7** — version SSOT from `pyproject.toml` (no hardcoded `__init__` pin), `./scripts/release-gate.sh TARGET`, auto-sync `minTestsCount` from pytest collection. **v0.5.6** — honest search footer, MCP stdio `pipeline execute=true` e2e, removed dead `SearchResult.spent_tokens`. **v0.5.5** — PyPI-friendly `config --init` (no workspace required), cursor `--execute` refusal, usage telemetry aligned to workspace cheap_llm settings. **v0.5.3+** pipeline honesty: multi-word `search-rag`, dry-run footer (`saved=0`), RAG via `rag_est_tokens` (`cheap_llm.provider: ollama | openai_compat`). Paid agent APIs (`expensive_llm`) remain opt-in / roadmap.
+Today the happy path is **Cursor + Ollama + workspace**. CLI and MCP are IDE-agnostic. **v0.8.0** — crystallization L3 in **safe mode** (no silent auto-apply): `crystallize draft` generates a reviewable draft script (cheap LLM, or a deterministic template skeleton when the LLM is down) plus a log-only **shadow route** in the workspace config; `crystallize promote` / `reject` after human review; lifecycle stages `draft → shadow → promoted / rejected` in the hub. Plus portable routes (`init --routes-from FILE` / `--routes-scaffold`), `greedy-token calibrate` (baseline source `measured` / `calibrated` / `default-estimate` in every footer), and telemetry-calibrated route confidence (`report` calibration block, `calibrated (n=…)` provenance in `route`). Inherits **v0.7.2** — quality/rigor hardening (no new features): mutation testing on the hot modules (`./scripts/mutation.sh`), `config --export` masks `CHEAP_LLM_API_KEY` by default (`--reveal` to show), `sh_quote` delegated to `shlex.quote` with a hypothesis round-trip proof, property-based invariants for token estimation + routing, and a README↔code doc-drift guard (`tests/test_doc_sync.py`). Inherits **v0.7.0** — route-quality release: `explain_route()` surfaces **Why / Runner-up / Saved est** in `route` (CLI + MCP); `report` / `hub` gain a route-quality block (`override_rate` / `cheap_hold_rate` / `by_crystal`); honest cheap-tier override attribution across **all** cheap tiers (`CHEAP_TIERS`); `safe` policy alias for `cheap_only`; `init --profile solo|team|ci` bootstrap; hub operational metrics (latency p50/p95 + cost/task). Inherits **v0.6.3** — Cursor dogfood: `beforeSubmitPrompt` route hook **off** by default (no Send block); TestOps links → `allure.qa.guru`. Inherits **v0.6.2** coverage/CI harden + Allure palette SSOT, **v0.6.0** crystallize L2 (`script_override`, CLI `override`, `scripts lint`, shadow routes, `hub serve`, budget / llm invoke) and **v0.6.1** no-model-training docs. **v0.5.8** — minimal code search: one `greedy_token_search` per find task; MCP tool docstrings and cursor rule template forbid route/usage alongside search. **v0.5.7** — version SSOT from `pyproject.toml` (no hardcoded `__init__` pin), `./scripts/release-gate.sh TARGET`, auto-sync `minTestsCount` from pytest collection. **v0.5.6** — honest search footer, MCP stdio `pipeline execute=true` e2e, removed dead `SearchResult.spent_tokens`. **v0.5.5** — PyPI-friendly `config --init` (no workspace required), cursor `--execute` refusal, usage telemetry aligned to workspace cheap_llm settings. **v0.5.3+** pipeline honesty: multi-word `search-rag`, dry-run footer (`saved=0`), RAG via `rag_est_tokens` (`cheap_llm.provider: ollama | openai_compat`). Paid agent APIs (`expensive_llm`) remain opt-in / roadmap.
 
 **Full matrix (✅ / ❌ / 🔜) + acceptance criteria + GitHub issues:** [docs/ROADMAP.md](docs/ROADMAP.md) · [docs/ROADMAP-RU.md](docs/ROADMAP-RU.md)
 
-| Area | ✅ today (v0.7.2) | 🔜 next |
+| Area | ✅ today (v0.8.0) | 🔜 next |
 |------|-------------------|---------|
 | Executors | `tool`, `python`, `ollama` (via `cheap_llm`), `rag` | paid bulk APIs; Crystal IR store |
+| Crystallization | L2 telemetry + **L3 safe mode** (`crystallize draft` → shadow → `promote` / `reject`) | — (silent auto-apply intentionally not planned) |
 | Agent host | Cursor MCP + token baseline | Claude Desktop, Continue |
-| Config | `cheap_llm.provider` + `OLLAMA_*` / `ollama:` aliases | silent L3 auto-codegen (deferred) |
+| Config | `cheap_llm.provider` + `OLLAMA_*` / `ollama:` aliases | team route presets |
 
 ## Install
 
@@ -239,8 +257,11 @@ Saved by executor (sum of per-step savings):
 | `greedy-token calibrate [--overhead N] [--from-file PATH]` | Calibrate the naive agent-chat baseline (writes `baseline:` to `~/.greedy-token/config.yaml`) |
 | `greedy-token tokens PATH…` | Count tokens in paths |
 | `greedy-token compress` | Short prompt (stdin; `--ollama`) |
-| `greedy-token report [--since 7d]` | Usage telemetry + route quality (override_rate / cheap_hold_rate) |
+| `greedy-token report [--since 7d]` | Usage telemetry + route quality (override_rate / cheap_hold_rate) + confidence calibration |
 | `greedy-token override …` | Log a `script_override` telemetry event |
+| `greedy-token crystallize draft ID [--since 30d]` | L3 safe mode: draft script (`.greedy-token/drafts/`) + shadow route (+7d, log-only) |
+| `greedy-token crystallize promote ID` | After human review: shadow → active (drop `shadow_until`) |
+| `greedy-token crystallize reject ID` | Delete the draft script + its route; log `rejected` stage |
 | `greedy-token llm invoke --profile P` | Headless multi-model LLM invoke (`--system/-user[-file]`, stdin, `--json`) |
 | `greedy-token llm list` | List configured LLM models |
 | `greedy-token doctor` | Probe hardware + Ollama models; recommend local model |
@@ -363,6 +384,31 @@ baseline:
 ```
 
 Every **Saved** figure in the footers (`route` / `estimate` / `search` / `rag` / `pipeline`) and in `report` carries the baseline-source label, so an estimate is never presented as a measurement.
+
+## Route quality: confidence calibration
+
+Route **confidence** used to be a pure formula (`min(0.95, 0.45 + score × 0.12)`) — a pseudo-probability. It is now calibrated against your own telemetry (`~/.greedy-token/usage.jsonl`):
+
+- Every scored route event logs its `raw_score`; scores fall into buckets (`[0, 2)`, `[2, 4)`, `[4, 6)`, `[6, 8)`, `[8, +)`).
+- Actual accuracy of a bucket = `1 − override_rate` — override events (`greedy-token override`, auto re-ask attribution) counted against the last cheap-tier hit for the same normalized task.
+- A bucket with **≥ 20 events** (`CALIBRATION_MIN_EVENTS`) is **calibrated**: confidence comes from telemetry and the route output shows `calibrated (n=…)`. Below the threshold the formula is the fallback, marked `formula (uncalibrated)`.
+- **Monotonic sanity:** calibrated values are clamped to be non-decreasing across buckets — a higher score never yields a lower calibrated confidence.
+- The telemetry scan is **cached per process** — routing does not re-read `usage.jsonl` on every call.
+
+`route` / `estimate` output and `explain_route()` (CLI + MCP) carry the provenance:
+
+```text
+Confidence: 80% — calibrated (n=25)     # or: Confidence: 57% — formula (uncalibrated)
+```
+
+`greedy-token report` adds a calibration block — bucket → predicted (formula) vs actual (telemetry) vs n:
+
+```text
+Confidence calibration (score buckets, min n=20):
+  bucket           n  predicted   actual  status
+  [2, 4)          25        75%      80%  calibrated
+  [4, 6)           3        95%     100%  uncalibrated (n<20)
+```
 
 ## Usage telemetry
 
