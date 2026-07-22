@@ -9,5 +9,7 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+mutants/
+.mutmut-cache
 history.jsonl
 pages/

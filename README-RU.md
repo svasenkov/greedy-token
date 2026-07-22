@@ -242,7 +242,25 @@ npx --yes allure@3.13.0 generate build/allure-results --config allurerc.mjs -o b
 # monorepo hub: cd ../dev && ./scripts/install.sh && source .venv/bin/activate && cd ../greedy-token
 ```
 
-**Coverage:** `branch = true` и `fail_under = 100` для `src/greedy_token/` (`pyproject.toml`). CI: `coverage run` + `coverage report` (lines + branches).
+**Coverage:** `branch = true` и `fail_under = 100` для `src/greedy_token/` (`pyproject.toml`). CI: `coverage run` + `coverage report` (lines + branches). 100% достигается без опционального checkout `stacks/java-spring/`.
+
+### Mutation testing
+
+100% branch coverage гарантирует, что каждая строка/ветка выполняется, но не что
+тест _заметит_ поломку. [mutmut](https://github.com/boxed/mutmut) вносит мутации в
+код и проверяет, что суита их ловит — защита от false-green тестов. Ограничен
+«горячими» модулями (`router`, `pipeline`, `executors`, `spend_guard`,
+`code_search`, `tool_paths`) через `[tool.mutmut]` в `pyproject.toml`.
+
+```bash
+# из этого clone (после pip install -e ".[dev]"):
+./scripts/mutation.sh            # прогон + список выживших мутантов
+./scripts/mutation.sh results    # повторно показать выживших
+mutmut show <id>                 # diff одного мутанта
+```
+
+Mutation testing не входит в `release-gate.sh` (медленно); запускай при изменении
+горячего модуля. Цель — mutation score ~100% по этим модулям.
 
 **Слайсы по layer:** модуль → `tests/pyramid_layers.py` → Allure label `layer` + pytest marker (`-m unit|component|integration|e2e`). В CI matrix job `tests` гоняет каждый слой отдельно.
 

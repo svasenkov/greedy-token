@@ -234,7 +234,25 @@ npx --yes allure@3.13.0 generate build/allure-results --config allurerc.mjs -o b
 # monorepo hub alternative: cd ../dev && ./scripts/install.sh && source .venv/bin/activate && cd ../greedy-token
 ```
 
-**Coverage:** `branch = true` and `fail_under = 100` on `src/greedy_token/` (see `[tool.coverage.run]` / `[tool.coverage.report]` in `pyproject.toml`). CI runs `coverage run` + `coverage report` on every push/PR.
+**Coverage:** `branch = true` and `fail_under = 100` on `src/greedy_token/` (see `[tool.coverage.run]` / `[tool.coverage.report]` in `pyproject.toml`). CI runs `coverage run` + `coverage report` on every push/PR. 100% is reached without the optional `stacks/java-spring/` checkout.
+
+### Mutation testing
+
+100% branch coverage guarantees every line/branch runs, not that a test would
+_notice_ if it broke. [mutmut](https://github.com/boxed/mutmut) mutates the code
+and checks the suite catches each change, guarding against false-green tests. It
+is scoped to the "hot" modules (`router`, `pipeline`, `executors`, `spend_guard`,
+`code_search`, `tool_paths`) via `[tool.mutmut]` in `pyproject.toml`.
+
+```bash
+# from this clone (after pip install -e ".[dev]"):
+./scripts/mutation.sh            # run the sweep + print survivors
+./scripts/mutation.sh results    # re-print survivors from the last run
+mutmut show <id>                 # inspect a single mutant diff
+```
+
+Mutation testing is not part of `release-gate.sh` (it is slow); run it when
+changing a hot module. The goal is a ~100% mutation score on those modules.
 
 **Layer slices:** module → `tests/pyramid_layers.py` → Allure label `layer` + pytest marker (`-m unit|component|integration|e2e`). CI matrix job `tests` runs each slice separately.
 
