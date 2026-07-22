@@ -477,3 +477,279 @@ def test_python_search_tree(minimal_workspace: Path) -> None:
         )
         assert len(limited) == 1
 
+
+# --- Mutation kill-tests: exact-output coverage for the "hot" helpers --------
+
+@allure.story("Python file scan")
+@allure.title("_python_search_file: 1-based line numbers, continue-not-break, >= limit")
+def test_python_search_file_lines_and_limit(tmp_path: Path) -> None:
+    from greedy_token.code_search import _python_search_file
+
+    f = tmp_path / "f.txt"
+    f.write_text("nope\nneedle A\nneedle B\n", encoding="utf-8")
+    with allure.step("Non-matching first line is skipped (continue, not break)"):
+        hits = _python_search_file(f, "needle", limit=5)
+        attach_text("hits", "\n".join(hits))
+        # enumerate starts at 1; both matches after the skipped line are collected.
+        assert hits == [f"{f}:2:needle A", f"{f}:3:needle B"]
+    with allure.step("limit is an inclusive >= bound"):
+        assert _python_search_file(f, "needle", limit=1) == [f"{f}:2:needle A"]
+
+
+@allure.story("Python file scan")
+@allure.title("_python_search_file: 200/201 char truncation boundary is exact")
+def test_python_search_file_truncation_boundary(tmp_path: Path) -> None:
+    from greedy_token.code_search import _python_search_file
+
+    exactly200 = "needle" + "y" * 194
+    over = "needle" + "z" * 195
+    assert len(exactly200) == 200 and len(over) == 201
+    f = tmp_path / "t.txt"
+    f.write_text(exactly200 + "\n" + over + "\n", encoding="utf-8")
+    with allure.step("200-char line kept whole; 201-char line truncated to 200 + ellipsis"):
+        hits = _python_search_file(f, "needle", limit=5)
+        attach_text("hits", "\n".join(hits))
+        assert hits[0] == f"{f}:1:{exactly200}"
+        assert hits[1] == f"{f}:2:{over[:200]}…"
+
+
+@allure.story("Python file scan")
+@allure.title("_python_search_file: invalid UTF-8 uses errors='replace'")
+def test_python_search_file_invalid_utf8(tmp_path: Path) -> None:
+    from greedy_token.code_search import _python_search_file
+
+    f = tmp_path / "bin.txt"
+    f.write_bytes(b"needle \xff\xfe tail\n")
+    with allure.step("Undecodable bytes do not raise (errors='replace')"):
+        hits = _python_search_file(f, "needle", limit=5)
+        attach_text("hits", "\n".join(hits))
+        assert len(hits) == 1
+        assert hits[0].startswith(f"{f}:1:")
+
+
+@allure.story("Python tree scan")
+@allure.title("_python_search_tree: rel-to-root paths, 1-based lines, continue-not-break")
+def test_python_search_tree_exact(tmp_path: Path) -> None:
+    from greedy_token.code_search import _python_search_tree
+
+    root = tmp_path / "root"
+    scope = root / "src"
+    (scope / "aaa_dir").mkdir(parents=True)
+    (scope / "aaa_dir" / "deep.txt").write_text("needle deep\n", encoding="utf-8")
+    (scope / "zzz.txt").write_text("nope\nneedle here\nneedle two\n", encoding="utf-8")
+    with allure.step("Directory entries skipped (continue) so later files still scanned"):
+        hits = _python_search_tree(
+            root, "needle", scope_dirs=[scope], name_glob=None, limit=10
+        )
+        attach_text("hits", "\n".join(hits))
+        assert "src/aaa_dir/deep.txt:1:needle deep" in hits
+        assert "src/zzz.txt:2:needle here" in hits
+        assert "src/zzz.txt:3:needle two" in hits
+
+
+@allure.story("Python tree scan")
+@allure.title("_python_search_tree: non-dir scope skipped with continue, not break")
+def test_python_search_tree_skips_nondir_scope(tmp_path: Path) -> None:
+    from greedy_token.code_search import _python_search_tree
+
+    root = tmp_path / "r"
+    good = root / "good"
+    good.mkdir(parents=True)
+    (good / "f.txt").write_text("needle x\n", encoding="utf-8")
+    missing = root / "missing"  # not a directory
+    with allure.step("First (missing) scope is skipped; the good scope is still scanned"):
+        hits = _python_search_tree(
+            root, "needle", scope_dirs=[missing, good], name_glob=None, limit=10
+        )
+        attach_text("hits", "\n".join(hits))
+        assert hits == ["good/f.txt:1:needle x"]
+
+
+@allure.story("Python tree scan")
+@allure.title("_python_search_tree: path outside root falls back to full path, not None")
+def test_python_search_tree_outside_root(tmp_path: Path) -> None:
+    from greedy_token.code_search import _python_search_tree
+
+    root = tmp_path / "root"
+    root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    outfile = outside / "o.txt"
+    outfile.write_text("needle out\n", encoding="utf-8")
+    with allure.step("relative_to(root) fails -> rel = path (never None)"):
+        hits = _python_search_tree(
+            root, "needle", scope_dirs=[outside], name_glob=None, limit=10
+        )
+        attach_text("hits", "\n".join(hits))
+        assert hits == [f"{outfile}:1:needle out"]
+        assert "None:" not in hits[0]
+
+
+@allure.story("Python tree scan")
+@allure.title("_python_search_tree: 201-char line truncated exactly; invalid UTF-8 tolerated")
+def test_python_search_tree_truncation_and_utf8(tmp_path: Path) -> None:
+    from greedy_token.code_search import _python_search_tree
+
+    root = tmp_path / "r"
+    root.mkdir()
+    over = "needle" + "z" * 195
+    (root / "t.txt").write_text(over + "\n", encoding="utf-8")
+    with allure.step("Long line truncated to exactly 200 chars + ellipsis"):
+        hits = _python_search_tree(
+            root, "needle", scope_dirs=[root], name_glob=None, limit=5
+        )
+        assert hits == [f"t.txt:1:{over[:200]}…"]
+    with allure.step("Undecodable bytes handled with errors='replace'"):
+        (root / "b.txt").write_bytes(b"needle \xff\xfe\n")
+        utf8_hits = _python_search_tree(
+            root, "needle", scope_dirs=[root], name_glob="*b.txt", limit=5
+        )
+        assert len(utf8_hits) == 1
+        assert utf8_hits[0].startswith("b.txt:1:needle ")
+
+
+@allure.story("Glob name matches")
+@allure.title("_glob_name_matches: skips are continue (not break); file mode excludes dirs")
+def test_glob_name_matches_continue_and_want_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from greedy_token.code_search import _glob_name_matches
+
+    root = tmp_path.resolve()
+    (root / "node_modules").mkdir()
+    vendor = root / "node_modules" / "hit.txt"
+    vendor.write_text("x", encoding="utf-8")
+    a_dir = root / "d"
+    a_dir.mkdir()
+    real = root / "real.txt"
+    real.write_text("x", encoding="utf-8")
+    order = [a_dir, vendor, real]  # skip, skip, keeper (keeper is last)
+    monkeypatch.setattr(type(root), "glob", lambda self, pat: iter(order))
+    with allure.step("Directory + vendor skipped via continue; trailing real file kept"):
+        got = _glob_name_matches(root, "x", want_dir=False)
+        attach_text("got", "\n".join(str(p) for p in got))
+        assert got == [real.resolve()]
+
+
+@allure.story("Glob name matches")
+@allure.title("_glob_name_matches: dir mode skips files with continue")
+def test_glob_name_matches_dir_mode(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from greedy_token.code_search import _glob_name_matches
+
+    root = tmp_path.resolve()
+    f = root / "f.txt"
+    f.write_text("x", encoding="utf-8")
+    real_dir = root / "realdir"
+    real_dir.mkdir()
+    order = [f, real_dir]  # file (skipped in dir mode), then keeper dir
+    monkeypatch.setattr(type(root), "glob", lambda self, pat: iter(order))
+    with allure.step("File skipped in want_dir mode; trailing directory kept"):
+        got = _glob_name_matches(root, "x", want_dir=True)
+        assert got == [real_dir.resolve()]
+
+
+@allure.story("Glob name matches")
+@allure.title("_glob_name_matches: matches outside root skipped with continue")
+def test_glob_name_matches_skips_outside(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from greedy_token.code_search import _glob_name_matches
+
+    root = (tmp_path / "root")
+    root.mkdir()
+    root = root.resolve()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    outfile = outside / "x.txt"
+    outfile.write_text("x", encoding="utf-8")
+    real = root / "x.txt"
+    real.write_text("x", encoding="utf-8")
+    order = [outfile, real]  # outside-root match skipped; keeper is last
+    monkeypatch.setattr(type(root), "glob", lambda self, pat: iter(order))
+    with allure.step("Out-of-root match skipped via continue; in-root keeper kept"):
+        got = _glob_name_matches(root, "x.txt", want_dir=False)
+        assert got == [real.resolve()]
+
+
+@allure.story("Glob name matches")
+@allure.title("_glob_name_matches: DEFAULT_PATHS matches sort before others, then by str")
+def test_glob_name_matches_sort_order(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from greedy_token.code_search import _glob_name_matches
+
+    root = tmp_path / "gt_root"
+    root.mkdir()
+    root = root.resolve()
+    (root / "scripts").mkdir()
+    (root / "aaa").mkdir()
+    pref = root / "scripts" / "x.txt"  # under DEFAULT_PATHS
+    pref.write_text("x", encoding="utf-8")
+    other = root / "aaa" / "x.txt"  # not under DEFAULT_PATHS
+    other.write_text("x", encoding="utf-8")
+    order = [other, pref]  # natural order would put aaa first
+    monkeypatch.setattr(type(root), "glob", lambda self, pat: iter(order))
+    with allure.step("Default-path match wins over natural alphabetical order"):
+        got = _glob_name_matches(root, "x.txt", want_dir=False)
+        assert got == [pref.resolve(), other.resolve()]
+
+
+@allure.story("Glob name matches")
+@allure.title("_glob_name_matches: ties broken by str(path)")
+def test_glob_name_matches_tie_break(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from greedy_token.code_search import _glob_name_matches
+
+    root = tmp_path / "gt_root"
+    root.mkdir()
+    root = root.resolve()
+    (root / "docs").mkdir()
+    (root / "scripts").mkdir()
+    d = root / "docs" / "z.txt"  # both under DEFAULT_PATHS, same depth
+    d.write_text("x", encoding="utf-8")
+    s = root / "scripts" / "z.txt"
+    s.write_text("x", encoding="utf-8")
+    order = [s, d]  # reverse of alphabetical
+    monkeypatch.setattr(type(root), "glob", lambda self, pat: iter(order))
+    with allure.step("Equal preference + depth -> str() tie-break (docs before scripts)"):
+        got = _glob_name_matches(root, "z.txt", want_dir=False)
+        assert got == [d.resolve(), s.resolve()]
+
+
+@allure.story("Path resolve error")
+@allure.title("_path_resolve_error: ambiguous message lists candidates + ellipsis at 8")
+def test_path_resolve_error_ambiguous(tmp_path: Path) -> None:
+    from greedy_token.code_search import PathResolveResult, _format_rel, _path_resolve_error
+
+    root = tmp_path.resolve()
+    cands = tuple(root / f"c{i}.txt" for i in range(8))
+    detail = PathResolveResult(candidates=cands, reason="ambiguous")
+    with allure.step("Eight candidates -> full list plus trailing ellipsis line"):
+        msg = _path_resolve_error("z.txt", detail, root)
+        attach_text("message", msg)
+        assert "is ambiguous under" in msg
+        listed = "\n".join(f"  - {_format_rel(c, root)}" for c in cands)
+        assert listed in msg
+        assert msg.endswith("\n  - …")
+        assert "None" not in msg
+    with allure.step("Fewer than eight candidates -> no ellipsis line"):
+        fewer = PathResolveResult(candidates=cands[:3], reason="ambiguous")
+        msg2 = _path_resolve_error("z.txt", fewer, root)
+        attach_text("message", msg2)
+        assert not msg2.endswith("…")
+        assert "None" not in msg2
+
+
+@allure.story("Ripgrep runner")
+@allure.title("_run_rg: concatenates stdout and stderr and returns exit code")
+def test_run_rg_concatenates_streams(monkeypatch: pytest.MonkeyPatch) -> None:
+    import subprocess
+
+    from greedy_token.code_search import _run_rg
+
+    class _Proc:
+        returncode = 2
+        stdout = "OUTLINE\n"
+        stderr = "ERRLINE\n"
+
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: _Proc())
+    with allure.step("Both streams present in output; exit code preserved"):
+        code, out = _run_rg("rg foo")
+        attach_text("output", out)
+        assert code == 2
+        assert "OUTLINE" in out
+        assert "ERRLINE" in out
+
