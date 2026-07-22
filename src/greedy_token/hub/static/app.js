@@ -7,7 +7,7 @@ const PAGES = [
   { id: "tests", label: "Tests", path: "#/tests" },
 ];
 
-const STAGES = ["report", "watch", "extract", "register", "route", "smoke", "promote"];
+const STAGES = ["report", "watch", "draft", "shadow", "extract", "register", "route", "smoke", "promote", "promoted", "rejected"];
 const SINCE_OPTIONS = [
   { value: "24h", label: "24h" },
   { value: "7d", label: "7d" },

@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import re
+import uuid
 from collections import Counter
+from datetime import datetime, timezone
 from pathlib import Path
 
 from greedy_token.hub.paths import inbox_path, lifecycle_path, watch_state_path
@@ -94,6 +96,44 @@ def load_json_file(path: Path) -> dict | None:
         return json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         return None
+
+
+def _now_iso() -> str:
+    return (
+        datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
+
+
+def append_lifecycle_event(
+    *,
+    stage: str,
+    crystal_id: str,
+    pattern: str = "",
+    hits: int = 0,
+    status: str = "pending",
+    extra: dict | None = None,
+) -> dict:
+    """Append a lifecycle stage event (draft/shadow/promoted/rejected/…) to the log."""
+    event: dict = {
+        "v": 1,
+        "event_id": str(uuid.uuid4()),
+        "crystal_id": crystal_id,
+        "stage": stage,
+        "ts": _now_iso(),
+        "pattern": pattern,
+        "hits": hits,
+        "status": status,
+    }
+    if extra:
+        event.update(extra)
+    path = lifecycle_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(event, ensure_ascii=False) + "\n")
+    return event
 
 
 def load_lifecycle_events() -> list[dict]:

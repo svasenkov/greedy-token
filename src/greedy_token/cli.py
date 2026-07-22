@@ -817,6 +817,87 @@ def cmd_override(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_crystallize_draft(args: argparse.Namespace) -> int:
+    from greedy_token.crystallize_l3 import draft_crystal
+
+    root = find_workspace_root()
+    try:
+        result = draft_crystal(args.crystal_id, root=root, since=args.since)
+    except ValueError as exc:
+        print(f"crystallize draft: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "ok": True,
+                    "crystal_id": result.crystal_id,
+                    "pattern": result.pattern,
+                    "hits": result.hits,
+                    "draft": str(result.draft_path),
+                    "config": str(result.config_path),
+                    "shadow_until": result.shadow_until,
+                    "source": result.source,
+                    "lint_ok": result.lint_ok,
+                },
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return 0 if result.lint_ok else 1
+    lines = [
+        f"Draft crystal: {result.crystal_id}  (source: {result.source})",
+        f"  Pattern: {result.pattern}  (hits: {result.hits})",
+        f"  Script:  {result.draft_path}",
+        f"  Route:   shadow until {result.shadow_until} (log-only, does not affect route_task)",
+        f"  Config:  {result.config_path}",
+    ]
+    if result.lint_ok:
+        lines.append("  Lint:    scripts lint OK")
+    else:
+        lines.append("  Lint:    FAILED")
+        lines.extend(f"    {v['id']}: {v['detail']}" for v in result.lint_violations)
+    lines.append(
+        f"Review the script, then: greedy-token crystallize promote {result.crystal_id}"
+    )
+    print("\n".join(lines))
+    return 0 if result.lint_ok else 1
+
+
+def cmd_crystallize_promote(args: argparse.Namespace) -> int:
+    from greedy_token.crystallize_l3 import promote_crystal
+
+    root = find_workspace_root()
+    try:
+        result = promote_crystal(args.crystal_id, root=root)
+    except ValueError as exc:
+        print(f"crystallize promote: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        return 0
+    print(
+        f"Promoted {args.crystal_id}: shadow → active in {result['config']}\n"
+        f"Verify: greedy-token route \"{(result['route'].get('patterns') or [''])[0]}\""
+    )
+    return 0
+
+
+def cmd_crystallize_reject(args: argparse.Namespace) -> int:
+    from greedy_token.crystallize_l3 import reject_crystal
+
+    root = find_workspace_root()
+    result = reject_crystal(args.crystal_id, root=root)
+    if args.json:
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        return 0
+    print(
+        f"Rejected {args.crystal_id}: "
+        f"route removed={result['removed_route']}, draft removed={result['removed_draft']}"
+    )
+    return 0
+
+
 def cmd_hub_serve(args: argparse.Namespace) -> int:
     from greedy_token.hub import serve
 
@@ -1065,6 +1146,41 @@ def build_parser() -> argparse.ArgumentParser:
     )
     w.add_argument("--json", action="store_true", help="Raw JSONL output")
     w.set_defaults(func=cmd_watch)
+
+    cry = sub.add_parser(
+        "crystallize",
+        help="L3 safe mode: draft script + shadow route → human review → promote/reject",
+    )
+    cry_sub = cry.add_subparsers(dest="crystallize_command", required=True)
+
+    cry_draft = cry_sub.add_parser(
+        "draft",
+        help="Generate a draft script (.greedy-token/drafts/) + shadow route (+7d, log-only)",
+    )
+    cry_draft.add_argument("crystal_id", help="Candidate id (see hub crystals / crystallize report)")
+    cry_draft.add_argument(
+        "--since",
+        default="30d",
+        help="Candidate lookup window (default: 30d)",
+    )
+    cry_draft.add_argument("--json", action="store_true", help="JSON output")
+    cry_draft.set_defaults(func=cmd_crystallize_draft)
+
+    cry_promote = cry_sub.add_parser(
+        "promote",
+        help="After human review: shadow → active (drop shadow_until)",
+    )
+    cry_promote.add_argument("crystal_id", help="Draft crystal id")
+    cry_promote.add_argument("--json", action="store_true", help="JSON output")
+    cry_promote.set_defaults(func=cmd_crystallize_promote)
+
+    cry_reject = cry_sub.add_parser(
+        "reject",
+        help="Remove the draft script + its route; log rejected stage",
+    )
+    cry_reject.add_argument("crystal_id", help="Draft crystal id")
+    cry_reject.add_argument("--json", action="store_true", help="JSON output")
+    cry_reject.set_defaults(func=cmd_crystallize_reject)
 
     hub = sub.add_parser("hub", help="Local ops dashboard (telemetry + crystallize)")
     hub_sub = hub.add_subparsers(dest="hub_command", required=True)

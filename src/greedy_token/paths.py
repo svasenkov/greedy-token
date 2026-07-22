@@ -150,6 +150,29 @@ def upsert_workspace_routes(root: Path, new_cfg: dict) -> Path:
     return path
 
 
+def workspace_config_routes(root: Path) -> list[dict]:
+    """Inline routes currently stored in <root>/.greedy-token.yaml (no routes_file)."""
+    return _routes_list(_read_yaml_dict(root / WORKSPACE_CONFIG_NAME))
+
+
+def remove_workspace_route(root: Path, route_id: str) -> bool:
+    """Drop an inline route by id from <root>/.greedy-token.yaml. True if removed."""
+    import yaml
+
+    path = root / WORKSPACE_CONFIG_NAME
+    cfg = _read_yaml_dict(path)
+    routes = _routes_list(cfg)
+    kept = [r for r in routes if r.get("id") != route_id]
+    if len(kept) == len(routes):
+        return False
+    cfg["routes"] = kept
+    path.write_text(
+        yaml.safe_dump(cfg, default_flow_style=False, allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+    return True
+
+
 def load_routes_config(root: Path | None = None) -> dict:
     """Bundled generic routes merged with the workspace overlay (if any).
 
