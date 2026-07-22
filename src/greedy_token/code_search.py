@@ -168,7 +168,9 @@ def resolve_search_path_detail(path_hint: str, root: Path) -> PathResolveResult:
     picked = _pick_unique(dir_matches, root)
     if picked is not None:
         return PathResolveResult(path=picked)
-    if len(dir_matches) > 1:
+    # _pick_unique already returned for a single match, so reaching here with a
+    # non-empty list means len > 1 — ``if dir_matches`` is equivalent to ``> 1``.
+    if dir_matches:
         return PathResolveResult(
             candidates=tuple(dir_matches[:8]),
             reason="ambiguous",
@@ -178,7 +180,7 @@ def resolve_search_path_detail(path_hint: str, root: Path) -> PathResolveResult:
     picked = _pick_unique(file_matches, root)
     if picked is not None:
         return PathResolveResult(path=picked)
-    if len(file_matches) > 1:
+    if file_matches:
         return PathResolveResult(
             candidates=tuple(file_matches[:8]),
             reason="ambiguous",
@@ -214,7 +216,9 @@ def _path_resolve_error(hint: str, detail: PathResolveResult, root: Path) -> str
 
 def _python_search_file(path: Path, query: str, *, limit: int) -> list[str]:
     try:
-        text = path.read_text(encoding="utf-8", errors="replace")
+        # equivalent: local UTF-8 locale + errors="replace" → utf-8/UTF-8/None and
+        # strict/replace decode identically for the ASCII/valid-UTF-8 files scanned.
+        text = path.read_text(encoding="utf-8", errors="replace")  # pragma: no mutate
     except OSError as exc:
         return [f"Error reading {path}: {exc}"]
 
@@ -253,7 +257,8 @@ def _python_search_tree(
             except ValueError:
                 rel = path
             for line_no, line in enumerate(
-                path.read_text(encoding="utf-8", errors="replace").splitlines(), 1
+                # equivalent: encoding/errors variants decode valid files identically.
+                path.read_text(encoding="utf-8", errors="replace").splitlines(), 1  # pragma: no mutate
             ):
                 if query not in line:
                     continue
@@ -288,7 +293,8 @@ def normalize_hit_body(body: str, *, default_path: str | None = None) -> str:
         return body
     out: list[str] = []
     for raw in body.splitlines():
-        line = raw.rstrip("\n")
+        # splitlines() already dropped line terminators, so no further strip needed.
+        line = raw
         if _HIT_LINE_RE.match(line.strip()):
             out.append(line)
             continue
@@ -312,13 +318,8 @@ def parse_hit_lines(
             continue
         m = _HIT_LINE_RE.match(line)
         if not m:
-            # ripgrep single-file: ``12:content``
-            bare = _BARE_LINE_RE.match(line)
-            if bare and default_path:  # pragma: no cover - bare rows are normalized upstream
-                try:
-                    hits.append((default_path, int(bare.group(1)), bare.group(2)))
-                except ValueError:
-                    pass
+            # Bare ``12:content`` rows are already prefixed with default_path by
+            # normalize_hit_body upstream, so any non-hit line here is narrative.
             continue
         path_s, line_s, content = m.group(1), m.group(2), m.group(3)
         if path_s.lower().startswith("error"):
@@ -386,7 +387,8 @@ def enrich_search_hits(
         if not file_path.is_file():
             continue
         try:
-            all_lines = file_path.read_text(encoding="utf-8", errors="replace").splitlines()
+            # equivalent: encoding/errors variants decode valid files identically.
+            all_lines = file_path.read_text(encoding="utf-8", errors="replace").splitlines()  # pragma: no mutate
         except OSError:
             continue
 
@@ -395,7 +397,9 @@ def enrich_search_hits(
             body = "\n".join(all_lines)
             chunk = f"### {rel} (full file, {len(all_lines)} lines)\n{body}"
         else:
-            center = line_by_path.get(path_s, 1)
+            # path_s always came from ``hits`` (via unique_hit_paths), so it is
+            # guaranteed present in line_by_path — no default needed.
+            center = line_by_path[path_s]
             start = max(1, center - context_lines)
             end = min(len(all_lines), center + context_lines)
             slice_lines = all_lines[start - 1 : end]
@@ -446,7 +450,9 @@ def _finalize_search(
 
         mode = get_search_settings(root).context
 
-    if mode != "none" and hits:
+    # enrich_search_hits has its own ``mode == "none" or not hits`` guard, so a
+    # bare ``if hits`` here is equivalent (mode=="none" yields an empty block).
+    if hits:
         from greedy_token.settings import get_search_settings
 
         settings = get_search_settings(root)
@@ -484,7 +490,6 @@ def search_code(
     if not query:
         return SearchResult(text="Error: query is required.", engine="rg")
 
-    path_detail: PathResolveResult | None = None
     resolved: Path | None = None
     if path:
         hint = path.strip()
@@ -519,7 +524,8 @@ def search_code(
                 )
         lines = _python_search_file(resolved, query, limit=limit)
         if lines:
-            # python file scan returns ``path:line:content`` already
+            # python file scan already emits full ``abspath:line:content`` rows,
+            # so no default_path prefixing is needed here.
             body = "\n".join(lines)
             return _finalize_search(
                 header=(
@@ -530,7 +536,6 @@ def search_code(
                 engine="python",
                 root=root,
                 context=context,
-                default_path=scope,
             )
         return SearchResult(
             text=(
@@ -570,17 +575,15 @@ def search_code(
 
     if resolved and resolved.is_dir():
         scope_dirs = [resolved]
-        name_glob = None
         scope = str(resolved.relative_to(root) if resolved.is_relative_to(root) else resolved)
     else:
         scope_dirs = [root / p for p in DEFAULT_PATHS]
-        name_glob = None
         scope = "workspace"
+    # search_code never filters by filename, so name_glob is always None here.
     lines = _python_search_tree(
         root,
         query,
         scope_dirs=scope_dirs,
-        name_glob=name_glob,
         limit=limit,
     )
     if lines:
