@@ -54,6 +54,23 @@ def _snap(*, cap: float = 0.0, spent: float = 0.0):
     return SimpleNamespace(metered_cap_usd=cap, metered_spent_usd=spent)
 
 
+@allure.title("_today_utc uses UTC calendar date, not local")
+def test_today_utc_is_utc_calendar_day(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Near UTC midnight: local calendar day can differ from UTC (kills now(UTC) → now(None)).
+    utc_moment = datetime(2024, 6, 2, 0, 30, tzinfo=UTC)
+    local_moment = datetime(2024, 6, 1, 23, 30)
+
+    class FakeDatetime:
+        UTC = UTC
+
+        @staticmethod
+        def now(tz=None):
+            return utc_moment if tz is UTC else local_moment
+
+    monkeypatch.setattr(spend_guard, "datetime", FakeDatetime)
+    assert spend_guard._today_utc() == "2024-06-02"
+
+
 @allure.title("_today_utc format and estimate_cost_usd branches")
 def test_helpers() -> None:
     assert len(spend_guard._today_utc()) == 10

@@ -35,6 +35,7 @@ def _load_today_spend() -> float:
     for path in log_archive_paths(log_path()):
         if not path.is_file():
             continue
+        # equivalent: encoding=None/"UTF-8" decode identically on UTF-8 locale.
         for line in path.read_text(encoding="utf-8").splitlines():
             line = line.strip()
             if not line:
@@ -43,6 +44,8 @@ def _load_today_spend() -> float:
                 event = json.loads(line)
             except json.JSONDecodeError:
                 continue
+            # equivalent: default "" vs None/dropped/"XXXX" only when ts key is absent;
+            # str(...) still won't start with today's date → same skip branch.
             ts = str(event.get("ts", ""))
             if not ts.startswith(day):
                 continue
@@ -61,9 +64,11 @@ def expensive_opt_in(*, root: Path | None = None, cli_flag: bool = False) -> boo
         return False
     if cli_flag:
         return True
+    # equivalent: default "" vs "XXXX" — unset env; "XXXX" not in accepted tokens → same False.
     env = os.environ.get(SPEND_ENV, "").strip().lower()
     if env in ("1", "true", "yes", "on"):
         return True
+    # equivalent: default "" vs "XXXX" — unset env; "XXXX" not in accepted tokens → same False.
     env2 = os.environ.get(ALLOW_EXPENSIVE_ENV, "").strip().lower()
     return env2 in ("1", "true", "yes", "on")
 
@@ -108,6 +113,7 @@ def check_expensive_allowed(
 
 
 def estimate_cost_usd(spec: ModelSpec, eval_tokens: int | None) -> float:
+    # equivalent: <= 0 vs < 0 — cost==0 still yields 0.0 product.
     if eval_tokens is None or spec.cost_per_1m_usd <= 0:
         return 0.0
     return (eval_tokens / 1_000_000) * spec.cost_per_1m_usd
