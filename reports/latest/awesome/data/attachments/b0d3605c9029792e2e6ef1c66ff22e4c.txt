@@ -1,0 +1,3 @@
+[90mwatching /tmp/pytest-of-runner/pytest-0/test_watch_follow_loop0/advisory.jsonl — submit prompts in Cursor Agent[0m
+
+[90mwatch stopped[0m
