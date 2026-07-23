@@ -1,1 +1,0 @@
-{"id":"acaebfa6128f6571cf3688ed48de3266","fullName":"tests.test_pipeline_gaps#test_run_step_ollama_unavailable_fields","name":"_run_step ollama unavailable: exact message, fields, and cheap-LLM root threading","status":"passed","testResultsByEnv":{"default":"4c71407ff58c49129aeca08808d5bba4"}}

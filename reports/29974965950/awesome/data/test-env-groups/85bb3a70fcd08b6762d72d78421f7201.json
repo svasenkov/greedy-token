@@ -1,1 +1,0 @@
-{"id":"85bb3a70fcd08b6762d72d78421f7201","fullName":"tests.test_crystallize_l3#test_reject_cleans_draft_and_route","name":"reject removes the draft script and the route","status":"passed","testResultsByEnv":{"default":"990acc9a000ac616bc3afa5f7baf1b8d"}}

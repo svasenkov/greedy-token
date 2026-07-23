@@ -1,1 +1,0 @@
-{"id":"9ac1016a2c1586e65d1d8ddfab676b2e","fullName":"tests.test_code_search#test_resolve_search_path_detail_want_dir_contract","name":"resolve_search_path_detail asks for dirs (want_dir=True) then files (want_dir=False)","status":"passed","testResultsByEnv":{"default":"fb1f861c19b28a85818d26b83f338c7b"}}

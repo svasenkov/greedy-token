@@ -1,1 +1,0 @@
-{"id":"5ca78a2275c4d9d0d610a6cd1b0469b2","fullName":"tests.test_expensive_llm#test_yandex_native_fallback_to_compat","name":"native failure falls back to openai_compat when url set","status":"passed","testResultsByEnv":{"default":"c29e7ebf0357ecdb2a189025bae91d75"}}

@@ -1,1 +1,0 @@
-{"id":"f2b24e0df98d50516740b3e32e4be5f1","fullName":"tests.test_cli_handlers#test_cmd_init_routes_cwd_fallback","name":"cmd_init routes fall back to cwd when no workspace root is found","status":"passed","testResultsByEnv":{"default":"aa6f622b6f1529295e776cdfd8bc10cd"}}

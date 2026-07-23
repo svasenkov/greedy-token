@@ -1,1 +1,0 @@
-{"id":"3ec71188b432103efc87d76611685e68","fullName":"tests.test_init#test_resolve_version_uses_pyproject_in_source_tree","name":"resolve_version uses pyproject.toml in source checkout","status":"passed","testResultsByEnv":{"default":"49976da3c56b8a9e140ff2f69ee0b5bb"}}

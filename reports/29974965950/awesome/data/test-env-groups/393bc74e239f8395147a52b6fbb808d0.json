@@ -1,1 +1,0 @@
-{"id":"393bc74e239f8395147a52b6fbb808d0","fullName":"tests.test_pyramid_layer_colors#test_overrides_js_uses_css_vars_and_name_pairing","name":"dashboard-overrides.js paints SVG with resolved colors, not raw CSS vars","status":"passed","testResultsByEnv":{"default":"ddf6be95699f8a486357482310cfc8b4"}}

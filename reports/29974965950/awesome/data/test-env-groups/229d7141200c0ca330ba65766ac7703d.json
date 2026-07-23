@@ -1,1 +1,0 @@
-{"id":"229d7141200c0ca330ba65766ac7703d","fullName":"tests.test_code_search#test_glob_name_matches_sort_order","name":"_glob_name_matches: DEFAULT_PATHS matches sort before others, then by str","status":"passed","testResultsByEnv":{"default":"ea6c207a574d63a2980096064a59ee41"}}

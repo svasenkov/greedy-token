@@ -1,1 +1,0 @@
-{"id":"bc45c5db5284d83c7dbe304476a9ff80","fullName":"tests.test_cli_handlers#test_cmd_init_apply_config_exists","name":"cmd_init --apply refuses to overwrite an existing config without --force","status":"passed","testResultsByEnv":{"default":"865fa52358d7db3eb6a6006ea1e7b0cd"}}

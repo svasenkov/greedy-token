@@ -1,1 +1,0 @@
-{"id":"eacf00cf335b913307cbc0e20fc7bd69","fullName":"tests.test_crystallize_l3#test_lifecycle_events_promote_path","name":"draft → shadow → promoted lifecycle events land in the log and hub","status":"passed","testResultsByEnv":{"default":"3e00c4d20257222f54220e176bfbcd53"}}

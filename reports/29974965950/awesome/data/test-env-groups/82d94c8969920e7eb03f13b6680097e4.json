@@ -1,1 +1,0 @@
-{"id":"82d94c8969920e7eb03f13b6680097e4","fullName":"tests.test_cli_handlers#test_cmd_config_export_reveal","name":"cmd_config --export --reveal prints secret with a stderr warning","status":"passed","testResultsByEnv":{"default":"2ca2e34986943e41b71921eac9189eec"}}

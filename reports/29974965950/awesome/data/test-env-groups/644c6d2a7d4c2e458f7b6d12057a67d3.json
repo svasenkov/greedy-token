@@ -1,1 +1,0 @@
-{"id":"644c6d2a7d4c2e458f7b6d12057a67d3","fullName":"tests.test_expensive_llm#test_yandex_native_no_alternatives","name":"_chat_yandex_native raises when no alternatives","status":"passed","testResultsByEnv":{"default":"490fce33fe6f854f3c75750e384dd03e"}}

@@ -1,1 +1,0 @@
-{"id":"1fbd02ab33985ecc8aa6d832ef11a7e9","fullName":"tests.test_pipeline#test_format_savings_table_executor_fallback","name":"format_pipeline_step_savings_table falls back to tier when executor_sub empty","status":"passed","testResultsByEnv":{"default":"289f86c699f2a3fd705e5d42273862ea"}}

@@ -1,1 +1,0 @@
-{"id":"7802070b53e75dbf53b7e519a616fca5","fullName":"tests.test_advisory#test_write_tty","name":"write_tty: none, ok, and OSError swallowed","status":"passed","testResultsByEnv":{"default":"9e36b97ed4821838ffba4035381f500c"}}

@@ -1,1 +1,0 @@
-{"id":"b7fca9aa7f9a281aa5da8d2f4a20be36","fullName":"tests.test_cli_gaps#test_cmd_llm_invoke","name":"cmd_llm_invoke: files, stdin, missing user, json, text, error","status":"passed","testResultsByEnv":{"default":"4f6641d18e3d110c35b18682c8d42e43"}}

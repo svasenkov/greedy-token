@@ -1,1 +1,0 @@
-{"id":"e3cad01e22b8d9f858ae23ca9db9d499","fullName":"tests.test_cli_gaps#test_cmd_config_init_bad_preset","name":"cmd_config --init bad preset returns error","status":"passed","testResultsByEnv":{"default":"12bd5e04cfb8e9daac8087a6df618bf0"}}

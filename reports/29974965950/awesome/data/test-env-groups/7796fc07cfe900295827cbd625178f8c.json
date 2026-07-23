@@ -1,1 +1,0 @@
-{"id":"7796fc07cfe900295827cbd625178f8c","fullName":"tests.test_code_search#test_python_search_tree_skips_nondir_scope","name":"_python_search_tree: non-dir scope skipped with continue, not break","status":"passed","testResultsByEnv":{"default":"9c0720c50b90cc9750bef4c8ed887f20"}}

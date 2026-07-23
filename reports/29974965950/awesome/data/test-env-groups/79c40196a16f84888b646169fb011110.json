@@ -1,1 +1,0 @@
-{"id":"79c40196a16f84888b646169fb011110","fullName":"tests.test_pipeline#test_parse_named_pipeline_search_rag_path_kwarg","name":"Parse search-rag with path= keyword (agent / rule style)","status":"passed","testResultsByEnv":{"default":"85b27ebceaffa20516e499386cafc722"}}

@@ -1,1 +1,0 @@
-{"id":"4b8fc15071eb305ca9c233cc6e632eb4","fullName":"tests.test_calibration#test_monotonic_clamp","name":"Higher score never yields a lower calibrated confidence (clamp)","status":"passed","testResultsByEnv":{"default":"fe3d48681f4414cf4f9bdbe1509cd240"}}

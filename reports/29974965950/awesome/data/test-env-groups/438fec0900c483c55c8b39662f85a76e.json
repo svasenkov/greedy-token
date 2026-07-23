@@ -1,1 +1,0 @@
-{"id":"438fec0900c483c55c8b39662f85a76e","fullName":"tests.test_code_search#test_glob_name_matches_dir_mode","name":"_glob_name_matches: dir mode skips files with continue","status":"passed","testResultsByEnv":{"default":"3f594a5be65e2fd339e58862cb0e53ad"}}

@@ -1,1 +1,0 @@
-{"id":"212e3560624685013dc49e08fbaa5e89","fullName":"tests.test_code_search_gaps#test_resolve_detail_candidate_cap","name":"resolve_search_path_detail: candidate lists are capped at 8 (dirs and files)","status":"passed","testResultsByEnv":{"default":"e2ce39260d7c7feebde76bf94478775b"}}

@@ -1,1 +1,0 @@
-{"id":"3dcc771738c2cdd4c3a99359b6f37a13","fullName":"tests.test_spend_guard_gaps#test_estimate_cost_usd_edges","name":"estimate_cost_usd: zero and negative per-1M cost yield zero","status":"passed","testResultsByEnv":{"default":"12457a16fe90880121222b061556828f"}}

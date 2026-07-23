@@ -1,1 +1,0 @@
-{"id":"cca8f2ba4f3567f6c6b90f5b29c8fb6c","fullName":"tests.test_code_search_gaps#test_search_code_root_or","name":"search_code: passed root is used, find_workspace_root not consulted (kills or→and)","status":"passed","testResultsByEnv":{"default":"daf6c9834cee2701b29030205fd6c6c0"}}

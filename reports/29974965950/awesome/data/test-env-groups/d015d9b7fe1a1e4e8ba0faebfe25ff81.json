@@ -1,1 +1,0 @@
-{"id":"d015d9b7fe1a1e4e8ba0faebfe25ff81","fullName":"tests.test_init#test_resolve_version_raises_when_unresolvable","name":"resolve_version raises when version cannot be resolved","status":"passed","testResultsByEnv":{"default":"89c0acc997b55ada368a143bdcb8bc9a"}}

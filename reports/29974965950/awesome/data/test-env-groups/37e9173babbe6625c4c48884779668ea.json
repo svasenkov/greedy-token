@@ -1,1 +1,0 @@
-{"id":"37e9173babbe6625c4c48884779668ea","fullName":"tests.test_code_search_gaps#test_search_code_empty_query_exact","name":"search_code: empty query → exact error text and engine 'rg'","status":"passed","testResultsByEnv":{"default":"3e27f10978ee615a787db278f36a3415"}}

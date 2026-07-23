@@ -1,1 +1,0 @@
-{"id":"6be4c05f30879c81cee62dc8ef04c68f","fullName":"tests.test_pipeline_gaps#test_footer_exact_pure_dry","name":"format_pipeline_footer: pure dry-run block + stopped-early line, exact","status":"passed","testResultsByEnv":{"default":"c375614dbe6afdc3237d3f917c0db60e"}}

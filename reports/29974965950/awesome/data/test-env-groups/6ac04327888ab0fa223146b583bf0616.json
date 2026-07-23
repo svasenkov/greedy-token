@@ -1,1 +1,0 @@
-{"id":"6ac04327888ab0fa223146b583bf0616","fullName":"tests.test_crystallize_l3#test_generate_draft_code_llm_fallbacks","name":"generate_draft_code falls back to template when LLM errors or emits junk","status":"passed","testResultsByEnv":{"default":"78bdd13a72e48dd536c81877eb46e0ff"}}

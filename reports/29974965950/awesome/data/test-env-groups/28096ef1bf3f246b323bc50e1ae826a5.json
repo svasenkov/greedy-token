@@ -1,1 +1,0 @@
-{"id":"28096ef1bf3f246b323bc50e1ae826a5","fullName":"tests.test_tool_paths#test_resolve_rg_oserror_continue","name":"resolve_rg: an OSError candidate is skipped via continue, not break","status":"passed","testResultsByEnv":{"default":"a3884e938b08b4d44fb987f364109bab"}}

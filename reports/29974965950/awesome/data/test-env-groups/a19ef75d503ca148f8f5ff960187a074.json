@@ -1,1 +1,0 @@
-{"id":"a19ef75d503ca148f8f5ff960187a074","fullName":"tests.test_calibration#test_logging_disabled_uses_formula","name":"Telemetry disabled (GREEDY_TOKEN_LOG=0) → formula, nothing cached","status":"passed","testResultsByEnv":{"default":"c5977d61549513af422d7d234182804b"}}

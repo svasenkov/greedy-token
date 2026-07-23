@@ -1,1 +1,0 @@
-{"id":"e40644f76754ba1f52f8447121b64ed6","fullName":"tests.test_spend_guard_gaps#test_check_expensive_allowed","name":"check_expensive_allowed: cheap tier, opt-in gates, caps","status":"passed","testResultsByEnv":{"default":"a13b29c51778dfa0f27eea8cc1271814"}}

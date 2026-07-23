@@ -1,1 +1,0 @@
-{"id":"e432ddfddd66bc1e58ad909bfc6bc8ad","fullName":"tests.test_executors#test_execute_plan_timeout_selection","name":"execute_plan uses RG_TIMEOUT for tool tier and SCRIPT_TIMEOUT otherwise","status":"passed","testResultsByEnv":{"default":"acd2cb7aae87a8ac1883443b4d892f48"}}

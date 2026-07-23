@@ -1,1 +1,0 @@
-{"id":"ea40569c3bce9706b596568fbe37ddf1","fullName":"tests.test_pipeline#test_format_savings_table_exact","name":"format_pipeline_step_savings_table emits exact header and row","status":"passed","testResultsByEnv":{"default":"39c810bbed96e5e8d71bf301a5187743"}}

@@ -1,1 +1,0 @@
-{"id":"5ec070e6cf7556f6cc8dd8afc688a955","fullName":"tests.test_spend_guard_gaps#test_load_today_spend_skips_before_counting","name":"_load_today_spend: break-vs-continue on every filter and falsy cost","status":"passed","testResultsByEnv":{"default":"ae2c679c8a394fccf5ca42e8d6a4d881"}}

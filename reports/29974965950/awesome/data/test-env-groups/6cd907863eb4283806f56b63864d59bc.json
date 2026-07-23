@@ -1,1 +1,0 @@
-{"id":"6cd907863eb4283806f56b63864d59bc","fullName":"tests.test_budget_gaps#test_billing_tier_from_event","name":"_billing_tier_from_event covers dict, legacy, selected fallbacks","status":"passed","testResultsByEnv":{"default":"4b035f7517c7b9618c4fcb0b22f822ab"}}

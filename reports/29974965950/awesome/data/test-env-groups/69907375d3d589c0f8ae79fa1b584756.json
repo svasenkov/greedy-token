@@ -1,1 +1,0 @@
-{"id":"69907375d3d589c0f8ae79fa1b584756","fullName":"tests.test_router#test_format_decision_full","name":"format_decision includes command, domains, and cursor hint","status":"passed","testResultsByEnv":{"default":"bb5d704a091e91d211642563b0065c1a"}}

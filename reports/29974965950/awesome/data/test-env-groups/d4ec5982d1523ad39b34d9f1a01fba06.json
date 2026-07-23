@@ -1,1 +1,0 @@
-{"id":"d4ec5982d1523ad39b34d9f1a01fba06","fullName":"tests.test_model_select_gaps#test_parse_registry_unified_models_list","name":"llm.models[] unified list: junk skipped, sections deduped, no legacy default","status":"passed","testResultsByEnv":{"default":"dadf34d5f21bc03a801b3d605593a1b7"}}
