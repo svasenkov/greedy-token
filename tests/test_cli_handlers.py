@@ -559,6 +559,152 @@ def test_cmd_init_routes_scaffold(
 
 
 @allure.story("Init routes")
+@allure.title("cmd_init --preset merges a bundled team route preset by name")
+def test_cmd_init_preset_bundled_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    import yaml
+
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    monkeypatch.setenv("GREEDY_TOKEN_ROOT", str(ws))
+
+    code = cli.cmd_init(
+        _ns(profile="solo", apply=False, force=False, json=False, preset="team-default")
+    )
+    out = capsys.readouterr().out
+    attach_text("stdout", out)
+    assert code == 0
+    cfg = yaml.safe_load((ws / ".greedy-token.yaml").read_text(encoding="utf-8"))
+    ids = [r["id"] for r in cfg["routes"]]
+    assert "tool-rg-search" in ids
+    assert "rag-team-conventions" in ids
+
+    with allure.step("name with .yaml suffix resolves the same preset"):
+        code = cli.cmd_init(
+            _ns(
+                profile="solo",
+                apply=False,
+                force=False,
+                json=True,
+                preset="team-default.yaml",
+            )
+        )
+        payload = json.loads(capsys.readouterr().out)
+        assert code == 0
+        assert "rag-team-conventions" in payload["routes"]
+
+
+@allure.story("Init routes")
+@allure.title("cmd_init --preset accepts a file path and an https:// URL")
+def test_cmd_init_preset_path_and_url(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    import io
+    from contextlib import closing
+
+    import yaml
+
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    monkeypatch.setenv("GREEDY_TOKEN_ROOT", str(ws))
+    payload_yaml = "routes:\n  - id: team-file\n    target: tool\n    tool: rg\n    patterns: [find]\n"
+
+    with allure.step("file path preset"):
+        src = tmp_path / "shared-routes.yaml"
+        src.write_text(payload_yaml, encoding="utf-8")
+        code = cli.cmd_init(
+            _ns(profile="solo", apply=False, force=False, json=False, preset=str(src))
+        )
+        assert code == 0
+        cfg = yaml.safe_load((ws / ".greedy-token.yaml").read_text(encoding="utf-8"))
+        assert [r["id"] for r in cfg["routes"]] == ["team-file"]
+
+    with allure.step("https:// preset (urlopen stubbed)"):
+        url_yaml = payload_yaml.replace("team-file", "team-url")
+        seen: dict[str, object] = {}
+
+        def fake_urlopen(url, timeout=None):
+            seen.update(url=url, timeout=timeout)
+            return closing(io.BytesIO(url_yaml.encode("utf-8")))
+
+        monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+        code = cli.cmd_init(
+            _ns(
+                profile="solo",
+                apply=False,
+                force=False,
+                json=False,
+                preset="https://intranet.example.com/routes.yaml",
+            )
+        )
+        assert code == 0
+        assert seen["url"] == "https://intranet.example.com/routes.yaml"
+        assert seen["timeout"] == 10
+        cfg = yaml.safe_load((ws / ".greedy-token.yaml").read_text(encoding="utf-8"))
+        assert {r["id"] for r in cfg["routes"]} == {"team-file", "team-url"}
+
+
+@allure.story("Init routes")
+@allure.title("cmd_init --preset error paths: unknown name, empty name, no routes")
+def test_cmd_init_preset_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    monkeypatch.setenv("GREEDY_TOKEN_ROOT", str(ws))
+
+    with allure.step("unknown bundled name → exit 2, lists available"):
+        code = cli.cmd_init(
+            _ns(profile="solo", apply=False, force=False, json=False, preset="galaxy")
+        )
+        err = capsys.readouterr().err
+        assert code == 2
+        assert "Unknown route preset" in err
+        assert "team-default" in err
+
+    with allure.step("empty name → exit 2"):
+        code = cli.cmd_init(
+            _ns(profile="solo", apply=False, force=False, json=False, preset=".yaml")
+        )
+        assert code == 2
+        assert "required" in capsys.readouterr().err
+
+    with allure.step("preset file without routes: → exit 2"):
+        bad = tmp_path / "empty.yaml"
+        bad.write_text("footer:\n  style: compact\n", encoding="utf-8")
+        code = cli.cmd_init(
+            _ns(profile="solo", apply=False, force=False, json=False, preset=str(bad))
+        )
+        assert code == 2
+        assert "No routes" in capsys.readouterr().err
+
+    with allure.step("workspace config untouched after errors"):
+        assert not (ws / ".greedy-token.yaml").exists()
+
+
+@allure.story("Init routes")
+@allure.title("Route preset discovery: repo examples first, packaged fallback")
+def test_route_preset_discovery(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from greedy_token import paths as gt_paths
+
+    with allure.step("repo checkout → examples/routes/presets"):
+        directory = gt_paths.route_presets_dir()
+        assert directory.name == "presets"
+        assert "team-default" in gt_paths.list_route_preset_names()
+
+    with allure.step("no repo examples → packaged route_presets"):
+        monkeypatch.setattr("greedy_token.version.repo_root", lambda: tmp_path)
+        directory = gt_paths.route_presets_dir()
+        assert directory.name == "route_presets"
+        assert "team-default" in gt_paths.list_route_preset_names()
+
+    with allure.step("missing dir → empty preset list"):
+        monkeypatch.setattr(gt_paths, "route_presets_dir", lambda: tmp_path / "nope")
+        assert gt_paths.list_route_preset_names() == []
+
+
+@allure.story("Init routes")
 @allure.title("cmd_init routes fall back to cwd when no workspace root is found")
 def test_cmd_init_routes_cwd_fallback(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys

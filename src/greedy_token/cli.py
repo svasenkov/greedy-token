@@ -638,16 +638,27 @@ def _init_routes_root() -> Path:
 
 
 def cmd_init_routes(args: argparse.Namespace, root: Path) -> int:
-    """Handle init --routes-from FILE / --routes-scaffold."""
+    """Handle init --preset NAME|URL|PATH / --routes-from FILE / --routes-scaffold."""
     import yaml
 
     from greedy_token.paths import (
         WORKSPACE_CONFIG_NAME,
+        load_route_preset,
         scaffold_routes_overlay,
         upsert_workspace_routes,
     )
 
     written: list[str] = []
+    if args.preset:
+        try:
+            overlay = load_route_preset(args.preset)
+        except (FileNotFoundError, ValueError, OSError) as exc:
+            print(exc, file=sys.stderr)
+            return 2
+        upsert_workspace_routes(root, overlay)
+        written.extend(
+            str(r["id"]) for r in overlay["routes"] if isinstance(r, dict) and r.get("id")
+        )
     if args.routes_from:
         src = Path(args.routes_from).expanduser()
         if not src.is_file():
@@ -683,7 +694,7 @@ def cmd_init_routes(args: argparse.Namespace, root: Path) -> int:
 
 
 def cmd_init(args: argparse.Namespace) -> int:
-    if args.routes_from or args.routes_scaffold:
+    if args.preset or args.routes_from or args.routes_scaffold:
         return cmd_init_routes(args, _init_routes_root())
 
     profile = (getattr(args, "profile", None) or "solo").lower()
@@ -1115,6 +1126,11 @@ def build_parser() -> argparse.ArgumentParser:
     ini.add_argument("--apply", action="store_true", help="Write ~/.greedy-token/config.yaml with the profile policy")
     ini.add_argument("--force", action="store_true", help="Overwrite existing config on --apply")
     ini.add_argument("--json", action="store_true", help="JSON detection output (detect-only)")
+    ini.add_argument(
+        "--preset",
+        metavar="NAME|URL|PATH",
+        help="Merge a team route preset (bundled name, https:// URL, or file path) into <root>/.greedy-token.yaml",
+    )
     ini.add_argument(
         "--routes-from",
         metavar="FILE",

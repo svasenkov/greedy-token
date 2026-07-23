@@ -3,5 +3,6 @@ recursive-include docs *
 recursive-include examples *
 recursive-include src/greedy_token/config *
 recursive-include src/greedy_token/presets *
+recursive-include src/greedy_token/route_presets *
 recursive-include src/greedy_token/static *
 recursive-include tests *

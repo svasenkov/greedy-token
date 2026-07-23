@@ -1,0 +1,69 @@
+# Team route preset — generic, command-free starting point for a shared repo.
+#
+# Apply: greedy-token init --preset team-default
+# (merges into <root>/.greedy-token.yaml; same id replaces, new id wins tie-breaks)
+#
+# Team presets can also be hosted centrally:
+#   greedy-token init --preset https://intranet.example.com/greedy/routes.yaml
+#   greedy-token init --preset ./shared/routes.yaml
+
+routes:
+  - id: tool-rg-search
+    target: tool
+    tool: rg
+    read_only: true
+    patterns:
+      - find
+      - search for
+      - grep
+      - where is
+      - locate
+      - look for
+      - usages of
+      - who uses
+      - найди
+      - найти
+      - где лежит
+      - где находится
+      - где файл
+      - покажи где
+      - кто использует
+    note: "0 tokens — ripgrep before RAG/agent chat"
+    globs:
+      - "!.git/**"
+      - "!node_modules/**"
+      - "!build/**"
+      - "!dist/**"
+      - "!.venv/**"
+    search_paths:
+      - "."
+
+  - id: rag-team-conventions
+    target: rag
+    patterns:
+      - team convention
+      - how do we
+      - our pattern for
+      - style guide
+      - как у нас принято
+      - наш паттерн
+      - где описано
+    domains: []
+    note: "Team conventions live in docs/rag — read the chunk, don't re-derive in chat"
+
+  - id: rag-lookup
+    target: rag
+    patterns:
+      - what is
+      - how does
+      - what does
+      - difference between
+      - что такое
+      - объясни
+      - расскажи
+      - как работает
+      - для чего
+      - что значит
+      - в чём разница
+    domains: []
+    note: "Docs/RAG lookup before full agent context"

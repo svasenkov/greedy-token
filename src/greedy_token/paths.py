@@ -150,6 +150,73 @@ def upsert_workspace_routes(root: Path, new_cfg: dict) -> Path:
     return path
 
 
+ROUTE_PRESET_URL_SCHEMES = ("http://", "https://")
+
+
+def route_presets_dir() -> Path:
+    """Bundled team route presets — repo examples first, else packaged copies."""
+    from greedy_token.version import repo_root
+
+    for candidate in (
+        repo_root() / "examples" / "routes" / "presets",
+        Path(__file__).resolve().parent / "route_presets",
+    ):
+        if candidate.is_dir() and any(candidate.glob("*.yaml")):
+            return candidate
+    return Path(__file__).resolve().parent / "route_presets"  # pragma: no cover - packaged presets always present
+
+
+def list_route_preset_names() -> list[str]:
+    directory = route_presets_dir()
+    if not directory.is_dir():
+        return []
+    return sorted(path.stem for path in directory.glob("*.yaml"))
+
+
+def _validated_routes_overlay(raw: object, source: str) -> dict:
+    if not isinstance(raw, dict) or not _routes_list(raw):
+        raise ValueError(f"No routes: section in route preset {source}")
+    return raw
+
+
+def load_route_preset(ref: str) -> dict:
+    """Resolve a team route preset by name, URL, or file path (init --preset).
+
+    * ``https://…`` / ``http://…`` — fetched over the network;
+    * an existing file path — read from disk;
+    * anything else — a bundled preset name (``list_route_preset_names()``).
+
+    Returns the parsed overlay dict; raises ``ValueError`` when the payload
+    has no usable ``routes:`` section, ``FileNotFoundError`` for unknown names.
+    """
+    import yaml
+
+    ref = ref.strip()
+    if ref.startswith(ROUTE_PRESET_URL_SCHEMES):
+        import urllib.request
+
+        with urllib.request.urlopen(ref, timeout=10) as resp:  # noqa: S310 - explicit user-supplied preset URL
+            text = resp.read().decode("utf-8")
+        return _validated_routes_overlay(yaml.safe_load(text), ref)
+
+    path = Path(ref).expanduser()
+    if path.is_file():
+        return _validated_routes_overlay(
+            yaml.safe_load(path.read_text(encoding="utf-8")), str(path)
+        )
+
+    name = ref.removesuffix(".yaml")
+    if not name:
+        raise FileNotFoundError("Route preset name is required")
+    preset_file = route_presets_dir() / f"{name}.yaml"
+    if not preset_file.is_file():
+        available = ", ".join(list_route_preset_names()) or "(none)"
+        raise FileNotFoundError(f"Unknown route preset {ref!r}. Available: {available}")
+    return _validated_routes_overlay(
+        yaml.safe_load(preset_file.read_text(encoding="utf-8")), str(preset_file)
+    )
+
+
 def workspace_config_routes(root: Path) -> list[dict]:
     """Inline routes currently stored in <root>/.greedy-token.yaml (no routes_file)."""
     return _routes_list(_read_yaml_dict(root / WORKSPACE_CONFIG_NAME))
