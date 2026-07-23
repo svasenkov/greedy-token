@@ -69,12 +69,13 @@ cp examples/cursor/rules/greedy-token.mdc .cursor/rules/greedy-token.mdc
 
 1. **Settings → MCP**
 2. **greedy-token** → **Enable** → **Refresh**
-3. Должно быть **5 tools**:
+3. Должно быть **6 tools**:
    - `greedy_token_search`
    - `greedy_token_rag`
    - `greedy_token_route`
    - `greedy_token_pipeline`
    - `greedy_token_usage`
+   - `greedy_token_crystallize`
 4. Откройте **новый** Agent chat (старые чаты не подхватят новые tools)
 
 ## 4. Smoke
@@ -109,9 +110,9 @@ MCP server instructions остаются короткими (footer + pipeline);
 
 Rule говорит агенту:
 
-- для lookup предпочитает MCP (search / rag / route / pipeline)
-- показывает вам блок **Greedy token**
-- fallback на Grep только если MCP выключен или вы явно отказались (`cursor:`, «без greedy-token»)
+- для lookup использовать MCP (search / rag / route / pipeline)
+- показывать вам блок **Greedy token**
+- откатываться на Grep, только если MCP выключен или вы явно отказались (`cursor:`, «без greedy-token»)
 
 ## Ollama (опционально)
 
@@ -147,15 +148,6 @@ greedy-token config
   }
 }
 ```
-
-## Что не входит в starter kit
-
-| Что | Почему |
-|-----|--------|
-| Workspace launcher `greedy-token.sh` | Привязан к `projects/greedy-token-home/dev/.venv` |
-| `sessionStart` hooks | Опционально; монорепо-специфика |
-
-Для beta достаточно MCP + rule.
 
 ## См. также
 

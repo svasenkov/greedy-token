@@ -63,4 +63,4 @@ Enable paid models:
 2. Export the matching `api_key_env`
 3. For the derived expensive tier (metered above the cost threshold): `llm.expensive.opt_in: true` and `GREEDY_EXPENSIVE_LLM=1` / `--allow-expensive`
 
-See [docs/cloud-api.md](../../../docs/greedy-token/cloud-api.md) (monorepo) and [ROADMAP-RU.md](../../docs/ROADMAP-RU.md).
+See [ROADMAP.md](../../docs/ROADMAP.md) · [ROADMAP-RU.md](../../docs/ROADMAP-RU.md). Monorepo consumers: `docs/greedy-token/cloud-api.md` in the workspace repo.

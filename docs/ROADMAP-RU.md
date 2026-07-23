@@ -2,27 +2,21 @@
 
 **English:** [ROADMAP.md](ROADMAP.md)
 
-Сейчас greedy-token заточен под **Cursor + Ollama**. CLI и MCP не привязаны к IDE; платные API и альтернативные локальные runtime — в roadmap ниже.
+Начиная с **v0.10.0** greedy-token работает в любом agent-хосте с поддержкой MCP (`agent_host: cursor | claude | continue`, по умолчанию Cursor); cheap tier — Ollama или любой OpenAI-совместимый runtime. CLI и MCP не привязаны к IDE; платные bulk-API поддерживаются opt-in ([ADR-0002](adr/0002-metered-bulk-cheap-tier.md)). Оставшиеся пробелы — ниже.
 
 Легенда: ✅ есть · ❌ нет · 🔜 в планах
 
 Прогресс: [GitHub issues с label `roadmap`](https://github.com/svasenkov/greedy-token/issues?q=is%3Aissue+label%3Aroadmap).
 
-## Темы v0.5
+## Темы
 
-| Тема | Цель | Трекинг |
-|------|------|---------|
-| **cheap_llm** | `provider: ollama \| openai_compat` — один конфиг для Ollama и OpenAI-compatible серверов | ✅ [#2](https://github.com/svasenkov/greedy-token/issues/2) (v0.5.0) |
-| **multi_model** | `llm.cheap.models[]` + profiles (`tms-classify`, `tms-generate`), `greedy-token llm invoke` | ✅ v0.5.9 |
-| **expensive_llm** | YandexGPT Lite opt-in, daily cap, escalation fast→smart→paid | ✅ MVP v0.5.9 ([#3](https://github.com/svasenkov/greedy-token/issues/3) partial) |
-| **mcp_hosts** | Документация и smoke MCP не только в Cursor | [#14](https://github.com/svasenkov/greedy-token/issues/14), [#15](https://github.com/svasenkov/greedy-token/issues/15) |
-
-## Темы v0.6
-
-| Тема | Цель | Трекинг |
-|------|------|---------|
-| **mcp_hosts** (продолжение) | Claude Desktop / Continue — полный smoke | [#14](https://github.com/svasenkov/greedy-token/issues/14), [#15](https://github.com/svasenkov/greedy-token/issues/15) |
-| **ci_headless** | greedy-token в CI: route/pipeline на self-hosted Ollama вместо «всё в Claude» | [#18](https://github.com/svasenkov/greedy-token/issues/18) |
+| Тема | Цель | Статус |
+|------|------|--------|
+| **cheap_llm** | `provider: ollama \| openai_compat` — один конфиг для Ollama и OpenAI-compatible серверов | ✅ v0.5.0 ([#2](https://github.com/svasenkov/greedy-token/issues/2)) |
+| **multi_model** | `llm.models[]` + profiles (`tms-classify`, `tms-generate`), `greedy-token llm invoke` | ✅ v0.5.9; единый пул — v0.9.0 ([ADR-0001](adr/0001-unified-model-spec-derived-tier.md)) |
+| **expensive_llm** | YandexGPT Lite opt-in, daily cap, escalation fast→smart→paid | ✅ MVP v0.5.9; metered bulk path — v0.10.0 ([ADR-0002](adr/0002-metered-bulk-cheap-tier.md)) ([#3](https://github.com/svasenkov/greedy-token/issues/3)) |
+| **mcp_hosts** | Документация и smoke MCP не только в Cursor | ✅ v0.10.0 конфиг + доки (`agent_host`); 🔜 live smoke ([#14](https://github.com/svasenkov/greedy-token/issues/14), [#15](https://github.com/svasenkov/greedy-token/issues/15)) |
+| **ci_headless** | greedy-token в CI: route/pipeline на self-hosted Ollama вместо «всё в Claude» | ✅ доки + примеры ([ci-setup-RU.md](ci-setup-RU.md)); 🔜 live smoke ([#18](https://github.com/svasenkov/greedy-token/issues/18)) |
 
 ## Платные / облако
 
@@ -131,7 +125,7 @@ greedy-token config --init --preset cursor-like-catalog
 | `selectel-cl21r` | CL21R prod (alias `prod-ollama-2`) |
 | `tms-automator` | TMS automator + escalation |
 
-**Anthropic / Gemini:** только в README как `models_pending` ([#9](https://github.com/svasenkov/greedy-token/issues/9), [#11](https://github.com/svasenkov/greedy-token/issues/11)) — native executor в v0.6+, не в YAML (чтобы случайный `turned_on: true` не ломал `resolve_model`).
+**Anthropic / Gemini:** только в README пресетов как pending ([#9](https://github.com/svasenkov/greedy-token/issues/9), [#11](https://github.com/svasenkov/greedy-token/issues/11)) — native executor ещё не реализован; в YAML не добавлять (чтобы случайный `enabled: true` не ломал `resolve_model`).
 
 OpenAI / Groq / Mistral / DeepSeek в пресетах — через `openai_compat` + `url` + `api_key_env`.
 
@@ -154,13 +148,13 @@ Acceptance: гайды `docs/claude-setup(-RU).md` / `docs/continue-setup(-RU).m
 CI job → greedy-token CLI → rg | python | cheap_llm (Ollama/internal) | RAG | expensive_llm agent (opt-in)
 ```
 
-Это **не MCP внутри Actions**, а headless CLI (`route`, `pipeline --execute`, `report`). Ядро уже умеет remote `OLLAMA_URL`; не хватает доков, примерных workflows и явного env-контракта для runner’ов.
+Это **не MCP внутри Actions**, а headless CLI (`route`, `pipeline --execute`, `report`). Remote `OLLAMA_URL` работает; доки, примерные workflows и env-контракт runner’а — в [ci-setup-RU.md](ci-setup-RU.md).
 
 | Хост CI | Роль | Статус | Issue |
 |---------|------|:------:|-------|
-| **Self-hosted / VPN runner** + Ollama внутри сети | Основной целевой паттерн | ❌ 🔜 | [#18](https://github.com/svasenkov/greedy-token/issues/18) |
+| **Self-hosted / VPN runner** + Ollama внутри сети | Основной целевой паттерн | ✅ доки + env-контракт · 🔜 live smoke | [#18](https://github.com/svasenkov/greedy-token/issues/18) |
 | **GitHub-hosted ephemeral** без доступа к private Ollama | Только rg/python/rag или expensive_llm agent | вне фокуса | — |
-| **Jenkins / GitLab CI** | Тот же CLI-контракт | ❌ 🔜 (примеры) | [#18](https://github.com/svasenkov/greedy-token/issues/18) |
+| **Jenkins / GitLab CI** | Тот же CLI-контракт | ✅ сниппеты в [ci-setup-RU.md](ci-setup-RU.md) | [#18](https://github.com/svasenkov/greedy-token/issues/18) |
 
 ### ci_headless — критерии готовности
 
@@ -181,14 +175,15 @@ CI job → greedy-token CLI → rg | python | cheap_llm (Ollama/internal) | RAG 
 
 ## Changelog
 
+Детали по релизам — чеклисты `CUT-v*.md` в корне репозитория.
+
 | Версия | Фокус |
 |--------|-------|
-| **v0.6.0** | `greedy-token doctor` (hardware + Ollama catalog), split budget (`budget` CLI, metered hard cap + Cursor estimate), `llm.policy: hybrid`, footer/statusline budget display, usage.jsonl v2 `billing` |
-| **v0.5.9** | Multi-model registry, profiles, `llm invoke`, YandexGPT opt-in MVP, TMS pipelines, escalation, **model presets** (`config --init --preset`) |
+| **v0.10.0** | Beyond-Cursor: `agent_host: cursor \| claude \| continue`, metered bulk APIs под spend guard ([ADR-0002](adr/0002-metered-bulk-cheap-tier.md)), nudge-и калибровки, team route presets (`init --preset`) |
+| **v0.9.0** | Единый реестр моделей ([ADR-0001](adr/0001-unified-model-spec-derived-tier.md), выводимый tier cheap/expensive), реестр эквивалентных мутантов с drift-guard, MCP `greedy_token_crystallize` |
+| **v0.8.0** | Кристаллизация L3 safe mode (`draft` → shadow → `promote` / `reject`), portable routes, `calibrate` (provenance базлайна), confidence по телеметрии |
+| **v0.7.x** | Качество маршрутов: `explain_route`, атрибуция override, `init --profile`, метрики hub; v0.7.2 — mutation testing, маскирование секретов, doc-drift guard |
+| **v0.6.x** | Crystallize L2 (`override`, `scripts lint`, shadow routes), `hub serve`, `doctor`, split budget, usage.jsonl v2 `billing` |
+| **v0.5.9** | Multi-model registry, profiles, `llm invoke`, YandexGPT opt-in MVP, escalation, model presets (`config --init --preset`) |
 | **v0.5.0** | `cheap_llm` provider (`ollama` \| `openai_compat`); tier id `ollama` без переименования; `OLLAMA_*` compat |
-| **v0.4.4** | Cursor-first README, mascot, короче MCP instructions, roadmap CI/headless (#18) |
-| **v0.4.3** | Cursor starter kit (`examples/cursor/`) + setup-дока для пользователей PyPI |
-| **v0.4.2** | Security hardening, MCP dry-run default, CI pytest, log rotation, settings module |
-| **v0.4** | MCP pipeline, Ollama config, token economy footer |
-| **v0.5.x** | `expensive_llm` metered agent path ([#3](https://github.com/svasenkov/greedy-token/issues/3)) |
-| **v0.6** | IDE-интеграции beyond Cursor + **CI / headless** docs & examples ([#18](https://github.com/svasenkov/greedy-token/issues/18)) |
+| **v0.4.x** | MCP pipeline, token economy footer, security hardening, Cursor starter kit + setup-доки |

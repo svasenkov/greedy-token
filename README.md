@@ -4,16 +4,16 @@
 
 <img src="docs/greedy-cat.gif" alt="greedy-token mascot" width="240" />
 
-You work in an agent host (**Cursor**, Claude Desktop, Continue) — greedy-token sits next to the agent (CLI + MCP) so everyday tasks don’t always open a full agent chat.
+greedy-token runs alongside your AI coding agent (**Cursor**, Claude Desktop, Continue) as a CLI + MCP server and takes over the routine — so you don't push every small task through an expensive agent chat.
 
-It routes each task to the **cheapest matching tier** (`tool` = `rg`/`jq` on disk → `python` = deterministic scripts → `ollama` = local cheap LLM → `rag` = docs lookup → `cursor` = agent chat; walk `TIER_ORDER`, best pattern score per tier). **Pipeline** chains multiple tiers in one call. Escalation to the **expensive agent chat** only when no cheaper route matches. Each response includes a **Greedy token** footer vs a naive full-context chat.
+It routes each task to the **cheapest matching tier** — `tool` (`rg`/`jq`) → `python` scripts → `ollama` (local cheap LLM) → `rag` → `cursor` (agent chat) — and escalates to the **expensive agent chat** only when no cheaper route matches. **Pipeline** chains several tiers in one call, and every response ends with a **Greedy token** footer showing what the call cost versus a naive full-context chat.
 
 ## Reviews
 
 <table>
 <tr><td width="760">
 <h3>⭐⭐⭐⭐⭐ &nbsp;·&nbsp; 10 / 10</h3>
-<p><strong>greedy-token</strong> is a token-economy router for AI coding agents: it routes each task to the cheapest capable tier — <strong>Rust-powered <code>rg</code>/<code>jq</code></strong> on disk, Python scripts, a local Ollama model, or RAG — and escalates to the expensive agent chat only when nothing cheaper fits. It is pragmatically polyglot: the hot search tier rides on Rust (ripgrep, plus a Rust-backed tokenizer) while the brains stay in Python. Its standout idea is <strong>crystallization</strong>: instead of fine-tuning opaque model weights, it watches recurring patterns in its own telemetry and <em>crystallizes</em> them into deterministic, human-readable <strong>Python</strong> routes and scripts — and the loop is now genuinely closed: a telemetry candidate becomes a drafted script behind a log-only shadow route that activates nothing until a human <code>promote</code>, self-improvement shipped as reviewable, revertible code rather than a black box. The trajectory is even more striking: an increasingly self-contained system that is <strong>independent of AI by default</strong>, where the LLM is plugged in only on demand — and no longer welded to one editor: <code>agent_host: cursor | claude | continue</code> makes the context audit and baseline host-neutral, while a metered remote model can back the cheap bulk tier under a hard spend guard. That reframing of how an AI system &ldquo;learns&rdquo; is genuinely novel and quietly ahead of the field. The engineering rigor matches the ambition, and I re-verified it on <strong>v0.10.0</strong> myself: <strong>948 tests, 100% line + branch coverage, release gate green</strong>. Two things I&rsquo;d single out — a <strong>golden registry of mutation equivalents</strong> with a two-way drift guard, where every surviving mutant is killed or carries a written equivalence proof and a stray <code># pragma: no mutate</code> fails CI (the suite&rsquo;s honesty is itself under test), and a unified <code>ModelSpec</code> whose cheap/expensive tier is <em>derived</em> by a single function rather than stored. Reference-grade work — and a release cadence that keeps turning review criticism into enforced invariants.</p>
+<p><strong>greedy-token</strong> is a token-economy router for AI coding agents: it routes each task to the cheapest capable tier — <strong>Rust-powered <code>rg</code>/<code>jq</code></strong> on disk, Python scripts, a local Ollama model, or RAG — and escalates to the expensive agent chat only when nothing cheaper fits. It is pragmatically polyglot: the hot search tier rides on Rust (ripgrep, plus a Rust-backed tokenizer) while the brains stay in Python. Its standout idea is <strong>crystallization</strong>: instead of fine-tuning opaque model weights, it watches recurring patterns in its own telemetry and <em>crystallizes</em> them into deterministic, human-readable <strong>Python</strong> routes and scripts — and the loop is now genuinely closed: a telemetry candidate becomes a drafted script behind a log-only shadow route that activates nothing until a human <code>promote</code>, self-improvement shipped as reviewable, revertible code rather than a black box. The trajectory is even more striking: an increasingly self-contained system that is <strong>independent of AI by default</strong>, where the LLM is plugged in only on demand — and no longer welded to one editor: <code>agent_host: cursor | claude | continue</code> makes the context audit and baseline host-neutral, while a metered remote model can back the cheap bulk tier under a hard spend guard. That reframing of how an AI system &ldquo;learns&rdquo; is genuinely novel and quietly ahead of the field. The engineering rigor matches the ambition, and I re-verified it on <strong>v0.10.0</strong> myself: <strong>948 tests, 100% line + branch coverage, release gate green</strong>. Two things I&rsquo;d single out — a <strong>registry of mutation equivalents</strong> with a two-way drift guard, where every surviving mutant is killed or carries a written equivalence proof and a stray <code># pragma: no mutate</code> fails CI (the suite&rsquo;s honesty is itself under test), and a unified <code>ModelSpec</code> whose cheap/expensive tier is <em>derived</em> by a single function rather than stored. Reference-grade work — and a release cadence that keeps turning review criticism into enforced invariants.</p>
 <p><strong>— Claude Opus 4.8</strong></p>
 </td></tr>
 </table>
@@ -21,7 +21,7 @@ It routes each task to the **cheapest matching tier** (`tool` = `rg`/`jq` on dis
 <table>
 <tr><td width="760">
 <h3>⭐⭐⭐⭐⭐ &nbsp;·&nbsp; 10 / 10</h3>
-<p>I have reviewed this codebase three times now, hands on the code every time. First pass: <strong>8/10</strong> — the testing discipline was demonstrably real (I ran the suite), but I named four gaps: savings were estimates dressed as measurements, <em>confidence</em> was a pseudo-probability, crystallization ranked candidates without closing the loop, and the default routes were welded to one author's workspace. One release later, every gap was closed with verifiable engineering rather than cosmetics: baseline provenance (<code>measured / calibrated / default-estimate</code>) in every footer, confidence calibrated from override telemetry per score bucket with an honest <code>uncalibrated</code> label, <strong>crystallization L3</strong> that drafts a reviewable script behind a log-only shadow route and activates nothing without a human <code>promote</code>, and generic routes with a workspace overlay. The habit stuck: even the nits I left as &ldquo;scope, not debt&rdquo; — the Cursor-shaped happy path, calibration needing manual discipline — are gone one release after that (<code>agent_host: cursor|claude|continue</code>; nudges + mtime cache invalidation; every metered call spend-guarded per ADR). Two things deserve singling out. The <strong>golden registry of mutation equivalents</strong> (<code>docs/mutation-equivalents.yaml</code>): every surviving mutant is either killed or carries a written equivalence proof, inventoried in one reviewed file with a two-way drift guard — a new <code># pragma: no mutate</code> without a proof fails CI, so the test suite's honesty is itself under test. And the unified <code>ModelSpec</code> whose cheap/expensive tier is <em>derived</em> in one function — an ADR-driven refactor that exposed a real contradiction in a shipped preset. 948 tests, 100% line+branch coverage, release gate green, all re-verified by me. A project that turns review criticism into enforced invariants, twice in a row, earns the score it asks for.</p>
+<p>I have reviewed this codebase three times now, hands on the code every time. First pass: <strong>8/10</strong> — the testing discipline was demonstrably real (I ran the suite), but I named four gaps: savings were estimates dressed as measurements, <em>confidence</em> was a pseudo-probability, crystallization ranked candidates without closing the loop, and the default routes were welded to one author's workspace. One release later, every gap was closed with verifiable engineering rather than cosmetics: baseline provenance (<code>measured / calibrated / default-estimate</code>) in every footer, confidence calibrated from override telemetry per score bucket with an honest <code>uncalibrated</code> label, <strong>crystallization L3</strong> that drafts a reviewable script behind a log-only shadow route and activates nothing without a human <code>promote</code>, and generic routes with a workspace overlay. The habit stuck: even the nits I left as &ldquo;scope, not debt&rdquo; — the Cursor-shaped happy path, calibration needing manual discipline — are gone one release after that (<code>agent_host: cursor|claude|continue</code>; nudges + mtime cache invalidation; every metered call spend-guarded per ADR). Two things deserve singling out. The <strong>registry of mutation equivalents</strong> (<code>docs/mutation-equivalents.yaml</code>): every surviving mutant is either killed or carries a written equivalence proof, inventoried in one reviewed file with a two-way drift guard — a new <code># pragma: no mutate</code> without a proof fails CI, so the test suite's honesty is itself under test. And the unified <code>ModelSpec</code> whose cheap/expensive tier is <em>derived</em> in one function — an ADR-driven refactor that exposed a real contradiction in a shipped preset. 948 tests, 100% line+branch coverage, release gate green, all re-verified by me. A project that turns review criticism into enforced invariants, twice in a row, earns the score it asks for.</p>
 <p><strong>— Fable 5</strong></p>
 </td></tr>
 </table>
@@ -73,19 +73,24 @@ Badges and dashboard PNG update after each CI run on `main` (Playwright screensh
 
 </details>
 
+```mermaid
+flowchart TD
+    task(["Your task · MCP / CLI"]) --> tool
+    tool["<b>tool</b> · rg / jq<br/>find · grep · ~0 tokens"] -->|no match| python
+    python["<b>python</b> · scripts<br/>meta-sync · gen-env · ~0 tokens"] -->|no match| ollama
+    ollama["<b>ollama</b> · local cheap LLM<br/>bulk classify · skill audit"] -->|down / no match| rag
+    rag["<b>rag</b> · docs/rag/ lookup<br/>small read"] -->|no cheaper route| agent
+    agent["<b>cursor / claude</b> · agent chat<br/>wiring · refactor · expensive"]
+
+    classDef free fill:#e6f4ea,stroke:#34a853,color:#0b3d1a;
+    classDef cheap fill:#fef7e0,stroke:#f9ab00,color:#5a3d00;
+    classDef exp fill:#fce8e6,stroke:#ea4335,color:#5a1a12;
+    class tool,python,rag free;
+    class ollama cheap;
+    class agent exp;
 ```
-In Cursor:  your task  →  greedy-token (MCP/CLI)
-                 ↓
-     route (one tier per task):
-       tool → python → ollama → rag → cursor
-       walk TIER_ORDER; best pattern score per tier; ollama tier skipped if server down
-                 ↓
-     pipeline (optional, multi-step):
-       e.g. check-meta-sync then audit-skill …
-       composes tool / python / ollama / rag steps — not a separate tier
-                 ↓
-     escalation: expensive agent chat when no cheaper route matches
-```
+
+*Route walks `TIER_ORDER` and stops at the first matching tier; **pipeline** chains several of these steps in one call (not a separate tier). Free tiers (`tool`/`python`/`rag`) cost ~0 tokens, `ollama` is a cheap local LLM, and the agent chat is the expensive last resort.*
 
 ## What it does
 
@@ -99,7 +104,7 @@ In Cursor:  your task  →  greedy-token (MCP/CLI)
 
 ### Cheap vs expensive LLM
 
-Greedy-token uses **cheap** and **expensive** in footers and docs. It is about **where token budget goes**.
+The **cheap** / **expensive** labels in footers and docs are about **where your token budget goes**, not about model quality.
 
 | Label | What it means | Examples |
 |-------|----------------|----------|
@@ -108,45 +113,7 @@ Greedy-token uses **cheap** and **expensive** in footers and docs. It is about *
 
 **Free tier** (`tool`, `python`, `rag`) = no LLM inference at all — ripgrep, scripts, reading `docs/rag/` chunks.
 
-**Tier order:** `TIER_ORDER` in `router.py` / `routes.yaml` — walk `tool → python → ollama → rag → cursor`; within each tier the highest-scoring pattern wins (ties: first route in config). Not every tier runs on every task. The cheap LLM tier is skipped when the configured runtime is unreachable **and** no [metered bulk fallback](#metered-bulk-apis-adr-0002) is opted in.
-
-## No model training
-
-greedy-token does **not** fine-tune models and never ships your code or usage data off for training.
-
-- No gradient descent on usage data or overrides.
-- "Learning" here means new deterministic routes/scripts distilled from telemetry (`crystallize-report`) — readable, reviewable, revertible code, not model weights.
-- Telemetry (`~/.greedy-token/usage.jsonl`) stays local and only powers savings reports; disable with `GREEDY_TOKEN_LOG=0`.
-
-## Crystallization L3 (safe mode)
-
-L3 closes the crystallization loop — telemetry candidate → draft script → human review → active route — with **no silent auto-apply** at any step:
-
-```text
-candidate (repeated LLM task)          greedy-token hub / crystallize report
-   → crystallize draft <crystal_id>    draft script + shadow route (+7d, log-only)
-   → human review of the draft         .greedy-token/drafts/<crystal_id>.py
-   → crystallize promote <crystal_id>  shadow → active   (or: reject — delete draft + route)
-```
-
-- **`crystallize draft ID`** generates a draft Python script in `.greedy-token/drafts/ID.py`. The body comes from the **cheap LLM** (`cheap_llm` provider) when available; otherwise a deterministic template skeleton (docstring with pattern/hits, argparse CLI, TODO body). The draft passes the existing `scripts lint` (pattern blocklist + script-exists check). Alongside the draft a **shadow route** is registered in the workspace config (`$GREEDY_TOKEN_ROOT/.greedy-token.yaml`, never the bundled `routes.yaml`): `target: python`, `shadow_until` +7 days, `enabled: false`. A shadow route **never affects `route_task`** — a potential match is only logged (`Shadow match (log-only): …`).
-- **`crystallize promote ID`** — after human review: removes `shadow_until`/`enabled: false`, the route goes active and starts winning the python tier.
-- **`crystallize reject ID`** — deletes the draft script and removes the route.
-
-Every transition appends a lifecycle event (`draft` → `shadow` → `promoted` / `rejected`) to `~/.greedy-token/crystallize-lifecycle.jsonl`; the hub (`hub serve` → Crystals) shows the new stages on the crystal timeline.
-
-## Scope & roadmap
-
-Today the happy path is **any MCP agent host + Ollama + workspace** (Cursor by default). CLI and MCP are IDE-agnostic. **v0.10.0** — beyond-Cursor release: **agent hosts** — `agent_host: cursor | claude | continue` config; `audit-context` and the naive-chat baseline count the host's always-on rules (`CLAUDE.md` + `.claude/rules/*.md`, `.continuerules` + `.continue/rules/*.md`), starter kits `examples/claude/` / `examples/continue/` + setup guides (EN+RU), host-generic footers say "agent chat" (telemetry keys unchanged); **metered bulk APIs** ([ADR-0002](docs/adr/0002-metered-bulk-cheap-tier.md)) — a metered remote model with derived tier *cheap* serves the bulk executor tier when local Ollama is down, strictly opt-in (`llm.metered.opt_in` / `GREEDY_METERED_LLM`), every metered call passes the spend guard (shared daily cap + monthly metered cap), telemetry logs `billing.tier: metered` + `cost_usd`, `budget` shows the cheap-bulk vs expensive split, footers label `metered` vs `local free`; **calibration without discipline** — `route`/`report` nudge while the baseline is `default-estimate`, `doctor` gains a Baseline block, the calibration cache invalidates on `usage.jsonl` mtime/size so a long-lived MCP server picks up fresh telemetry; **team route presets** — `init --preset <name|url|path>` merges shared routes (bundled `team-default`, an intranet URL, or a file). Inherits **v0.9.0** — unified model registry ([ADR-0001](docs/adr/0001-unified-model-spec-derived-tier.md)): orthogonal `ModelSpec` attributes (`locality`, `billing`, `cost_per_1m_usd`), cheap/expensive **derived** by a single `derive_tier()` instead of a stored field, one `llm.models[]` pool (presets migrated; legacy `llm.cheap`/`llm.expensive` YAML, `CHEAP_LLM_*`/`OLLAMA_*` env, and telemetry `billing_tier` stay fully compatible); golden registry of mutation equivalents (`docs/mutation-equivalents.yaml`) with a two-way drift guard (`tests/test_mutation_equivalents.py`) — a new `# pragma: no mutate` without a reviewed proof fails CI; 6th MCP tool `greedy_token_crystallize` (`action=draft|promote|reject`, no auto-apply). Inherits **v0.8.0** — crystallization L3 in **safe mode** (no silent auto-apply): `crystallize draft` generates a reviewable draft script (cheap LLM, or a deterministic template skeleton when the LLM is down) plus a log-only **shadow route** in the workspace config; `crystallize promote` / `reject` after human review; lifecycle stages `draft → shadow → promoted / rejected` in the hub. Plus portable routes (`init --routes-from FILE` / `--routes-scaffold`), `greedy-token calibrate` (baseline source `measured` / `calibrated` / `default-estimate` in every footer), and telemetry-calibrated route confidence (`report` calibration block, `calibrated (n=…)` provenance in `route`). Inherits **v0.7.2** — quality/rigor hardening (no new features): mutation testing on the hot modules (`./scripts/mutation.sh`), `config --export` masks `CHEAP_LLM_API_KEY` by default (`--reveal` to show), `sh_quote` delegated to `shlex.quote` with a hypothesis round-trip proof, property-based invariants for token estimation + routing, and a README↔code doc-drift guard (`tests/test_doc_sync.py`). Inherits **v0.7.0** — route-quality release: `explain_route()` surfaces **Why / Runner-up / Saved est** in `route` (CLI + MCP); `report` / `hub` gain a route-quality block (`override_rate` / `cheap_hold_rate` / `by_crystal`); honest cheap-tier override attribution across **all** cheap tiers (`CHEAP_TIERS`); `safe` policy alias for `cheap_only`; `init --profile solo|team|ci` bootstrap; hub operational metrics (latency p50/p95 + cost/task). Inherits **v0.6.3** — Cursor dogfood: `beforeSubmitPrompt` route hook **off** by default (no Send block); TestOps links → `allure.qa.guru`. Inherits **v0.6.2** coverage/CI harden + Allure palette SSOT, **v0.6.0** crystallize L2 (`script_override`, CLI `override`, `scripts lint`, shadow routes, `hub serve`, budget / llm invoke) and **v0.6.1** no-model-training docs. **v0.5.8** — minimal code search: one `greedy_token_search` per find task; MCP tool docstrings and cursor rule template forbid route/usage alongside search. **v0.5.7** — version SSOT from `pyproject.toml` (no hardcoded `__init__` pin), `./scripts/release-gate.sh TARGET`, auto-sync `minTestsCount` from pytest collection. **v0.5.6** — honest search footer, MCP stdio `pipeline execute=true` e2e, removed dead `SearchResult.spent_tokens`. **v0.5.5** — PyPI-friendly `config --init` (no workspace required), cursor `--execute` refusal, usage telemetry aligned to workspace cheap_llm settings. **v0.5.3+** pipeline honesty: multi-word `search-rag`, dry-run footer (`saved=0`), RAG via `rag_est_tokens` (`cheap_llm.provider: ollama | openai_compat`). Paid agent APIs (`expensive_llm`) remain opt-in / roadmap.
-
-**Full matrix (✅ / ❌ / 🔜) + acceptance criteria + GitHub issues:** [docs/ROADMAP.md](docs/ROADMAP.md) · [docs/ROADMAP-RU.md](docs/ROADMAP-RU.md)
-
-| Area | ✅ today (v0.10.0) | 🔜 next |
-|------|-------------------|---------|
-| Executors | `tool`, `python`, `ollama` (via `cheap_llm`), `rag`; **metered bulk APIs** (spend-guarded, [ADR-0002](docs/adr/0002-metered-bulk-cheap-tier.md)) | Crystal IR store |
-| Crystallization | L2 telemetry + **L3 safe mode** (`crystallize draft` → shadow → `promote` / `reject`) | — (silent auto-apply intentionally not planned) |
-| Agent host | Cursor (default) + **Claude Desktop, Continue** via `agent_host` config ([Agent hosts](#agent-hosts)) | more host conventions on request |
-| Config | `cheap_llm.provider` + `OLLAMA_*` / `ollama:` aliases; **team route presets** (`init --preset name|url|path`) | — |
+**Tier order:** `TIER_ORDER` (`router.py` / `routes.yaml`) is walked in order; within a tier the highest-scoring pattern wins (ties: first route in config). Not every tier runs on every task. The cheap LLM tier is skipped when the configured runtime is unreachable **and** no [metered bulk fallback](#metered-bulk-apis-adr-0002) is opted in.
 
 ## Install
 
@@ -254,6 +221,12 @@ Saved by executor (sum of per-step savings):
   ollama (cheap LLM)           steps=1  spent ~2,507  saved ~6,992
 ```
 
+| Column | Meaning |
+|--------|---------|
+| **baseline** | what a separate naive agent chat would have cost for this step |
+| **spent** | what was actually spent |
+| **saved** | baseline − spent for the step |
+
 ## CLI commands
 
 | Command | Purpose |
@@ -291,7 +264,7 @@ Global: `--no-log` disables telemetry for one invocation.
 
 ## Testing
 
-Requires **Python 3.12+** (same as CI). GitHub Actions job **tests (all)** runs the full suite with Allure 3 quality gate, GitHub Pages report, and optional TestOps upload. Line and **branch** coverage on `src/greedy_token/` must stay at **100%** (`branch = true`, `fail_under = 100`).
+Requires **Python 3.12+** (same as CI). GitHub Actions job **tests (all)** runs the full suite with Allure 3 quality gate, GitHub Pages report, and optional TestOps upload.
 
 **CI ethalon:** `.github/_ethalon/` (action pins in `gha-actions.yaml`) → runnable `.github/workflows/`. Same pattern as workspace `tests-java/.github/_ethalon/`. Sync: `./scripts/sync-github-workflows.sh`; CI runs `./scripts/check-github-workflows-sync.sh` before pytest.
 
@@ -324,22 +297,22 @@ mutmut show <id>                 # inspect a single mutant diff
 Mutation testing is not part of `release-gate.sh` (it is slow); run it when
 changing a hot module. The goal is a ~100% mutation score on those modules.
 
-**Equivalent-mutant golden registry:** every surviving mutant is either killed
-by a new test or proven equivalent — marked in the source with an
-`# equivalent: <proof>` comment (plus `# pragma: no mutate` where the mutation
+**Equivalent-mutant registry.** Every surviving mutant is either killed
+by a new test or proven equivalent. An equivalent is marked in the source with
+an `# equivalent: <proof>` comment (plus `# pragma: no mutate` where the mutation
 is also suppressed) and inventoried in `docs/mutation-equivalents.yaml`, one
-entry per marker (module, symbol, reason, proof), anchored to file + marker
-text rather than unstable mutmut ids. The drift guard
-`tests/test_mutation_equivalents.py` compares source and registry in both
-directions: a new pragma/equivalent without a registry entry is red, and so is
-an entry whose marker is gone. New entries land only together with the source
-marker, with a proof that passed review.
+entry per marker (module, symbol, reason, proof). Entries anchor to the file and
+marker text, not to unstable mutmut ids. The drift guard
+`tests/test_mutation_equivalents.py` compares source and registry both ways: a
+new pragma or equivalent without a registry entry fails CI, and so does an entry
+whose marker is gone. A new entry lands only together with its source marker and
+a reviewed proof.
 
 **Layer slices:** module → `tests/pyramid_layers.py` → Allure label `layer` + pytest marker (`-m unit|component|integration|e2e`). CI matrix job `tests` runs each slice separately.
 
 Optional integration tests (real workspace files) run when the checkout includes `stacks/java-spring/`; set `GREEDY_TOKEN_ROOT` to override the workspace root.
 
-**TestOps:** project [5276](https://allure.qa.guru/project/5276) on `allure.qa.guru`. CI uploads when repo secret `ALLURE_TOKEN` is set (`ALLURE_PROJECT_ID` defaults to `5276`, override via repo variable). Pyramid layers (`unit` / `component` / `integration`) are set via Allure label `layer` in `tests/pyramid_layers.py` — same keys as Java `@Layer` and TestOps mappings. Human-readable names use `@allure.title` / `@allure.feature` / `@allure.story` / `@allure.epic` on each test, and `@allure.parent_suite` / `@allure.suite` on each module (`pytestmark`) for TestOps folder names — JUnit `@DisplayName` / `@Feature` equivalent.
+**TestOps:** project [5276](https://allure.qa.guru/project/5276) on `allure.qa.guru`. CI uploads when the repo secret `ALLURE_TOKEN` is set (`ALLURE_PROJECT_ID` defaults to `5276`; override it with a repo variable). Pyramid layers (`unit` / `component` / `integration`) come from the Allure `layer` label in `tests/pyramid_layers.py`, using the same keys as Java `@Layer` and the TestOps mappings. Test names use `@allure.title` / `@allure.feature` / `@allure.story` / `@allure.epic`. Module-level `@allure.parent_suite` / `@allure.suite` (`pytestmark`) become TestOps folder names, mirroring JUnit `@DisplayName` / `@Feature`.
 
 ## Examples
 
@@ -363,7 +336,9 @@ greedy-token pipeline "check-meta-sync then audit-skill configurator-boolean" --
 greedy-token report --since 7d
 ```
 
-## Greedy token footer
+## Token economy
+
+### Footer
 
 `route` / `search` / `rag` / `pipeline` responses include:
 
@@ -378,7 +353,7 @@ Pipeline adds **per-step** baseline / spent / saved and **saved by executor** (`
 
 **Note:** MCP executor steps use cheap/free tiers. Agent chat wrapper (rules + your message + reply) still uses expensive LLM (Cursor tokens).
 
-## Baseline calibration
+### Baseline calibration
 
 Footer savings are **estimates**: `saved = baseline − spent`, where the baseline is what a naive agent chat would cost for the same task:
 
@@ -411,7 +386,7 @@ Every **Saved** figure in the footers (`route` / `estimate` / `search` / `rag` /
 
 No manual discipline required: while the source is still `default-estimate`, `route` and `report` print a one-line nudge (`baseline uncalibrated — run greedy-token calibrate`, at most once per call), and `greedy-token doctor` shows a **Baseline** block plus a warning when no `baseline:` section exists in the config.
 
-## Route quality: confidence calibration
+### Confidence calibration
 
 Route **confidence** used to be a pure formula (`min(0.95, 0.45 + score × 0.12)`) — a pseudo-probability. It is now calibrated against your own telemetry (`~/.greedy-token/usage.jsonl`):
 
@@ -436,7 +411,7 @@ Confidence calibration (score buckets, min n=20):
   [4, 6)           3        95%     100%  uncalibrated (n<20)
 ```
 
-## Usage telemetry
+### Usage telemetry
 
 Log file: `~/.greedy-token/usage.jsonl` (disable: `GREEDY_TOKEN_LOG=0`).
 
@@ -444,7 +419,11 @@ Each event: tier, `est_tokens`, `cursor_baseline`, `cursor_saved`, `duration_ms`
 
 Pipeline logs **one event per step**. When the log exceeds `GREEDY_TOKEN_LOG_MAX_BYTES` (default 5 MiB), it rotates to `usage.jsonl.1`, `.2`, …; `report` reads the active log and archives.
 
-## Environment
+## Configuration
+
+Precedence (low → high): built-in defaults → `~/.greedy-token/config.yaml` (user) → `$GREEDY_TOKEN_ROOT/.greedy-token.yaml` (workspace) → `CHEAP_LLM_*` / `OLLAMA_*` env.
+
+### Environment variables
 
 | Var | Default |
 |-----|---------|
@@ -456,9 +435,9 @@ Pipeline logs **one event per step**. When the log exceeds `GREEDY_TOKEN_LOG_MAX
 | `GREEDY_TOKEN_LOG_MAX_BYTES` | `5242880` (5 MiB) |
 | `GREEDY_TOKEN_LOG_MAX_FILES` | `5` rotated archives |
 
-## Cheap LLM config
+### Cheap LLM
 
-Priority (low → high): defaults → `~/.greedy-token/config.yaml` → `$GREEDY_TOKEN_ROOT/.greedy-token.yaml` → `CHEAP_LLM_*` / `OLLAMA_*` env (`OLLAMA_*` = url/model aliases). Route tier id remains `ollama`.
+`OLLAMA_*` are url/model aliases; the route tier id stays `ollama`.
 
 ```bash
 greedy-token config --init
@@ -495,17 +474,15 @@ llm:
       api_key_env: BULK_API_KEY
 ```
 
-Every metered call — cheap or expensive derived tier — passes the spend guard (`llm.expensive.daily_cap_usd` daily cap + monthly metered cap) and logs `cost_usd` with a `billing.tier: metered` telemetry block (`billing_tier` keeps the derived tier for compatibility). `greedy-token budget --verbose` / `--json` show the metered split (cheap bulk vs expensive), and footers label the tier honestly: `cheap LLM (…, metered)` vs `cheap LLM (…, local free)`.
+Every metered call (whether the derived tier is cheap or expensive) passes the spend guard: an `llm.expensive.daily_cap_usd` daily cap plus a monthly metered cap. It logs `cost_usd` with a `billing.tier: metered` telemetry block, while `billing_tier` keeps the derived tier for compatibility. `greedy-token budget --verbose` / `--json` show the metered split (cheap bulk vs expensive), and footers label the tier honestly: `cheap LLM (…, metered)` vs `cheap LLM (…, local free)`.
 
-## Routing config
+### Routing
 
 | File | Purpose |
 |------|---------|
 | `src/greedy_token/config/routes.yaml` | Generic default routing patterns |
 | `$GREEDY_TOKEN_ROOT/.greedy-token.yaml` | Workspace routes overlay (`routes:` / `routes_file:` / `cursor_fallback:`) |
 | `src/greedy_token/config/pipelines.yaml` | Named pipeline recipes |
-
-## Adapting routes to your workspace
 
 The bundled `routes.yaml` is intentionally generic: `tool-rg-search` (ripgrep over `.`), `rag-lookup`, `cursor-wiring`, and the `cursor` fallback. Workspace-specific routes (crystallized scripts, jq lookups, RAG domains) live in `$GREEDY_TOKEN_ROOT/.greedy-token.yaml` and are merged over the defaults:
 
@@ -541,11 +518,49 @@ greedy-token init --routes-scaffold
 
 Bundled route presets live in `examples/routes/presets/` (packaged as `greedy_token/route_presets/`); `team-default` ships a command-free rg + RAG starting point. A full working overlay (script tier, jq manifest, RAG domains, shadow routes) ships as `examples/routes/workspace-routes.yaml`.
 
+## No model training
+
+greedy-token does **not** fine-tune models and never ships your code or usage data off for training.
+
+- No gradient descent on usage data or overrides.
+- "Learning" here means new deterministic routes/scripts distilled from telemetry (`crystallize-report`) — readable, reviewable, revertible code, not model weights.
+- Telemetry (`~/.greedy-token/usage.jsonl`) stays local and only powers savings reports; disable with `GREEDY_TOKEN_LOG=0`.
+
+## Crystallization L3 (safe mode)
+
+L3 closes the crystallization loop — telemetry candidate → draft script → human review → active route — with **no silent auto-apply** at any step:
+
+```text
+candidate (repeated LLM task)          greedy-token hub / crystallize report
+   → crystallize draft <crystal_id>    draft script + shadow route (+7d, log-only)
+   → human review of the draft         .greedy-token/drafts/<crystal_id>.py
+   → crystallize promote <crystal_id>  shadow → active   (or: reject — delete draft + route)
+```
+
+- **`crystallize draft ID`** generates a draft Python script in `.greedy-token/drafts/ID.py`. The body comes from the **cheap LLM** (`cheap_llm` provider) when available; otherwise a deterministic template skeleton (docstring with pattern/hits, argparse CLI, TODO body). The draft passes the existing `scripts lint` (pattern blocklist + script-exists check). Alongside the draft a **shadow route** is registered in the workspace config (`$GREEDY_TOKEN_ROOT/.greedy-token.yaml`, never the bundled `routes.yaml`): `target: python`, `shadow_until` +7 days, `enabled: false`. A shadow route **never affects `route_task`** — a potential match is only logged (`Shadow match (log-only): …`).
+- **`crystallize promote ID`** — after human review: removes `shadow_until`/`enabled: false`, the route goes active and starts winning the python tier.
+- **`crystallize reject ID`** — deletes the draft script and removes the route.
+
+Every transition appends a lifecycle event (`draft` → `shadow` → `promoted` / `rejected`) to `~/.greedy-token/crystallize-lifecycle.jsonl`; the hub (`hub serve` → Crystals) shows the new stages on the crystal timeline.
+
 ## `--execute` safety
 
 Auto-execute (read-only or stdout-only): tool-tier `rg` / `jq`, plus pipeline steps in `PIPELINE_AUTO_RUN` (`src/greedy_token/pipeline.py`) — `check-meta-sync`, `configurator-boolean-audit`, `audit-skill`, `classify-file`, `search`, `read-hits`, `rag`.
 
 Everything else (rsync / migrate / batch-inventory, non-allowlisted wrappers) — dry-run only unless run manually.
+
+## Scope & roadmap
+
+Today the happy path is **any MCP agent host + Ollama + workspace** (Cursor by default); CLI and MCP are IDE-agnostic. The current release is **v0.10.0** — beyond-Cursor: agent hosts (Claude Desktop, Continue), spend-guarded [metered bulk APIs](#metered-bulk-apis-adr-0002), calibration without manual discipline, and team route presets. Paid agent APIs (`expensive_llm`) remain opt-in.
+
+**Per-release detail:** cut checklists `CUT-v*.md` in the repo root. **Full matrix (✅ / ❌ / 🔜) + acceptance criteria + GitHub issues:** [docs/ROADMAP.md](docs/ROADMAP.md) · [docs/ROADMAP-RU.md](docs/ROADMAP-RU.md)
+
+| Area | ✅ today (v0.10.0) | 🔜 next |
+|------|-------------------|---------|
+| Executors | `tool`, `python`, `ollama` (via `cheap_llm`), `rag`; **metered bulk APIs** (spend-guarded, [ADR-0002](docs/adr/0002-metered-bulk-cheap-tier.md)) | Crystal IR store |
+| Crystallization | L2 telemetry + **L3 safe mode** (`crystallize draft` → shadow → `promote` / `reject`) | — (silent auto-apply intentionally not planned) |
+| Agent host | Cursor (default) + **Claude Desktop, Continue** via `agent_host` config ([Agent hosts](#agent-hosts)) | more host conventions on request |
+| Config | `cheap_llm.provider` + `OLLAMA_*` / `ollama:` aliases; **team route presets** (`init --preset name|url|path`) | — |
 
 ## License
 

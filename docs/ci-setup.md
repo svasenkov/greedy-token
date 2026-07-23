@@ -2,6 +2,8 @@
 
 greedy-token in Jenkins / GitLab / self-hosted runner **without Cursor MCP** ([#18](https://github.com/svasenkov/greedy-token/issues/18)).
 
+**Русская версия:** [ci-setup-RU.md](ci-setup-RU.md)
+
 ## Env contract
 
 | Variable | Required | Description |
@@ -10,17 +12,16 @@ greedy-token in Jenkins / GitLab / self-hosted runner **without Cursor MCP** ([#
 | `CHEAP_LLM_URL` / `OLLAMA_URL` | yes* | Ollama or openai_compat base URL |
 | `GREEDY_TOKEN_LOG` | no | Telemetry path (default `~/.greedy-token/usage.jsonl`) |
 | `GREEDY_EXPENSIVE_LLM` | no | `1` to opt in to paid expensive models |
-| `YANDEX_GPT_API_KEY` | no | YandexGPT when expensive enabled |
-| `YANDEX_FOLDER_ID` | no | Yandex Cloud folder for native API |
 
 \* Or configure via `.greedy-token.yaml` / `~/.greedy-token/config.yaml`.
 
 ## Install
 
 ```bash
-python -m pip install "greedy-token[mcp]==0.5.9"
-# MCP optional in CI — CLI only:
-python -m pip install greedy-token==0.5.9
+# pin the version you validated (current: 0.10.0)
+python -m pip install "greedy-token[mcp]==0.10.0"
+# MCP is optional in CI — CLI only:
+python -m pip install greedy-token==0.10.0
 ```
 
 ## Smoke (runner)
