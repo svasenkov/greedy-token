@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="800" height="168" viewBox="0 0 800 168" role="img" aria-label="greedy-token metrics: 886 total, 99% pass rate">
-  <title>greedy-token on main · build #69 · passing</title>
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="168" viewBox="0 0 800 168" role="img" aria-label="greedy-token metrics: 905 total, 99% pass rate">
+  <title>greedy-token on main · build #70 · passing</title>
   <defs>
     <linearGradient id="panel-bg-dark-full" x1="0" y1="0" x2="800" y2="168" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#242830"/>
@@ -10,25 +10,25 @@
   <rect x="20" y="20" width="88" height="88" rx="12" fill="#008a56" opacity="0.16"/>
   <rect x="20" y="20" width="88" height="88" rx="12" fill="none" stroke="#008a56" stroke-width="1.5"/>
   <text x="64" y="58" text-anchor="middle" fill="#008a56" font-family="ui-sans-serif,system-ui,sans-serif" font-size="13" font-weight="800">PASSING</text>
-  <text x="64" y="78" text-anchor="middle" fill="#008a56" font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" font-weight="600">886 tests</text>
+  <text x="64" y="78" text-anchor="middle" fill="#008a56" font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" font-weight="600">905 tests</text>
   <text x="128" y="36" fill="rgba(232,234,237,0.92)" font-family="ui-sans-serif,system-ui,sans-serif" font-size="18" font-weight="700">greedy-token</text>
-  <text x="128" y="56" fill="rgba(154,160,166,0.88)" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12">main · build #69 · passing</text>
-  <text x="128" y="88" fill="rgba(232,234,237,0.88)" font-family="ui-sans-serif,system-ui,sans-serif" font-size="28" font-weight="700">886</text>
+  <text x="128" y="56" fill="rgba(154,160,166,0.88)" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12">main · build #70 · passing</text>
+  <text x="128" y="88" fill="rgba(232,234,237,0.88)" font-family="ui-sans-serif,system-ui,sans-serif" font-size="28" font-weight="700">905</text>
   <text x="188" y="88" fill="rgba(154,160,166,0.85)" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12">total</text>
-  <text x="248" y="88" fill="#008a56" font-family="ui-sans-serif,system-ui,sans-serif" font-size="28" font-weight="700">882</text>
+  <text x="248" y="88" fill="#008a56" font-family="ui-sans-serif,system-ui,sans-serif" font-size="28" font-weight="700">901</text>
   <text x="286" y="88" fill="rgba(154,160,166,0.85)" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12">passed</text>
   <text x="360" y="88" fill="#dc2626" font-family="ui-sans-serif,system-ui,sans-serif" font-size="28" font-weight="700">0</text>
   <text x="394" y="88" fill="rgba(154,160,166,0.85)" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12">failed</text>
   <text x="560" y="72" fill="rgba(232,234,237,0.88)" font-family="ui-sans-serif,system-ui,sans-serif" font-size="22" font-weight="700">99%</text>
   <text x="560" y="92" fill="rgba(154,160,166,0.85)" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12">pass rate</text>
-  <text x="680" y="72" fill="rgba(232,234,237,0.88)" font-family="ui-sans-serif,system-ui,sans-serif" font-size="22" font-weight="700">47s</text>
+  <text x="680" y="72" fill="rgba(232,234,237,0.88)" font-family="ui-sans-serif,system-ui,sans-serif" font-size="22" font-weight="700">46s</text>
   <text x="680" y="92" fill="rgba(154,160,166,0.85)" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12">duration</text>
   <rect x="40" y="118" width="720" height="12" rx="6" fill="#3a4049"/>
   <rect x="40" y="118" width="716" height="12" rx="6" fill="#008a56"/>
   <rect x="756" y="118" width="3" height="12" rx="6" fill="#94a3b8"/>
   <g font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" fill="rgba(232,234,237,0.72)">
     <circle cx="52" cy="150" r="4" fill="#008a56"/>
-    <text x="62" y="154">882 passed</text>
+    <text x="62" y="154">901 passed</text>
     <circle cx="152" cy="150" r="4" fill="#dc2626"/>
     <text x="162" y="154">0 failed</text>
     <circle cx="242" cy="150" r="4" fill="#ea580c"/>

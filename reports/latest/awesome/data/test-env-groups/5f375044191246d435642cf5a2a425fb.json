@@ -1,0 +1,1 @@
+{"id":"5f375044191246d435642cf5a2a425fb","fullName":"tests.test_mutation_equivalents#test_every_pragma_has_equivalent_proof","name":"Every `# pragma: no mutate` carries an `# equivalent:` proof","status":"passed","testResultsByEnv":{"default":"3907b25f21a38304a26f7908b77c32ba"}}
