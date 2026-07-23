@@ -192,11 +192,20 @@ class ToolFooterContext:
     billing_short: str
 
 
+def _cheap_billing_note(root: Path | None = None) -> str:
+    """"metered" vs "local free" for the cheap-LLM tier (ADR-0002 honesty)."""
+    from greedy_token.model_select import billing_note_for_model
+
+    model_id = os.environ.get("GREEDY_LLM_MODEL_ID", "").strip()
+    return billing_note_for_model(model_id, root)
+
+
 def _billing_short(
     tier: str,
     *,
     rag_hits: int | None = None,
     ollama_eval_tokens: int | None = None,
+    root: Path | None = None,
 ) -> str:
     if tier in ("tool", "python"):
         return "free tier"
@@ -205,7 +214,7 @@ def _billing_short(
         model_id = os.environ.get("GREEDY_LLM_MODEL_ID", "")
         label = f"{model_id}/" if model_id else ""
         note = f", ~{ollama_eval_tokens:,} eval" if ollama_eval_tokens else ""
-        return f"cheap LLM ({label}{llm.model}{note})"
+        return f"cheap LLM ({label}{llm.model}{note}, {_cheap_billing_note(root)})"
     if tier == "rag":
         hit_note = f", {rag_hits} chunk(s)" if rag_hits is not None else ""
         return f"docs/rag{hit_note}"
@@ -249,6 +258,7 @@ def _build_tool_footer_context(
             tier,
             rag_hits=rag_hits,
             ollama_eval_tokens=ollama_eval_tokens,
+            root=root,
         ),
     )
 
@@ -333,8 +343,10 @@ def _format_tool_footer_full(ctx: ToolFooterContext) -> str:
         eval_note = (
             f", ~{ctx.ollama_eval_tokens:,} eval tokens" if ctx.ollama_eval_tokens else ""
         )
+        billing_note = _cheap_billing_note(ctx.root)
         lines.append(
-            f"  Billing: cheap LLM ({llm.provider}/{llm.model}{eval_note}) — not expensive path"
+            f"  Billing: cheap LLM ({llm.provider}/{llm.model}{eval_note}, {billing_note})"
+            " — not expensive path"
         )
     elif ctx.tier == "rag":
         hit_note = f", {ctx.rag_hits} chunk(s)" if ctx.rag_hits is not None else ""

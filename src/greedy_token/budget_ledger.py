@@ -29,6 +29,10 @@ class BudgetSnapshot:
     period_label: str
     show_both: bool
     warn_at_pct: float
+    # ADR-0002 split of metered spend by derived tier (billing_tier field):
+    # cheap bulk APIs vs expensive escalations.
+    metered_cheap_spent_usd: float = 0.0
+    metered_expensive_spent_usd: float = 0.0
 
 
 def _period_start(settings: BudgetSettings) -> datetime:
@@ -127,6 +131,8 @@ def aggregate_budget(
     events, _ = load_events(log, since=since)
 
     metered_spent = 0.0
+    metered_cheap = 0.0
+    metered_expensive = 0.0
     cursor_est_spent = 0.0
 
     for event in events:
@@ -134,6 +140,11 @@ def aggregate_budget(
         cost = _cost_from_event(event, cursor_rate=settings.cursor_usd_per_1m_tokens)
         if tier == "metered":
             metered_spent += cost
+            # ADR-0002: split by derived tier — metered cheap bulk vs expensive.
+            if event.get("billing_tier") == "cheap":
+                metered_cheap += cost
+            else:
+                metered_expensive += cost
         elif tier == "cursor_estimate":
             cursor_est_spent += cost
 
@@ -165,6 +176,8 @@ def aggregate_budget(
         period_label=_period_label(settings),
         show_both=settings.show_both,
         warn_at_pct=settings.warn_at_pct,
+        metered_cheap_spent_usd=round(metered_cheap, 4),
+        metered_expensive_spent_usd=round(metered_expensive, 4),
     )
 
 
@@ -197,6 +210,8 @@ def format_budget_line(*, root: Path | None = None, compact: bool = True) -> str
         f"Budget ({snap.period_label})",
         f"  Metered API:    ${snap.metered_spent_usd:.4f} / ${snap.metered_cap_usd:.2f} "
         f"({snap.metered_pct:.1f}%) — hard cap",
+        f"    cheap bulk:   ${snap.metered_cheap_spent_usd:.4f} · "
+        f"expensive: ${snap.metered_expensive_spent_usd:.4f}",
         f"  Cursor estimate: ~${snap.cursor_est_spent_usd:.2f} / ${snap.cursor_est_cap_usd:.2f} "
         f"({snap.cursor_est_pct:.1f}%) — soft limit",
     ]

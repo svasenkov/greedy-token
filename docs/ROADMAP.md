@@ -28,15 +28,15 @@ Track progress: [GitHub issues labeled `roadmap`](https://github.com/svasenkov/g
 | Provider | Role | CLI | MCP | Cheap executor | Status | Issue |
 |----------|------|:---:|:---:|:--------------:|:------:|-------|
 | **Cursor** (Agent / Composer) | Agent host, escalation, token baseline | ✅ | ✅ | — | ✅ | — |
-| **Anthropic** (Claude API) | Bulk classify / audit off agent | ✅ route | — | ❌ | ❌ 🔜 | [#9](https://github.com/svasenkov/greedy-token/issues/9) |
-| **OpenAI** (GPT / Codex API) | Same | ✅ route | — | ❌ | ❌ 🔜 | [#10](https://github.com/svasenkov/greedy-token/issues/10) |
-| **Google** (Gemini API) | Same | ✅ route | — | ❌ | ❌ 🔜 | [#11](https://github.com/svasenkov/greedy-token/issues/11) |
-| **Mistral** (Codestral API) | Same | ✅ route | — | ❌ | ❌ 🔜 | [#12](https://github.com/svasenkov/greedy-token/issues/12) |
-| **Groq / Together / Fireworks** | Fast cloud open-weights (Ollama-tier substitute) | ✅ route | — | ❌ | ❌ 🔜 | [#13](https://github.com/svasenkov/greedy-token/issues/13) |
+| **Anthropic** (Claude API) | Bulk classify / audit off agent | ✅ route | — | ✅ via `openai_compat` + ADR-0002 | ✅ | [#9](https://github.com/svasenkov/greedy-token/issues/9) |
+| **OpenAI** (GPT / Codex API) | Same | ✅ route | — | ✅ via `openai_compat` + ADR-0002 | ✅ | [#10](https://github.com/svasenkov/greedy-token/issues/10) |
+| **Google** (Gemini API) | Same | ✅ route | — | ✅ via `openai_compat` + ADR-0002 | ✅ | [#11](https://github.com/svasenkov/greedy-token/issues/11) |
+| **Mistral** (Codestral API) | Same | ✅ route | — | ✅ via `openai_compat` + ADR-0002 | ✅ | [#12](https://github.com/svasenkov/greedy-token/issues/12) |
+| **Groq / Together / Fireworks** | Fast cloud open-weights (Ollama-tier substitute) | ✅ route | — | ✅ via `openai_compat` + ADR-0002 | ✅ | [#13](https://github.com/svasenkov/greedy-token/issues/13) |
 | **GitHub Copilot** | IDE agent integration | — | — | — | ❌ | [#16](https://github.com/svasenkov/greedy-token/issues/16) |
 | **Windsurf / Codeium** | IDE agent integration | — | — | — | ❌ | [#17](https://github.com/svasenkov/greedy-token/issues/17) |
 
-`route` / `estimate` can recommend escalation to a paid agent; greedy-token does **not** call paid APIs as an executor today.
+Metered bulk APIs serve the cheap executor tier via `llm.models[]` (`billing: metered`, derived tier cheap) — opt-in `llm.metered.opt_in` + spend guard, see [ADR-0002](adr/0002-metered-bulk-cheap-tier.md). Escalation to a paid *agent* remains recommend-only.
 
 ### expensive_llm path — acceptance criteria
 

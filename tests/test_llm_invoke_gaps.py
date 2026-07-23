@@ -133,7 +133,7 @@ def test_invoke_expensive_blocked(cheap_root: Path, monkeypatch: pytest.MonkeyPa
         }
     })
     monkeypatch.setattr(
-        llm_invoke, "check_expensive_allowed", lambda *a, **k: SpendDecision(allowed=False, reason="capped")
+        llm_invoke, "check_metered_allowed", lambda *a, **k: SpendDecision(allowed=False, reason="capped")
     )
     monkeypatch.setattr(llm_invoke, "llm_chat", lambda *a, **k: ("should not be called", 1))
     with pytest.raises(RuntimeError, match="capped"):
@@ -154,7 +154,7 @@ def test_invoke_expensive_allowed(cheap_root: Path, monkeypatch: pytest.MonkeyPa
         }
     })
     monkeypatch.setattr(
-        llm_invoke, "check_expensive_allowed", lambda *a, **k: SpendDecision(allowed=True)
+        llm_invoke, "check_metered_allowed", lambda *a, **k: SpendDecision(allowed=True)
     )
     monkeypatch.setattr(llm_invoke, "llm_chat", lambda *a, **k: ("expensive strong answer", 20))
     result = invoke_profile(

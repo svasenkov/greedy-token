@@ -769,6 +769,8 @@ def cmd_budget(args: argparse.Namespace) -> int:
             json.dumps(
                 {
                     "metered_spent_usd": snap.metered_spent_usd,
+                    "metered_cheap_spent_usd": snap.metered_cheap_spent_usd,
+                    "metered_expensive_spent_usd": snap.metered_expensive_spent_usd,
                     "metered_cap_usd": snap.metered_cap_usd,
                     "metered_remaining_usd": snap.metered_remaining_usd,
                     "metered_pct": snap.metered_pct,

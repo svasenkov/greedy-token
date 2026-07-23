@@ -17,7 +17,7 @@ from greedy_token.model_select import (
     get_llm_registry,
     resolve_model,
 )
-from greedy_token.spend_guard import check_expensive_allowed, estimate_cost_usd
+from greedy_token.spend_guard import check_metered_allowed, estimate_cost_usd
 from greedy_token.tokens import count_tokens
 from greedy_token.usage import append_event, build_route_event
 from greedy_token.router import RouteDecision
@@ -104,9 +104,12 @@ def invoke_profile(
 
     for candidate in candidates:
         attempts.append(candidate.model_id)
-        if candidate.billing_tier == "expensive":
+        if candidate.spec.billing == "metered":
+            # ADR-0002: every metered call is spend-guarded — expensive tier
+            # keeps the expensive opt-in path, metered cheap needs the
+            # metered opt-in; both share the daily/monthly caps.
             est = estimate_cost_usd(candidate.spec, count_tokens(user).tokens + count_tokens(system).tokens)
-            decision = check_expensive_allowed(
+            decision = check_metered_allowed(
                 candidate.spec,
                 root=root,
                 cli_allow=allow_expensive,
@@ -188,6 +191,7 @@ def invoke_profile(
                 escalated_from=result.escalated_from or None,
                 billing_tier=result.tier_billing,
                 cost_usd=result.cost_usd,
+                model_billing=used.spec.billing,
             )
         )
     return result

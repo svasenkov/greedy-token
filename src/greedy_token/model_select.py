@@ -93,6 +93,9 @@ class LlmRegistry:
     models: tuple[ModelSpec, ...]
     source: str = "default"
     cheap_cost_threshold_per_1m_usd: float = DEFAULT_CHEAP_COST_THRESHOLD_PER_1M_USD
+    # ADR-0002: opt-in for metered models on the *cheap* derived tier (bulk
+    # APIs). Separate from expensive_opt_in — different economic decision.
+    metered_opt_in: bool = False
 
     def tier_of(self, spec: ModelSpec) -> ModelTier:
         """Derived tier under this registry's configured cost threshold."""
@@ -302,6 +305,7 @@ def _parse_registry(
 
     cheap_section = _section(llm_cfg, "cheap")
     expensive_section = _section(llm_cfg, "expensive")
+    metered_section = _section(llm_cfg, "metered")
     esc_section = _section(llm_cfg, "escalation")
 
     # New unified list (ADR-0001 phase 3): llm.models[] with explicit attributes.
@@ -406,6 +410,7 @@ def _parse_registry(
         models=tuple(models),
         source=source,
         cheap_cost_threshold_per_1m_usd=cheap_cost_threshold,
+        metered_opt_in=bool(metered_section.get("opt_in", False)),
     )
 
 
@@ -423,6 +428,31 @@ def get_llm_registry(root: Path | None = None) -> LlmRegistry:
 def list_models(root: Path | None = None) -> list[ModelSpec]:
     reg = get_llm_registry(root)
     return list(reg.models)
+
+
+def metered_cheap_fallback(root: Path | None = None) -> ModelSpec | None:
+    """First enabled metered model on the *cheap* derived tier (ADR-0002).
+
+    Used as the bulk-executor fallback when local Ollama is unavailable.
+    Returns None when the pool has no such model.
+    """
+    registry = get_llm_registry(root)
+    for spec in registry.models:
+        if spec.enabled and spec.billing == "metered" and registry.tier_of(spec) == "cheap":
+            return spec
+    return None
+
+
+def billing_note_for_model(model_id: str, root: Path | None = None) -> str:
+    """Honest footer note for the cheap-LLM tier: "metered" vs "local free".
+
+    Resolves the served model by id in the unified pool; unknown ids fall
+    back to "local free" (the legacy single-Ollama path)."""
+    if model_id:
+        for spec in get_llm_registry(root).models:
+            if spec.id == model_id:
+                return "metered" if spec.billing == "metered" else "local free"
+    return "local free"
 
 
 def _profile_matches(spec: ModelSpec, profile: str) -> bool:

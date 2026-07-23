@@ -108,7 +108,7 @@ Greedy-token uses **cheap** and **expensive** in footers and docs. It is about *
 
 **Free tier** (`tool`, `python`, `rag`) = no LLM inference at all — ripgrep, scripts, reading `docs/rag/` chunks.
 
-**Tier order:** `TIER_ORDER` in `router.py` / `routes.yaml` — walk `tool → python → ollama → rag → cursor`; within each tier the highest-scoring pattern wins (ties: first route in config). Not every tier runs on every task. The cheap LLM tier is skipped when the configured runtime is unreachable.
+**Tier order:** `TIER_ORDER` in `router.py` / `routes.yaml` — walk `tool → python → ollama → rag → cursor`; within each tier the highest-scoring pattern wins (ties: first route in config). Not every tier runs on every task. The cheap LLM tier is skipped when the configured runtime is unreachable **and** no [metered bulk fallback](#metered-bulk-apis-adr-0002) is opted in.
 
 ## No model training
 
@@ -143,7 +143,7 @@ Today the happy path is **Cursor + Ollama + workspace**. CLI and MCP are IDE-agn
 
 | Area | ✅ today (v0.9.0) | 🔜 next |
 |------|-------------------|---------|
-| Executors | `tool`, `python`, `ollama` (via `cheap_llm`), `rag` | paid bulk APIs; Crystal IR store |
+| Executors | `tool`, `python`, `ollama` (via `cheap_llm`), `rag`; **metered bulk APIs** (spend-guarded, [ADR-0002](docs/adr/0002-metered-bulk-cheap-tier.md)) | Crystal IR store |
 | Crystallization | L2 telemetry + **L3 safe mode** (`crystallize draft` → shadow → `promote` / `reject`) | — (silent auto-apply intentionally not planned) |
 | Agent host | Cursor MCP + token baseline | Claude Desktop, Continue |
 | Config | `cheap_llm.provider` + `OLLAMA_*` / `ollama:` aliases | team route presets |
@@ -464,6 +464,26 @@ cheap_llm:
 ```
 
 Multi-model registry ([ADR-0001](docs/adr/0001-unified-model-spec-derived-tier.md)): declare one unified `llm.models[]` list; the cheap/expensive tier is *derived* from each model's attributes — `billing: free|metered`, `cost_per_1m_usd`, threshold `llm.cheap_cost_threshold_per_1m_usd` (default 0.2 USD per 1M tokens). `locality: local|remote` never affects the tier. Legacy `llm.cheap.models[]` / `llm.expensive.models[]` sections are still read. Templates: `examples/presets/`.
+
+### Metered bulk APIs (ADR-0002)
+
+A metered remote model with derived tier *cheap* (e.g. a $0.05/1M classify API) can serve the bulk executor tier when local Ollama is down — **opt-in only** ([ADR-0002](docs/adr/0002-metered-bulk-cheap-tier.md)):
+
+```yaml
+llm:
+  metered:
+    opt_in: true          # or env GREEDY_METERED_LLM=1 / --allow-expensive
+  models:
+    - id: bulk-api
+      provider: openai_compat
+      url: https://api.example.com/v1
+      model: small-classifier
+      billing: metered
+      cost_per_1m_usd: 0.05
+      api_key_env: BULK_API_KEY
+```
+
+Every metered call — cheap or expensive derived tier — passes the spend guard (`llm.expensive.daily_cap_usd` daily cap + monthly metered cap) and logs `cost_usd` with a `billing.tier: metered` telemetry block (`billing_tier` keeps the derived tier for compatibility). `greedy-token budget --verbose` / `--json` show the metered split (cheap bulk vs expensive), and footers label the tier honestly: `cheap LLM (…, metered)` vs `cheap LLM (…, local free)`.
 
 ## Routing config
 

@@ -29,15 +29,15 @@
 | Провайдер | Роль | CLI | MCP | Дешёвый executor | Статус | Issue |
 |-----------|------|:---:|:---:|:----------------:|:------:|-------|
 | **Cursor** (Agent / Composer) | IDE-агент, escalation, baseline | ✅ | ✅ | — | ✅ | — |
-| **Anthropic** (Claude API) | Bulk classify / audit вместо агента | ✅ route | — | ❌ | ❌ 🔜 | [#9](https://github.com/svasenkov/greedy-token/issues/9) |
-| **OpenAI** (GPT / Codex API) | То же | ✅ route | — | ❌ | ❌ 🔜 | [#10](https://github.com/svasenkov/greedy-token/issues/10) |
-| **Google** (Gemini API) | То же | ✅ route | — | ❌ | ❌ 🔜 | [#11](https://github.com/svasenkov/greedy-token/issues/11) |
-| **Mistral** (Codestral API) | То же | ✅ route | — | ❌ | ❌ 🔜 | [#12](https://github.com/svasenkov/greedy-token/issues/12) |
-| **Groq / Together / Fireworks** | Быстрый cloud open-weights | ✅ route | — | ❌ | ❌ 🔜 | [#13](https://github.com/svasenkov/greedy-token/issues/13) |
+| **Anthropic** (Claude API) | Bulk classify / audit вместо агента | ✅ route | — | ✅ через `openai_compat` + ADR-0002 | ✅ | [#9](https://github.com/svasenkov/greedy-token/issues/9) |
+| **OpenAI** (GPT / Codex API) | То же | ✅ route | — | ✅ через `openai_compat` + ADR-0002 | ✅ | [#10](https://github.com/svasenkov/greedy-token/issues/10) |
+| **Google** (Gemini API) | То же | ✅ route | — | ✅ через `openai_compat` + ADR-0002 | ✅ | [#11](https://github.com/svasenkov/greedy-token/issues/11) |
+| **Mistral** (Codestral API) | То же | ✅ route | — | ✅ через `openai_compat` + ADR-0002 | ✅ | [#12](https://github.com/svasenkov/greedy-token/issues/12) |
+| **Groq / Together / Fireworks** | Быстрый cloud open-weights | ✅ route | — | ✅ через `openai_compat` + ADR-0002 | ✅ | [#13](https://github.com/svasenkov/greedy-token/issues/13) |
 | **GitHub Copilot** | Интеграция IDE-агента | — | — | — | ❌ | [#16](https://github.com/svasenkov/greedy-token/issues/16) |
 | **Windsurf / Codeium** | Интеграция IDE-агента | — | — | — | ❌ | [#17](https://github.com/svasenkov/greedy-token/issues/17) |
 
-`route` / `estimate` рекомендуют escalation; greedy-token **не вызывает** платные API как executor.
+Metered bulk APIs обслуживают дешёвый executor tier через `llm.models[]` (`billing: metered`, выведенный tier cheap) — opt-in `llm.metered.opt_in` + spend guard, см. [ADR-0002](adr/0002-metered-bulk-cheap-tier.md). Escalation к платному *агенту* — по-прежнему только рекомендация.
 
 ### expensive_llm path — критерии готовности
 

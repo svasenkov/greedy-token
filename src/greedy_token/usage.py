@@ -141,6 +141,7 @@ def build_route_event(
     escalated_from: str | None = None,
     billing_tier: str | None = None,
     cost_usd: float | None = None,
+    model_billing: str | None = None,
 ) -> dict:
     baseline = cursor_baseline(root, task)
     est_tokens = est_tokens_override if est_tokens_override is not None else decision.est_tokens
@@ -192,7 +193,11 @@ def build_route_event(
 
     from greedy_token.budget_ledger import build_billing_event_fields
 
-    if billing_tier:
+    if model_billing == "metered":
+        # ADR-0002: every metered call is "metered" in the v2 billing block,
+        # even when the derived tier (legacy billing_tier field) is cheap.
+        billing_tier_for_block = "metered"
+    elif billing_tier:
         billing_tier_for_block = billing_tier
     elif decision.target == "cursor":
         billing_tier_for_block = "cursor"

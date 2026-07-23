@@ -257,6 +257,28 @@ equivalents:
     pragma: false
 
   - module: spend_guard.py
+    symbol: _is_metered_event
+    reason: >-
+      default "" vs None/dropped/"XXXX" only when tier key is absent; str(...)
+      of any default never equals "metered" → same False branch.
+    proof: >-
+      The default matters only for billing blocks without a tier key; str() of
+      "", None, or a junk default never strips/lowers to "metered", so the
+      function falls through to the legacy billing_tier check either way.
+    pragma: false
+
+  - module: spend_guard.py
+    symbol: metered_opt_in
+    reason: >-
+      default "" vs "XXXX" — unset env; "XXXX" not in accepted tokens → same
+      False.
+    proof: >-
+      Same argument for METERED_ENV: with the env var unset, neither "" nor a
+      junk default is in the accepted token set (_TRUTHY), so the result stays
+      False.
+    pragma: false
+
+  - module: spend_guard.py
     symbol: estimate_cost_usd
     reason: >-
       <= 0 vs < 0 — cost==0 still yields 0.0 product.

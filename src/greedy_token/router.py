@@ -35,6 +35,13 @@ COMPLEXITY_BY_TARGET = {
 # Rough fallback when docs/rag index is empty / unavailable (route pre-flight only).
 RAG_READ_TOKENS_FALLBACK = 1800
 
+
+def _metered_bulk_ready(root: Path) -> bool:
+    """Lazy wrapper — spend_guard imports usage → estimator → router."""
+    from greedy_token.spend_guard import metered_bulk_ready
+
+    return metered_bulk_ready(root)
+
 # Edit / wiring verbs — tool/rag alone is thin context → lower confidence for hook gate.
 EDIT_VERBS = re.compile(
     r"\b(implement|refactor|fix|add|wiring|migrate|patch|rewrite|"
@@ -277,6 +284,13 @@ def _token_estimate_for_route(
                 max(task_tokens, 1),
                 "Cheap LLM — bulk work off expensive path; local/cheap spend.",
             )
+        if _metered_bulk_ready(root):
+            # ADR-0002: metered cheap fallback serves the bulk tier.
+            return (
+                complexity,
+                max(task_tokens, 1),
+                "Cheap LLM — Ollama down; metered bulk API fallback (spend-guarded).",
+            )
         return (
             "medium",
             task_tokens + cursor_overhead(),
@@ -477,7 +491,11 @@ def route_task(task: str, root: Path | None = None) -> RouteDecision:
         tier_routes = [r for r in all_routes if r.get("target") == tier]
         best = _best_in_tier(tier_routes, text, task, root)
         if best:
-            if best.target == "ollama" and not ollama_available():
+            if (
+                best.target == "ollama"
+                and not ollama_available()
+                and not _metered_bulk_ready(root)
+            ):
                 continue
             from greedy_token.budget_policy import apply_budget_policy
 
