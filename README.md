@@ -397,6 +397,8 @@ baseline:
 
 Every **Saved** figure in the footers (`route` / `estimate` / `search` / `rag` / `pipeline`) and in `report` carries the baseline-source label, so an estimate is never presented as a measurement.
 
+No manual discipline required: while the source is still `default-estimate`, `route` and `report` print a one-line nudge (`baseline uncalibrated — run greedy-token calibrate`, at most once per call), and `greedy-token doctor` shows a **Baseline** block plus a warning when no `baseline:` section exists in the config.
+
 ## Route quality: confidence calibration
 
 Route **confidence** used to be a pure formula (`min(0.95, 0.45 + score × 0.12)`) — a pseudo-probability. It is now calibrated against your own telemetry (`~/.greedy-token/usage.jsonl`):
@@ -405,7 +407,7 @@ Route **confidence** used to be a pure formula (`min(0.95, 0.45 + score × 0.12)
 - Actual accuracy of a bucket = `1 − override_rate` — override events (`greedy-token override`, auto re-ask attribution) counted against the last cheap-tier hit for the same normalized task.
 - A bucket with **≥ 20 events** (`CALIBRATION_MIN_EVENTS`) is **calibrated**: confidence comes from telemetry and the route output shows `calibrated (n=…)`. Below the threshold the formula is the fallback, marked `formula (uncalibrated)`.
 - **Monotonic sanity:** calibrated values are clamped to be non-decreasing across buckets — a higher score never yields a lower calibrated confidence.
-- The telemetry scan is **cached per process** — routing does not re-read `usage.jsonl` on every call.
+- The telemetry scan is **cached per log path and invalidated by the `usage.jsonl` mtime/size** — routing does not re-read the log on every call, yet a long-lived MCP server picks up fresh telemetry without a restart.
 
 `route` / `estimate` output and `explain_route()` (CLI + MCP) carry the provenance:
 

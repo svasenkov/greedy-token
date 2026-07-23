@@ -713,7 +713,7 @@ def format_report(summary: ReportSummary) -> str:
             f"{stats.saved_vs_cursor:>16,}{note}"
         )
 
-    from greedy_token.baseline import SOURCE_DEFAULT, get_baseline_settings
+    from greedy_token.baseline import get_baseline_settings, uncalibrated_nudge
 
     baseline_settings = get_baseline_settings()
     baseline_line = (
@@ -721,9 +721,10 @@ def format_report(summary: ReportSummary) -> str:
         f"(agent overhead ~{baseline_settings.overhead_tokens:,} tokens) — "
         "saved_vs_cursor is an estimate vs this baseline"
     )
-    if baseline_settings.source == SOURCE_DEFAULT:
-        baseline_line += "; run greedy-token calibrate"
     lines.extend(["", baseline_line])
+    nudge = uncalibrated_nudge()
+    if nudge:
+        lines.append(nudge)
 
     if summary.top_routes:
         lines.extend(["", "Top routes:"])

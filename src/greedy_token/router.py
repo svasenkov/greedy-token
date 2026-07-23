@@ -11,6 +11,7 @@ from greedy_token.baseline import (  # noqa: F401
     BASE_CURSOR_OVERHEAD,
     baseline_source,
     cursor_overhead,
+    uncalibrated_nudge,
 )
 from greedy_token.calibration import (
     SOURCE_CALIBRATED,
@@ -611,4 +612,7 @@ def format_decision(decision: RouteDecision, task: str, root: Path) -> str:
         lines.append(
             f"Saved est: ~{exp['saved_est']:,} tokens vs Cursor (baseline: {baseline_source()})"
         )
+    nudge = uncalibrated_nudge()
+    if nudge:
+        lines.append(nudge)
     return "\n".join(lines)

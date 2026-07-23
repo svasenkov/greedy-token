@@ -72,6 +72,29 @@ def test_run_doctor_smoke() -> None:
     assert report.hardware.tier
 
 
+def test_doctor_baseline_uncalibrated_warns() -> None:
+    """No baseline: section in the user config → doctor advises calibrate."""
+    report = run_doctor(quick=True)
+    assert report.baseline_source == "default-estimate"
+    assert any("greedy-token calibrate" in w for w in report.warnings)
+    text = format_doctor_report(report)
+    assert "Baseline" in text
+    assert "source:    default-estimate" in text
+
+
+def test_doctor_baseline_calibrated_no_warning() -> None:
+    from greedy_token.baseline import METHOD_MEASURED, write_baseline_config
+
+    write_baseline_config(9500, method=METHOD_MEASURED)
+    report = run_doctor(quick=True)
+    assert report.baseline_source == "measured"
+    assert report.baseline_overhead == 9500
+    assert not any("greedy-token calibrate" in w for w in report.warnings)
+    text = format_doctor_report(report)
+    assert "source:    measured" in text
+    assert "overhead:  ~9,500 tokens" in text
+
+
 def test_doctor_paid_recommendations() -> None:
     report = run_doctor(include_paid=True, quick=True)
     assert report.paid_recommendations or load_model_catalog().get("paid_models")

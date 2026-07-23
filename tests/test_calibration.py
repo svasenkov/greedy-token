@@ -225,23 +225,55 @@ def test_monotonic_clamp() -> None:
 
 
 @allure.story("Process cache")
-@allure.title("Telemetry scan is cached per process; reset re-reads the log")
-def test_cache_and_reset(tmp_path: Path) -> None:
+@allure.title("Log unchanged → cached scan reused (no re-read per call)")
+def test_cache_hit_when_log_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
+    _write_log(_bucket_events("b1", 2.5, hits=25, overrides=5))
+    assert confidence_for_score(2.5).confidence == pytest.approx(0.8)
+
+    with allure.step("second call with the same log does not re-scan"):
+        def _boom(*args, **kwargs):  # pragma: no cover - failure path
+            raise AssertionError("load_events must not be called on cache hit")
+
+        from greedy_token import usage
+
+        monkeypatch.setattr(usage, "load_events", _boom)
+        assert confidence_for_score(2.5).confidence == pytest.approx(0.8)
+
+
+@allure.story("Process cache")
+@allure.title("Log grows (mtime/size change) → cache invalidated without restart")
+def test_cache_invalidated_on_log_growth(tmp_path: Path) -> None:
     path = _write_log(_bucket_events("b1", 2.5, hits=25, overrides=5))
     first = confidence_for_score(2.5)
     assert first.confidence == pytest.approx(0.8)
 
-    with allure.step("log grows → cached result unchanged"):
+    with allure.step("log grows → fresh telemetry picked up on the next call"):
         with path.open("a", encoding="utf-8") as fh:
-            for event in _bucket_events("b2", 2.5, hits=0, overrides=20):
-                fh.write(json.dumps(event) + "\n")
             for i in range(20):
                 fh.write(json.dumps(_override(f"b1 task {i}")) + "\n")
-        assert confidence_for_score(2.5).confidence == pytest.approx(0.8)
-
-    with allure.step("reset_calibration_cache → fresh scan sees the overrides"):
-        reset_calibration_cache()
         assert confidence_for_score(2.5).confidence == pytest.approx(0.0)
+
+
+@allure.story("Process cache")
+@allure.title("reset_calibration_cache forces a fresh scan")
+def test_cache_reset(tmp_path: Path) -> None:
+    _write_log(_bucket_events("b1", 2.5, hits=25, overrides=5))
+    assert confidence_for_score(2.5).confidence == pytest.approx(0.8)
+    reset_calibration_cache()
+    assert not calibration._CACHE
+    assert confidence_for_score(2.5).confidence == pytest.approx(0.8)
+    assert calibration._CACHE
+
+
+@allure.story("Process cache")
+@allure.title("Log path unstatable → signature None, scan still works")
+def test_cache_signature_missing_log(monkeypatch: pytest.MonkeyPatch) -> None:
+    path = Path(os.environ["GREEDY_TOKEN_LOG"])
+    if path.exists():
+        path.unlink()
+    result = confidence_for_score(2.5)
+    assert result.source == SOURCE_FORMULA
+    assert calibration._log_signature(path) is None
 
 
 @allure.story("Process cache")

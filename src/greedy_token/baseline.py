@@ -80,6 +80,20 @@ def baseline_source() -> str:
     return get_baseline_settings().source
 
 
+UNCALIBRATED_NUDGE = "baseline uncalibrated — run greedy-token calibrate"
+
+
+def uncalibrated_nudge() -> str | None:
+    """One-line nudge when the baseline is still the default estimate.
+
+    Returns the nudge string exactly when ``baseline_source()`` is
+    ``default-estimate`` — callers print it at most once per invocation.
+    """
+    if get_baseline_settings().source == SOURCE_DEFAULT:
+        return UNCALIBRATED_NUDGE
+    return None
+
+
 def write_baseline_config(overhead_tokens: int, *, method: str) -> Path:
     """Merge a calibrated overhead into ~/.greedy-token/config.yaml (baseline: section)."""
     path = settings.user_config_path()

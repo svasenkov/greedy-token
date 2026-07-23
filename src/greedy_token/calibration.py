@@ -13,8 +13,10 @@ pseudo-probability formula only. This module grounds that number in reality:
 * **Monotonic sanity**: calibrated values are clamped to be non-decreasing
   across buckets, so a higher score never yields a lower calibrated
   confidence.
-* The telemetry scan is **cached per process** (per log path) — routing does
-  not re-read ``usage.jsonl`` on every call.
+* The telemetry scan is **cached per log path** and invalidated when the
+  ``usage.jsonl`` mtime/size changes — routing does not re-read the log on
+  every call, yet a long-lived process (MCP server) picks up fresh telemetry
+  without a restart.
 
 Only route events that carry a positive ``raw_score`` participate (the field
 is logged since this module landed); events without it are ignored.
@@ -114,11 +116,23 @@ def collect_bucket_stats(events: list[dict]) -> tuple[BucketStats, ...]:
     return stats
 
 
-_CACHE: dict[str, tuple[BucketStats, ...]] = {}
+# Per log path: (log signature at scan time, scanned stats). The signature is
+# the (mtime_ns, size) of usage.jsonl — when the log grows (new telemetry) the
+# cache entry is stale and the log is re-scanned, so a long-lived MCP server
+# picks up fresh calibration without a restart.
+_CACHE: dict[str, tuple[tuple[int, int] | None, tuple[BucketStats, ...]]] = {}
 
 
 def reset_calibration_cache() -> None:
     _CACHE.clear()
+
+
+def _log_signature(path) -> tuple[int, int] | None:
+    try:
+        stat = path.stat()
+    except OSError:
+        return None
+    return (stat.st_mtime_ns, stat.st_size)
 
 
 def _stats_from_log() -> tuple[BucketStats, ...]:
@@ -128,12 +142,14 @@ def _stats_from_log() -> tuple[BucketStats, ...]:
         return _empty_stats()
     path = log_path()
     key = str(path)
+    signature = _log_signature(path)
     cached = _CACHE.get(key)
-    if cached is None:
-        events, _skipped = load_events(path)
-        cached = collect_bucket_stats(events)
-        _CACHE[key] = cached
-    return cached
+    if cached is not None and cached[0] == signature:
+        return cached[1]
+    events, _skipped = load_events(path)
+    stats = collect_bucket_stats(events)
+    _CACHE[key] = (signature, stats)
+    return stats
 
 
 def _calibrated_values(

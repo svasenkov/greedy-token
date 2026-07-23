@@ -67,6 +67,8 @@ class DoctorReport:
     benchmark: BenchmarkResult | None = None
     paid_recommendations: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    baseline_source: str = ""
+    baseline_overhead: int = 0
 
 
 def catalog_path() -> Path:
@@ -388,6 +390,15 @@ def run_doctor(
     if settings.model and _is_deprecated(settings.model, catalog)[0]:
         warnings.append(f"Configured model {settings.model!r} is deprecated")
 
+    from greedy_token.baseline import SOURCE_DEFAULT, get_baseline_settings
+
+    baseline = get_baseline_settings()
+    if baseline.source == SOURCE_DEFAULT:
+        warnings.append(
+            "Baseline uncalibrated (no baseline: section in ~/.greedy-token/config.yaml) "
+            "→ run greedy-token calibrate"
+        )
+
     bench_result: BenchmarkResult | None = None
     if benchmark and ollama_up and recommended:
         bench_result = run_micro_benchmark(recommended[0], quick=quick)
@@ -415,6 +426,8 @@ def run_doctor(
         benchmark=bench_result,
         paid_recommendations=paid_recs,
         warnings=warnings,
+        baseline_source=baseline.source,
+        baseline_overhead=baseline.overhead_tokens,
     )
 
 
@@ -443,6 +456,16 @@ def format_doctor_report(report: DoctorReport, *, include_paid: bool = False) ->
             lines.append(f"    - {m.name} ({m.size_bytes // (1024**2)} MB){flag}")
     else:
         lines.append("  installed: (none)")
+
+    if report.baseline_source:
+        lines.extend(
+            [
+                "",
+                "Baseline",
+                f"  source:    {report.baseline_source}",
+                f"  overhead:  ~{report.baseline_overhead:,} tokens",
+            ]
+        )
 
     lines.extend(["", "Recommendations"])
     for rec in report.recommended:

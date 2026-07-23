@@ -1031,6 +1031,7 @@ def test_format_decision_exact(
             "Why: WHYTEXT",
             "Runner-up: TOOL (ru, est ~1,234)",
             "Saved est: ~555 tokens vs Cursor (baseline: default-estimate)",
+            "baseline uncalibrated — run greedy-token calibrate",
         ]
     )
     with allure.step("byte-exact output (kills upper→lower, joins, prefix, string, \\n-join mutants)"):

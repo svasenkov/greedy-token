@@ -18,9 +18,11 @@ from greedy_token.baseline import (
     SOURCE_CALIBRATED,
     SOURCE_DEFAULT,
     SOURCE_MEASURED,
+    UNCALIBRATED_NUDGE,
     baseline_source,
     cursor_overhead,
     get_baseline_settings,
+    uncalibrated_nudge,
     write_baseline_config,
 )
 from greedy_token import settings
@@ -328,3 +330,46 @@ def test_report_source_label(minimal_workspace: Path) -> None:
     assert f"Baseline source: {SOURCE_MEASURED} (agent overhead ~9,500 tokens)" in text
     assert "run greedy-token calibrate" not in text
     assert summary.to_dict()["baseline"] == {"overhead_tokens": 9500, "source": SOURCE_MEASURED}
+
+
+@allure.story("Uncalibrated nudge")
+@allure.title("uncalibrated_nudge: one line at default-estimate, None once calibrated")
+def test_uncalibrated_nudge_helper() -> None:
+    assert uncalibrated_nudge() == UNCALIBRATED_NUDGE
+    write_baseline_config(9000, method=METHOD_MANUAL)
+    assert uncalibrated_nudge() is None
+
+
+@allure.story("Uncalibrated nudge")
+@allure.title("route output prints the nudge exactly once at default-estimate")
+def test_route_nudge_once(minimal_workspace: Path) -> None:
+    from greedy_token.router import format_decision, route_task
+
+    task = "find baseUrl"
+    decision = route_task(task, minimal_workspace)
+    text = format_decision(decision, task, minimal_workspace)
+    attach_text("route default", text)
+    assert text.count(UNCALIBRATED_NUDGE) == 1
+
+    write_baseline_config(9000, method=METHOD_MANUAL)
+    text = format_decision(decision, task, minimal_workspace)
+    attach_text("route calibrated", text)
+    assert UNCALIBRATED_NUDGE not in text
+
+
+@allure.story("Uncalibrated nudge")
+@allure.title("report output prints the nudge exactly once at default-estimate")
+def test_report_nudge_once(minimal_workspace: Path) -> None:
+    from greedy_token.usage import aggregate_events, format_report
+
+    summary = aggregate_events([
+        {"selected_tier": "tool", "est_tokens": 0, "cursor_baseline": 9000, "cursor_saved": 9000},
+    ])
+    text = format_report(summary)
+    attach_text("report default", text)
+    assert text.count(UNCALIBRATED_NUDGE) == 1
+
+    write_baseline_config(9500, method=METHOD_MEASURED)
+    text = format_report(summary)
+    attach_text("report calibrated", text)
+    assert UNCALIBRATED_NUDGE not in text
