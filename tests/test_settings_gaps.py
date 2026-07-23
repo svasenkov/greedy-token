@@ -45,6 +45,29 @@ def test_get_footer_settings_no_root(tmp_path: Path, monkeypatch: pytest.MonkeyP
     assert st.get_footer_settings(root=None).source == "default"
 
 
+@allure.title("_resolve_search_settings applies valid int knobs per config level")
+def test_resolve_search_settings_valid_ints() -> None:
+    user_cfg = {
+        "search": {
+            "max_context_tokens": 5000,
+            "max_snippet_files": 2,
+            "context_lines": 20,
+        }
+    }
+    workspace_cfg = {
+        "search": {
+            "max_context_tokens": 3000,
+            "max_snippet_files": 5,
+            "context_lines": 10,
+        }
+    }
+    resolved = st._resolve_search_settings(user_cfg=user_cfg, workspace_cfg=workspace_cfg)
+    assert resolved.max_context_tokens == 3000
+    assert resolved.max_snippet_files == 5
+    assert resolved.context_lines == 10
+    assert resolved.source == "workspace"
+
+
 @allure.title("_resolve_search_settings ignores malformed ints and honours env")
 def test_resolve_search_settings_bad_values(monkeypatch: pytest.MonkeyPatch) -> None:
     user_cfg = {

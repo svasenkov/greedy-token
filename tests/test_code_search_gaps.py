@@ -311,6 +311,21 @@ def test_unique_hit_paths_default_limit() -> None:
 # --- Mutation kill-tests: enrich_search_hits (defaults, centering, math, joins, budget) ---
 
 
+@allure.title("enrich_search_hits: duplicate paths keep the first hit line as center")
+def test_enrich_duplicate_path_keeps_first_line(tmp_path: Path) -> None:
+    _numbered_file(tmp_path / "r.js", 50)
+    block, files, _ = cs.enrich_search_hits(
+        tmp_path,
+        [("r.js", 20, "first"), ("r.js", 40, "second")],
+        mode="snippet",
+        max_tokens=99999,
+    )
+    assert files == 1
+    assert "### r.js:20 (±15 lines, 5-35)" in block
+    assert "   20|L20" in block
+    assert "   40|L40" not in block
+
+
 @allure.title("enrich_search_hits: default mode/context_lines and snippet centering are exact")
 def test_enrich_defaults_and_centering(tmp_path: Path) -> None:
     _numbered_file(tmp_path / "r.js", 50)
