@@ -1,1 +1,0 @@
-{"id":"e6370eefafce68c3352e8702f0c56f81","fullName":"tests.test_cli_handlers#test_cmd_init_preset_bundled_name","name":"cmd_init --preset merges a bundled team route preset by name","status":"passed","testResultsByEnv":{"default":"af9e2dc02b75b98afd8ea17a3efc2e93"}}

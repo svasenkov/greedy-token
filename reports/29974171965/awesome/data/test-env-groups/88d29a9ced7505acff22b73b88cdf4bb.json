@@ -1,1 +1,0 @@
-{"id":"88d29a9ced7505acff22b73b88cdf4bb","fullName":"tests.test_code_search#test_python_search_tree_outside_root","name":"_python_search_tree: path outside root falls back to full path, not None","status":"passed","testResultsByEnv":{"default":"abd74b4ee40fddf57dd18b4619ca7829"}}

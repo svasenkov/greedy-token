@@ -1,1 +1,0 @@
-{"id":"fea6ad9bc2e7c50b63730168e5b64199","fullName":"tests.test_pipeline#test_pipeline_dry_run_ollama_no_runtime","name":"Pipeline dry-run of an Ollama step never requires the runtime","status":"passed","testResultsByEnv":{"default":"5200cc67ee8bad6bc083fd7c12b8a105"}}

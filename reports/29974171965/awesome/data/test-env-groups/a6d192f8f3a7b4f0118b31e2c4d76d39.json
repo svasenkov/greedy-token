@@ -1,1 +1,0 @@
-{"id":"a6d192f8f3a7b4f0118b31e2c4d76d39","fullName":"tests.test_pipeline_gaps#test_read_hits_file_mode","name":"read-hits: enriches parsed hits honouring the file mode arg","status":"passed","testResultsByEnv":{"default":"ec5f5cbc3f3dd9898c3a09364ecfab55"}}

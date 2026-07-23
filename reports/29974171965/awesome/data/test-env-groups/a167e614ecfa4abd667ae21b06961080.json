@@ -1,1 +1,0 @@
-{"id":"a167e614ecfa4abd667ae21b06961080","fullName":"tests.test_tool_paths#test_rg_path_for_shell_fallback","name":"rg_path_for_shell falls back to rg when not found","status":"passed","testResultsByEnv":{"default":"ffff8a0c1f2a0429644db45793716d79"}}

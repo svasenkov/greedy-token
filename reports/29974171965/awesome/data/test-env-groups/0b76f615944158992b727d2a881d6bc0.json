@@ -1,1 +1,0 @@
-{"id":"0b76f615944158992b727d2a881d6bc0","fullName":"tests.test_pipeline_gaps#test_run_pipeline_truncation","name":"run_pipeline: truncates step output above the default cap, keeping the boundary","status":"passed","testResultsByEnv":{"default":"3e68e8508646854bc5befd503df49593"}}

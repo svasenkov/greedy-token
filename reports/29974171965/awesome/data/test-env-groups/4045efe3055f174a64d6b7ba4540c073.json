@@ -1,1 +1,0 @@
-{"id":"4045efe3055f174a64d6b7ba4540c073","fullName":"tests.test_settings_gaps#test_get_footer_settings_no_root","name":"get_footer_settings tolerates missing workspace root","status":"passed","testResultsByEnv":{"default":"cf4d49bd3e4b1f11d9984af1be22a4a6"}}

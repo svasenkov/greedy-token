@@ -1,1 +1,0 @@
-{"id":"ad28a52bd9a5a18179c2bcaffbd5137a","fullName":"tests.test_advisory#test_build_and_roundtrip","name":"build_event / to_dict / event_from_dict roundtrip","status":"passed","testResultsByEnv":{"default":"71f03c68e69d1e0638df4feeeea64b8e"}}

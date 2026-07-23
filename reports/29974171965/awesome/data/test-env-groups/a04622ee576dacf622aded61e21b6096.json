@@ -1,1 +1,0 @@
-{"id":"a04622ee576dacf622aded61e21b6096","fullName":"tests.test_llm_invoke_gaps#test_invoke_expensive_allowed","name":"expensive candidate allowed by spend guard proceeds to chat","status":"passed","testResultsByEnv":{"default":"6dd585efe59fecdbcbb258607c9c70f9"}}

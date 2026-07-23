@@ -1,1 +1,0 @@
-{"id":"6d941eb68eef8103c570a793fee7345c","fullName":"tests.test_cli#test_cli_scripts_lint","name":"CLI scripts lint exit 0 on clean routes and 1 on violations","status":"passed","testResultsByEnv":{"default":"71b739e04b2ab2c24a6d959b259848ca"}}

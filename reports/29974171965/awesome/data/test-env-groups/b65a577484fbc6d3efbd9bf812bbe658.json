@@ -1,1 +1,0 @@
-{"id":"b65a577484fbc6d3efbd9bf812bbe658","fullName":"tests.test_code_search_gaps#test_search_code_dir_python_scope","name":"search_code: dir-scoped python tree scan reports the real dir scope, not 'None'","status":"passed","testResultsByEnv":{"default":"fbd0784313a56366e001830f25dfd87b"}}

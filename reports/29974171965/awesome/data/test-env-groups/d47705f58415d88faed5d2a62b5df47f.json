@@ -1,1 +1,0 @@
-{"id":"d47705f58415d88faed5d2a62b5df47f","fullName":"tests.test_metered_bulk#test_invoke_metered_cheap_blocked","name":"invoke without opt-in fails with the spend-guard reason","status":"passed","testResultsByEnv":{"default":"0ed1e4d280b114e0cc70be1d0908c636"}}

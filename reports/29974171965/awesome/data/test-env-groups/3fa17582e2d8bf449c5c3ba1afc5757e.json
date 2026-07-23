@@ -1,1 +1,0 @@
-{"id":"3fa17582e2d8bf449c5c3ba1afc5757e","fullName":"tests.test_router_gaps#test_with_shadow_short_circuits","name":"_with_shadow: returns decision unchanged for falsy id or equal id","status":"passed","testResultsByEnv":{"default":"93c77148702b068642211bbe7c65362c"}}

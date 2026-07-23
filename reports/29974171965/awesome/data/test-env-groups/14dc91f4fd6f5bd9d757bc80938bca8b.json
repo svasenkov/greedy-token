@@ -1,1 +1,0 @@
-{"id":"14dc91f4fd6f5bd9d757bc80938bca8b","fullName":"tests.test_agent_host#test_audit_continue_convention","name":"audit_context(host=continue) counts .continuerules as always-on","status":"passed","testResultsByEnv":{"default":"ad1fb8d5ea69b9126fe6c81de8bd5e2d"}}

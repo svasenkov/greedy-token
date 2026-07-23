@@ -1,1 +1,0 @@
-{"id":"a976eb5784675ebd14f145d3eb2e5a8f","fullName":"tests.test_pipeline#test_format_executor_summary_all_tiers","name":"format_executor_savings_summary emits every tier in canonical order","status":"passed","testResultsByEnv":{"default":"9ce77ec29bb15d207fcfc93e71d41bb7"}}

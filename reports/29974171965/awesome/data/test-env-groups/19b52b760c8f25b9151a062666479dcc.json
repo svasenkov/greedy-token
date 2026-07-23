@@ -1,1 +1,0 @@
-{"id":"19b52b760c8f25b9151a062666479dcc","fullName":"tests.test_model_select_gaps#test_escalation_skips_expensive_no_optin","name":"escalation skips expensive when opt-in disabled, keeps cheap","status":"passed","testResultsByEnv":{"default":"7ff0957f37399ecef1861b59889760a2"}}

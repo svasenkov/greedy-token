@@ -1,1 +1,0 @@
-{"id":"14633c1118199743bfcad482fd437357","fullName":"tests.test_code_search#test_glob_name_matches_continue_and_want_dir","name":"_glob_name_matches: skips are continue (not break); file mode excludes dirs","status":"passed","testResultsByEnv":{"default":"bb7c79ef4599a47c6c4a0595457ce6a2"}}

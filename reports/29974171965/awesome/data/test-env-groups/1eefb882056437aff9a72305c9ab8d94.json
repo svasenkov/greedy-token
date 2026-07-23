@@ -1,1 +1,0 @@
-{"id":"1eefb882056437aff9a72305c9ab8d94","fullName":"tests.test_calibration#test_cache_hit_when_log_unchanged","name":"Log unchanged → cached scan reused (no re-read per call)","status":"passed","testResultsByEnv":{"default":"77dbadedf451f0ff8b645e27af34bbba"}}

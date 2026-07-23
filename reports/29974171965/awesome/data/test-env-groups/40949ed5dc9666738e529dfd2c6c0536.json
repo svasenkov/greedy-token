@@ -1,1 +1,0 @@
-{"id":"40949ed5dc9666738e529dfd2c6c0536","fullName":"tests.test_pipeline_gaps#test_run_step_ollama_profile_wiring","name":"_run_step ollama profile: resolve_model/apply_cheap_llm_env receive profile+root","status":"passed","testResultsByEnv":{"default":"31a0f97686152a81f31fb3da92824fc8"}}

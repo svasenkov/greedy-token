@@ -1,1 +1,0 @@
-{"id":"4b8791a23e837aa1b1f9ad6b7c9e0c73","fullName":"tests.test_pipeline_gaps#test_footer_tier_accumulation_and_duration","name":"format_pipeline_footer: same-tier steps accumulate; total duration uses /1000","status":"passed","testResultsByEnv":{"default":"f4c3eb5e39cd31d3dd0719c285f359ff"}}

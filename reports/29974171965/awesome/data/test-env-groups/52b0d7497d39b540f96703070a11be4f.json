@@ -1,1 +1,0 @@
-{"id":"52b0d7497d39b540f96703070a11be4f","fullName":"tests.test_model_select_gaps#test_parse_registry_edges","name":"_parse_registry skips junk entries and recovers from bad numbers","status":"passed","testResultsByEnv":{"default":"ed83fe7f2db414171f97b698b9739d17"}}

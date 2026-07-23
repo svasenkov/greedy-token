@@ -1,1 +1,0 @@
-{"id":"4893deab80396bca17c44a2ec437323a","fullName":"tests.test_agent_host#test_agent_host_resolution","name":"agent_host defaults to cursor; workspace config and env override","status":"passed","testResultsByEnv":{"default":"3dd1981e6bbc6db52bca8b632ed8c6c1"}}

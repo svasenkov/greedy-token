@@ -1,1 +1,0 @@
-{"id":"cf914dc078cd88f1b2b2c03ae26c37de","fullName":"tests.test_code_search#test_resolve_search_path_rejects_outside_root","name":"resolve_search_path rejects absolute path outside workspace","status":"passed","testResultsByEnv":{"default":"7befa1dee56a5a80e64f96ef9f28f8cc"}}

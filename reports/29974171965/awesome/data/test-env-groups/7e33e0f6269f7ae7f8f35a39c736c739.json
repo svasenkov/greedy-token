@@ -1,1 +1,0 @@
-{"id":"7e33e0f6269f7ae7f8f35a39c736c739","fullName":"tests.test_executors#test_plan_run_audit_skill_executable","name":"plan_run marks stdout-only audit-skill as executable","status":"passed","testResultsByEnv":{"default":"dd4ad00ad986e68fd2e5e2e8f4e9ddbb"}}

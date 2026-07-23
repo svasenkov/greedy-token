@@ -1,1 +1,0 @@
-{"id":"c3fed82ef7257d3998b90bccd1d3225d","fullName":"tests.test_calibration#test_confidence_fallback_insufficient_data","name":"Bucket below the threshold falls back to the formula (uncalibrated)","status":"passed","testResultsByEnv":{"default":"8c7e032c6ec36982f38641afd749e7f2"}}

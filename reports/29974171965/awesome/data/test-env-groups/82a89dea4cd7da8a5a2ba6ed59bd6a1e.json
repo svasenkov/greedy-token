@@ -1,1 +1,0 @@
-{"id":"82a89dea4cd7da8a5a2ba6ed59bd6a1e","fullName":"tests.test_settings#test_format_shell_export_no_key","name":"Shell export omits key line when no api_key even with reveal","status":"passed","testResultsByEnv":{"default":"c2fa44d0320224cc46e9b7fb887cf471"}}

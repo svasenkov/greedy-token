@@ -1,1 +1,0 @@
-{"id":"9a3616730c238096025be38749f478d5","fullName":"tests.test_agent_host#test_resolve_host_explicit","name":"resolve_host: explicit host wins; junk falls back to config","status":"passed","testResultsByEnv":{"default":"56c73485522809457bf775c319f576ac"}}

@@ -1,1 +1,0 @@
-{"id":"8689ebe714c09b44cb698badc1539edf","fullName":"tests.test_code_search_gaps#test_search_code_python_tree_join","name":"search_code: python tree scan newline-joins hit rows (kills 'XX' join)","status":"passed","testResultsByEnv":{"default":"23fc752aca3a17e3187719d17d88fd0b"}}

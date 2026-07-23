@@ -1,1 +1,0 @@
-{"id":"c7e853b858743ce9d8d49e4eede95f5b","fullName":"tests.test_budget_gaps#test_get_budget_settings_no_root","name":"get_budget_settings tolerates missing workspace root","status":"passed","testResultsByEnv":{"default":"b26e84e10b95024673510d74d4e098b0"}}

@@ -1,1 +1,0 @@
-{"id":"2afe680738738a4bfc693f14ccf19697","fullName":"tests.test_spend_guard_gaps#test_check_expensive_allowed_boundaries","name":"check_expensive_allowed: cap boundaries are strict and default est is zero","status":"passed","testResultsByEnv":{"default":"0a571a60c8a31e1a9c6f8727e9a39ffa"}}

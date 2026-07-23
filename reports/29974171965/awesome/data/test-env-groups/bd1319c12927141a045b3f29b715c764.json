@@ -1,1 +1,0 @@
-{"id":"bd1319c12927141a045b3f29b715c764","fullName":"tests.test_metered_bulk#test_check_metered_allowed_free_and_expensive","name":"check_metered_allowed: free passes, expensive delegates","status":"passed","testResultsByEnv":{"default":"10b936b481c0d646daeaacc8589fb698"}}

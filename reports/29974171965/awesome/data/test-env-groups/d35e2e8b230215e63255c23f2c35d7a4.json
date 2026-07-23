@@ -1,1 +1,0 @@
-{"id":"d35e2e8b230215e63255c23f2c35d7a4","fullName":"tests.test_code_search_gaps#test_normalize_hit_body","name":"normalize_hit_body prefixes bare rows and passes through the rest","status":"passed","testResultsByEnv":{"default":"e96525fd3e168b57f4debfea6e8b77b2"}}

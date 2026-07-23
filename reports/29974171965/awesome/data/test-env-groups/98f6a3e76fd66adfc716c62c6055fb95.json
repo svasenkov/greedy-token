@@ -1,1 +1,0 @@
-{"id":"98f6a3e76fd66adfc716c62c6055fb95","fullName":"tests.test_metered_bulk#test_billing_note_for_model","name":"billing_note_for_model: metered vs local free vs unknown/empty id","status":"passed","testResultsByEnv":{"default":"8a17d588a0cc2cc9825eacf5507e7b87"}}

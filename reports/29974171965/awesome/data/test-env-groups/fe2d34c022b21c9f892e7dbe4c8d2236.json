@@ -1,1 +1,0 @@
-{"id":"fe2d34c022b21c9f892e7dbe4c8d2236","fullName":"tests.test_cli_gaps#test_cmd_llm_list","name":"cmd_llm_list prints registry and models","status":"passed","testResultsByEnv":{"default":"32baf722550b4bdf20c9f4c5d2ec5e92"}}

@@ -1,1 +1,0 @@
-{"id":"7011cbaaa22a571b3416c7c3fa5e9faf","fullName":"tests.test_usage#test_rotate_log_noop","name":"rotate_log_if_needed returns false when file missing or small","status":"passed","testResultsByEnv":{"default":"7fa99536cf9dc6423f109e1a7dab8cae"}}

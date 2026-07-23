@@ -1,1 +1,0 @@
-{"id":"bcb06a447dfb61ef20f1562ef184fd6a","fullName":"tests.test_cli_handlers#test_cmd_init_detect_missing_tools","name":"cmd_init surfaces install hints when ripgrep and ollama are missing","status":"passed","testResultsByEnv":{"default":"88d90cdd0f4e7cf17c79f75443ef4829"}}

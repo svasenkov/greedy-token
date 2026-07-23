@@ -1,1 +1,0 @@
-{"id":"eea293a38e4f6412791d637ac0553b52","fullName":"tests.test_cli_handlers#test_cmd_init_apply_write_error","name":"cmd_init --apply returns 1 when writing the config fails","status":"passed","testResultsByEnv":{"default":"91206d7c196d58dd57b1a5cdde7451ec"}}

@@ -1,1 +1,0 @@
-{"id":"1bb9513aaa5792875462e5d6fae76d2e","fullName":"tests.test_router_gaps#test_decision_from_route_ollama_wrapper","name":"_decision_from_route: ollama wrapper unavailable appends note to rationale","status":"passed","testResultsByEnv":{"default":"ca6db320fdf23b3caa00aa1210c846ae"}}

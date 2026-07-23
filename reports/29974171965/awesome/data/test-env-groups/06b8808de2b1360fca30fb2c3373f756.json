@@ -1,1 +1,0 @@
-{"id":"06b8808de2b1360fca30fb2c3373f756","fullName":"tests.test_settings#test_read_yaml_non_dict","name":"_read_yaml returns empty dict for non-dict YAML","status":"passed","testResultsByEnv":{"default":"bcc45207072315e76d1b22e2a4f3da27"}}

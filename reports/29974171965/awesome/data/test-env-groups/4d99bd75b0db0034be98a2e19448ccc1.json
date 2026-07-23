@@ -1,1 +1,0 @@
-{"id":"4d99bd75b0db0034be98a2e19448ccc1","fullName":"tests.test_spend_guard_gaps#test_load_today_spend","name":"_load_today_spend sums today's metered cost and skips junk","status":"passed","testResultsByEnv":{"default":"5509cbbfd8c40cad1147fa0bb2634481"}}

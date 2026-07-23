@@ -1,1 +1,0 @@
-{"id":"ff1784fe2331301b63f20e1be1147224","fullName":"tests.test_cli_handlers#test_cmd_run_execute_cursor_refused","name":"cmd_run --execute on cursor route exits non-zero with guidance","status":"passed","testResultsByEnv":{"default":"294a85293b67f3fb346ff5f53094e5de"}}

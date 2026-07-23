@@ -1,1 +1,0 @@
-{"id":"3831156fb51bd528c187419acfd7f86b","fullName":"tests.test_router_gaps#test_route_task_ollama_and_not_or","name":"route_task: non-ollama match with ollama down is NOT skipped (kills and → or)","status":"passed","testResultsByEnv":{"default":"3fb0907722ce3cb2e151e09e7d44cbd6"}}

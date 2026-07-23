@@ -1,1 +1,0 @@
-{"id":"0a1016f23d16526b9a1d1fc8f7566c7d","fullName":"tests.test_executors_gaps#test_execute_task_filtered_no_rag","name":"execute_task tool tier: filtered≠raw, no RAG → note only, exit=code, decision","status":"passed","testResultsByEnv":{"default":"687098611aa6633140c13394286ae612"}}

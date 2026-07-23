@@ -1,1 +1,0 @@
-{"id":"899ae3c528ea6ce6c02e879d2d73c598","fullName":"tests.test_calibration#test_format_outputs_show_confidence_source","name":"format_decision and format_estimate print the confidence provenance","status":"passed","testResultsByEnv":{"default":"d8822c56952ee5240e7ebab2514f7a5e"}}

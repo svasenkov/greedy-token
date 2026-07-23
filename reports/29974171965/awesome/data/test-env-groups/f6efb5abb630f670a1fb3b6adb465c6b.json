@@ -1,1 +1,0 @@
-{"id":"f6efb5abb630f670a1fb3b6adb465c6b","fullName":"tests.test_code_search_gaps#test_search_code_file_cmd","name":"search_code: file-scoped rg header + default_path threading are exact","status":"passed","testResultsByEnv":{"default":"0b5f3e4c971471b6db2715245dcd03a6"}}

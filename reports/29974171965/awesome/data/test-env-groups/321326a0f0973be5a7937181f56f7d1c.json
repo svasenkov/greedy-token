@@ -1,1 +1,0 @@
-{"id":"321326a0f0973be5a7937181f56f7d1c","fullName":"tests.test_usage#test_log_path_default","name":"log_path falls back to DEFAULT_LOG when GREEDY_TOKEN_LOG is unset or disabled","status":"passed","testResultsByEnv":{"default":"67008f2a8d972ce2828c56b91c81e8b6"}}

@@ -1,1 +1,0 @@
-{"id":"8a89ab7cf86f3ff7324bbfe1c0b509a3","fullName":"tests.test_router_gaps#test_route_task_cursor_fallback_missing_cfg","name":"route_task: cursor fallback without cursor_fallback cfg → estimate rationale, no crash","status":"passed","testResultsByEnv":{"default":"9f6f81cf0d325ccd21f99107b2195d79"}}

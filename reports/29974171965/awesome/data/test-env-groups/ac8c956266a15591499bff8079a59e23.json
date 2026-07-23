@@ -1,1 +1,0 @@
-{"id":"ac8c956266a15591499bff8079a59e23","fullName":"tests.test_metered_bulk#test_route_ollama_estimates_other_branches","name":"Ollama up keeps the local rationale; both down keeps expensive fallback text","status":"passed","testResultsByEnv":{"default":"8b9734807c920242741d3ed0c566b220"}}
