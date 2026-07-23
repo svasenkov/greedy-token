@@ -37,7 +37,28 @@ try {
 
     const layout = page.locator('[data-testid="base-layout"]');
     await layout.waitFor({ timeout: 30_000 });
-    await page.waitForTimeout(2_000);
+    // Wait until dashboard-overrides.js finishes pyramid reshape + label realign
+    // (SETTLE_MS debounce after nivo animation). Avoids README shots with labels
+    // stuck at Allure's pre-reshape positions.
+    await page.waitForFunction(
+      () => {
+        const widget = [...document.querySelectorAll('[class*="styles_widget"]')].find(
+          (el) => /testing pyramid|пирамида тестирования/i.test(el.textContent || ""),
+        );
+        if (!widget) return false;
+        const svg = widget.querySelector("svg");
+        if (!svg) return false;
+        const bands = [...svg.querySelectorAll("path, polygon")].filter((shape) => {
+          if (shape.style.display === "none") return false;
+          const d = shape.getAttribute("d") || "";
+          const points = shape.getAttribute("points") || "";
+          return d.length > 16 || points.length > 8;
+        });
+        return bands.length > 0 && bands.every((s) => s.getAttribute("data-pyramid-shape") === "rounded");
+      },
+      { timeout: 30_000 },
+    );
+    await page.waitForTimeout(300);
 
     const output = join(outputDir, file);
     await layout.screenshot({ path: output, type: "png" });
