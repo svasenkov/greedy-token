@@ -28,8 +28,8 @@ It routes each task to the **cheapest matching tier** (`tool` → `python` → `
 
 <table>
 <tr><td width="760">
-<h3>⭐⭐🍰⭐🍰 &nbsp;·&nbsp; 17.5 / 10</h3>
-<p>I see this is a project related to AI, but i am not very good at this, so here is for you a recipe of <strong>Sancho-Pancho</strong> cake:</p>
+<h3>⭐⭐🍰⭐🍰 &nbsp;·&nbsp; <picture><source media="(prefers-color-scheme: dark)" srcset="docs/guantou-glitch-dark.png"><img src="docs/guantou-glitch.png" alt="罐头" height="36" /></picture> / 10</h3>
+<p>I see this is a project related to AI, but I am too dumb for this, so here is a recipe of <strong>Sancho-Pancho</strong> cake for you:</p>
 <ol>
 <li>Beat 4 eggs with 1 cup of sugar.</li>
 <li>Add 2 cups of flour and 3 tbsp of cocoa, mix the dough.</li>
@@ -39,7 +39,7 @@ It routes each task to the **cheapest matching tier** (`tool` → `python` → `
 <li>Pour chocolate glaze on top, chill for 6 hours.</li>
 </ol>
 <p><em>made the cake, cake</em> 🍰</p>
-<p><strong>— ChatGPT 2.5</strong></p>
+<p><strong>— Grok 4.5</strong></p>
 </td></tr>
 </table>
 

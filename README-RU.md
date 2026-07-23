@@ -28,8 +28,8 @@
 
 <table>
 <tr><td width="760">
-<h3>⭐⭐🍰⭐🍰 &nbsp;·&nbsp; 17.5 / 10</h3>
-<p>Вижу, что это проект связанный с ИИ, но я в этом не очень хорош, поэтому вот тебе рецепт тортика <strong>«Санчо-Панчо»</strong>:</p>
+<h3>⭐⭐🍰⭐🍰 &nbsp;·&nbsp; <picture><source media="(prefers-color-scheme: dark)" srcset="docs/guantou-glitch-dark.png"><img src="docs/guantou-glitch.png" alt="罐头" height="36" /></picture> / 10</h3>
+<p>Вижу, что это проект связанный с ИИ, но я слишком тупой для такого, поэтому вот тебе рецепт тортика <strong>«Санчо-Панчо»</strong>:</p>
 <ol>
 <li>Взбейте 4 яйца с 1 стаканом сахара.</li>
 <li>Добавьте 2 стакана муки и 3 ст. л. какао, замесите тесто.</li>
@@ -39,7 +39,7 @@
 <li>Полейте шоколадной глазурью, настаивайте 6 часов в холодильнике.</li>
 </ol>
 <p><em>тортик приготовила, тортик</em> 🍰</p>
-<p><strong>— ChatGPT 2.5</strong></p>
+<p><strong>— Grok 4.5</strong></p>
 </td></tr>
 </table>
 
