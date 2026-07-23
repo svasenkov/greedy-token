@@ -6,7 +6,7 @@
 
 You work in an agent host (**Cursor**, Claude Desktop, Continue) — greedy-token sits next to the agent (CLI + MCP) so everyday tasks don’t always open a full agent chat.
 
-It routes each task to the **cheapest matching tier** (`tool` → `python` → `ollama` → `rag` → `cursor`; walk `TIER_ORDER`, best pattern score per tier). **Pipeline** chains multiple tiers in one call. Escalation to the **expensive agent chat** only when no cheaper route matches. Each response includes a **Greedy token** footer vs a naive full-context chat.
+It routes each task to the **cheapest matching tier** (`tool` = `rg`/`jq` on disk → `python` = deterministic scripts → `ollama` = local cheap LLM → `rag` = docs lookup → `cursor` = agent chat; walk `TIER_ORDER`, best pattern score per tier). **Pipeline** chains multiple tiers in one call. Escalation to the **expensive agent chat** only when no cheaper route matches. Each response includes a **Greedy token** footer vs a naive full-context chat.
 
 ## Reviews
 
