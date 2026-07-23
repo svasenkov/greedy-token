@@ -271,7 +271,7 @@ def test_run_step_ollama_unavailable_fields(
     with allure.step("exact unavailable message"):
         assert sr.output == (
             "Cheap LLM unavailable (prov, http://x). "
-            "Start the runtime or use the expensive LLM path (Cursor)."
+            "Start the runtime or use the expensive LLM path (agent chat)."
         )
     with allure.step("get_cheap_llm_settings received the real root, not None"):
         assert seen["root"] == minimal_workspace
@@ -512,7 +512,7 @@ def test_footer_exact_mixed(minimal_workspace: Path, monkeypatch: pytest.MonkeyP
         "",
         "Pipeline total: 0.0 s · ~30 LLM tokens spent",
         "",
-        "Combined naive Cursor chat (whole pipeline as one agent task)",
+        "Combined naive agent chat (whole pipeline as one agent task)",
         "  Always-on rules: ~100  (measured)",
         "  Task prompt:     ~200  (measured)",
         "  Agent overhead:  ~300  (default-estimate)",
@@ -524,7 +524,7 @@ def test_footer_exact_mixed(minimal_workspace: Path, monkeypatch: pytest.MonkeyP
         "Note: Per-step baseline assumes a separate agent chat per step (rules+overhead each time).",
         "Pipeline total baseline = one agent chat for the full pipeline task.",
         "Dry-run steps report saved=0 until execute=true / --execute.",
-        "Agent wrapper (MCP + reply) still uses Cursor tokens beyond executor rows.",
+        "Agent wrapper (MCP + reply) still uses agent tokens beyond executor rows.",
     ]
     with allure.step("exact footer body, line by line"):
         assert footer.split("\n") == expected
@@ -560,7 +560,7 @@ def test_footer_threads_breakdown_source(minimal_workspace: Path, monkeypatch: p
     footer = pl.format_pipeline_footer(result, minimal_workspace)
     with allure.step("both savings headings carry the breakdown source, not the ambient one"):
         assert (
-            "Per-step savings (if each step were a separate naive Cursor chat; "
+            "Per-step savings (if each step were a separate naive agent chat; "
             "baseline: calibrated):"
         ) in footer
         assert "Saved by executor (sum of per-step savings; baseline: calibrated):" in footer
@@ -618,13 +618,13 @@ def test_footer_exact_pure_dry(minimal_workspace: Path, monkeypatch: pytest.Monk
         "",
         "Pipeline total: 0.0 s · ~0 LLM tokens spent",
         "",
-        "Combined naive Cursor chat (whole pipeline as one agent task)",
+        "Combined naive agent chat (whole pipeline as one agent task)",
         "  Always-on rules: ~100  (measured)",
         "  Task prompt:     ~200  (measured)",
         "  Agent overhead:  ~300  (default-estimate)",
         "  Total (naive agent chat):  ~1,000",
         "",
-        "Saved vs naive Cursor chat (baseline: default-estimate)",
+        "Saved vs naive agent chat (baseline: default-estimate)",
         "  Baseline (naive agent chat):  ~1,000  (default-estimate)",
         "  Spent (MCP executor, LLM tokens): ~0  (dry-run — steps not executed)",
         "  Saved:             ~0  (dry-run; re-run with execute=true / --execute; baseline: default-estimate)",
@@ -632,7 +632,7 @@ def test_footer_exact_pure_dry(minimal_workspace: Path, monkeypatch: pytest.Monk
         "Note: Per-step baseline assumes a separate agent chat per step (rules+overhead each time).",
         "Pipeline total baseline = one agent chat for the full pipeline task.",
         "Dry-run steps report saved=0 until execute=true / --execute.",
-        "Agent wrapper (MCP + reply) still uses Cursor tokens beyond executor rows.",
+        "Agent wrapper (MCP + reply) still uses agent tokens beyond executor rows.",
         "Pipeline stopped early due to step failure.",
     ]
     with allure.step("exact footer with pure dry-run savings block + stopped-early line"):

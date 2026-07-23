@@ -396,7 +396,7 @@ def test_route_ollama_estimates_other_branches(
         _, est, rationale = router._token_estimate_for_route(
             "ollama", task="classify x", root=minimal_workspace
         )
-        assert "would fall back to expensive Cursor path" in rationale
+        assert "would fall back to expensive agent path" in rationale
         assert est > 1000  # includes cursor overhead
 
 

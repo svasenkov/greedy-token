@@ -31,7 +31,7 @@ def test_format_savings_lines() -> None:
         attach_text("footer lines", "\n".join(lines))
     with allure.step("Verify canonical Greedy token block"):
         assert lines == [
-            "Saved vs naive Cursor chat (baseline: default-estimate)",
+            "Saved vs naive agent chat (baseline: default-estimate)",
             "  Baseline (naive agent chat):  ~11,607  (default-estimate)",
             "  Spent (MCP executor, LLM tokens): ~0  (ripgrep on disk — 0 LLM spend)",
             "  Saved:             ~11,607  (= baseline − spent; baseline: default-estimate)",

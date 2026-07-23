@@ -120,7 +120,7 @@ def format_savings_lines(
     baseline: int,
     spent: int,
     saved: int | None = None,
-    title: str = "Saved vs naive Cursor chat",
+    title: str = "Saved vs naive agent chat",
     tier: str = "",
     executor_sub: str | None = None,
     spent_note: str | None = None,
@@ -306,7 +306,7 @@ def _format_tool_footer_markdown(ctx: ToolFooterContext) -> str:
             "| | tokens |",
             "|:--|--:|",
             f"| spent | ~{ctx.est_tokens:,} |",
-            f"| naive Cursor ({ctx.breakdown.source}) | ~{ctx.baseline:,} |",
+            f"| naive agent chat ({ctx.breakdown.source}) | ~{ctx.baseline:,} |",
             f"| **saved** (baseline: {ctx.breakdown.source}) | **~{ctx.saved:,}** |",
             "",
             f"{ctx.billing_short}{route}",
@@ -354,12 +354,12 @@ def _format_tool_footer_full(ctx: ToolFooterContext) -> str:
             f"  Billing: read docs/rag{hit_note} — small context vs expensive LLM chat"
         )
     elif ctx.tier == "cursor":
-        lines.append("  Billing: expensive LLM (Cursor agent) — full context + reply")
+        lines.append("  Billing: expensive LLM (agent chat) — full context + reply")
 
     lines.extend(
         [
             "",
-            "Cursor agent chat (naive — same task, no MCP tool)",
+            "Agent chat (naive — same task, no MCP tool)",
             f"  Always-on rules: ~{ctx.breakdown.rules:,}  (measured)",
             f"  Task prompt:     ~{ctx.breakdown.task:,}  (measured)",
             f"  Agent overhead:  ~{ctx.breakdown.overhead:,}  ({ctx.breakdown.source})",
@@ -388,7 +388,7 @@ def _format_tool_footer_full(ctx: ToolFooterContext) -> str:
     lines.extend(
         [
             "",
-            "Note: MCP in Agent chat still uses Cursor tokens for rules + your message +",
+            "Note: MCP in Agent chat still uses agent tokens for rules + your message +",
             "agent reply. Only cheap LLM / rg / rag rows avoid the expensive LLM path.",
         ]
     )

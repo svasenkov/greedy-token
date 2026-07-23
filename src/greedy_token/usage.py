@@ -592,7 +592,7 @@ def quality_metrics(events: list[dict], *, since_label: str | None = None) -> di
       * override_rate = script_override events / cheap-tier hits
       * cheap_hold_rate = 1 - override_rate (cheap hits kept, not re-asked)
 
-    Failures = script_override (weight 1.0). Cursor escalation on wiring is not a
+    Failures = script_override (weight 1.0). Agent-chat escalation on wiring is not a
     failure. Auto-override attribution covers every cheap tier (tool/python/
     ollama/rag/script), so the hold denominator spans all of them — no tier is
     excluded and there is no fake 100% from unmeasured tiers. ``script_hits``

@@ -115,7 +115,7 @@ def test_mcp_stdio_pipeline_dry_run_footer(minimal_workspace: Path) -> None:
         attach_text("pipeline response", text)
     with allure.step("Verify per-step savings footer"):
         assert "Per-step savings" in text
-        assert "Saved vs naive Cursor chat" in text
+        assert "Saved vs naive agent chat" in text
 
 
 @allure.story("Pipeline tool")

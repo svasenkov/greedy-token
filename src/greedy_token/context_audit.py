@@ -1,9 +1,22 @@
+"""Token audit of the agent host's always-on context (rules, skills, docs).
+
+Host conventions (config key ``agent_host: cursor|claude|continue``):
+
+* **cursor** — ``.cursor/rules/*.mdc`` always-on rules + ``.cursor/skills``;
+* **claude** — ``CLAUDE.md`` (workspace root) + ``.claude/rules/*.md``;
+* **continue** — ``.continuerules`` + ``.continue/rules/*.md``.
+
+The sampled docs set is host-independent. Telemetry keys (``cursor_baseline``)
+keep their names — they are baseline slot names, not host claims.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
 
 from greedy_token.paths import find_workspace_root
+from greedy_token.settings import AgentHost, get_agent_host
 from greedy_token.tokens import TokenEstimate, count_files, format_size_table
 
 
@@ -15,16 +28,56 @@ class ContextItem:
     estimate: TokenEstimate
 
 
-def audit_context(root: Path | None = None) -> list[ContextItem]:
-    root = root or find_workspace_root()
-    items: list[ContextItem] = []
-
-    globs = [
+# (glob, kind, always_on) per agent host — always-on rules are charged on
+# every chat in that host, so they feed the naive-chat baseline.
+HOST_RULE_GLOBS: dict[AgentHost, list[tuple[str, str, bool]]] = {
+    "cursor": [
         (".cursor/rules/*.mdc", "rule", True),
         (".cursor/skills/*/SKILL.md", "skill", False),
-        ("docs/CONTEXT.md", "doc", False),
-        ("docs/migration-prompts.md", "doc", False),
-    ]
+    ],
+    "claude": [
+        ("CLAUDE.md", "rule", True),
+        (".claude/rules/*.md", "rule", True),
+        (".cursor/skills/*/SKILL.md", "skill", False),
+    ],
+    "continue": [
+        (".continuerules", "rule", True),
+        (".continue/rules/*.md", "rule", True),
+        (".cursor/skills/*/SKILL.md", "skill", False),
+    ],
+}
+
+DOC_GLOBS: list[tuple[str, str, bool]] = [
+    ("docs/CONTEXT.md", "doc", False),
+    ("docs/migration-prompts.md", "doc", False),
+]
+
+HOST_LABELS: dict[AgentHost, str] = {
+    "cursor": "Cursor",
+    "claude": "Claude",
+    "continue": "Continue",
+}
+
+HOST_RULES_HINT: dict[AgentHost, str] = {
+    "cursor": ".cursor/rules/*.mdc",
+    "claude": "CLAUDE.md + .claude/rules/*.md",
+    "continue": ".continuerules + .continue/rules/*.md",
+}
+
+
+def resolve_host(root: Path | None = None, host: str | None = None) -> AgentHost:
+    """Explicit host wins; otherwise the config (agent_host:, default cursor)."""
+    if host in HOST_RULE_GLOBS:
+        return host  # type: ignore[return-value]
+    return get_agent_host(root).host
+
+
+def audit_context(root: Path | None = None, host: str | None = None) -> list[ContextItem]:
+    root = root or find_workspace_root()
+    resolved_host = resolve_host(root, host)
+    items: list[ContextItem] = []
+
+    globs = HOST_RULE_GLOBS[resolved_host] + DOC_GLOBS
 
     found: list[tuple[Path, str, bool]] = []
     for pattern, kind, always_on in globs:
@@ -47,16 +100,20 @@ def audit_context(root: Path | None = None) -> list[ContextItem]:
     return items
 
 
-def render_audit(items: list[ContextItem]) -> str:
+def render_audit(items: list[ContextItem], host: str | None = None) -> str:
+    resolved_host = resolve_host(None, host)
+    label = HOST_LABELS[resolved_host]
+    rules_hint = HOST_RULES_HINT[resolved_host]
+
     always = [i for i in items if i.always_on]
     rules_total = sum(i.estimate.tokens for i in always)
     skills_total = sum(i.estimate.tokens for i in items if i.kind == "skill")
     all_total = sum(i.estimate.tokens for i in items)
 
     lines = [
-        "== Cursor context audit ==",
+        f"== {label} context audit ==",
         "",
-        f"Always-on rules (.cursor/rules/*.mdc): {rules_total:,} tokens",
+        f"Always-on rules ({rules_hint}): {rules_total:,} tokens",
         f"Skills on disk (.cursor/skills/*/SKILL.md): {skills_total:,} tokens",
         f"Sampled docs: {all_total - rules_total - skills_total:,} tokens",
         f"Grand total (sampled set): {all_total:,} tokens",

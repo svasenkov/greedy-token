@@ -84,7 +84,7 @@ def test_mcp_pipeline_dry_run_includes_footer(minimal_workspace: Path) -> None:
         attach_text("pipeline response", out)
     with allure.step("Verify per-step savings footer"):
         assert "Per-step savings" in out
-        assert "Saved vs naive Cursor chat" in out
+        assert "Saved vs naive agent chat" in out
 
 
 @allure.story("Pipeline tool")
@@ -142,7 +142,7 @@ def test_mcp_usage_aggregates_log(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     with allure.step("Verify aggregated session totals"):
         assert "tool-rg-search" in out or "tool" in out.lower()
         assert "Session totals (this window)" in out
-        assert "Saved vs naive Cursor (all events)" in out
+        assert "Saved vs naive agent chat (all events)" in out
         assert f"Log: {log_file}" in out
 
 

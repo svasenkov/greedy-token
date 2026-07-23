@@ -297,7 +297,7 @@ def test_pipeline_footer_source_label(minimal_workspace: Path) -> None:
     footer = format_pipeline_footer(result, minimal_workspace)
     attach_text("pipeline footer", footer)
     assert (
-        "Per-step savings (if each step were a separate naive Cursor chat; "
+        "Per-step savings (if each step were a separate naive agent chat; "
         f"baseline: {SOURCE_CALIBRATED}):"
     ) in footer
     assert f"Saved by executor (sum of per-step savings; baseline: {SOURCE_CALIBRATED}):" in footer

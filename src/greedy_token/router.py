@@ -278,7 +278,7 @@ def _token_estimate_for_route(
         )
     if target == "ollama":
         if ollama_available():
-            # Local/cheap LLM still spends tokens (not Cursor API $).
+            # Local/cheap LLM still spends tokens (not agent API $).
             return (
                 complexity,
                 max(task_tokens, 1),
@@ -294,7 +294,7 @@ def _token_estimate_for_route(
         return (
             "medium",
             task_tokens + cursor_overhead(),
-            "Cheap LLM unavailable — would fall back to expensive Cursor path.",
+            "Cheap LLM unavailable — would fall back to expensive agent path.",
         )
     if target == "rag":
         from greedy_token.budget import rag_est_tokens
@@ -314,7 +314,7 @@ def _token_estimate_for_route(
     return (
         complexity,
         rules_tokens + task_tokens + cursor_overhead(),
-        "Wiring/architecture — requires expensive LLM (Cursor agent chat with rules context).",
+        "Wiring/architecture — requires expensive LLM (agent chat with rules context).",
     )
 
 
@@ -553,7 +553,7 @@ def explain_route(decision: RouteDecision, task: str, root: Path) -> dict:
     if decision.matched:
         reason = f"matched {decision.route_id} on: {', '.join(decision.matched)}"
     elif decision.route_id == "cursor-fallback":
-        reason = "no cheaper tier matched — Cursor fallback"
+        reason = "no cheaper tier matched — agent-chat fallback"
     else:
         reason = decision.rationale or f"{decision.target} tier, no explicit pattern"
     if decision.note.startswith("budget_policy"):
@@ -617,7 +617,7 @@ def format_decision(decision: RouteDecision, task: str, root: Path) -> str:
         lines.append(f"RAG domains: {', '.join(decision.domains)}")
         lines.append(f"Try: greedy-token rag \"{task}\"")
     if decision.target == "cursor":
-        lines.append("→ New Cursor chat; skill from docs/skills-map.md if available.")
+        lines.append("→ New agent chat; skill from docs/skills-map.md if available.")
 
     exp = explain_route(decision, task, root)
     lines.append(f"Why: {exp['reason']}")
@@ -628,7 +628,7 @@ def format_decision(decision: RouteDecision, task: str, root: Path) -> str:
         )
     if exp["saved_est"]:
         lines.append(
-            f"Saved est: ~{exp['saved_est']:,} tokens vs Cursor (baseline: {baseline_source()})"
+            f"Saved est: ~{exp['saved_est']:,} tokens vs agent chat (baseline: {baseline_source()})"
         )
     nudge = uncalibrated_nudge()
     if nudge:

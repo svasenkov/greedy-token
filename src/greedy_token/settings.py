@@ -13,6 +13,12 @@ CheapLlmProvider = Literal["ollama", "openai_compat"]
 FooterStyle = Literal["compact", "markdown", "full"]
 DEFAULT_FOOTER_STYLE: FooterStyle = "compact"
 
+# Agent host — which chat client's context conventions to audit (rules files
+# charged on every chat). The expensive-tier telemetry keys (cursor_baseline,
+# tier id "cursor") stay host-neutral slot names for compatibility.
+AgentHost = Literal["cursor", "claude", "continue"]
+DEFAULT_AGENT_HOST: AgentHost = "cursor"
+
 DEFAULT_CHEAP_LLM_PROVIDER: CheapLlmProvider = "ollama"
 DEFAULT_OLLAMA_URL = "http://localhost:11434"
 DEFAULT_OLLAMA_MODEL = "qwen2.5-coder:7b-instruct-q4_K_M"
@@ -41,6 +47,12 @@ class OllamaSettings:
 @dataclass(frozen=True)
 class FooterSettings:
     style: FooterStyle
+    source: str
+
+
+@dataclass(frozen=True)
+class AgentHostSettings:
+    host: AgentHost
     source: str
 
 
@@ -232,6 +244,55 @@ def get_footer_settings(root: Path | None = None) -> FooterSettings:
         except SystemExit:
             pass
     return _resolve_footer_style(user_cfg=user_cfg, workspace_cfg=workspace_cfg)
+
+
+def _normalize_agent_host(value: str | None) -> AgentHost | None:
+    if not value:
+        return None
+    normalized = value.strip().lower()
+    if normalized in ("cursor", "claude", "continue"):
+        return normalized  # type: ignore[return-value]
+    return None
+
+
+def _resolve_agent_host(
+    *,
+    user_cfg: dict[str, Any],
+    workspace_cfg: dict[str, Any],
+) -> AgentHostSettings:
+    host: AgentHost = DEFAULT_AGENT_HOST
+    source = "default"
+
+    for level, cfg in (("user", user_cfg), ("workspace", workspace_cfg)):
+        next_host = _normalize_agent_host(
+            str(cfg["agent_host"]) if cfg.get("agent_host") is not None else None
+        )
+        if next_host:
+            host = next_host
+            source = level
+
+    env_host = _normalize_agent_host(os.environ.get("GREEDY_AGENT_HOST", ""))
+    if env_host:
+        host = env_host
+        source = "env"
+
+    return AgentHostSettings(host=host, source=source)
+
+
+def get_agent_host(root: Path | None = None) -> AgentHostSettings:
+    """Resolved agent host: config key ``agent_host`` (user < workspace < env)."""
+    user_cfg = _read_yaml(user_config_path())
+    workspace_cfg: dict[str, Any] = {}
+    if root is not None:
+        workspace_cfg = _read_yaml(workspace_config_path(root))
+    else:
+        try:
+            from greedy_token.paths import find_workspace_root
+
+            workspace_cfg = _read_yaml(workspace_config_path(find_workspace_root()))
+        except SystemExit:
+            pass
+    return _resolve_agent_host(user_cfg=user_cfg, workspace_cfg=workspace_cfg)
 
 
 def _normalize_search_context(value: str | None) -> SearchContextMode | None:
@@ -578,6 +639,7 @@ def init_user_config_from_preset(*, preset: str, force: bool = False) -> Path:
 def example_workspace_config() -> str:
     return (
         "# Project-local greedy-token settings (optional)\n"
+        f"agent_host: {DEFAULT_AGENT_HOST}  # cursor | claude | continue\n"
         "cheap_llm:\n"
         f"  provider: {DEFAULT_CHEAP_LLM_PROVIDER}\n"
         f"  url: {DEFAULT_CHEAP_LLM_URL}\n"

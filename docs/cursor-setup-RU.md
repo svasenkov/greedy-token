@@ -160,4 +160,5 @@ greedy-token config
 ## См. также
 
 - README пакета: [README-RU.md](../README-RU.md)
-- Roadmap (Claude Desktop / Continue): [ROADMAP-RU.md](ROADMAP-RU.md)
+- Другие хосты: [claude-setup-RU.md](claude-setup-RU.md) · [continue-setup-RU.md](continue-setup-RU.md)
+- Roadmap: [ROADMAP-RU.md](ROADMAP-RU.md)

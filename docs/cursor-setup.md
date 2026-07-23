@@ -160,4 +160,5 @@ Hooks / custom launchers can be added later; MCP + rule are enough for beta test
 ## Related
 
 - Package README: [README.md](../README.md)
-- Roadmap (Claude Desktop / Continue): [ROADMAP.md](ROADMAP.md)
+- Other hosts: [claude-setup.md](claude-setup.md) · [continue-setup.md](continue-setup.md)
+- Roadmap: [ROADMAP.md](ROADMAP.md)

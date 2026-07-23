@@ -140,9 +140,11 @@ OpenAI / Groq / Mistral / DeepSeek в пресетах — через `openai_co
 | Host | MCP tools | Token-economy rule | Статус | Issue |
 |------|:---------:|:------------------:|:------:|-------|
 | **Cursor** | ✅ | ✅ | ✅ | — |
-| **Claude Desktop** (MCP) | вероятно ✅ | — | ❌ 🔜 | [#14](https://github.com/svasenkov/greedy-token/issues/14) |
-| **VS Code + Continue** | — | — | ❌ | [#15](https://github.com/svasenkov/greedy-token/issues/15) |
+| **Claude Desktop** (MCP) | ✅ | ✅ `examples/claude/CLAUDE.md` | ✅ конфиг + доки (`agent_host: claude`) | [#14](https://github.com/svasenkov/greedy-token/issues/14) |
+| **VS Code + Continue** | ✅ | ✅ `examples/continue/continuerules.md` | ✅ конфиг + доки (`agent_host: continue`) | [#15](https://github.com/svasenkov/greedy-token/issues/15) |
 | **Только CLI** | — | — | ✅ | — |
+
+Acceptance: гайды `docs/claude-setup(-RU).md` / `docs/continue-setup(-RU).md`; конфиг `agent_host: cursor|claude|continue` — `audit-context` и базлайн наивного чата считают always-on правила хоста (`CLAUDE.md`, `.continuerules`); live-smoke на реальных хостах — 🔜 (ручной чеклист).
 
 ## CI / headless
 

@@ -203,7 +203,9 @@ def _clear_cheap_llm_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "GREEDY_LLM_TIER",
         "GREEDY_EXPENSIVE_LLM",
         "GREEDY_ALLOW_EXPENSIVE",
+        "GREEDY_METERED_LLM",
         "GREEDY_TOKEN_FOOTER_STYLE",
+        "GREEDY_AGENT_HOST",
     ):
         monkeypatch.delenv(key, raising=False)
 

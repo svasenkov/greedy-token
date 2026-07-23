@@ -1,4 +1,4 @@
-"""MCP server — token-aware route / RAG / code search for Cursor agents."""
+"""MCP server — token-aware route / RAG / code search for agent hosts (Cursor, Claude Desktop, Continue)."""
 
 from __future__ import annotations
 
@@ -159,7 +159,7 @@ def greedy_token_usage(since: str = "7d") -> str:
             baseline=totals_baseline,
             spent=totals_spent,
             saved=totals_saved,
-            title="Saved vs naive Cursor (all events)",
+            title="Saved vs naive agent chat (all events)",
             spent_note="sum across logged greedy-token calls",
         )
     )

@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "greedy-token": {
+      "command": "greedy-token-mcp",
+      "env": {
+        "GREEDY_TOKEN_ROOT": "/absolute/path/to/your/project"
+      }
+    }
+  }
+}

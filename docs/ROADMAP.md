@@ -83,15 +83,16 @@ cheap_llm:
 | Host | MCP tools | Token-economy rule | Status | Issue |
 |------|:---------:|:------------------:|:------:|-------|
 | **Cursor** | ✅ | ✅ | ✅ | — |
-| **Claude Desktop** (MCP) | likely ✅ | — | ❌ 🔜 | [#14](https://github.com/svasenkov/greedy-token/issues/14) |
-| **VS Code + Continue** | — | — | ❌ | [#15](https://github.com/svasenkov/greedy-token/issues/15) |
+| **Claude Desktop** (MCP) | ✅ | ✅ `examples/claude/CLAUDE.md` | ✅ config + docs (`agent_host: claude`) | [#14](https://github.com/svasenkov/greedy-token/issues/14) |
+| **VS Code + Continue** | ✅ | ✅ `examples/continue/continuerules.md` | ✅ config + docs (`agent_host: continue`) | [#15](https://github.com/svasenkov/greedy-token/issues/15) |
 | **CLI only** (no IDE) | — | — | ✅ | — |
 
 ### MCP hosts — acceptance criteria
 
-- `docs/mcp-setup.md` with host-specific config snippets
-- Smoke checklist: 5 tools visible, `greedy_token_search` + `greedy_token_route` work
-- Optional: example rule file for non-Cursor agents (Continue custom instructions)
+- ✅ Host setup guides with config snippets: `docs/claude-setup.md`, `docs/continue-setup.md` (+RU)
+- ✅ `agent_host: cursor|claude|continue` config — `audit-context` and the naive-chat baseline count the host's always-on rules (`CLAUDE.md`, `.continuerules`)
+- ✅ Rule templates for non-Cursor agents: `examples/claude/CLAUDE.md`, `examples/continue/continuerules.md`
+- 🔜 Live smoke on real hosts: tools visible, `greedy_token_search` + `greedy_token_route` work (manual checklist)
 
 ## CI / headless
 

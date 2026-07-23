@@ -356,7 +356,7 @@ def test_format_pipeline_footer_has_by_executor(minimal_workspace: Path) -> None
     with allure.step("Verify per-executor sections; dry-run does not inflate saved"):
         assert "Per-step savings" in footer
         assert "Saved by executor" in footer
-        assert "Saved vs naive Cursor chat" in footer
+        assert "Saved vs naive agent chat" in footer
         assert "dry-run — not executed" in footer
         assert "Saved:             ~0" in footer
         assert all(row.saved == 0 for row in rows)
@@ -495,7 +495,7 @@ def test_format_savings_table_exact() -> None:
     assert format_pipeline_step_savings_table([]) == []
     lines = format_pipeline_step_savings_table([_row(index=1, duration_ms=83, spent=0, baseline=9487, saved=9487)])
     assert lines[0] == (
-        "Per-step savings (if each step were a separate naive Cursor chat; "
+        "Per-step savings (if each step were a separate naive agent chat; "
         "baseline: default-estimate):"
     )
     # Exact header line pins column labels (kills case/text mutations).

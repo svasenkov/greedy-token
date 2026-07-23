@@ -4,9 +4,9 @@
 
 <img src="docs/greedy-cat.gif" alt="greedy-token mascot" width="240" />
 
-You work in **Cursor** — greedy-token sits next to the agent (CLI + MCP) so everyday tasks don’t always open a full agent chat.
+You work in an agent host (**Cursor**, Claude Desktop, Continue) — greedy-token sits next to the agent (CLI + MCP) so everyday tasks don’t always open a full agent chat.
 
-It routes each task to the **cheapest matching tier** (`tool` → `python` → `ollama` → `rag` → `cursor`; walk `TIER_ORDER`, best pattern score per tier). **Pipeline** chains multiple tiers in one call. Escalation to **Cursor agent chat** only when no cheaper route matches. Each response includes a **Greedy token** footer vs a naive full-context chat.
+It routes each task to the **cheapest matching tier** (`tool` → `python` → `ollama` → `rag` → `cursor`; walk `TIER_ORDER`, best pattern score per tier). **Pipeline** chains multiple tiers in one call. Escalation to the **expensive agent chat** only when no cheaper route matches. Each response includes a **Greedy token** footer vs a naive full-context chat.
 
 ## Reviews
 
@@ -84,7 +84,7 @@ In Cursor:  your task  →  greedy-token (MCP/CLI)
        e.g. check-meta-sync then audit-skill …
        composes tool / python / ollama / rag steps — not a separate tier
                  ↓
-     escalation: Cursor agent chat when no cheaper route matches
+     escalation: expensive agent chat when no cheaper route matches
 ```
 
 ## What it does
@@ -145,7 +145,7 @@ Today the happy path is **Cursor + Ollama + workspace**. CLI and MCP are IDE-agn
 |------|-------------------|---------|
 | Executors | `tool`, `python`, `ollama` (via `cheap_llm`), `rag`; **metered bulk APIs** (spend-guarded, [ADR-0002](docs/adr/0002-metered-bulk-cheap-tier.md)) | Crystal IR store |
 | Crystallization | L2 telemetry + **L3 safe mode** (`crystallize draft` → shadow → `promote` / `reject`) | — (silent auto-apply intentionally not planned) |
-| Agent host | Cursor MCP + token baseline | Claude Desktop, Continue |
+| Agent host | Cursor (default) + **Claude Desktop, Continue** via `agent_host` config ([Agent hosts](#agent-hosts)) | more host conventions on request |
 | Config | `cheap_llm.provider` + `OLLAMA_*` / `ollama:` aliases | team route presets |
 
 ## Install
@@ -188,6 +188,18 @@ cp examples/cursor/rules/greedy-token.mdc .cursor/rules/greedy-token.mdc
 Then: **Settings → MCP → greedy-token → Enable → Refresh** → **new** Agent chat.
 
 Expected: **6 MCP tools** (including `greedy_token_pipeline` and `greedy_token_crystallize`).
+
+## Agent hosts
+
+Cursor is the default host, but the stdio MCP server and the context audit work in any MCP-capable agent host. Set `agent_host: cursor | claude | continue` (workspace `.greedy-token.yaml`, user config, or `GREEDY_AGENT_HOST` env) and `audit-context` + the naive-chat baseline count that host's always-on rule files:
+
+| Host | Always-on rules audited | Setup guide | Starter kit |
+|------|------------------------|-------------|-------------|
+| `cursor` (default) | `.cursor/rules/*.mdc` | [docs/cursor-setup.md](docs/cursor-setup.md) | [`examples/cursor/`](examples/cursor/) |
+| `claude` (Claude Desktop) | `CLAUDE.md` + `.claude/rules/*.md` | [docs/claude-setup.md](docs/claude-setup.md) | [`examples/claude/`](examples/claude/) |
+| `continue` (Continue) | `.continuerules` + `.continue/rules/*.md` | [docs/continue-setup.md](docs/continue-setup.md) | [`examples/continue/`](examples/continue/) |
+
+Telemetry stays compatible: the `cursor_baseline` field and the `cursor` tier id are host-neutral slot names ("naive agent chat" / "expensive agent path"), not claims about the specific host.
 
 ## MCP tools
 
@@ -232,7 +244,7 @@ pipeline: search-rag baseUrl path=configurator-option-presets.html
 Footer includes **per-step savings** table:
 
 ```text
-Per-step savings (if each step were a separate naive Cursor chat):
+Per-step savings (if each step were a separate naive agent chat):
    #  step                   executor     ms   spent  baseline     saved  billing
    1  check-meta-sync        python       83       0     9,487     9,487  script
    2  audit-skill            ollama     2698   2,507     9,499     6,992  cheap LLM
@@ -358,7 +370,7 @@ greedy-token report --since 7d
 - **This call** — executor, spent, billing (cheap vs expensive LLM)
 - **Cursor baseline** — rules + task + agent overhead (see [Baseline calibration](#baseline-calibration))
 - **Tier alternatives** — selected row matches Spent for this call
-- **Saved vs naive Cursor chat** — an **estimate**, always marked with the baseline source: `measured` / `calibrated` / `default-estimate`
+- **Saved vs naive agent chat** — an **estimate**, always marked with the baseline source: `measured` / `calibrated` / `default-estimate`
 
 Exceptions: `usage` → **Session totals**; `pipeline: list` → recipes only (no economy footer).
 

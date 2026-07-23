@@ -71,7 +71,7 @@ def test_budget_footer_branch_gaps(minimal_workspace: Path) -> None:
         executor_sub="cursor",
         style="full",
     )
-    assert "Billing: expensive LLM (Cursor agent)" in cursor_billing
+    assert "Billing: expensive LLM (agent chat)" in cursor_billing
 
     unknown_tier = format_tool_footer(
         "task",

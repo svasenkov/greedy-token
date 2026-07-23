@@ -156,7 +156,7 @@ def format_pipeline_step_savings_table(
     if source is None:
         source = baseline_source()
     lines = [
-        f"Per-step savings (if each step were a separate naive Cursor chat; baseline: {source}):",
+        f"Per-step savings (if each step were a separate naive agent chat; baseline: {source}):",
         f"  {'#':>2}  {'step':<22} {'executor':<8} {'ms':>6} {'spent':>7} {'baseline':>9} {'saved':>9}  billing",
     ]
     for row in rows:
@@ -664,7 +664,7 @@ def _run_step(
                 exit_code=1,
                 output=(
                     f"Cheap LLM unavailable ({llm.provider}, {llm.url}). "
-                    "Start the runtime or use the expensive LLM path (Cursor)."
+                    "Start the runtime or use the expensive LLM path (agent chat)."
                 ),
                 duration_ms=duration_ms,
                 est_tokens=0,
@@ -865,7 +865,7 @@ def format_pipeline_footer(result: PipelineResult, root: Path) -> str:
             "",
             f"Pipeline total: {result.total_duration_ms / 1000:.1f} s · ~{total_spent:,} LLM tokens spent",
             "",
-            "Combined naive Cursor chat (whole pipeline as one agent task)",
+            "Combined naive agent chat (whole pipeline as one agent task)",
             f"  Always-on rules: ~{breakdown.rules:,}  (measured)",
             f"  Task prompt:     ~{breakdown.task:,}  (measured)",
             f"  Agent overhead:  ~{breakdown.overhead:,}  ({source})",
@@ -878,7 +878,7 @@ def format_pipeline_footer(result: PipelineResult, root: Path) -> str:
         # Pure dry-run: do not claim baseline−0 as "saved".
         lines.extend(
             [
-                f"Saved vs naive Cursor chat (baseline: {source})",
+                f"Saved vs naive agent chat (baseline: {source})",
                 f"  {BASELINE_LABEL}  ~{baseline:,}  ({source})",
                 f"  Spent (MCP executor, LLM tokens): ~{total_spent:,}  (dry-run — steps not executed)",
                 f"  Saved:             ~0  (dry-run; re-run with execute=true / --execute; baseline: {source})",
@@ -900,7 +900,7 @@ def format_pipeline_footer(result: PipelineResult, root: Path) -> str:
             "Note: Per-step baseline assumes a separate agent chat per step (rules+overhead each time).",
             "Pipeline total baseline = one agent chat for the full pipeline task.",
             "Dry-run steps report saved=0 until execute=true / --execute.",
-            "Agent wrapper (MCP + reply) still uses Cursor tokens beyond executor rows.",
+            "Agent wrapper (MCP + reply) still uses agent tokens beyond executor rows.",
         ]
     )
     if result.stopped_early:

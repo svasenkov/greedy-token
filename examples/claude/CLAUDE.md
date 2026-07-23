@@ -1,0 +1,26 @@
+# Greedy token
+
+MCP **greedy-token**. Lookup/search → MCP tools, not a series of built-in search.
+
+| Task | Tool |
+|------|------|
+| find / search in code | `greedy_token_search(query, path?)` |
+| patterns / flags / docs | `greedy_token_rag(query, domain?)` |
+| multi-step chain | `greedy_token_pipeline(task)` |
+| stats / billing / usage report | `greedy_token_usage(since?)` |
+
+**path** — a file or directory name, not the whole user prompt.
+
+## Minimal calls (required)
+
+- **Code search** → **one** `greedy_token_search`. No `route`, no `usage`, no `rag`, no parallel MCP.
+- **`greedy_token_route`** — only when the user explicitly asks which tier/route.
+- **`greedy_token_usage`** — only on explicit stats/billing request. Never after search or “for context”.
+- Do not duplicate search with built-in tools when MCP is available.
+
+Pair **search + rag** → one `greedy_token_pipeline("pipeline: search-rag <query> <path>")`.
+
+At end of reply — one line: `Greedy token: <executor> · spent ~N · saved ~N · <billing>`.
+Full footer only if user asked (“stats”, “greedy verbose”).
+
+**Exceptions:** wiring/refactor after search; user says "without greedy-token"; MCP disabled → one built-in search OK.

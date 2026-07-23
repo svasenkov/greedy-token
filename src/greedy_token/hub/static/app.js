@@ -112,7 +112,7 @@ async function renderHome() {
 
   document.getElementById("app").innerHTML = `
     <div class="grid">
-      <div class="card" title="estimate vs naive agent-chat baseline (source: ${data.baseline?.source || "default-estimate"})"><h3>Saved vs Cursor (${data.baseline?.source || "default-estimate"})</h3><div class="value">${fmt(totalSaved)}</div></div>
+      <div class="card" title="estimate vs naive agent-chat baseline (source: ${data.baseline?.source || "default-estimate"})"><h3>Saved vs agent chat (${data.baseline?.source || "default-estimate"})</h3><div class="value">${fmt(totalSaved)}</div></div>
       <div class="card" title="share of events routed to cheap tiers"><h3>Coverage</h3><div class="value">${coverage}%</div></div>
       <div class="card" title="cheap hits kept across all cheap tiers (not re-asked in Cursor)">
         <h3>Cheap hold rate</h3>

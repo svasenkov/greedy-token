@@ -117,7 +117,7 @@ def test_token_estimate_for_route_exact(
             ) == (
                 "medium",
                 task_tokens + BASE_CURSOR_OVERHEAD,
-                "Cheap LLM unavailable — would fall back to expensive Cursor path.",
+                "Cheap LLM unavailable — would fall back to expensive agent path.",
             )
 
 
@@ -195,7 +195,7 @@ def test_token_estimate_for_route_cursor(
         assert tokens == 140 + task_tokens + BASE_CURSOR_OVERHEAD
         assert rationale == (
             "Wiring/architecture — requires expensive LLM "
-            "(Cursor agent chat with rules context)."
+            "(agent chat with rules context)."
         )
 
     with allure.step("unknown target → default 'medium' complexity, same cursor branch math"):
@@ -984,7 +984,7 @@ def test_explain_route_fallback_reason(
     dec = _decision(matched=[], route_id="cursor-fallback", target="cursor", rationale="x")
     out = router.explain_route(dec, "t", minimal_workspace)
     with allure.step("exact fallback reason (kills case/verbatim string mutants)"):
-        assert out["reason"] == "no cheaper tier matched — Cursor fallback"
+        assert out["reason"] == "no cheaper tier matched — agent-chat fallback"
     with allure.step("no runner → runner_up is None, not '' (kills init '' mutant)"):
         assert out["runner_up"] is None
 
@@ -1030,7 +1030,7 @@ def test_format_decision_exact(
             "Execute: read-only (greedy-token run --execute OK)",
             "Why: WHYTEXT",
             "Runner-up: TOOL (ru, est ~1,234)",
-            "Saved est: ~555 tokens vs Cursor (baseline: default-estimate)",
+            "Saved est: ~555 tokens vs agent chat (baseline: default-estimate)",
             "baseline uncalibrated — run greedy-token calibrate",
         ]
     )
@@ -1081,7 +1081,7 @@ def test_format_decision_branch_variants(
 
     with allure.step("cursor target → exact new-chat hint line (exact line, kills XX-wrap)"):
         out5 = router.format_decision(_d(target="cursor"), "t", minimal_workspace)
-        assert "→ New Cursor chat; skill from docs/skills-map.md if available." in out5.split("\n")
+        assert "→ New agent chat; skill from docs/skills-map.md if available." in out5.split("\n")
 
 
 @allure.title("format_decision: threads the real root into explain_route (kills root=None)")

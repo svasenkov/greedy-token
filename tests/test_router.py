@@ -248,7 +248,7 @@ def test_format_decision_full(minimal_workspace: Path) -> None:
         "refactor header",
         minimal_workspace,
     )
-    assert "New Cursor chat" in cursor_out
+    assert "New agent chat" in cursor_out
 
 
 @allure.story("Explainable routing")
