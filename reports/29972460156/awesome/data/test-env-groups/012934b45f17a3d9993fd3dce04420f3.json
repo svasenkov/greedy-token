@@ -1,0 +1,1 @@
+{"id":"012934b45f17a3d9993fd3dce04420f3","fullName":"tests.test_metered_bulk#test_metered_cheap_fallback_none","name":"metered_cheap_fallback is None without a metered cheap model","status":"passed","testResultsByEnv":{"default":"7eb7d9b9b375c04b208fce0de4256f40"}}

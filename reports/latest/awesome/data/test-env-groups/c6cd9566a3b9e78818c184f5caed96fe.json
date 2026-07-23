@@ -1,0 +1,1 @@
+{"id":"c6cd9566a3b9e78818c184f5caed96fe","fullName":"tests.test_metered_bulk#test_derive_tier_threshold_boundaries","name":"Exact threshold cost is cheap; a hair above is expensive","status":"passed","testResultsByEnv":{"default":"ed53e2c298d31a859ec17c602fb54bb2"}}

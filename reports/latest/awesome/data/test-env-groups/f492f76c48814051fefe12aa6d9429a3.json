@@ -1,0 +1,1 @@
+{"id":"f492f76c48814051fefe12aa6d9429a3","fullName":"tests.test_agent_host#test_audit_claude_convention","name":"audit_context(host=claude) counts CLAUDE.md + .claude/rules as always-on","status":"passed","testResultsByEnv":{"default":"f7dd0e34931c7a81b1773d61393b67a9"}}

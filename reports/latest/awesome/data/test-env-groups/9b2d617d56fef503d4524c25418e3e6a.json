@@ -1,0 +1,1 @@
+{"id":"9b2d617d56fef503d4524c25418e3e6a","fullName":"tests.test_cli_handlers#test_cmd_init_preset_errors","name":"cmd_init --preset error paths: unknown name, empty name, no routes","status":"passed","testResultsByEnv":{"default":"b94f2b28170431a51b912f72ab32479c"}}

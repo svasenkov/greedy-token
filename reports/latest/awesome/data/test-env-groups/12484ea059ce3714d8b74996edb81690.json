@@ -1,0 +1,1 @@
+{"id":"12484ea059ce3714d8b74996edb81690","fullName":"tests.test_metered_bulk#test_metered_opt_in","name":"metered_opt_in: config, env tokens, cli flag, default off","status":"passed","testResultsByEnv":{"default":"1c9a8b3179dea5f0d2ccae1414994cf2"}}

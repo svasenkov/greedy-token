@@ -1,0 +1,1 @@
+{"id":"e4c66543dc969ae1aa0c17c48acdfa27","fullName":"tests.test_metered_bulk#test_route_ollama_tier_with_metered_fallback","name":"Ollama down + metered ready → ollama tier still routes, honest rationale","status":"passed","testResultsByEnv":{"default":"9c70ca177c81c78e0349d2027496b034"}}

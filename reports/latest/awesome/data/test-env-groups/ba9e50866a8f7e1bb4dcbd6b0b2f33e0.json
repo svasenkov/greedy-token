@@ -1,0 +1,1 @@
+{"id":"ba9e50866a8f7e1bb4dcbd6b0b2f33e0","fullName":"tests.test_calibration#test_cache_invalidated_on_log_growth","name":"Log grows (mtime/size change) → cache invalidated without restart","status":"passed","testResultsByEnv":{"default":"6a4c4f184cd5e978bf004ed52722c7dd"}}
