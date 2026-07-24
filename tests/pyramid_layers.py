@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import allure
+
 # Keys match automator PYRAMID_LAYER_MAPPINGS / Java @Layer values.
 LAYER_BY_MODULE: dict[str, str] = {
     # unit — pure logic, no subprocess / external IO
@@ -75,6 +77,16 @@ LAYER_BY_MODULE: dict[str, str] = {
 }
 
 PYRAMID_LAYERS = ("unit", "component", "integration", "api", "e2e", "manual")
+
+# Collage testResultSeverities panel — stable spread by pyramid layer (Allure label severity).
+SEVERITY_BY_LAYER: dict[str, allure.severity_level] = {
+    "unit": allure.severity_level.NORMAL,
+    "component": allure.severity_level.MINOR,
+    "integration": allure.severity_level.CRITICAL,
+    "e2e": allure.severity_level.BLOCKER,
+    "api": allure.severity_level.NORMAL,
+    "manual": allure.severity_level.TRIVIAL,
+}
 
 
 def layer_for_module(module_name: str) -> str | None:

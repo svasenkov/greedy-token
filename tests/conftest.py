@@ -9,7 +9,7 @@ import pytest
 from allure_commons._allure import fixture as allure_fixture_wrapper
 
 from tests.ollama_stub import clear_ollama_probe_cache, install_ollama_scripts, ollama_stub_server
-from tests.pyramid_layers import layer_for_module
+from tests.pyramid_layers import layer_for_module, SEVERITY_BY_LAYER
 from tests.testops_ids import TESTOPS_IDS
 
 from datetime import datetime, timezone
@@ -258,3 +258,6 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
     layer = layer_for_module(module_name)
     if layer:
         allure.dynamic.label("layer", layer)
+        severity = SEVERITY_BY_LAYER.get(layer)
+        if severity is not None:
+            allure.dynamic.severity(severity)

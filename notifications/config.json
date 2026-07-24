@@ -2,7 +2,7 @@
   "base": {
     "project": "greedy-token",
     "environment": "CI",
-    "comment": "",
+    "comment": "sq1080-dense-live · 7 live tiles · pie 3×3 · pyramid|durations-by-layer · statusDynamics · severities · successRate",
     "language": "en",
     "allureFolder": "build/allure-report/awesome/",
     "allureResultsFolder": "build/allure-results/",
@@ -11,9 +11,11 @@
     "chart": {
       "mode": "collage",
       "layout": "free",
-      "width": 1024,
-      "height": 1280,
+      "width": 1080,
+      "height": 1080,
       "headerHeight": 68,
+      "cardGap": 14,
+      "tilePad": 6,
       "gridCols": 10,
       "gridRows": 10,
       "items": [
@@ -21,22 +23,51 @@
           "type": "pie",
           "x": 0,
           "y": 0,
+          "w": 3,
+          "h": 3
+        },
+        {
+          "type": "statusDynamics",
+          "x": 3,
+          "y": 0,
           "w": 5,
-          "h": 5
+          "h": 3
+        },
+        {
+          "type": "testResultSeverities",
+          "x": 8,
+          "y": 0,
+          "w": 2,
+          "h": 3
         },
         {
           "type": "testingPyramid",
-          "x": 5,
-          "y": 0,
-          "w": 5,
-          "h": 5
+          "x": 0,
+          "y": 3,
+          "w": 3,
+          "h": 3
+        },
+        {
+          "type": "durations",
+          "x": 3,
+          "y": 3,
+          "w": 4,
+          "h": 3,
+          "groupBy": "layer"
+        },
+        {
+          "type": "successRateDistribution",
+          "x": 7,
+          "y": 3,
+          "w": 3,
+          "h": 3
         },
         {
           "type": "durations",
           "x": 0,
-          "y": 5,
+          "y": 6,
           "w": 10,
-          "h": 5
+          "h": 4
         }
       ],
       "pyramidFallback": "suites"
