@@ -30,11 +30,11 @@ Skills / Rules / RAG / ADR
 
 Это и есть greedy-token: роутер рядом с coding-агентом, чтобы рутина не жгла дорогой путь.
 
-## Деньги
+## Деньги и время
 
-Сравнительная таблица путей (1 инж. / команда ×10, **★ $82 / ★ $820** экономии) — в главных README:
+Сравнительная таблица путей (1 инж. / команда ×10, **★ $82 / ★ $820** и **★ ~6 ч / ~60 ч · мес**) — в главных README:
 
-- [README-RU.md § Какой путь выбрать?](README-RU.md#какой-путь-выбрать-деньги)
-- [README.md § Which path should I use?](README.md#which-path-should-i-use-money)
+- [README-RU.md § Деньги и время](README-RU.md#деньги-и-время-какой-путь-выбрать)
+- [README.md § Money + time](README.md#money--time-which-path-should-i-use)
 
 Дальше: [README-RU.md](README-RU.md) · [Continue](docs/continue-setup-RU.md) · [Cursor](docs/cursor-setup-RU.md)

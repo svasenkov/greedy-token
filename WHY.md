@@ -30,11 +30,11 @@ Skills / Rules / RAG / ADR
 
 That is greedy-token: a router next to your coding agent so routine work does not burn the expensive path.
 
-## Money
+## Money + time
 
-Path comparison (1 eng / team ×10, **★ $82 / ★ $820** savings) lives in the main READMEs:
+Path comparison (1 eng / team ×10, **★ $82 / ★ $820** and **★ ~6 h / ~60 h · mo**) lives in the main READMEs:
 
-- [README.md § Which path should I use?](README.md#which-path-should-i-use-money)
-- [README-RU.md § Какой путь выбрать?](README-RU.md#какой-путь-выбрать-деньги)
+- [README.md § Money + time](README.md#money--time-which-path-should-i-use)
+- [README-RU.md § Деньги и время](README-RU.md#деньги-и-время-какой-путь-выбрать)
 
 More: [README.md](README.md) · [Continue](docs/continue-setup.md) · [Cursor](docs/cursor-setup.md)
