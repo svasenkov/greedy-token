@@ -1,1 +1,0 @@
-{"id":"40e4d90ffd7f3b78e413520d31c0eedc","fullName":"tests.test_settings_gaps#test_get_search_settings_no_root","name":"get_search_settings tolerates missing workspace root","status":"passed","testResultsByEnv":{"default":"d6f2a35d70455f0bdb823251558cdad6"}}

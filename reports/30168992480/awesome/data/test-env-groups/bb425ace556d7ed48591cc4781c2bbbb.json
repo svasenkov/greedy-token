@@ -1,0 +1,1 @@
+{"id":"bb425ace556d7ed48591cc4781c2bbbb","fullName":"tests.test_cli_handlers#test_cmd_config_init_preset","name":"cmd_config --init --preset local-ollama","status":"passed","testResultsByEnv":{"default":"e30be0b1c3cbbf9af4bef5d19c844854"}}

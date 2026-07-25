@@ -1,0 +1,1 @@
+{"id":"bd2d4ba57c63ef58911b5369873cf5eb","fullName":"tests.test_paths#test_detect_search_paths","name":"detect_search_paths lists top-level folders, skipping hidden and vendor dirs","status":"passed","testResultsByEnv":{"default":"9e5b98dba77d16c84c8fb7552193970f"}}

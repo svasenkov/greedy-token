@@ -1,1 +1,0 @@
-{"id":"f28cebcfa78b2318fe51a62e627cf0df","fullName":"tests.test_model_select_gaps#test_default_id_fallback_no_derived_cheap","name":"cheap default falls back to the whole pool when nothing derives cheap","status":"passed","testResultsByEnv":{"default":"650a8ddd3b7031d1e5d0ad118b6f4e07"}}

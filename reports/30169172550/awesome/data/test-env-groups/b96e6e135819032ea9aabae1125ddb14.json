@@ -1,1 +1,0 @@
-{"id":"b96e6e135819032ea9aabae1125ddb14","fullName":"tests.test_advisory#test_watch_follow_loop","name":"watch_events: follow loop drains, handles truncation + missing file, stops on Ctrl-C","status":"passed","testResultsByEnv":{"default":"8700ce84993efc9e3b35a091a1df80f9"}}

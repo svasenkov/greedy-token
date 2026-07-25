@@ -1,0 +1,1 @@
+{"id":"585bd055f057c134282c9fc89b430b31","fullName":"tests.test_usage_gaps#test_executor_ollama_fallback","name":"executor_from_decision falls back to ollama settings on resolve failure","status":"passed","testResultsByEnv":{"default":"e66bc53b8d80162d8a3e1b49c99d4b6f"}}

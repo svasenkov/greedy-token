@@ -1,0 +1,1 @@
+{"id":"8884e13f56345660901d20efb7ebca78","fullName":"tests.test_cli_handlers#test_cmd_pipeline_dry_run","name":"cmd_pipeline dry-run returns zero on success","status":"passed","testResultsByEnv":{"default":"3a4b5817bf658a8315e30f8057c142d8"}}

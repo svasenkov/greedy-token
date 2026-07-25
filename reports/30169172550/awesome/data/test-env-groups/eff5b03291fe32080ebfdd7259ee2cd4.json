@@ -1,1 +1,0 @@
-{"id":"eff5b03291fe32080ebfdd7259ee2cd4","fullName":"tests.test_tool_paths#test_root_cd_prefix","name":"root_cd_prefix emits cd command for workspace","status":"passed","testResultsByEnv":{"default":"62e3a8292542c30237f30a2a53e34d1a"}}

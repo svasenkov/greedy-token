@@ -1,1 +1,0 @@
-{"id":"b0fd7aed30a2ddda6398f09ca9f12f11","fullName":"tests.test_cli_handlers#test_cmd_init_apply_writes_policy","name":"cmd_init --apply writes config with profile policy","status":"passed","testResultsByEnv":{"default":"37b664eadea857bf316582d8b47a7fa0"}}

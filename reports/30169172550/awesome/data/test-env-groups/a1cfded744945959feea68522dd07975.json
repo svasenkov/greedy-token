@@ -1,1 +1,0 @@
-{"id":"a1cfded744945959feea68522dd07975","fullName":"tests.test_advisory#test_env_toggles","name":"env toggles: enabled / overkill gate / threshold / tty","status":"passed","testResultsByEnv":{"default":"579c25cc7c61de53d54b39d926eb35d5"}}

@@ -1,0 +1,1 @@
+{"id":"d2822f9bffd9ef8ed50f31c84b7af3de","fullName":"tests.test_executors_gaps#test_plan_run_ollama_no_wrapper","name":"plan_run ollama tier: no wrapper + non-readonly decision → not executable","status":"passed","testResultsByEnv":{"default":"5ab4751fd7c18f373f61b9f4eb8d8214"}}

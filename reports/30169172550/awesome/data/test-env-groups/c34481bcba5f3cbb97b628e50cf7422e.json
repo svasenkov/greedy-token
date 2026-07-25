@@ -1,1 +1,0 @@
-{"id":"c34481bcba5f3cbb97b628e50cf7422e","fullName":"tests.test_metered_bulk#test_invoke_metered_cheap_telemetry","name":"invoke via openai_compat stub: cost_usd + metered billing block, cheap billing_tier","status":"passed","testResultsByEnv":{"default":"c67d0419dd11d2c905e4f6864a1b47ab"}}

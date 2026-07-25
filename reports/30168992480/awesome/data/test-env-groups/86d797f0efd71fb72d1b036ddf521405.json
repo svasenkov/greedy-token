@@ -1,0 +1,1 @@
+{"id":"86d797f0efd71fb72d1b036ddf521405","fullName":"tests.test_budget_gaps#test_cursor_warn_bias","name":"cursor warn biases medium cursor task to available local LLM","status":"passed","testResultsByEnv":{"default":"bf03c55348f1801abc9705dc2e8a8800"}}

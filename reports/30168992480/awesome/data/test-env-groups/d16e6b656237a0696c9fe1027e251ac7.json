@@ -1,0 +1,1 @@
+{"id":"d16e6b656237a0696c9fe1027e251ac7","fullName":"tests.test_model_select_gaps#test_pick_from_pool","name":"_pick_from_pool: empty, auto, fixed default, no-match fallback","status":"passed","testResultsByEnv":{"default":"88fcb5314cb8c8f1287b935504b00de8"}}

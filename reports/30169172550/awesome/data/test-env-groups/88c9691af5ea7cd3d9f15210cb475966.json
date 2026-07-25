@@ -1,1 +1,0 @@
-{"id":"88c9691af5ea7cd3d9f15210cb475966","fullName":"tests.test_security#test_sh_quote_blocks_injection","name":"sh_quote neutralizes injection metacharacters as one token","status":"passed","testResultsByEnv":{"default":"9e1f9896d1da11b5b159d321256adb5a"}}

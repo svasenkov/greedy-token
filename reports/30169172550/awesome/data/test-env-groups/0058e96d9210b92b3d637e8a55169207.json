@@ -1,1 +1,0 @@
-{"id":"0058e96d9210b92b3d637e8a55169207","fullName":"tests.test_cli_handlers#test_cmd_init_routes_scaffold","name":"cmd_init --routes-scaffold writes tool-rg-search with detected folders","status":"passed","testResultsByEnv":{"default":"86bb3dba2cf9623b4ef7ca056f054fd9"}}

@@ -1,0 +1,1 @@
+{"id":"915030f0a160573f6e58ef2db7a8bf1d","fullName":"tests.test_executors_gaps#test_execute_task_filtered_short_with_rag","name":"execute_task tool tier: filtered≠raw, short → appends RAG (exact note, exit 0)","status":"passed","testResultsByEnv":{"default":"c1938ccc7b6931d3e0a1a72900274062"}}

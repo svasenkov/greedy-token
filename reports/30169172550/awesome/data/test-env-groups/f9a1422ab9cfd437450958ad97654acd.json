@@ -1,1 +1,0 @@
-{"id":"f9a1422ab9cfd437450958ad97654acd","fullName":"tests.test_cli_handlers#test_cmd_init_routes_from_errors","name":"cmd_init --routes-from rejects missing file and files without routes","status":"passed","testResultsByEnv":{"default":"2f57e3e3de77a21a2703661928e11382"}}
