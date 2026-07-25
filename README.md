@@ -1,6 +1,6 @@
 # greedy-token
 
-**Русская версия:** [README-RU.md](README-RU.md) · **Why this exists:** [WHY.md](WHY.md)
+**Русская версия:** [README-RU.md](README-RU.md) · **Why this exists:** [WHY.md](WHY.md) · [WHY-RU.md](WHY-RU.md)
 
 <img src="docs/greedy-cat.gif" alt="greedy-token mascot" width="240" />
 

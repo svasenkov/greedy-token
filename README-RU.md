@@ -1,6 +1,6 @@
 # greedy-token
 
-**English version:** [README.md](README.md)
+**English version:** [README.md](README.md) · **Зачем это:** [WHY-RU.md](WHY-RU.md) · [WHY.md](WHY.md)
 
 <img src="docs/greedy-cat.gif" alt="талисман greedy-token" width="240" />
 

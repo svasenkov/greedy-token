@@ -1,5 +1,7 @@
 # Why greedy-token
 
+**Русская версия:** [WHY-RU.md](WHY-RU.md)
+
 Stop judging every answer. Ask first: **do you need a model at all?**
 
 LLM-as-a-judge scores how good generation is. Greedy-token runs the task down a ladder of cheap executors — and only then calls Claude / Cursor.
@@ -156,4 +158,4 @@ The win is not only price: **local models are slow**, while rg / scripts / RAG a
 
 ---
 
-See also: [README.md](README.md) · [docs/continue-setup.md](docs/continue-setup.md) · [docs/cursor-setup.md](docs/cursor-setup.md)
+See also: [README.md](README.md) · [WHY-RU.md](WHY-RU.md) · [docs/continue-setup.md](docs/continue-setup.md) · [docs/cursor-setup.md](docs/cursor-setup.md)
