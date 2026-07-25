@@ -18,7 +18,27 @@ sort-of-AI bulk work        →  local cheap LLM (Ollama, …)
 wiring / design / judgment  →  expensive agent chat
 ```
 
-First matching cheap path wins. Every answer ends with a **Greedy token** footer: what this call cost vs a naive full chat. Longer pitch + cost table: [WHY.md](WHY.md).
+First matching cheap path wins. Every answer ends with a **Greedy token** footer: what this call cost vs a naive full chat. Short ELI5 pitch: [WHY.md](WHY.md).
+
+## Which path should I use? (money)
+
+First matching tier wins. If Ollama is down, that step is skipped.
+
+**Classical LLM** = the default without a router: every step goes to a cloud / frontier model (or a full Cursor agent chat).
+
+**Dollar model (illustrative, USD / month):** mid-intensity mix of work. Rows tool→cursor are work classes; **TOTAL** is the monthly bill with the router vs without. Ollama power ≈ **$8 / machine / month** (or **$25** for one shared box on ×10).
+
+| Path | Use when… | Don’t use for… | $/mo · this path · 1 eng | $/mo · classical LLM · 1 eng | $/mo · you save · 1 eng | $/mo · this path · team ×10 | $/mo · classical LLM · ×10 | $/mo · you save · ×10 | Example |
+|------|-----------|----------------|--------------------------|------------------------------|-------------------------|-----------------------------|----------------------------|------------------------|---------|
+| **tool** (ripgrep) | You need to *find* text in the repo | Editing or designing | $0 | $30 | $30 | $0 | $300 | $300 | `find baseUrl in configurator-option-presets.html` |
+| **python** / script | The same check already has a deterministic script | Open-ended “fix this” / architecture | $0 | $25 | $25 | $0 (shared once) | $250 | $250 | `meta-audit configurator-boolean` |
+| **rag** | The answer lives in our patterns / docs | Code that isn’t documented yet | $0 | $15 | $15 | $0 (shared docs) | $150 | $150 | `какой -D flag для baseUrl` |
+| **ollama** (local LLM) | Bulk classify / light audit on your machine | Precise wiring across many files | $8 | $20 | $12 | $25 (1 shared box) | $200 | $175 | classify a list of skills |
+| **cursor** (agent) | Wiring, refactor, architecture — judgment required | Grep, bulk copy, “analyze the whole raw lake” | $40 | $40 | $0 | $400 | $400 | $0 | change header behavior in one zone |
+| **classical LLM** (no router) | Baseline: everything in the big model | — | $130 | $130 | — | $1,300 | $1,300 | — | paste a whole folder into chat and hope |
+| **★ TOTAL with greedy-token** | Mixed paths via router vs no-router baseline | — | **$48** | **$130** | **★ $82** | **$425** | **$1,300** | **★ $820** | **headline: savings / month** |
+
+**Safe mode** (`policy: safe` = cheap-only): paid APIs only if you opt in and pass `--allow-expensive`. Your Cursor chat is never hard-blocked by budget — the router just prefers cheaper paths when it can.
 
 ## 30-second start
 

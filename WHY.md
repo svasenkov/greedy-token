@@ -30,20 +30,11 @@ Skills / Rules / RAG / ADR
 
 That is greedy-token: a router next to your coding agent so routine work does not burn the expensive path.
 
-## One table
+## Money
 
-Illustrative · 8 engineers · ~14k turns/mo · USD/month
+Path comparison (1 eng / team ×10, **★ $82 / ★ $820** savings) lives in the main READMEs:
 
-| | Classic (judge everywhere) | Greedy-token |
-|--|----------------------------|--------------|
-| Core question | How good is the answer? | Is a model needed? |
-| Path | Straight to Claude / Cursor | Canon → tools → Python → Ollama → Claude / Cursor |
-| Expensive LLM share | ~100% | ~3% (same card, thinner slice) |
-| Agents | $550 | ~$30 |
-| Quality | Standing judge + people · $2 150 | Offline asserts + release judge · $515 |
-| **Total** | **~$2 700** | **~$540** |
-| **Gap** | | **~$2 160 / mo · ~$26k / yr** |
-
-Assumptions: expensive turn $0.04 · cheap $0.001 · ~97% cheap · Cursor seats (~$320) not in the gap. Swap your numbers; keep the shape.
+- [README.md § Which path should I use?](README.md#which-path-should-i-use-money)
+- [README-RU.md § Какой путь выбрать?](README-RU.md#какой-путь-выбрать-деньги)
 
 More: [README.md](README.md) · [Continue](docs/continue-setup.md) · [Cursor](docs/cursor-setup.md)
