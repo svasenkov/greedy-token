@@ -2,7 +2,7 @@
   "base": {
     "project": "greedy-token",
     "environment": "CI",
-    "comment": "sq1080-mid-dynamics · pie 4×4 · dynamics · pyramid|durations · success + severities",
+    "comment": "cb870-dense-live · 7 live tiles · dual durations",
     "language": "en",
     "allureFolder": "build/allure-report/awesome/",
     "allureResultsFolder": "build/allure-results/",
@@ -12,7 +12,7 @@
     "chart": {
       "mode": "collage",
       "layout": "free",
-      "width": 1080,
+      "width": 870,
       "height": 1080,
       "headerHeight": 56,
       "cardGap": 14,
@@ -20,12 +20,56 @@
       "gridCols": 10,
       "gridRows": 10,
       "items": [
-        { "type": "pie", "x": 0, "y": 0, "w": 4, "h": 4 },
-        { "type": "statusDynamics", "x": 4, "y": 0, "w": 6, "h": 4 },
-        { "type": "testingPyramid", "x": 0, "y": 4, "w": 4, "h": 3 },
-        { "type": "durations", "x": 4, "y": 4, "w": 6, "h": 3, "groupBy": "layer" },
-        { "type": "successRateDistribution", "x": 0, "y": 7, "w": 7, "h": 3 },
-        { "type": "testResultSeverities", "x": 7, "y": 7, "w": 3, "h": 3 }
+        {
+          "type": "pie",
+          "x": 0,
+          "y": 0,
+          "w": 3,
+          "h": 3
+        },
+        {
+          "type": "statusDynamics",
+          "x": 3,
+          "y": 0,
+          "w": 5,
+          "h": 3
+        },
+        {
+          "type": "testResultSeverities",
+          "x": 8,
+          "y": 0,
+          "w": 2,
+          "h": 3
+        },
+        {
+          "type": "testingPyramid",
+          "x": 0,
+          "y": 3,
+          "w": 3,
+          "h": 3
+        },
+        {
+          "type": "durations",
+          "x": 3,
+          "y": 3,
+          "w": 4,
+          "h": 3,
+          "groupBy": "layer"
+        },
+        {
+          "type": "successRateDistribution",
+          "x": 7,
+          "y": 3,
+          "w": 3,
+          "h": 3
+        },
+        {
+          "type": "durations",
+          "x": 0,
+          "y": 6,
+          "w": 10,
+          "h": 4
+        }
       ],
       "pyramidFallback": "suites"
     },
