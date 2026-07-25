@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from greedy_token.baseline import baseline_source, cursor_overhead
+from greedy_token.baseline import baseline_source, cursor_overhead, format_duration_short, naive_agent_ms, time_baseline_source
 from greedy_token.context_audit import audit_context
 from greedy_token.router import (
     COMPLEXITY_BY_TARGET,
@@ -89,12 +89,16 @@ def format_estimate(estimate: TaskEstimate, task: str, root: Path) -> str:
     elif target == "cursor":
         spent_line += "  (expensive LLM — full agent path)"
     source = baseline_source()
+    time_source = time_baseline_source()
+    baseline_ms = naive_agent_ms(baseline)
     lines.extend(
         [
             "",
             f"Baseline (naive agent chat):  ~{baseline:,}  ({source})",
             spent_line,
             f"Saved:             ~{estimate.cursor_saved:,}  (= baseline − spent; baseline: {source})",
+            f"Naive wall-clock:  ~{format_duration_short(baseline_ms)}  ({time_source})",
+            "Time saved:        (measured when a timed executor runs — see MCP footer / report)",
         ]
     )
     if estimate.ollama_note:

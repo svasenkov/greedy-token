@@ -405,6 +405,27 @@ baseline:
 
 Every **Saved** figure in the footers (`route` / `estimate` / `search` / `rag` / `pipeline`) and in `report` carries the baseline-source label, so an estimate is never presented as a measurement.
 
+### Time savings (wall-clock)
+
+Cheap tiers also estimate **time saved** vs a naive agent turn:
+
+```
+naive_agent_ms = overhead_ms + baseline_tokens × ms_per_1k_tokens / 1000
+time_saved_ms  = max(0, naive_agent_ms − duration_ms)   # cheap tiers only
+```
+
+Defaults (`default-estimate`): `overhead_ms=12000`, `ms_per_1k_tokens=800`. Override in the same `baseline:` section:
+
+```yaml
+baseline:
+  overhead_tokens: 9500
+  overhead_ms: 15000
+  ms_per_1k_tokens: 600
+  method: manual
+```
+
+MCP compact footer shows both: `saved **~14,735** · ~12s`. `report` and hub Overview add a **Time saved** total. Labelled the same way as token savings — an estimate, not a stopwatch.
+
 No manual discipline required: while the source is still `default-estimate`, `route` and `report` print a one-line nudge (`baseline uncalibrated — run greedy-token calibrate`, at most once per call), and `greedy-token doctor` shows a **Baseline** block plus a warning when no `baseline:` section exists in the config.
 
 ### Confidence calibration
@@ -436,7 +457,7 @@ Confidence calibration (score buckets, min n=20):
 
 Log file: `~/.greedy-token/usage.jsonl` (disable: `GREEDY_TOKEN_LOG=0`).
 
-Each event: tier, `est_tokens`, `cursor_baseline`, `cursor_saved`, `duration_ms`.
+Each event: tier, `est_tokens`, `cursor_baseline`, `cursor_saved`, `duration_ms`, `cursor_baseline_ms`, `time_saved_ms`.
 
 Pipeline logs **one event per step**. When the log exceeds `GREEDY_TOKEN_LOG_MAX_BYTES` (default 5 MiB), it rotates to `usage.jsonl.1`, `.2`, …; `report` reads the active log and archives.
 

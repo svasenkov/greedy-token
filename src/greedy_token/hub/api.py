@@ -104,6 +104,7 @@ def _operational_metrics(events: list[dict], summary, budget) -> dict:
         if isinstance(e.get("duration_ms"), (int, float)) and e.get("event") != "script_override"
     ]
     calls = max(1, summary.events)
+    totals = summary.to_dict()["totals"]
     latency = {
         "samples": len(durations),
         "p50_ms": int(median(durations)) if durations else None,
@@ -117,7 +118,10 @@ def _operational_metrics(events: list[dict], summary, budget) -> dict:
         "latency": latency,
         "cost_per_task_usd": round(budget.cursor_est_spent_usd / calls, 4),
         "metered_cost_per_task_usd": round(budget.metered_spent_usd / calls, 4),
-        "saved_per_task_tokens": int(summary.to_dict()["totals"]["saved_vs_cursor"] / calls),
+        "saved_per_task_tokens": int(totals["saved_vs_cursor"] / calls),
+        "time_saved_ms": int(totals["time_saved_ms"]),
+        "time_saved_per_task_ms": int(totals["time_saved_ms"] / max(1, totals["duration_samples"])),
+        "duration_samples": int(totals["duration_samples"]),
     }
 
 

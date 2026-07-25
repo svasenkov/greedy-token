@@ -7,7 +7,15 @@ from pathlib import Path
 from typing import Literal
 import os
 
-from greedy_token.baseline import SOURCE_DEFAULT, baseline_source, get_baseline_settings
+from greedy_token.baseline import (
+    SOURCE_DEFAULT,
+    baseline_source,
+    format_duration_short,
+    get_baseline_settings,
+    get_time_baseline_settings,
+    naive_agent_ms,
+    time_saved_ms,
+)
 from greedy_token.context_audit import audit_context
 from greedy_token.estimator import cursor_baseline, cursor_saved_for
 from greedy_token.paths import find_workspace_root
@@ -190,6 +198,9 @@ class ToolFooterContext:
     baseline: int
     saved: int
     billing_short: str
+    baseline_ms: int
+    time_saved: int | None
+    time_source: str
 
 
 def _cheap_billing_note(root: Path | None = None) -> str:
@@ -238,6 +249,9 @@ def _build_tool_footer_context(
     breakdown = cursor_baseline_breakdown(root, task)
     baseline = breakdown.total
     saved = cursor_saved_for(root, task, est_tokens, tier)
+    baseline_ms = naive_agent_ms(baseline)
+    saved_ms = time_saved_ms(baseline, duration_ms, tier)
+    time_source = get_time_baseline_settings().source
     sub = executor_sub or tier
     sub_label = EXECUTOR_SUB_LABELS.get(sub, sub)
     return ToolFooterContext(
@@ -260,6 +274,9 @@ def _build_tool_footer_context(
             ollama_eval_tokens=ollama_eval_tokens,
             root=root,
         ),
+        baseline_ms=baseline_ms,
+        time_saved=saved_ms,
+        time_source=time_source,
     )
 
 
@@ -272,12 +289,17 @@ def _resolve_footer_style(root: Path, style: FooterStyleArg) -> FooterStyle:
 def _format_tool_footer_compact(ctx: ToolFooterContext) -> str:
     duration = f" · {ctx.duration_ms}ms" if ctx.duration_ms is not None else ""
     route = f" · {ctx.route_id}" if ctx.route_id else ""
+    time_saved = (
+        f" · ~{format_duration_short(ctx.time_saved)}"
+        if ctx.time_saved is not None and ctx.time_saved > 0
+        else ""
+    )
     extras = _policy_footer_lines(ctx.root)
     lines = [
         "",
         "---",
         f"> **Greedy token** · `{ctx.executor_sub}`{duration} · saved **~{ctx.saved:,}**"
-        f" (baseline: {ctx.breakdown.source})",
+        f"{time_saved} (baseline: {ctx.breakdown.source})",
         f"> spent ~{ctx.est_tokens:,} · naive ~{ctx.baseline:,} · {ctx.billing_short}{route}",
     ]
     lines.extend(extras)
@@ -297,17 +319,23 @@ def _policy_footer_lines(root: Path) -> list[str]:
 def _format_tool_footer_markdown(ctx: ToolFooterContext) -> str:
     duration = f" · {ctx.duration_ms}ms" if ctx.duration_ms is not None else ""
     route = f" · `{ctx.route_id}`" if ctx.route_id else ""
+    spent_time = f"{ctx.duration_ms}ms" if ctx.duration_ms is not None else "—"
+    time_saved = (
+        format_duration_short(ctx.time_saved) if ctx.time_saved is not None else "—"
+    )
     return "\n".join(
         [
             "",
             "---",
             f"### Greedy token · `{ctx.executor_sub}`{duration}",
             "",
-            "| | tokens |",
-            "|:--|--:|",
-            f"| spent | ~{ctx.est_tokens:,} |",
-            f"| naive agent chat ({ctx.breakdown.source}) | ~{ctx.baseline:,} |",
-            f"| **saved** (baseline: {ctx.breakdown.source}) | **~{ctx.saved:,}** |",
+            "| | tokens | time |",
+            "|:--|--:|--:|",
+            f"| spent | ~{ctx.est_tokens:,} | {spent_time} |",
+            f"| naive agent chat ({ctx.breakdown.source}) | ~{ctx.baseline:,} | "
+            f"~{format_duration_short(ctx.baseline_ms)} ({ctx.time_source}) |",
+            f"| **saved** (baseline: {ctx.breakdown.source}) | **~{ctx.saved:,}** | "
+            f"**~{time_saved}** |",
             "",
             f"{ctx.billing_short}{route}",
             "---",
@@ -364,6 +392,7 @@ def _format_tool_footer_full(ctx: ToolFooterContext) -> str:
             f"  Task prompt:     ~{ctx.breakdown.task:,}  (measured)",
             f"  Agent overhead:  ~{ctx.breakdown.overhead:,}  ({ctx.breakdown.source})",
             f"  {TOTAL_BASELINE_LABEL}  ~{ctx.baseline:,}",
+            f"  Naive wall-clock: ~{format_duration_short(ctx.baseline_ms)}  ({ctx.time_source})",
             "",
         ]
     )
@@ -383,6 +412,11 @@ def _format_tool_footer_full(ctx: ToolFooterContext) -> str:
             source=ctx.breakdown.source,
         )
     )
+    if ctx.time_saved is not None:
+        lines.append(
+            f"  Time saved:      ~{format_duration_short(ctx.time_saved)}"
+            f"  (= naive wall-clock − duration; time baseline: {ctx.time_source})"
+        )
     for extra in _policy_footer_lines(ctx.root):
         lines.append(f"  {extra}")
     lines.extend(
@@ -390,6 +424,7 @@ def _format_tool_footer_full(ctx: ToolFooterContext) -> str:
             "",
             "Note: MCP in Agent chat still uses agent tokens for rules + your message +",
             "agent reply. Only cheap LLM / rg / rag rows avoid the expensive LLM path.",
+            "Time saved is an estimate vs a naive agent turn (not a stopwatch).",
         ]
     )
 

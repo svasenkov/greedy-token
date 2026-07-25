@@ -179,6 +179,7 @@ CI job → greedy-token CLI → rg | python | cheap_llm (Ollama/internal) | RAG 
 
 | Версия | Фокус |
 |--------|-------|
+| **v0.11.0** | Экономия времени: `time_saved_ms` vs naive agent wall-clock (`overhead_ms` + scale), MCP footer / `report` / hub |
 | **v0.10.0** | Beyond-Cursor: `agent_host: cursor \| claude \| continue`, metered bulk APIs под spend guard ([ADR-0002](adr/0002-metered-bulk-cheap-tier.md)), nudge-и калибровки, team route presets (`init --preset`) |
 | **v0.9.0** | Единый реестр моделей ([ADR-0001](adr/0001-unified-model-spec-derived-tier.md), выводимый tier cheap/expensive), реестр эквивалентных мутантов с drift-guard, MCP `greedy_token_crystallize` |
 | **v0.8.0** | Кристаллизация L3 safe mode (`draft` → shadow → `promote` / `reject`), portable routes, `calibrate` (provenance базлайна), confidence по телеметрии |

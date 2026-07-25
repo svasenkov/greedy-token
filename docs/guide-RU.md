@@ -401,6 +401,27 @@ baseline:
 
 Каждая цифра **Saved** в футерах (`route` / `estimate` / `search` / `rag` / `pipeline`) и в `report` помечена источником базлайна — оценка никогда не выдаётся за измерение.
 
+### Экономия времени (wall-clock)
+
+Cheap-тиры также оценивают **сэкономленное время** против наивного агент-хода:
+
+```
+naive_agent_ms = overhead_ms + baseline_tokens × ms_per_1k_tokens / 1000
+time_saved_ms  = max(0, naive_agent_ms − duration_ms)   # только cheap-тиры
+```
+
+Дефолты (`default-estimate`): `overhead_ms=12000`, `ms_per_1k_tokens=800`. Переопределение — в той же секции `baseline:`:
+
+```yaml
+baseline:
+  overhead_tokens: 9500
+  overhead_ms: 15000
+  ms_per_1k_tokens: 600
+  method: manual
+```
+
+В compact MCP-footer обе цифры: `saved **~14,735** · ~12s`. `report` и hub Overview показывают итог **Time saved**. Та же честная метка, что у токенов — оценка, не секундомер.
+
 Ручная дисциплина не нужна: пока источник — `default-estimate`, `route` и `report` печатают однострочный nudge (`baseline uncalibrated — run greedy-token calibrate`, не чаще одного раза на вызов), а `greedy-token doctor` показывает блок **Baseline** и предупреждение, если секции `baseline:` в конфиге нет.
 
 ### Калибровка confidence
@@ -431,6 +452,8 @@ Confidence calibration (score buckets, min n=20):
 ### Телеметрия
 
 Файл: `~/.greedy-token/usage.jsonl` · отключить: `GREEDY_TOKEN_LOG=0`
+
+Каждое событие: tier, `est_tokens`, `cursor_baseline`, `cursor_saved`, `duration_ms`, `cursor_baseline_ms`, `time_saved_ms`.
 
 Pipeline пишет **одну строку на каждый шаг**. При превышении `GREEDY_TOKEN_LOG_MAX_BYTES` (default 5 MiB) лог ротируется в `usage.jsonl.1`, `.2`, …; `report` читает активный файл и архивы.
 

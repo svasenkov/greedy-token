@@ -135,4 +135,4 @@ greedy-token hub serve
 
 Repeated work → **crystallize** into a script → next time **0 LLM**. Details: [guide](docs/guide.md) · [roadmap](docs/ROADMAP.md)
 
-**License:** MIT · **v0.10.0**
+**License:** MIT · **v0.11.0**

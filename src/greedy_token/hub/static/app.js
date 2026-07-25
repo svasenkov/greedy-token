@@ -36,6 +36,16 @@ function fmt(n) {
   return n.toLocaleString();
 }
 
+function formatDuration(ms) {
+  ms = Math.max(0, Number(ms) || 0);
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  if (ms < 10_000) return `${(ms / 1000).toFixed(1)}s`;
+  if (ms < 60_000) return `${Math.round(ms / 1000)}s`;
+  const minutes = Math.floor(ms / 60_000);
+  const seconds = Math.floor((ms % 60_000) / 1000);
+  return `${minutes}m${String(seconds).padStart(2, "0")}s`;
+}
+
 async function api(path) {
   const res = await fetch(path);
   return res.json();
@@ -109,10 +119,13 @@ async function renderHome() {
   const lat = m.latency || {};
   const latencyValue = lat.p50_ms != null ? `${lat.p50_ms}ms` : "—";
   const costValue = `$${(m.cost_per_task_usd ?? 0).toFixed(3)}`;
+  const timeSavedMs = m.time_saved_ms ?? 0;
+  const timeSavedValue = timeSavedMs > 0 ? formatDuration(timeSavedMs) : "—";
 
   document.getElementById("app").innerHTML = `
     <div class="grid">
       <div class="card" title="estimate vs naive agent-chat baseline (source: ${data.baseline?.source || "default-estimate"})"><h3>Saved vs agent chat (${data.baseline?.source || "default-estimate"})</h3><div class="value">${fmt(totalSaved)}</div></div>
+      <div class="card" title="estimate vs naive agent wall-clock (${data.baseline?.time_source || "default-estimate"}; ${m.duration_samples || 0} timed events)"><h3>Time saved</h3><div class="value">${timeSavedValue}</div></div>
       <div class="card" title="share of events routed to cheap tiers"><h3>Coverage</h3><div class="value">${coverage}%</div></div>
       <div class="card" title="cheap hits kept across all cheap tiers (not re-asked in Cursor)">
         <h3>Cheap hold rate</h3>

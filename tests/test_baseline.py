@@ -322,6 +322,9 @@ def test_report_source_label(minimal_workspace: Path) -> None:
     assert payload["baseline"] == {
         "overhead_tokens": BASE_CURSOR_OVERHEAD,
         "source": SOURCE_DEFAULT,
+        "overhead_ms": 12_000,
+        "ms_per_1k_tokens": 800,
+        "time_source": SOURCE_DEFAULT,
     }
 
     write_baseline_config(9500, method=METHOD_MEASURED)
@@ -329,7 +332,13 @@ def test_report_source_label(minimal_workspace: Path) -> None:
     attach_text("report measured", text)
     assert f"Baseline source: {SOURCE_MEASURED} (agent overhead ~9,500 tokens)" in text
     assert "run greedy-token calibrate" not in text
-    assert summary.to_dict()["baseline"] == {"overhead_tokens": 9500, "source": SOURCE_MEASURED}
+    assert summary.to_dict()["baseline"] == {
+        "overhead_tokens": 9500,
+        "source": SOURCE_MEASURED,
+        "overhead_ms": 12_000,
+        "ms_per_1k_tokens": 800,
+        "time_source": SOURCE_DEFAULT,
+    }
 
 
 @allure.story("Uncalibrated nudge")

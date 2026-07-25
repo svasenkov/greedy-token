@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from greedy_token.baseline import naive_agent_ms, time_saved_ms
 from greedy_token.calibration import CALIBRATION_MIN_EVENTS, calibration_report
 from greedy_token.estimator import cursor_baseline, cursor_saved_for
 from greedy_token.router import RouteDecision, route_task_all_tiers
@@ -178,8 +179,13 @@ def build_route_event(
     if getattr(decision, "shadow_route_id", None):
         event["shadow_route_id"] = decision.shadow_route_id
         event["shadow"] = True
+    baseline_ms = naive_agent_ms(baseline)
+    event["cursor_baseline_ms"] = baseline_ms
     if duration_ms is not None:
         event["duration_ms"] = duration_ms
+        saved_ms = time_saved_ms(baseline, duration_ms, decision.target)
+        if saved_ms is not None:
+            event["time_saved_ms"] = saved_ms
     if profile:
         event["profile"] = profile
     if escalated_from:
@@ -237,10 +243,15 @@ def build_script_event(
         "tier_scan": [],
         "executor": {"kind": "script", "script_id": script_id},
     }
-    if duration_ms is not None:
-        event["duration_ms"] = duration_ms
     if executed is not None:
         event["executor"]["executed"] = executed
+    baseline_ms = naive_agent_ms(baseline)
+    event["cursor_baseline_ms"] = baseline_ms
+    if duration_ms is not None:
+        event["duration_ms"] = duration_ms
+        saved_ms = time_saved_ms(baseline, duration_ms, "python")
+        if saved_ms is not None:
+            event["time_saved_ms"] = saved_ms
     return event
 
 
@@ -403,8 +414,14 @@ def build_compress_event(
         "tokens_after": after.tokens,
         "compressor": compressor,
     }
+    tier = event["selected_tier"]
+    baseline_ms = naive_agent_ms(before.tokens)
+    event["cursor_baseline_ms"] = baseline_ms
     if duration_ms is not None:
         event["duration_ms"] = duration_ms
+        saved_ms = time_saved_ms(before.tokens, duration_ms, tier)
+        if saved_ms is not None:
+            event["time_saved_ms"] = saved_ms
     return event
 
 
@@ -542,6 +559,9 @@ class TierStats:
     est_tokens: int = 0
     cursor_baseline: int = 0
     saved_vs_cursor: int = 0
+    duration_ms: int = 0
+    time_saved_ms: int = 0
+    duration_samples: int = 0
 
 
 @dataclass
@@ -555,9 +575,10 @@ class ReportSummary:
     quality: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
-        from greedy_token.baseline import get_baseline_settings
+        from greedy_token.baseline import get_baseline_settings, get_time_baseline_settings
 
         baseline_settings = get_baseline_settings()
+        time_settings = get_time_baseline_settings()
         return {
             "events": self.events,
             "skipped_lines": self.skipped_lines,
@@ -565,12 +586,18 @@ class ReportSummary:
             "baseline": {
                 "overhead_tokens": baseline_settings.overhead_tokens,
                 "source": baseline_settings.source,
+                "overhead_ms": time_settings.overhead_ms,
+                "ms_per_1k_tokens": time_settings.ms_per_1k_tokens,
+                "time_source": time_settings.source,
             },
             "by_tier": {
                 tier: {
                     "count": stats.count,
                     "est_tokens": stats.est_tokens,
                     "saved_vs_cursor": stats.saved_vs_cursor,
+                    "duration_ms": stats.duration_ms,
+                    "time_saved_ms": stats.time_saved_ms,
+                    "duration_samples": stats.duration_samples,
                 }
                 for tier, stats in self.by_tier.items()
             },
@@ -578,6 +605,9 @@ class ReportSummary:
                 "cursor_baseline": sum(s.cursor_baseline for s in self.by_tier.values()),
                 "est_tokens": sum(s.est_tokens for s in self.by_tier.values()),
                 "saved_vs_cursor": sum(s.saved_vs_cursor for s in self.by_tier.values()),
+                "duration_ms": sum(s.duration_ms for s in self.by_tier.values()),
+                "time_saved_ms": sum(s.time_saved_ms for s in self.by_tier.values()),
+                "duration_samples": sum(s.duration_samples for s in self.by_tier.values()),
             },
             "top_routes": [{"route_id": rid, "count": n} for rid, n in self.top_routes],
             "counter_methods": self.counter_methods,
@@ -672,6 +702,11 @@ def aggregate_events(events: list[dict], *, since_label: str | None = None) -> R
         stats.est_tokens += int(event.get("est_tokens") or 0)
         stats.cursor_baseline += int(event.get("cursor_baseline") or 0)
         stats.saved_vs_cursor += int(event.get("cursor_saved") or 0)
+        if isinstance(event.get("duration_ms"), (int, float)):
+            stats.duration_ms += int(event["duration_ms"])
+            stats.duration_samples += 1
+        if isinstance(event.get("time_saved_ms"), (int, float)):
+            stats.time_saved_ms += int(event["time_saved_ms"])
 
         route_id = event.get("route_id", "unknown")
         route_counts[route_id] = route_counts.get(route_id, 0) + 1
@@ -707,26 +742,40 @@ def format_report(summary: ReportSummary) -> str:
         f"Events: {summary.events}",
         "",
         "By tier:",
-        f"  {'tier':<10} {'count':>6} {'est_tokens':>12} {'saved_vs_cursor':>16}",
+        f"  {'tier':<10} {'count':>6} {'est_tokens':>12} {'saved_vs_cursor':>16} {'time_saved':>12}",
     ]
+    from greedy_token.baseline import format_duration_short
+
     for tier, stats in summary.by_tier.items():
         note = ""
         if tier == "ollama":
             note = "  (cheap LLM)"
+        time_col = (
+            format_duration_short(stats.time_saved_ms) if stats.time_saved_ms else "—"
+        )
         lines.append(
             f"  {tier:<10} {stats.count:>6} {stats.est_tokens:>12,} "
-            f"{stats.saved_vs_cursor:>16,}{note}"
+            f"{stats.saved_vs_cursor:>16,} {time_col:>12}{note}"
         )
 
-    from greedy_token.baseline import get_baseline_settings, uncalibrated_nudge
+    from greedy_token.baseline import get_baseline_settings, get_time_baseline_settings, uncalibrated_nudge
 
     baseline_settings = get_baseline_settings()
+    time_settings = get_time_baseline_settings()
+    totals = summary.to_dict()["totals"]
     baseline_line = (
         f"Baseline source: {baseline_settings.source} "
         f"(agent overhead ~{baseline_settings.overhead_tokens:,} tokens) — "
         "saved_vs_cursor is an estimate vs this baseline"
     )
-    lines.extend(["", baseline_line])
+    time_line = (
+        f"Time baseline: {time_settings.source} "
+        f"(overhead ~{format_duration_short(time_settings.overhead_ms)} + "
+        f"{time_settings.ms_per_1k_tokens}ms/1k tokens) — "
+        f"time_saved ~{format_duration_short(totals['time_saved_ms'])} "
+        f"across {totals['duration_samples']} timed events"
+    )
+    lines.extend(["", baseline_line, time_line])
     nudge = uncalibrated_nudge()
     if nudge:
         lines.append(nudge)
