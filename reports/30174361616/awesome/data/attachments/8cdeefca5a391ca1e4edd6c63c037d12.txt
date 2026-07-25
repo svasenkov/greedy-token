@@ -1,0 +1,4 @@
+[07/25/26 20:51:41] INFO     Processing request of type            server.py:733
+                             CallToolRequest                                    
+[07/25/26 20:51:42] INFO     Processing request of type            server.py:733
+                             ListToolsRequest                                   
