@@ -1,0 +1,27 @@
+code_search.py [pragma=yes] encoding/errors variants decode valid files identically.
+code_search.py [pragma=yes] encoding/errors variants decode valid files identically.
+code_search.py [pragma=no] initial None sentinel is only truthiness-checked below and is always reassigned before real use, so a falsy "" default routes identically.
+code_search.py [pragma=yes] local UTF-8 locale + errors="replace" → utf-8/UTF-8/None and strict/replace decode identically for the ASCII/valid-UTF-8 files scanned.
+executors.py [pragma=yes] domains defaults to None — dropping the kwarg is the same call.
+pipeline.py [pragma=yes] absent → "" and None are both falsy for the `if desc:` guard below.
+pipeline.py [pragma=yes] errors="replace" + local UTF-8 locale means utf-8/UTF-8/None decode to the same token count.
+pipeline.py [pragma=yes] file is ASCII YAML; utf-8/UTF-8/locale-default decode the same.
+pipeline.py [pragma=yes] loop only visits keys present in TIER_LABELS → default unreachable.
+pipeline.py [pragma=yes] path segments are case-insensitive on the local (macOS/APFS) filesystem, so "config"/"pipelines.yaml" case-flips resolve identically.
+pipeline.py [pragma=yes] the two length checks above guarantee len(need_pos) == len(positional) here, so strict True/False/None never changes behaviour.
+pipeline.py [pragma=yes] this branch is only reached when `arg` has no "/" (checked above), so skill_path always stays under root → rejection (and its hint) is unreachable.
+pipeline.py [pragma=yes] this loop only visits keys that exist in TIER_LABELS, so the `tier` default is unreachable (get default → None/removed is a no-op).
+pipeline.py [pragma=yes] unset → "" and None are both falsy for the check below.
+router.py [pragma=yes] .lower()/.upper() induce the same tie-break ordering.
+router.py [pragma=yes] any non-empty junk default parses to the same None result.
+router.py [pragma=yes] bool() of the missing-key default is False whether it is False/None/absent.
+router.py [pragma=yes] scores are never negative, and a 0 score never beats best_score.
+router.py [pragma=yes] the "" default only applies to a falsy task, and neither "" nor any junk-string default matches an edit verb → result is False either way.
+router.py [pragma=yes] the "rg" default is only compared against "jq" below, so any non-"jq" default routes to the same ripgrep branch.
+spend_guard.py [pragma=no] <= 0 vs < 0 — cost==0 still yields 0.0 product.
+spend_guard.py [pragma=no] default "" vs "XXXX" — unset env; "XXXX" not in accepted tokens → same False.
+spend_guard.py [pragma=no] default "" vs "XXXX" — unset env; "XXXX" not in accepted tokens → same False.
+spend_guard.py [pragma=no] default "" vs "XXXX" — unset env; "XXXX" not in accepted tokens → same False.
+spend_guard.py [pragma=no] default "" vs None/dropped/"XXXX" only when tier key is absent; str(...) of any default never equals "metered" → same False branch.
+spend_guard.py [pragma=no] default "" vs None/dropped/"XXXX" only when ts key is absent; str(...) still won't start with today's date → same skip branch.
+spend_guard.py [pragma=no] encoding=None/"UTF-8" decode identically on UTF-8 locale.
