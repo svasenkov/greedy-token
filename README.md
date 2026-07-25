@@ -80,7 +80,14 @@ No fine-tuning. No shipping your data for training. It “learns” by adding re
 
 ## Money + time: which path should I use?
 
-Illustrative USD / month **and** wall-clock per call. **Classical LLM** = everything goes straight to a cloud / frontier chat. First matching tier wins. Per-call times are estimates vs a naive agent turn (`time_saved_ms` in MCP footer / `report`, v0.11+).
+Illustrative USD / month **and** wall-clock per call. **Classical LLM** = everything goes straight to a cloud / frontier chat (**$130** / eng · **$1,300** / ×10). First matching tier wins. Green columns = savings; ★ TOTAL = headline monthly figures. Per-call times are estimates vs a naive agent turn (`time_saved_ms` in MCP footer / `report`, v0.11+).
+
+<p align="center">
+  <img src="docs/path-savings-en.svg" alt="greedy-token path table: green savings columns and TOTAL" width="760" />
+</p>
+
+<details>
+<summary>Plain-text table (copy-paste / a11y)</summary>
 
 | Path | Use when | Don’t use for | Path · 1 eng | Classical · 1 eng | Save · 1 | Path · ×10 | Classical · ×10 | Save · ×10 | ~time · path | ~time · agent | ~time · save | Example |
 |------|----------|---------------|--------------|-------------------|----------|------------|-----------------|------------|--------------|---------------|--------------|---------|
@@ -91,6 +98,8 @@ Illustrative USD / month **and** wall-clock per call. **Classical LLM** = everyt
 | **cursor** | wiring, refactor, judgment | grep / bulk-copy | $40 | $40 | $0 | $400 | $400 | $0 | ~same | ~same | ~0 | change header behavior in one zone |
 | **classical LLM** | baseline: big model for everything | — | $130 | $130 | — | $1,300 | $1,300 | — | ~same | ~same | — | paste a whole folder into chat |
 | **★ TOTAL** | with router vs without | — | **$48** | **$130** | **★ $82** | **$425** | **$1,300** | **★ $820** | — | — | **★ ~6 h · 1 / ~60 h · ×10** | **headline: $ and time / month** |
+
+</details>
 
 ---
 
