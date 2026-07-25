@@ -82,7 +82,7 @@ find baseUrl in configurator-option-presets.html
 
 [![greedy-token](https://svasenkov.github.io/greedy-token/readme/badge.svg)](https://svasenkov.github.io/greedy-token/reports/latest/dashboard/)
 
-<details>
+<details open>
 <summary><strong>Дашборд автотестов</strong> — живые метрики + превью Allure 3</summary>
 
 [![greedy-token stats](https://svasenkov.github.io/greedy-token/readme/stats.svg)](https://svasenkov.github.io/greedy-token/reports/latest/dashboard/)

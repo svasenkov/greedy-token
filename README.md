@@ -82,7 +82,7 @@ That should hit the free `rg` tier (not a full Cursor round-trip). Footer shows 
 
 [![greedy-token](https://svasenkov.github.io/greedy-token/readme/badge.svg)](https://svasenkov.github.io/greedy-token/reports/latest/dashboard/)
 
-<details>
+<details open>
 <summary><strong>Automated tests dashboard</strong> — live metrics + Allure 3 preview</summary>
 
 [![greedy-token stats](https://svasenkov.github.io/greedy-token/readme/stats.svg)](https://svasenkov.github.io/greedy-token/reports/latest/dashboard/)
