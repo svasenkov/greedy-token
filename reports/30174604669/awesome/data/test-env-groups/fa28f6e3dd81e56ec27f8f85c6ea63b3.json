@@ -1,1 +1,0 @@
-{"id":"fa28f6e3dd81e56ec27f8f85c6ea63b3","fullName":"tests.test_mcp_stdio#test_mcp_stdio_pipeline_execute_true","name":"MCP stdio pipeline execute=true runs allowlisted search+rag (not mock-only)","status":"passed","testResultsByEnv":{"default":"4a478b1e857e9d388ea03305e396b6ab"}}

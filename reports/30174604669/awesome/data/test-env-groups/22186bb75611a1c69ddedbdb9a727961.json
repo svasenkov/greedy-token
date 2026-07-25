@@ -1,1 +1,0 @@
-{"id":"22186bb75611a1c69ddedbdb9a727961","fullName":"tests.test_metered_bulk#test_is_metered_event","name":"_is_metered_event: block tier wins, legacy marker kept, junk is not metered","status":"passed","testResultsByEnv":{"default":"0b4af114a0bb06e860f5e203412ed0a0"}}

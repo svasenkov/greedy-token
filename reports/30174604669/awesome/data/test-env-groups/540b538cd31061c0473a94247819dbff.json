@@ -1,1 +1,0 @@
-{"id":"540b538cd31061c0473a94247819dbff","fullName":"tests.test_cli_handlers#test_cmd_config_list_presets","name":"cmd_config --list-presets prints preset names","status":"passed","testResultsByEnv":{"default":"3ebf5f0cfa152a7fa0cc846c997bee12"}}

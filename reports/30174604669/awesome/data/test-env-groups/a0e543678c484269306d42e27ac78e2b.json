@@ -1,1 +1,0 @@
-{"id":"a0e543678c484269306d42e27ac78e2b","fullName":"tests.test_router#test_disabled_shadow_route_is_skipped","name":"Disabled shadow route does not execute script tier","status":"passed","testResultsByEnv":{"default":"1aa9b23642c6aff6c584a810a6ea8823"}}

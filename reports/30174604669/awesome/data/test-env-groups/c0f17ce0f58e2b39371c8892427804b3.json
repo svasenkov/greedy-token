@@ -1,1 +1,0 @@
-{"id":"c0f17ce0f58e2b39371c8892427804b3","fullName":"tests.test_executors_gaps#test_execute_task_guard_and","name":"execute_task guard is 'executable AND command' (kills 'or')","status":"passed","testResultsByEnv":{"default":"a1609836d72737564d7c0f11a72b8184"}}

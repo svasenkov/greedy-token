@@ -1,1 +1,0 @@
-{"id":"c88522c690b13bf9576772ad0afab6e6","fullName":"tests.test_pipeline_gaps#test_footer_exact_model_id","name":"format_pipeline_footer: ollama executor names GREEDY_LLM_MODEL_ID when set","status":"passed","testResultsByEnv":{"default":"de9828861585df8b21660f25dc6dfad4"}}

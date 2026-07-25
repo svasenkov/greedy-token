@@ -1,1 +1,0 @@
-{"id":"bdd148c19555f82dd8051004f801bba9","fullName":"tests.test_doc_sync#test_readme_calibration_matches_code","name":"README calibration section matches code constants (threshold + buckets)","status":"failed","testResultsByEnv":{"default":"8a6966d24fe50acc0133cb4073fcd2a7"}}

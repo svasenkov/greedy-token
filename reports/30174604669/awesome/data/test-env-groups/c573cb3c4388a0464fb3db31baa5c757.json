@@ -1,1 +1,0 @@
-{"id":"c573cb3c4388a0464fb3db31baa5c757","fullName":"tests.test_settings_gaps#test_apply_cheap_llm_env_fallbacks","name":"apply_cheap_llm_env: no-root path and registry resolve failure fall back","status":"passed","testResultsByEnv":{"default":"6a10d64e2ca595722a5c57549de2d64d"}}
