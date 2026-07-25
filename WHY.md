@@ -2,42 +2,41 @@
 
 **Русская версия:** [WHY-RU.md](WHY-RU.md)
 
-Stop judging every answer. Ask first: **do you need a model at all?**
+Most AI coding setups send almost everything to an expensive model — Claude, Cursor, take your pick. Then, to feel safe about quality, teams add another model that *judges* the first one.
 
-LLM-as-a-judge scores how good generation is. Greedy-token runs the task down a ladder of cheap executors — and only then calls Claude / Cursor.
+That works. It also burns money on tasks that never needed a model: find this string, run this check, look up a flag we already documented.
 
-| | |
-|--|--|
-| **~97%** cheap path | **~3%** expensive LLM |
-| **~$2.2k** saved / month* | **~$26k** saved / year* |
-
-\*Illustrative P&L for a small AI product company (assumptions at the bottom).
+**Greedy-token asks a simpler question first: do you need a model at all?**
 
 ---
 
-## The ladder
+## The idea in one breath
 
-First matching tier wins. The expensive model is the **last** step, not the first. Skills, Rules, RAG, and ADRs steer where each task goes.
+Send the easy work to cheap, fast tools. Keep the expensive chat for the hard stuff. Keep LLM-as-a-judge for the product you ship — not for every internal grep.
 
-| Step | What | Cost |
-|------|------|------|
-| **1. Tool** | `rg` / `jq` and other CLIs — native **Rust** binaries. Search and parse for nearly $0. | ~$0 LLM |
-| **2. Python** | Scripts and **crystallize**: extract a repeatable procedure once from an LLM → deterministic Python forever after. | ~$0 LLM |
-| **3. Cheap / local LLM** | **Ollama** (and similar) — classify, audit, bulk. Works without Claude (e.g. **Continue.dev**). Local inference is **slow**, so tool / Python / RAG go first. | cheap · slower than frontier |
-| **4. Expensive LLM** | Only here: **Claude / Cursor** — wiring, architecture, whatever steps 1–3 did not close. | expensive · ~3% |
+On a shape that looks like our real traffic, that means roughly **97%** of turns never hit the frontier model, and **~3%** still do. For a small team, the illustrative gap vs “everything expensive + standing judge” is on the order of **~$2k / month** or **~$26k / year** (assumptions at the bottom — swap in your numbers).
 
-### Knowledge layer (not a paid step)
+---
 
-**Skills · Rules · RAG · ADR** — canon that feeds the ladder: where to route, what is already decided, which pattern to read without Claude.
+## How work actually flows
+
+Think of a ladder. The first rung that can handle the task wins. The expensive model is the *last* rung.
+
+1. **Tools** — `rg`, `jq`, and friends. Native **Rust** binaries. Search and parse almost free, and *fast*.
+2. **Python** — especially after **crystallize**: you solve something once with an LLM, then turn the repeatable part into a boring script that does it forever.
+3. **Cheap / local LLM** — **Ollama** and similar. Fine for classify / audit / bulk when you need language, but you don’t need frontier IQ. Works offline too (e.g. **Continue.dev**). Local models are **slow**, so we try tools and scripts before waking them up.
+4. **Expensive LLM** — **Claude / Cursor**. Wiring, architecture, judgment calls. Only when the rungs above weren’t enough.
+
+Sitting under all of that is the **knowledge layer** — not a paid API call, just the canon that keeps the team from reinventing itself every chat:
 
 | | |
 |--|--|
-| **Skills** | Repeatable agent procedures (crystallize, sync-meta, …) |
-| **Rules** | Hard constraints: scope, stands, greedy-token before Grep |
-| **RAG** | Pattern / flag lookup from docs without a full chat |
-| **ADR** | Architecture decisions — do not reinvent in every session |
+| **Skills** | “Here’s how we always do X” (crystallize, sync-meta, …) |
+| **Rules** | Hard rails: scope, stands, search via greedy-token before raw Grep |
+| **RAG** | Short answers from docs — patterns, flags — without a full agent essay |
+| **ADR** | Decisions we already made, so we don’t re-debate them in every session |
 
-Typical path:
+In practice:
 
 ```text
 Skills / Rules / RAG / ADR
@@ -49,113 +48,98 @@ Skills / Rules / RAG / ADR
 
 ---
 
-## Side by side
+## Two stacks, same company
 
-Small AI product company · 8 engineers · ~14 000 agent turns / month
+Imagine a small AI product shop: **8 engineers**, about **14 000** agent turns a month.
 
-| Dimension | LLM-as-a-judge | Greedy-token | Judge $ | Greedy-token $ |
-|-----------|----------------|--------------|---------|----------------|
-| Core question | How good is the answer? | Is a model needed? | — | — |
-| Agents | Straight to Claude / Cursor | Skills/Rules/RAG/ADR → rg·jq (Rust) → Python → Ollama → Claude/Cursor | $550 | $30 |
-| Quality checks | Second model on every serious run | Hard asserts + judge on releases | $2 150 | $515 |
-| Full stack | Expensive agents + standing judge | Routing + light offline eval | **$2 700** | **$540** |
+### Stack A — the classic path · ~$2 700 / mo
 
-### Stack A — classic · $2 700 / mo
+Everything goes through the expensive model. On top of that, a golden set and an LLM-as-a-judge on every serious run.
 
-Everything through an expensive LLM, plus a golden dataset and LLM-as-a-judge on every meaningful run. Strong for **product** quality — expensive as the default for **internal** eng work.
+Great for **shipping** model quality. Painful as the default for **internal** eng chores.
 
-| Line | Cost |
-|------|------|
-| Expensive LLM (Claude / Cursor) · 100% | $550 |
-| Judge + people | $2 150 |
+| | |
+|--|--|
+| Expensive LLM (Claude / Cursor) for ~100% of turns | $550 |
+| Judge + people to keep the eval alive | $2 150 |
 
-### Stack B — greedy-token · $540 / mo
+### Stack B — with greedy-token · ~$540 / mo
 
-Skills, Rules, RAG, and ADRs set the canon. Then the tier ladder. At the end sits the **same** “Expensive LLM” card (Claude / Cursor) as in stack A — it just sees **~3%** of traffic, not 100%.
+Same expensive LLM card as stack A — Claude / Cursor didn’t disappear. It just sees **~3%** of the traffic instead of everything. Skills / Rules / RAG / ADR steer the rest down the ladder. Judge stays for **releases**, not for every internal pass.
 
-| Line | Cost |
-|------|------|
+| | |
+|--|--|
 | Skills · Rules · RAG · ADR | ~$0 |
-| Tool (rg/jq · Rust) + Python crystallize + Ollama · ~97% | ~$14 |
-| Expensive LLM (Claude / Cursor) · ~3% — same card as A | ~$17 |
-| Offline-eval + release judge | $515 |
+| Tools + Python crystallize + Ollama (~97%) | ~$14 |
+| Expensive LLM (~3%) — same as A, thinner slice | ~$17 |
+| Light offline checks + release judge | $515 |
 
 ---
 
-## Plain equations
+## The math, without the fog
 
-All figures are **USD / month**. Swap in your numbers — the formulas stay the same.
+All figures are **USD per month**. Change the inputs; keep the shape.
 
-### 1. Agent cost
-
-Without routing (everything on the expensive model):
+**Agents without routing**
 
 ```text
-agent_cost = turns × expensive_price
+turns × expensive_price
 14_000 × $0.04 = $550
 ```
 
-With greedy-token (tier ladder):
+**Agents with the ladder**
 
 ```text
-agent_cost = turns × (3% × Claude/Cursor + 97% × tool/Python/Ollama)
+turns × (3% × expensive + 97% × cheap)
 14_000 × (~$0.002) ≈ $30
 ```
 
-Canon = Skills / Rules / RAG / ADR · tool = rg/jq (Rust) · Python = crystallize · cheap LLM = Ollama · expensive = Claude / Cursor.
-
-### 2. Quality-check cost
-
-Standing LLM-as-a-judge:
+**Standing judge**
 
 ```text
-judge = (cases × runs × $per_score) + maintainer_salary
+(cases × runs × $per_score) + maintainer time
 (250 × 40 × $0.015) + $2_000 = $2_150
 ```
 
-Greedy-token: asserts + judge only on releases:
+**Light eval + release judge**
 
 ```text
-eval = light_maintenance + release_judge
 $500 + $15 ≈ $515
 ```
 
-### 3. Savings
+**Gap**
 
 ```text
-savings = stack_A − stack_B
 $2_700 − $540 ≈ $2_160 / month
-$2_160 × 12 ≈ $26_000 / year
+≈ $26_000 / year
 ```
 
-Most of the savings is **people**, not judge API (~$150) — you do not staff continuous LLM-judge ops ($2 000).
+The big line item isn’t the judge API (~$150). It’s the people you don’t need on a permanent “score every answer” treadmill.
 
 ---
 
-## Honest positioning
+## What we are *not* claiming
 
-Greedy-token does **not** replace LLM-as-a-judge for the model you sell. Keep judge on **product releases**. Inside the team:
+Greedy-token does **not** replace LLM-as-a-judge for the model you sell customers. Keep that judge on **product releases**.
 
-```text
-Skills / Rules / RAG / ADR → rg/jq (Rust) → Python crystallize → Ollama → only then Claude / Cursor
-```
+What it *does* replace is the habit of paying frontier prices for search, diffs, and checks your repo already knows how to do.
 
-### Fully local is supported
+### Fully local is fine
 
-You can work **without access to an expensive LLM** — e.g. **Continue.dev** + Ollama / a local hub. Tool (`rg`/`jq`) and Python crystallize cover search and repeats with no model; a local LLM stays a fallback tier.
+No Claude key? Use **Continue.dev** + Ollama (or a local hub). Tools and crystallized scripts still run. The local model is a backup, not the front door.
 
-The win is not only price: **local models are slow**, while rg / scripts / RAG answer much faster.
+And yes — even when everything is local, the ladder helps: **local models crawl**; `rg` and scripts don’t.
 
 ---
 
-## Assumptions (illustrative)
+## Assumptions (so you can argue with them)
 
 - 8 engineers · ~14k turns / month  
 - Expensive turn $0.04 · cheap turn $0.001  
-- ~97% cheap share (from live greedy-token traffic shape)  
-- Judge golden 250 × 40 runs · 0.2 FTE judge maintenance vs 0.05 FTE offline eval  
-- Cursor seats (~$320 / mo) are the same in both stacks and are **not** counted in the savings  
+- ~97% cheap share shaped like live greedy-token traffic  
+- Judge golden: 250 cases × 40 runs · 0.2 FTE vs 0.05 FTE for offline eval  
+- Cursor seats (~$320 / mo) sit in both stacks and are **not** in the savings  
 
 ---
 
-See also: [README.md](README.md) · [WHY-RU.md](WHY-RU.md) · [docs/continue-setup.md](docs/continue-setup.md) · [docs/cursor-setup.md](docs/cursor-setup.md)
+More setup: [README.md](README.md) · [Continue](docs/continue-setup.md) · [Cursor](docs/cursor-setup.md)
