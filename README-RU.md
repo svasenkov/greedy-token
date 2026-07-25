@@ -4,11 +4,46 @@
 
 <img src="docs/greedy-cat.gif" alt="талисман greedy-token" width="240" />
 
-greedy-token работает рядом с вашим AI-агентом (**Cursor**, Claude Desktop, Continue) как CLI + MCP-сервер и берёт на себя рутину — чтобы не гонять каждую мелочь через дорогой agent chat.
+## Проблема
 
-Направляет задачу в **самый дешёвый подходящий tier** — `tool` (`rg`/`jq`) → `python`-скрипты → `ollama` (локальная cheap LLM) → `rag` → `cursor` (agent chat) — и поднимается до **дорогого agent chat**, только если дешевле маршрута нет. **Pipeline** склеивает несколько tier’ов в один вызов, а в конце каждого ответа — footer **Greedy token**: во сколько обошёлся вызов по сравнению с наивным полным чатом.
+Coding-агент сильный — и дорогой. Мелочи («где этот флаг?», «проходит ли проверка?») часто идут через **тот же платный чат**, что и нормальная архитектура. Вы платите цену архитектуры за grep.
 
-## Отзывы
+## Как
+
+greedy-token сидит рядом с Cursor / Claude Desktop / Continue (CLI + MCP) и сначала спрашивает: **а модель вообще нужна?**
+
+```text
+поиск / проверка / lookup в доке  →  бесплатные tools и скрипты
+массовая «чуть-ИИ» работа         →  локальная дешёвая LLM (Ollama, …)
+wiring / дизайн / суждения        →  дорогой agent chat
+```
+
+Побеждает первый подходящий дешёвый путь. В конце ответа — footer **Greedy token**: сколько стоил вызов против наивного полного чата. Длинный pitch и таблица денег: [WHY-RU.md](WHY-RU.md).
+
+## Старт за 30 секунд
+
+```bash
+pip install "greedy-token[mcp]"
+# в своём проекте:
+mkdir -p .cursor/rules
+cp examples/cursor/mcp.json .cursor/mcp.json
+cp examples/cursor/rules/greedy-token.mdc .cursor/rules/greedy-token.mdc
+```
+
+Дальше: **Settings → MCP → greedy-token → Enable → Refresh** → откройте **новый** Agent chat.
+
+## Один пример
+
+В agent chat:
+
+```text
+find baseUrl in configurator-option-presets.html
+```
+
+Должен сработать бесплатный tier `rg` (не полный круг Cursor). В footer — spent vs saved.
+
+<details>
+<summary><strong>Отзывы</strong> (письма моделей — по желанию)</summary>
 
 <table>
 <tr><td width="760">
@@ -42,6 +77,8 @@ greedy-token работает рядом с вашим AI-агентом (**Curs
 <p><strong>— Grok 4.5</strong></p>
 </td></tr>
 </table>
+
+</details>
 
 [![greedy-token](https://svasenkov.github.io/greedy-token/readme/badge.svg)](https://svasenkov.github.io/greedy-token/reports/latest/dashboard/)
 

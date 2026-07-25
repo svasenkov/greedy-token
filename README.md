@@ -4,11 +4,46 @@
 
 <img src="docs/greedy-cat.gif" alt="greedy-token mascot" width="240" />
 
-greedy-token runs alongside your AI coding agent (**Cursor**, Claude Desktop, Continue) as a CLI + MCP server and takes over the routine — so you don't push every small task through an expensive agent chat.
+## Problem
 
-It routes each task to the **cheapest matching tier** — `tool` (`rg`/`jq`) → `python` scripts → `ollama` (local cheap LLM) → `rag` → `cursor` (agent chat) — and escalates to the **expensive agent chat** only when no cheaper route matches. **Pipeline** chains several tiers in one call, and every response ends with a **Greedy token** footer showing what the call cost versus a naive full-context chat.
+Your coding agent is great — and expensive. Small questions (“where is this flag?”, “does this check pass?”) often go through the **same paid chat** as real architecture work. You pay architecture prices for grep.
 
-## Reviews
+## How
+
+greedy-token sits next to Cursor / Claude Desktop / Continue (CLI + MCP) and asks first: **do you need a model at all?**
+
+```text
+find / check / docs lookup  →  free tools & scripts
+sort-of-AI bulk work        →  local cheap LLM (Ollama, …)
+wiring / design / judgment  →  expensive agent chat
+```
+
+First matching cheap path wins. Every answer ends with a **Greedy token** footer: what this call cost vs a naive full chat. Longer pitch + cost table: [WHY.md](WHY.md).
+
+## 30-second start
+
+```bash
+pip install "greedy-token[mcp]"
+# in your project:
+mkdir -p .cursor/rules
+cp examples/cursor/mcp.json .cursor/mcp.json
+cp examples/cursor/rules/greedy-token.mdc .cursor/rules/greedy-token.mdc
+```
+
+Then: **Settings → MCP → greedy-token → Enable → Refresh** → open a **new** Agent chat.
+
+## One example
+
+In agent chat:
+
+```text
+find baseUrl in configurator-option-presets.html
+```
+
+That should hit the free `rg` tier (not a full Cursor round-trip). Footer shows spent vs saved.
+
+<details>
+<summary><strong>Reviews</strong> (model write-ups — optional reading)</summary>
 
 <table>
 <tr><td width="760">
@@ -42,6 +77,8 @@ It routes each task to the **cheapest matching tier** — `tool` (`rg`/`jq`) →
 <p><strong>— Grok 4.5</strong></p>
 </td></tr>
 </table>
+
+</details>
 
 [![greedy-token](https://svasenkov.github.io/greedy-token/readme/badge.svg)](https://svasenkov.github.io/greedy-token/reports/latest/dashboard/)
 
