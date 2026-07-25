@@ -82,15 +82,15 @@ No fine-tuning. No shipping your data for training. It “learns” by adding re
 
 Illustrative USD / month **and** wall-clock per call. **Classical LLM** = everything goes straight to a cloud / frontier chat. First matching tier wins. Per-call times are estimates vs a naive agent turn (`time_saved_ms` in MCP footer / `report`, v0.11+).
 
-| Path | Use when | Don’t use for | Path · 1 eng | Classical · 1 eng | Save · 1 | Path · ×10 | Classical · ×10 | Save · ×10 | ~time (path / agent) | Example |
-|------|----------|---------------|--------------|-------------------|----------|------------|-----------------|------------|----------------------|---------|
-| **tool** (rg) | find text in the repo | edits / design | $0 | $30 | $30 | $0 | $300 | $300 | ~1s / ~20s | `find baseUrl in configurator-option-presets.html` |
-| **python** | a deterministic script already exists | open-ended “fix it” | $0 | $25 | $25 | $0 | $250 | $250 | ~1s / ~20s | `meta-audit configurator-boolean` |
-| **rag** | answer lives in patterns / docs | undocumented code | $0 | $15 | $15 | $0 | $150 | $150 | ~0.5s / ~15s | which `-D` flag for baseUrl |
-| **ollama** | bulk classify / light audit | precise wiring | $8 | $20 | $12 | $25 | $200 | $175 | ~5s / ~25s | classify a list of skills |
-| **cursor** | wiring, refactor, judgment | grep / bulk-copy | $40 | $40 | $0 | $400 | $400 | $0 | ~same | change header behavior in one zone |
-| **classical LLM** | baseline: big model for everything | — | $130 | $130 | — | $1,300 | $1,300 | — | ~same | paste a whole folder into chat |
-| **★ TOTAL** | with router vs without | — | **$48** | **$130** | **★ $82** | **$425** | **$1,300** | **★ $820** | **★ ~6 h / ~60 h · mo** | **headline: $ and time / month** |
+| Path | Use when | Don’t use for | Path · 1 eng | Classical · 1 eng | Save · 1 | Path · ×10 | Classical · ×10 | Save · ×10 | ~time · path | ~time · agent | ~time · save | Example |
+|------|----------|---------------|--------------|-------------------|----------|------------|-----------------|------------|--------------|---------------|--------------|---------|
+| **tool** (rg) | find text in the repo | edits / design | $0 | $30 | $30 | $0 | $300 | $300 | ~1s | ~20s | ~19s | `find baseUrl in configurator-option-presets.html` |
+| **python** | a deterministic script already exists | open-ended “fix it” | $0 | $25 | $25 | $0 | $250 | $250 | ~1s | ~20s | ~19s | `meta-audit configurator-boolean` |
+| **rag** | answer lives in patterns / docs | undocumented code | $0 | $15 | $15 | $0 | $150 | $150 | ~0.5s | ~15s | ~15s | which `-D` flag for baseUrl |
+| **ollama** | bulk classify / light audit | precise wiring | $8 | $20 | $12 | $25 | $200 | $175 | ~5s | ~25s | ~20s | classify a list of skills |
+| **cursor** | wiring, refactor, judgment | grep / bulk-copy | $40 | $40 | $0 | $400 | $400 | $0 | ~same | ~same | ~0 | change header behavior in one zone |
+| **classical LLM** | baseline: big model for everything | — | $130 | $130 | — | $1,300 | $1,300 | — | ~same | ~same | — | paste a whole folder into chat |
+| **★ TOTAL** | with router vs without | — | **$48** | **$130** | **★ $82** | **$425** | **$1,300** | **★ $820** | — | — | **★ ~6 h · 1 / ~60 h · ×10** | **headline: $ and time / month** |
 
 ---
 
