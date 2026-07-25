@@ -1,0 +1,1 @@
+{"id":"cf8ea8cefc4e5412c676b2c5530ad177","fullName":"tests.test_cli_handlers#test_cmd_init_preset_path_and_url","name":"cmd_init --preset accepts a file path and an https:// URL","status":"passed","testResultsByEnv":{"default":"9c193dc815f7526d2a20ac9cd4ab8c3f"}}

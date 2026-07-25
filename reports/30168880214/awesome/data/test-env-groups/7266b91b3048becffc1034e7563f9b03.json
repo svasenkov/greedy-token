@@ -1,0 +1,1 @@
+{"id":"7266b91b3048becffc1034e7563f9b03","fullName":"tests.test_cli_gaps#test_cmd_doctor","name":"cmd_doctor: text, json, apply ok, apply error, no workspace","status":"passed","testResultsByEnv":{"default":"eb057b8b1bcc3984755ae6fc1f6a2892"}}

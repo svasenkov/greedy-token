@@ -1,0 +1,1 @@
+{"id":"931dccd589886956c5b39fdb26d6b9ba","fullName":"tests.test_model_select_gaps#test_get_llm_registry_no_root","name":"get_llm_registry(None) skips workspace config read","status":"passed","testResultsByEnv":{"default":"a9f28244767ab2e20a14ca0d4bbd0c5e"}}

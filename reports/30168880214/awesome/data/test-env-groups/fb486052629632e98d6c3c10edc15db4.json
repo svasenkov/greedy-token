@@ -1,0 +1,1 @@
+{"id":"fb486052629632e98d6c3c10edc15db4","fullName":"tests.test_router#test_route_task_total_with_ollama_available","name":"route_task stays valid when the cheap LLM tier is available","status":"passed","testResultsByEnv":{"default":"f7c9ce2ab3720708a4e65188f90b9e78"}}

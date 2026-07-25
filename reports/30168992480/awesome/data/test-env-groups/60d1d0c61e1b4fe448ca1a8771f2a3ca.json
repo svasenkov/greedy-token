@@ -1,1 +1,0 @@
-{"id":"60d1d0c61e1b4fe448ca1a8771f2a3ca","fullName":"tests.test_hub_gaps#test_hub_handler_http","name":"HubHandler serves api, static, options, traversal fallback","status":"passed","testResultsByEnv":{"default":"71e385878b7e7a97cb2bdefc6aab5815"}}

@@ -1,0 +1,1 @@
+{"id":"6b1307fee67b33ddf92bb6da60f05680","fullName":"tests.test_executors_gaps#test_execute_task_weak_no_rag","name":"execute_task tool tier: weak rg + no RAG → raw output, exit=code, decision","status":"passed","testResultsByEnv":{"default":"f4ac793fb7fc04e5d88844ed2331eed0"}}

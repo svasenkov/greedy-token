@@ -1,1 +1,0 @@
-{"id":"7788a72de1385f9b367aee14b7f41931","fullName":"tests.test_expensive_llm#test_non_yandex_delegates","name":"non-yandex provider delegates to openai_compat","status":"passed","testResultsByEnv":{"default":"e25d7cc34b3c1d7a9d30e80f83f5d92e"}}
