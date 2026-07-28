@@ -1,6 +1,6 @@
 # Cut checklist — greedy-token v0.11.0
 
-**Status:** DRAFT — feature landed on main; cut when gate green + user OK to tag.
+**Status:** SHIPPED — 2026-07-28 · tag `v0.11.0` · PyPI `0.11.0`.
 
 ## Summary
 
