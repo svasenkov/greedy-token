@@ -129,6 +129,7 @@ Per-release detail: `CUT-v*.md` checklists in the repo root.
 
 | Version | Focus |
 |---------|-------|
+| **v0.11.1** | Promote access-diag live routes (jenkins/selenoid/testops/`--all-standard`); retire auth-storage-probe patterns |
 | **v0.11.0** | Time savings: `time_saved_ms` vs naive agent wall-clock (`overhead_ms` + scale), MCP footer / `report` / hub |
 | **v0.10.0** | Beyond-Cursor: `agent_host: cursor \| claude \| continue`, metered bulk APIs under spend guard ([ADR-0002](adr/0002-metered-bulk-cheap-tier.md)), calibration nudges, team route presets (`init --preset`) |
 | **v0.9.0** | Unified model registry ([ADR-0001](adr/0001-unified-model-spec-derived-tier.md), derived cheap/expensive tier), mutation-equivalents registry with drift guard, MCP `greedy_token_crystallize` |

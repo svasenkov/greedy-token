@@ -188,4 +188,4 @@ Confidence calibration (score buckets, min n=20):
 
 Повторяющаяся задача → **crystallize** в скрипт → следующий раз **0 LLM**. Подробности: [guide](docs/guide-RU.md) · [roadmap](docs/ROADMAP-RU.md)
 
-**Лицензия:** MIT · **v0.11.0**
+**Лицензия:** MIT · **v0.11.1**
