@@ -87,9 +87,19 @@ def test_greedy_token_route(minimal_workspace: Path) -> None:
 def test_mcp_main(monkeypatch: pytest.MonkeyPatch, minimal_workspace: Path) -> None:
     from greedy_token import mcp as mcp_mod
 
-    monkeypatch.setattr(mcp_mod, "apply_ollama_env", lambda root: None)
-    monkeypatch.setattr(mcp_mod.mcp, "run", lambda: None)
+    calls = {"ollama": 0, "run": 0}
+
+    def fake_apply_ollama(root: Path) -> None:
+        calls["ollama"] += 1
+
+    def fake_run() -> None:
+        calls["run"] += 1
+
+    monkeypatch.setattr(mcp_mod, "apply_ollama_env", fake_apply_ollama)
+    monkeypatch.setattr(mcp_mod.mcp, "run", fake_run)
     mcp_mod.main()
+    assert calls["ollama"] == 1
+    assert calls["run"] == 1
 
 
 @allure.story("Icons")

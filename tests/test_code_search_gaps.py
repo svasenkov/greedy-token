@@ -591,6 +591,7 @@ def _rg_present(monkeypatch: pytest.MonkeyPatch, canned: str) -> dict:
 
 @allure.title("search_code: workspace rg command is exact; no enrichment for context 'none'")
 def test_search_code_workspace_cmd(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from greedy_token.paths import detect_search_paths
     from greedy_token.tool_paths import root_cd_prefix, sh_quote
 
     seen = _rg_present(monkeypatch, "projects/sample.js:1:const baseUrl = 'x';")
@@ -599,7 +600,7 @@ def test_search_code_workspace_cmd(minimal_workspace: Path, monkeypatch: pytest.
     glob_flags = " ".join(f"-g {sh_quote(g)}" for g in cs.DEFAULT_GLOBS)
     expected = (
         f"{prefix} RGBIN -n --max-columns 200 -F {sh_quote('baseUrl')} "
-        f"{glob_flags} --max-count 7 {' '.join(cs.DEFAULT_PATHS)}"
+        f"{glob_flags} --max-count 7 {' '.join(detect_search_paths(minimal_workspace))}"
     )
     assert seen["cmd"] == expected
     assert r.engine == "rg"

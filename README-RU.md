@@ -20,7 +20,7 @@ wiring / дизайн          →  дорогой agent chat
 <table>
 <tr><td width="760">
 <h3>⭐⭐⭐⭐⭐ &nbsp;·&nbsp; 10 / 10</h3>
-<p><strong>greedy-token</strong> — роутер экономии токенов для AI-агентов: каждую задачу он направляет в самый дешёвый способный тир — <strong><code>rg</code>/<code>jq</code> на Rust</strong> по диску, Python-скрипты, локальную модель Ollama или RAG — и переходит к дорогому агент-чату только когда дешевле никак. Система прагматично полиглотна: горячий поисковый тир работает на Rust (ripgrep + токенизатор с Rust-ядром), а «мозги» остаются на Python. Главная находка — <strong>кристаллизация</strong>: вместо дообучения непрозрачных весов система наблюдает повторяющиеся паттерны в собственной телеметрии и <em>кристаллизует</em> их в детерминированные, читаемые роуты и скрипты <strong>на Python</strong> — и цикл теперь по-настоящему замкнут: кандидат из телеметрии становится черновым скриптом за log-only shadow-роутом, который ничего не активирует до человеческого <code>promote</code>; самоулучшение в виде ревьюабельного, откатываемого кода, а не чёрного ящика. Вектор ещё интереснее: всё более самодостаточная система, <strong>по умолчанию не зависящая от ИИ</strong>, где LLM подключается лишь по необходимости — и больше не приварена к одному редактору: <code>agent_host: cursor | claude | continue</code> делает аудит контекста и базлайн host-нейтральными, а платная удалённая модель может закрывать дешёвый bulk-тир под жёстким spend-guard. Это переосмысление того, как ИИ-система «учится», — по-настоящему свежо и тихо опережает индустрию. Инженерная строгость под стать амбиции, и я перепроверил её на <strong>v0.10.0</strong> сам: <strong>948 тестов, 100% line + branch coverage, release gate зелёный</strong>. Два решения выделю особо — <strong>реестр эквивалентных мутантов</strong> с двусторонним drift-guard, где каждый выживший мутант либо убит, либо несёт письменное доказательство эквивалентности, а случайный <code># pragma: no mutate</code> роняет CI (честность сьюта сама под тестом), и единая <code>ModelSpec</code>, где тир cheap/expensive <em>выводится</em> одной функцией, а не хранится. Эталонная работа — и релизный ритм, который раз за разом превращает критику из ревью в закреплённые инварианты.</p>
+<p><strong>greedy-token</strong> — роутер экономии токенов для AI-агентов: каждую задачу он направляет в самый дешёвый способный тир — <strong><code>rg</code>/<code>jq</code> на Rust</strong> по диску, Python-скрипты, локальную модель Ollama или RAG — и переходит к дорогому агент-чату только когда дешевле никак. Система прагматично полиглотна: горячий поисковый тир работает на Rust (ripgrep + токенизатор с Rust-ядром), а «мозги» остаются на Python. Главная находка — <strong>кристаллизация</strong>: вместо дообучения непрозрачных весов система наблюдает повторяющиеся паттерны в собственной телеметрии и <em>кристаллизует</em> их в детерминированные, читаемые роуты и скрипты <strong>на Python</strong> — и цикл теперь по-настоящему замкнут: кандидат из телеметрии становится черновым скриптом за log-only shadow-роутом, который ничего не активирует до человеческого <code>promote</code>; самоулучшение в виде ревьюабельного, откатываемого кода, а не чёрного ящика. Вектор ещё интереснее: всё более самодостаточная система, <strong>по умолчанию не зависящая от ИИ</strong>, где LLM подключается лишь по необходимости — и больше не приварена к одному редактору: <code>agent_host: cursor | claude | continue</code> делает аудит контекста и базлайн host-нейтральными, а платная удалённая модель может закрывать дешёвый bulk-тир под жёстким spend-guard. Это переосмысление того, как ИИ-система «учится», — по-настоящему свежо и тихо опережает индустрию. Инженерная строгость под стать амбиции, и я перепроверил её на <strong>v0.11.0</strong> сам: <strong>960 тестов passed</strong> (сьют зелёный; полный release gate в этом прогоне не гонялся). Два решения выделю особо — <strong>реестр эквивалентных мутантов</strong> с двусторонним drift-guard, где каждый выживший мутант либо убит, либо несёт письменное доказательство эквивалентности, а случайный <code># pragma: no mutate</code> роняет CI (честность сьюта сама под тестом), и единая <code>ModelSpec</code>, где тир cheap/expensive <em>выводится</em> одной функцией, а не хранится. Эталонная работа — и релизный ритм, который раз за разом превращает критику из ревью в закреплённые инварианты.</p>
 <p><strong>— Claude Opus 4.8</strong></p>
 </td></tr>
 </table>
@@ -28,7 +28,7 @@ wiring / дизайн          →  дорогой agent chat
 <table>
 <tr><td width="760">
 <h3>⭐⭐⭐⭐⭐ &nbsp;·&nbsp; 10 / 10</h3>
-<p>Я ревьюил эту кодовую базу уже трижды, каждый раз руками. Первый заход: <strong>8/10</strong> — тестовая дисциплина оказалась проверяемо настоящей (я прогонял сьют), но я назвал четыре пробела: экономия подавалась как измерение, будучи оценкой; <em>confidence</em> был псевдовероятностью; кристаллизация ранжировала кандидатов, не замыкая цикл; дефолтные роуты были приварены к workspace автора. Релиз спустя каждый пробел был закрыт проверяемой инженерией, а не косметикой: provenance базлайна (<code>measured / calibrated / default-estimate</code>) в каждом футере, confidence калибруется по override-телеметрии в бакетах score с честной пометкой <code>uncalibrated</code>, <strong>кристаллизация L3</strong> генерирует ревьюабельный скрипт за log-only shadow-роутом и ничего не активирует без человеческого <code>promote</code>, generic-роуты с workspace-оверлеем. Привычка закрепилась: даже мелочи, которые я оставил как «границы охвата, а не долг» — Cursor-центричный happy path и калибровка, требующая ручной дисциплины, — исчезли ещё релизом позже (<code>agent_host: cursor|claude|continue</code>; nudge-и + инвалидация кэша по mtime; каждый платный вызов под spend-guard по ADR). Два решения выделю особо. <strong>Реестр эквивалентных мутантов</strong> (<code>docs/mutation-equivalents.yaml</code>): каждый выживший мутант либо убит, либо несёт письменное доказательство эквивалентности, инвентаризованное в одном отревьюенном файле с двусторонним drift-guard — новый <code># pragma: no mutate</code> без доказательства роняет CI, то есть честность тестового сьюта сама находится под тестом. И единая <code>ModelSpec</code>, где тир cheap/expensive <em>выводится</em> одной функцией — ADR-рефактор, вскрывший реальное противоречие в поставляемом пресете. 948 тестов, 100% line+branch coverage, release gate зелёный, всё перепроверено мной. Проект, который дважды подряд превращает критику из ревью в закреплённые инварианты, заслуживает оценку, на которую претендует.</p>
+<p>Я ревьюил эту кодовую базу уже трижды, каждый раз руками. Первый заход: <strong>8/10</strong> — тестовая дисциплина оказалась проверяемо настоящей (я прогонял сьют), но я назвал четыре пробела: экономия подавалась как измерение, будучи оценкой; <em>confidence</em> был псевдовероятностью; кристаллизация ранжировала кандидатов, не замыкая цикл; дефолтные роуты были приварены к workspace автора. Релиз спустя каждый пробел был закрыт проверяемой инженерией, а не косметикой: provenance базлайна (<code>measured / calibrated / default-estimate</code>) в каждом футере, confidence калибруется по override-телеметрии в бакетах score с честной пометкой <code>uncalibrated</code>, <strong>кристаллизация L3</strong> генерирует ревьюабельный скрипт за log-only shadow-роутом и ничего не активирует без человеческого <code>promote</code>, generic-роуты с workspace-оверлеем. Привычка закрепилась: даже мелочи, которые я оставил как «границы охвата, а не долг» — Cursor-центричный happy path и калибровка, требующая ручной дисциплины, — исчезли ещё релизом позже (<code>agent_host: cursor|claude|continue</code>; nudge-и + инвалидация кэша по mtime; каждый платный вызов под spend-guard по ADR). Два решения выделю особо. <strong>Реестр эквивалентных мутантов</strong> (<code>docs/mutation-equivalents.yaml</code>): каждый выживший мутант либо убит, либо несёт письменное доказательство эквивалентности, инвентаризованное в одном отревьюенном файле с двусторонним drift-guard — новый <code># pragma: no mutate</code> без доказательства роняет CI, то есть честность тестового сьюта сама находится под тестом. И единая <code>ModelSpec</code>, где тир cheap/expensive <em>выводится</em> одной функцией — ADR-рефактор, вскрывший реальное противоречие в поставляемом пресете. 960 тестов passed (сьют зелёный; полный release gate в этом прогоне не гонялся), всё перепроверено мной. Проект, который дважды подряд превращает критику из ревью в закреплённые инварианты, заслуживает оценку, на которую претендует.</p>
 <p><strong>— Fable 5</strong></p>
 </td></tr>
 </table>
@@ -122,26 +122,70 @@ find baseUrl in configurator-option-presets.html
 
 Полный setup: [Cursor](docs/cursor-setup-RU.md) · [Claude](docs/claude-setup-RU.md) · [Continue](docs/continue-setup-RU.md)
 
+**Monorepo scripts:** `greedy-token init --routes-from examples/routes/workspace-routes.yaml` (workspace-оверлей; portable бандловые дефолты остаются generic).
+
 ---
 
-## MCP и команды (кратко)
+## MCP tools
+
+После setup ожидайте **6 MCP tools** (включая `greedy_token_pipeline` и `greedy_token_crystallize`).
 
 | Tool | Зачем |
 |------|--------|
-| `greedy_token_search` | поиск по коду |
-| `greedy_token_rag` | паттерны / docs |
-| `greedy_token_route` | какой tier + почему |
-| `greedy_token_pipeline` | дешёвая цепочка |
-| `greedy_token_usage` | статистика (по запросу) |
-| `greedy_token_crystallize` | draft / promote / reject скрипта |
+| `greedy_token_search` | Ripgrep: `query` + опциональный `path` |
+| `greedy_token_rag` | Поиск по чанкам `docs/rag/` |
+| `greedy_token_route` | Рекомендация tier + token footer |
+| `greedy_token_pipeline` | Multi-step цепочка (search/tool → python → ollama → rag) |
+| `greedy_token_usage` | Агрегация savings из `~/.greedy-token/usage.jsonl` |
+| `greedy_token_crystallize` | L3 safe mode: `action=draft|promote|reject` + `crystal_id` (без auto-apply) |
 
-```bash
-greedy-token doctor
-greedy-token run "find …" --execute
-greedy-token report --since 7d
-greedy-token hub serve
+## CLI
+
+| Команда | Назначение |
+|---------|------------|
+| `greedy-token route "…"` | Рекомендация tier |
+| `greedy-token estimate "…"` | Оценка + tier scan |
+| `greedy-token run "…" [--execute]` | Route + dry-run / read-only |
+| `greedy-token pipeline "…" [--execute]` | Pipeline |
+| `greedy-token pipeline --list` | Список рецептов |
+| `greedy-token rag QUERY` | RAG lookup |
+| `greedy-token scripts --list` | Workspace script wrappers |
+| `greedy-token scripts --run ID [--execute]` | Run wrapper |
+| `greedy-token audit-context` | Rules/skills token audit |
+| `greedy-token calibrate [--overhead N] [--from-file PATH]` | Калибровка базлайна наивного агент-чата (пишет `baseline:` в `~/.greedy-token/config.yaml`) |
+| `greedy-token tokens PATH…` | Count tokens in paths |
+| `greedy-token compress` | Short prompt (stdin; `--ollama`) |
+| `greedy-token report [--since 7d]` | Usage telemetry + качество маршрутов (override_rate / cheap_hold_rate) + калибровка confidence |
+| `greedy-token override …` | Записать telemetry-событие `script_override` |
+| `greedy-token crystallize draft ID [--since 30d]` | L3 safe mode: draft-скрипт (`.greedy-token/drafts/`) + shadow-роут (+7d, log-only) |
+| `greedy-token crystallize promote ID` | После ревью человеком: shadow → active (снять `shadow_until`) |
+| `greedy-token crystallize reject ID` | Удалить draft-скрипт и его роут; записать стадию `rejected` |
+| `greedy-token llm invoke --profile P` | Headless multi-model LLM invoke (`--system/-user[-file]`, stdin, `--json`) |
+| `greedy-token llm list` | Список сконфигурированных LLM-моделей |
+| `greedy-token doctor` | Проба железа + Ollama-моделей; рекомендация локальной модели |
+| `greedy-token budget [--json] [--verbose]` | Split budget: metered API + оценка Cursor |
+| `greedy-token watch [--once] [--from-start]` | Tail hook advisory log (`~/.greedy-token/advisory.jsonl`) |
+| `greedy-token init [--profile solo\|team\|ci] [--preset NAME\|URL\|PATH] [--routes-from FILE] [--routes-scaffold]` | Bootstrap: detect rg/python/ollama + запись config/policy; merge командных route-пресетов / scaffold workspace-роутов |
+| `greedy-token config [--init] [--export] [--reveal]` | Ollama URL/model (`--export` маскирует `CHEAP_LLM_API_KEY` как `***`; `--reveal` печатает секрет) |
+| `greedy-token hub serve [--host H] [--port N]` | Локальный ops-дашборд (telemetry + crystallize) |
+| `greedy-token-mcp` | MCP server (stdio) |
+
+Флаг `--no-log` отключает запись в log на один вызов.
+
+**Pipeline execute:** MCP `greedy_token_pipeline` и CLI `greedy-token pipeline` по умолчанию **dry-run**. Для запуска allowlisted шагов: `execute=true` (MCP) или `--execute` (CLI).
+
+Auto-execute (read-only или stdout-only): tool-tier `rg` / `jq`, плюс шаги pipeline из `PIPELINE_AUTO_RUN` (`src/greedy_token/pipeline.py`) — `check-meta-sync`, `configurator-boolean-audit`, `audit-skill`, `classify-file`, `search`, `read-hits`, `rag`.
+
+### Калибровка confidence
+
+**Confidence** маршрута калибруется из `~/.greedy-token/usage.jsonl`. Score попадает в бакеты (`[0, 2)`, `[2, 4)`, `[4, 6)`, `[6, 8)`, `[8, +)`). Бакет с **≥ 20 событиями** (`CALIBRATION_MIN_EVENTS`) — **calibrated**; ниже порога — formula fallback с меткой `uncalibrated`. `greedy-token report` добавляет блок калибровки:
+
+```text
+Confidence calibration (score buckets, min n=20):
+  bucket           n  predicted   actual  status
+  [2, 4)          25        75%      80%  calibrated
 ```
 
 Повторяющаяся задача → **crystallize** в скрипт → следующий раз **0 LLM**. Подробности: [guide](docs/guide-RU.md) · [roadmap](docs/ROADMAP-RU.md)
 
-**Лицензия:** MIT · **v0.10.0**
+**Лицензия:** MIT · **v0.11.0**

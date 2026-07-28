@@ -24,13 +24,14 @@ DEFAULT_GLOBS = [
     "!.cursor/hooks/**",
 ]
 
-DEFAULT_PATHS = [
-    "projects",
-    "docs",
-    "stacks",
-    "scripts",
-    "generators",
-]
+DEFAULT_PATHS = ["."]
+
+
+def search_scope_paths(root: Path) -> list[str]:
+    """Portable search roots: detected top-level folders, else ``'.'``."""
+    from greedy_token.paths import detect_search_paths
+
+    return detect_search_paths(root)
 
 SKIP_DIR_NAMES = {".git", "node_modules", "build", ".venv", "__pycache__", "dist", ".tox"}
 
@@ -78,7 +79,7 @@ def _is_skipped_path(path: Path, root: Path) -> bool:
 
 def _under_default_paths(path: Path, root: Path) -> bool:
     parts = _rel_parts(path, root)
-    return bool(parts) and parts[0] in DEFAULT_PATHS
+    return bool(parts) and parts[0] in search_scope_paths(root)
 
 
 def _format_rel(path: Path, root: Path) -> str:
@@ -562,7 +563,7 @@ def search_code(
             cmd = (
                 f"{root_cd_prefix(root)} {rg_path_for_shell()} -n --max-columns 200 -F "
                 f"{sh_quote(query)} {glob_flags} --max-count {limit} "
-                f"{' '.join(DEFAULT_PATHS)}"
+                f"{' '.join(search_scope_paths(root))}"
             )
         _, out = _run_rg(cmd)
         filtered = filter_tool_output(out)
@@ -579,7 +580,7 @@ def search_code(
         scope_dirs = [resolved]
         scope = str(resolved.relative_to(root) if resolved.is_relative_to(root) else resolved)
     else:
-        scope_dirs = [root / p for p in DEFAULT_PATHS]
+        scope_dirs = [root / p for p in search_scope_paths(root)]
         scope = "workspace"
     # search_code never filters by filename, so name_glob is always None here.
     lines = _python_search_tree(

@@ -1102,14 +1102,14 @@ def test_remaining_public_coverage_edges(
     from greedy_token.router import RouteDecision, route_task
     from greedy_token.tool_paths import resolve_rg
 
-    # code_search: skip nonexistent DEFAULT_PATHS dir + relative_to outside root.
+    # code_search: skip nonexistent scope dir + relative_to outside root.
     (minimal_workspace / "stacks").rmdir()
     outside = minimal_workspace.parent / "ext-needle-xyz.txt"
     outside.write_text("needleOutsideXYZ\n", encoding="utf-8")
     with patch("greedy_token.code_search.resolve_rg", return_value=None):
         with patch(
-            "greedy_token.code_search.DEFAULT_PATHS",
-            ["projects", "docs", "stacks", "scripts", "generators", ".."],
+            "greedy_token.code_search.search_scope_paths",
+            lambda root: ["projects", "docs", "stacks", "scripts", "generators", ".."],
         ):
             tree = search_code("needleOutsideXYZ", minimal_workspace, limit=5)
     assert "needleOutsideXYZ" in tree.text or tree.engine == "python"

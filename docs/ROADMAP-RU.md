@@ -2,7 +2,7 @@
 
 **English:** [ROADMAP.md](ROADMAP.md)
 
-Начиная с **v0.10.0** greedy-token работает в любом agent-хосте с поддержкой MCP (`agent_host: cursor | claude | continue`, по умолчанию Cursor); cheap tier — Ollama или любой OpenAI-совместимый runtime. CLI и MCP не привязаны к IDE; платные bulk-API поддерживаются opt-in ([ADR-0002](adr/0002-metered-bulk-cheap-tier.md)). Оставшиеся пробелы — ниже.
+Начиная с **v0.11.0** greedy-token работает в любом agent-хосте с поддержкой MCP (`agent_host: cursor | claude | continue`, по умолчанию Cursor); cheap tier — Ollama или любой OpenAI-совместимый runtime. CLI и MCP не привязаны к IDE; платные bulk-API поддерживаются opt-in ([ADR-0002](adr/0002-metered-bulk-cheap-tier.md)). Оставшиеся пробелы — ниже.
 
 Легенда: ✅ есть · ❌ нет · 🔜 в планах
 

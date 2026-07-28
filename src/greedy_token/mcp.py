@@ -116,7 +116,9 @@ def greedy_token_search(query: str, path: str = "", context: str = "") -> str:
     task = f"search: {query}" + (f" in {path}" if path else "")
     ctx = context.strip().lower() or None
     if ctx is not None and ctx not in ("none", "snippet", "file"):
-        ctx = None
+        raise ValueError(
+            f"search: invalid context {context!r} (expected none, snippet, or file)"
+        )
     result = search_code(query, root, path=path or None, context=ctx)  # type: ignore[arg-type]
     body = result.text
     if result.hit_count or result.enriched_files:

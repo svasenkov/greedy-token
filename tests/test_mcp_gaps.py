@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import allure
+import pytest
 
 from greedy_token.mcp import greedy_token_search
 
@@ -16,8 +17,7 @@ pytestmark = [
 ]
 
 
-@allure.title("search tool: invalid context resets to default and no-hit skips summary")
-def test_search_invalid_context_no_hits(minimal_workspace: Path) -> None:
-    out = greedy_token_search("zzz-nonexistent-token-xyz", path="sample.js", context="bogus")
-    assert "Greedy token" in out
-    assert "hits:" not in out
+@allure.title("search tool: invalid context raises a clear error")
+def test_search_invalid_context_raises(minimal_workspace: Path) -> None:
+    with pytest.raises(ValueError, match=r"invalid context 'bogus'"):
+        greedy_token_search("zzz-nonexistent-token-xyz", path="sample.js", context="bogus")

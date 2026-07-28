@@ -560,6 +560,8 @@ greedy-token init --routes-from examples/routes/workspace-routes.yaml
 greedy-token init --routes-scaffold
 ```
 
+**Monorepo scripts:** подключить workspace-оверлей — `greedy-token init --routes-from examples/routes/workspace-routes.yaml` (script-tier python-* роуты, jq manifest, RAG-домены — не в portable бандловых дефолтах).
+
 Бандловые route-пресеты лежат в `examples/routes/presets/` (в пакете — `greedy_token/route_presets/`); `team-default` — command-free старт (rg + RAG). Полный рабочий оверлей (script tier, jq manifest, RAG-домены, shadow-роуты) лежит в `examples/routes/workspace-routes.yaml`.
 
 ## Не дообучаем модели
@@ -595,11 +597,11 @@ L3 замыкает цикл кристаллизации — кандидат �
 
 ## Охват и roadmap
 
-Сейчас основной сценарий — **любой MCP agent-хост + Ollama + workspace** (Cursor по умолчанию); CLI и MCP не привязаны к IDE. Текущий релиз — **v0.10.0** — «за пределы Cursor»: agent-хосты (Claude Desktop, Continue), [metered bulk APIs](#metered-bulk-apis-adr-0002) под spend guard, калибровка без ручной дисциплины и team route presets. Paid agent APIs (`expensive_llm`) — по-прежнему opt-in.
+Сейчас основной сценарий — **любой MCP agent-хост + Ollama + workspace** (Cursor по умолчанию); CLI и MCP не привязаны к IDE. Текущий релиз — **v0.11.0** — экономия времени в footer/report (`time_saved_ms`), agent-хосты beyond-Cursor (Claude Desktop, Continue), [metered bulk APIs](#metered-bulk-apis-adr-0002) под spend guard, калибровка без ручной дисциплины и team route presets. Paid agent APIs (`expensive_llm`) — по-прежнему opt-in.
 
 **Детали по релизам:** cut-чеклисты `CUT-v*.md` в корне репозитория. **Полная матрица (✅ / ❌ / 🔜) + критерии + GitHub issues:** [docs/ROADMAP-RU.md](docs/ROADMAP-RU.md) · [docs/ROADMAP.md](docs/ROADMAP.md)
 
-| Зона | ✅ сейчас (v0.10.0) | 🔜 дальше |
+| Зона | ✅ сейчас (v0.11.0) | 🔜 дальше |
 |------|-------------------|-----------|
 | Executors | `tool`, `python`, `ollama` (через `cheap_llm`), `rag`; **metered bulk APIs** (spend-guarded, [ADR-0002](docs/adr/0002-metered-bulk-cheap-tier.md)) | Crystal IR store |
 | Кристаллизация | L2 telemetry + **L3 safe mode** (`crystallize draft` → shadow → `promote` / `reject`) | — (silent auto-apply сознательно не планируется) |

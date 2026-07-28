@@ -119,6 +119,16 @@ routes:
     command: python scripts/sonar-gate-wait.py
     note: "sonar_quality_gate — crystallized script tier, 0 LLM"
 
+  - id: python-stack-verify
+    target: python
+    read_only: true
+    patterns:
+      - stack verify
+      - verify generated stack
+      - matrix cell verify
+    command: python scripts/stack-verify.py
+    note: "matrix/full-stack post-generate gate — crystallized script tier, 0 LLM"
+
   - id: python-crystallize-report
     target: python
     read_only: true

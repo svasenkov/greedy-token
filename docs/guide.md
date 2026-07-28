@@ -558,6 +558,8 @@ greedy-token init --routes-from examples/routes/workspace-routes.yaml
 greedy-token init --routes-scaffold
 ```
 
+**Monorepo scripts:** wire the workspace overlay with `greedy-token init --routes-from examples/routes/workspace-routes.yaml` (script-tier python-* routes, jq manifest, RAG domains — not in the portable bundled defaults).
+
 Bundled route presets live in `examples/routes/presets/` (packaged as `greedy_token/route_presets/`); `team-default` ships a command-free rg + RAG starting point. A full working overlay (script tier, jq manifest, RAG domains, shadow routes) ships as `examples/routes/workspace-routes.yaml`.
 
 ## No model training
@@ -593,11 +595,11 @@ Everything else (rsync / migrate / batch-inventory, non-allowlisted wrappers) �
 
 ## Scope & roadmap
 
-Today the happy path is **any MCP agent host + Ollama + workspace** (Cursor by default); CLI and MCP are IDE-agnostic. The current release is **v0.10.0** — beyond-Cursor: agent hosts (Claude Desktop, Continue), spend-guarded [metered bulk APIs](#metered-bulk-apis-adr-0002), calibration without manual discipline, and team route presets. Paid agent APIs (`expensive_llm`) remain opt-in.
+Today the happy path is **any MCP agent host + Ollama + workspace** (Cursor by default); CLI and MCP are IDE-agnostic. The current release is **v0.11.0** — time savings in footers/reports (`time_saved_ms`), beyond-Cursor agent hosts (Claude Desktop, Continue), spend-guarded [metered bulk APIs](#metered-bulk-apis-adr-0002), calibration without manual discipline, and team route presets. Paid agent APIs (`expensive_llm`) remain opt-in.
 
 **Per-release detail:** cut checklists `CUT-v*.md` in the repo root. **Full matrix (✅ / ❌ / 🔜) + acceptance criteria + GitHub issues:** [docs/ROADMAP.md](docs/ROADMAP.md) · [docs/ROADMAP-RU.md](docs/ROADMAP-RU.md)
 
-| Area | ✅ today (v0.10.0) | 🔜 next |
+| Area | ✅ today (v0.11.0) | 🔜 next |
 |------|-------------------|---------|
 | Executors | `tool`, `python`, `ollama` (via `cheap_llm`), `rag`; **metered bulk APIs** (spend-guarded, [ADR-0002](docs/adr/0002-metered-bulk-cheap-tier.md)) | Crystal IR store |
 | Crystallization | L2 telemetry + **L3 safe mode** (`crystallize draft` → shadow → `promote` / `reject`) | — (silent auto-apply intentionally not planned) |

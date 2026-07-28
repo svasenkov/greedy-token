@@ -2,7 +2,7 @@
 
 **Русская версия:** [ROADMAP-RU.md](ROADMAP-RU.md)
 
-As of **v0.10.0**, greedy-token runs in any MCP-capable agent host (`agent_host: cursor | claude | continue`, Cursor by default) with Ollama or any OpenAI-compatible runtime as the cheap tier. CLI and MCP are IDE-agnostic; metered bulk APIs are supported opt-in ([ADR-0002](adr/0002-metered-bulk-cheap-tier.md)). Remaining gaps are tracked below.
+As of **v0.11.0**, greedy-token runs in any MCP-capable agent host (`agent_host: cursor | claude | continue`, Cursor by default) with Ollama or any OpenAI-compatible runtime as the cheap tier. CLI and MCP are IDE-agnostic; metered bulk APIs are supported opt-in ([ADR-0002](adr/0002-metered-bulk-cheap-tier.md)). Remaining gaps are tracked below.
 
 Legend: ✅ supported · ❌ not yet · 🔜 planned
 

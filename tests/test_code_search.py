@@ -217,18 +217,18 @@ def test_resolve_search_path_prefers_default_paths(minimal_workspace: Path) -> N
 def test_resolve_search_path_prefers_default_among_multi(minimal_workspace: Path) -> None:
     from greedy_token.code_search import _format_rel, _rel_parts, resolve_search_path_detail
 
-    with allure.step("Plant same dirname under projects and outside DEFAULT_PATHS"):
+    with allure.step("Plant same dirname under projects and a vendor tree"):
         preferred = minimal_workspace / "projects" / "pref-utils"
         preferred.mkdir(parents=True)
         (preferred / "a.py").write_text("P=1\n", encoding="utf-8")
-        other = minimal_workspace / "other-zone" / "pref-utils"
+        other = minimal_workspace / "node_modules" / "pref-utils"
         other.mkdir(parents=True)
         (other / "b.py").write_text("O=1\n", encoding="utf-8")
     with allure.step("Resolve bare name"):
         found = resolve_search_path("pref-utils", minimal_workspace)
         detail = resolve_search_path_detail("pref-utils", minimal_workspace)
         attach_text("resolved", str(found))
-    with allure.step("Verify DEFAULT_PATHS preference and helpers"):
+    with allure.step("Verify search_scope_paths preference and helpers"):
         assert found == preferred.resolve()
         assert detail.reason == ""
         outside = minimal_workspace.parent / "ext-rel.txt"
@@ -668,8 +668,10 @@ def test_glob_name_matches_skips_outside(tmp_path: Path, monkeypatch: pytest.Mon
 
 
 @allure.story("Glob name matches")
-@allure.title("_glob_name_matches: DEFAULT_PATHS matches sort before others, then by str")
+@allure.title("_glob_name_matches: search_scope_paths matches sort before others, then by str")
 def test_glob_name_matches_sort_order(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import greedy_token.code_search as cs
+
     from greedy_token.code_search import _glob_name_matches
 
     root = tmp_path / "gt_root"
@@ -677,13 +679,14 @@ def test_glob_name_matches_sort_order(tmp_path: Path, monkeypatch: pytest.Monkey
     root = root.resolve()
     (root / "scripts").mkdir()
     (root / "aaa").mkdir()
-    pref = root / "scripts" / "x.txt"  # under DEFAULT_PATHS
+    pref = root / "scripts" / "x.txt"  # under search_scope_paths
     pref.write_text("x", encoding="utf-8")
-    other = root / "aaa" / "x.txt"  # not under DEFAULT_PATHS
+    other = root / "aaa" / "x.txt"  # outside scoped roots
     other.write_text("x", encoding="utf-8")
     order = [other, pref]  # natural order would put aaa first
+    monkeypatch.setattr(cs, "search_scope_paths", lambda _root: ["scripts"])
     monkeypatch.setattr(type(root), "glob", lambda self, pat: iter(order))
-    with allure.step("Default-path match wins over natural alphabetical order"):
+    with allure.step("Scoped-path match wins over natural alphabetical order"):
         got = _glob_name_matches(root, "x.txt", want_dir=False)
         assert got == [pref.resolve(), other.resolve()]
 
