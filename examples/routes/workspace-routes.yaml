@@ -311,43 +311,71 @@ routes:
     command: python scripts/sync_testops_component_mappings.py
     note: "TMS automator — sync Component mappings (consumer repo script)"
 
+  # retired 2026-07-28 — patterns moved to python-access-diag-testops
   - id: python-auth-storage-probe
     target: python
     read_only: true
+    enabled: false
     patterns:
       - auth storage probe
       - auth_storage_probe
       - tms auth probe
       - testops auth storage
     command: python scripts/auth_storage_probe.py
-    note: "TMS automator — crystallized auth/session probe (script tier)"
+    note: "Retired — use python-access-diag-testops (access_diag.py testops)"
 
   # promoted 2026-07-22 — golden green; 0 shadow hits (criteria: golden only)
   - id: python-provider-balance
     target: python
     read_only: true
+    enabled: false
+    shadow_until: "2026-08-05T00:00:00Z"
     patterns:
       - provider balance
       - balance analyzer
       - infra burn
     command: python scripts/infra/provider_balance.py
-    note: "Provider balance analyzer — live script tier, 0 LLM"
+    note: "Provider balance analyzer — shadow (0 hits)"
 
-  # shadow until 2026-08-05 — reject promote 2026-07-22: golden green, 0/3 hits
+  # promoted 2026-07-28 — golden green (jenkins + all-standard dry-run)
+  - id: python-access-diag-jenkins
+    target: python
+    read_only: true
+    patterns:
+      - jenkins access check
+      - jenkins access probe
+    command: python scripts/access_diag.py jenkins
+    note: "Access-diag jenkins profile — read-only probe, canon schema"
+
+  - id: python-access-diag-selenoid
+    target: python
+    read_only: true
+    patterns:
+      - selenoid access probe
+    command: python scripts/access_diag.py selenoid
+    note: "Access-diag selenoid profile — read-only probe, canon schema"
+
+  - id: python-access-diag-testops
+    target: python
+    read_only: true
+    patterns:
+      - testops access probe
+      - auth storage probe
+      - auth_storage_probe
+      - tms auth probe
+      - testops auth storage
+    command: python scripts/access_diag.py testops
+    note: "Access-diag testops profile — auth env probe, canon schema"
+
   - id: python-access-diag
     target: python
     read_only: true
-    enabled: false
-    shadow_until: "2026-08-05T00:00:00Z"
     patterns:
       - access diag
       - access-diag probe
       - service account access
-      - jenkins access check
-      - selenoid access probe
-      - testops access probe
-    command: python scripts/access_diag.py
-    note: "Access-diag dispatcher — read-only probes, canon schema; shadow crystallize"
+    command: python scripts/access_diag.py --all-standard
+    note: "Access-diag all standard profiles — jenkins+selenoid+testops"
 
 cursor_fallback:
   message: |
