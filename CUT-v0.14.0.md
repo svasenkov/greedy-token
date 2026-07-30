@@ -1,6 +1,6 @@
 # Cut checklist — greedy-token v0.14.0
 
-**Status:** READY — Corpus v2 (not shipped; pending release gate + explicit «релиз»).
+**Status:** SHIPPED — 2026-07-30 · tag `v0.14.0` · PyPI `0.14.0`.
 
 Post–Trust cut track **C**: expand routing benchmark corpus for zone
 coverage (tool / python / rag / ollama / cursor), RU+EN prompts, and a
@@ -22,6 +22,7 @@ stricter precision gate. No Windows / FTS / host pre-router in this cut.
 
 | Claim | Evidence |
 |-------|----------|
+| version 0.14.0 | `pyproject.toml` (SSOT via `src/greedy_token/version.py`) |
 | corpus v2 schema | `bench/routing_corpus.yaml` (`version: 2`, 45 cases) |
 | precision gate 0.90 | `min_precision` + `test_routing_corpus_precision` (100%) |
 | zone coverage | `required_targets` + `test_routing_corpus_schema` (≥3/target) |
@@ -34,11 +35,17 @@ stricter precision gate. No Windows / FTS / host pre-router in this cut.
 - FTS / embedding “vector RAG”
 - Host-level pre-router (needs host API)
 
-## Gate (when shipping)
+## Gate
 
 ```bash
 ./scripts/release-gate.sh 0.14.0
 ```
 
-Bump `pyproject.toml` version → tag `v0.14.0` only after gate green and
-explicit publish OK. Nested push only on explicit «запушь».
+## Tag / publish
+
+```bash
+git tag -a v0.14.0 -m "Release v0.14.0: Corpus v2 (zone coverage, RU+EN, min_precision 0.90)"
+git push origin main v0.14.0
+gh release create v0.14.0 --title "v0.14.0 — Corpus v2" --notes-file …
+# PyPI via .github/workflows/publish.yml on release published
+```

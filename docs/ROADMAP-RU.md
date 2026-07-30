@@ -15,7 +15,7 @@
 | **v0.11.x hotfix** ✅ | Pin `mcp`, чтобы CI импортировал `mcp.server.fastmcp`; CI green; **честные docs** (README/WHY/guide: ★ $82/$820 = иллюстрация CLI/pipeline, не MCP-чат; нет auto-chain из `route_task`; RAG = lexical) | ✅ вошло в **v0.13.0** (`CUT-v0.11.2.md`) |
 | **v0.12** ✅ | **Edit-escalation** (глаголы правок / «fix findings…» → не false-cheap `rg`); **RU tokenizer** (кириллица); **false-cheap tests** | ✅ вошло в **v0.13.0** (`CUT-v0.12.0.md`) |
 | **v0.13** ✅ | **Routing benchmark corpus** (precision/recall, не только unit); **shell harden** (не доверять workspace YAML через `shell=True` без allowlist/boundary) | ✅ shipped как **v0.13.0** (`CUT-v0.13.0.md`) |
-| **v0.14** ✅ | **Corpus v2** — расширить `bench/routing_corpus.yaml` (зоны: tool/python/rag/ollama/cursor; RU+EN; false-cheap + wiring + script + cheap-llm); scorecard precision + per-target recall; `min_precision` 0.90 | ✅ READY на `main` (`CUT-v0.14.0.md`); 45 кейсов, precision 100%; ship после release gate |
+| **v0.14** ✅ | **Corpus v2** — расширить `bench/routing_corpus.yaml` (зоны: tool/python/rag/ollama/cursor; RU+EN; false-cheap + wiring + script + cheap-llm); scorecard precision + per-target recall; `min_precision` 0.90 | ✅ shipped как **v0.14.0** (`CUT-v0.14.0.md`); 45 кейсов, precision 100% |
 | **v0.15+** (aspirational) | Windows; FTS / лучший docs index; **host pre-router** *если* Cursor (или host) даст API — иначе вне scope | Матрица платформ в docs; без фейковых claim «до LLM» без поддержки хоста |
 
 ## Темы
