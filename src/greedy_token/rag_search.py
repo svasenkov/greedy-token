@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from pathlib import Path
 
 from greedy_token.paths import find_workspace_root
-from greedy_token.rag_index import IndexedChunk, get_indexed_chunks
+from greedy_token.rag_index import IndexedChunk, _tokenize, get_indexed_chunks
 
 
 @dataclass
@@ -16,10 +15,6 @@ class RagHit:
     score: float
     excerpt: str
     body: str | None = None
-
-
-def _tokenize(text: str) -> set[str]:
-    return {t for t in re.findall(r"[a-z0-9_-]{2,}", text.lower())}
 
 
 def _score_indexed(query_tokens: set[str], chunk: IndexedChunk) -> float:

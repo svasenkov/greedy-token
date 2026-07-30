@@ -1,4 +1,4 @@
-"""Unit tests for router shadow/status/thin-context edge branches (fail_under=100)."""
+"""Unit tests for router shadow/status/edit-escalate edge branches (fail_under=100)."""
 
 from __future__ import annotations
 
@@ -46,20 +46,12 @@ def _decision(**kw) -> RouteDecision:
     return RouteDecision(**base)
 
 
-@allure.title("_apply_thin_context_penalty skips duplicate note/rationale text")
-def test_thin_context_penalty_dedup() -> None:
-    note = router.THIN_CONTEXT_NOTE
-    dec = _decision(note=note, rationale=note)
-    out = router._apply_thin_context_penalty(dec, "fix the bug now")
-    assert out.note == note
-    assert out.rationale == note
-    assert out.confidence < dec.confidence
-
-
-@allure.title("_apply_thin_context_penalty is a no-op for non-cheap tiers or no edit verbs")
-def test_thin_context_penalty_noop() -> None:
-    assert router._apply_thin_context_penalty(_decision(target="cursor"), "fix it") .target == "cursor"
-    assert router._apply_thin_context_penalty(_decision(target="tool"), "just look around").confidence == 0.9
+@allure.title("_escalate_edit_from_cheap is a no-op for non-cheap tiers or no edit verbs")
+def test_escalate_edit_noop(tmp_path: Path) -> None:
+    cursor = _decision(target="cursor", confidence=0.9)
+    assert router._escalate_edit_from_cheap(cursor, "fix it", tmp_path) is cursor
+    tool = _decision(target="tool", confidence=0.9)
+    assert router._escalate_edit_from_cheap(tool, "just look around", tmp_path) is tool
 
 
 @allure.title("format_decision surfaces shadow match line")
@@ -639,40 +631,34 @@ def test_with_shadow_short_circuits() -> None:
         assert router._with_shadow(dec2, "same") is dec2
 
 
-@allure.title("_apply_thin_context_penalty: rag tier penalty and full field copy")
-def test_apply_thin_context_penalty_rag_fields() -> None:
+@allure.title("_escalate_edit_from_cheap: rag tier becomes cursor-edit-escalate")
+def test_escalate_edit_from_rag(tmp_path: Path) -> None:
     dec = _rich_decision(
         target="rag", confidence=0.9, note="", rationale="base rationale",
         shadow_route_id="sh",
     )
-    out = router._apply_thin_context_penalty(dec, "fix the bug now")
-    with allure.step("rag tier IS penalised: confidence = max(0.15, 0.9 - 0.35) = 0.55"):
-        assert out.confidence == pytest.approx(0.55)
-    with allure.step("note becomes exactly the thin-context note (leading '; ' stripped)"):
-        assert out.note == router.THIN_CONTEXT_NOTE
-    with allure.step("thin-context note appended to rationale"):
-        assert out.rationale == f"base rationale {router.THIN_CONTEXT_NOTE}"
-    with allure.step("all identity fields preserved"):
-        assert out.target == "rag"
-        assert out.route_id == "rid"
+    out = router._escalate_edit_from_cheap(dec, "fix the bug now", tmp_path)
+    with allure.step("rag+edit escalates to cursor"):
+        assert out.target == "cursor"
+        assert out.route_id == "cursor-edit-escalate"
+        assert out.note == router.EDIT_ESCALATE_NOTE
+        assert out.confidence == pytest.approx(0.9)
+        assert out.command is None
+        assert out.tool is None
+        assert out.read_only is False
+    with allure.step("matched patterns and shadow id are preserved for explainability"):
         assert out.matched == ["m1", "m2"]
-        assert out.command == "the-command"
-        assert out.domains == ["config", "testing"]
-        assert out.complexity == "high"
-        assert out.est_tokens == 321
-        assert out.read_only is True
-        assert out.tool == "rg"
         assert out.shadow_route_id == "sh"
+        assert "rag/rid" in out.rationale
 
 
-@allure.title("_apply_thin_context_penalty: only leading '; ' is stripped from the note")
-def test_apply_thin_context_penalty_note_strip() -> None:
-    # A prior note that starts with a non-'; ' char must survive verbatim; only the
-    # joining "; " prefix is stripped. strip("XX; XX") would also eat a leading 'X'.
-    dec = _rich_decision(target="tool", confidence=0.9, note="Xkeep")
-    out = router._apply_thin_context_penalty(dec, "refactor this")
-    assert out.note.startswith("Xkeep; ")
-    assert router.THIN_CONTEXT_NOTE in out.note
+@allure.title("_escalate_edit_from_cheap: low tool confidence floors at 0.55")
+def test_escalate_edit_confidence_floor(tmp_path: Path) -> None:
+    dec = _rich_decision(target="tool", confidence=0.2, note="Xkeep")
+    out = router._escalate_edit_from_cheap(dec, "refactor this", tmp_path)
+    assert out.target == "cursor"
+    assert out.confidence == pytest.approx(0.55)
+    assert out.note == router.EDIT_ESCALATE_NOTE
 
 
 @allure.title("_runner_up: skips selected tier, threads root, falls back to cursor")

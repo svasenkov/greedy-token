@@ -85,11 +85,12 @@ def test_run_search_enrich_rag(minimal_workspace: Path) -> None:
 
 
 @allure.story("Router")
-@allure.title("edit verbs lower tool-route confidence")
-def test_edit_verbs_confidence_penalty(minimal_workspace: Path) -> None:
+@allure.title("edit verbs hard-escalate off tool/rg (not confidence-only)")
+def test_edit_verbs_escalate_off_tool(minimal_workspace: Path) -> None:
     assert has_edit_verbs("refactor baseUrl lookup")
     plain = route_task("find baseUrl", minimal_workspace)
     edit = route_task("refactor find baseUrl wiring", minimal_workspace)
-    if plain.target == "tool" and edit.target == "tool":
-        assert edit.confidence < plain.confidence
-        assert "thin context" in edit.note or "thin context" in edit.rationale
+    assert plain.target == "tool"
+    assert edit.target == "cursor"
+    assert edit.route_id == "cursor-edit-escalate"
+    assert "edit verbs" in edit.note

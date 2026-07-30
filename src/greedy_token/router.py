@@ -42,13 +42,13 @@ def _metered_bulk_ready(root: Path) -> bool:
 
     return metered_bulk_ready(root)
 
-# Edit / wiring verbs — tool/rag alone is thin context → lower confidence for hook gate.
+# Edit / wiring verbs — tool/rag alone is false-cheap; escalate to cursor.
 EDIT_VERBS = re.compile(
     r"\b(implement|refactor|fix|add|wiring|migrate|patch|rewrite|"
     r"почини|исправь|добавь|рефактор|внедри|сделай)\b",
     re.IGNORECASE,
 )
-THIN_CONTEXT_NOTE = "thin context for edit task — prefer cursor: + pin files"
+EDIT_ESCALATE_NOTE = "edit verbs → agent path (not cheap search)"
 
 
 def has_edit_verbs(task: str) -> bool:
@@ -464,20 +464,46 @@ def _fallback_for_tier(tier: str, task: str, root: Path, cfg: dict) -> RouteDeci
     )
 
 
-def _apply_thin_context_penalty(decision: RouteDecision, task: str) -> RouteDecision:
-    """Lower confidence when cheap tier meets edit verbs (hook may skip intercept)."""
+def _escalate_edit_from_cheap(
+    decision: RouteDecision, task: str, root: Path
+) -> RouteDecision:
+    """Hard-escalate tool/rag hits that carry edit verbs to cursor.
+
+    A confidence penalty alone left search+fix prompts on tool/rg as a
+    'successful cheap' hold — false-cheap. Edit work needs the agent path.
+    """
     if decision.target not in ("tool", "rag"):
         return decision
     if not has_edit_verbs(task):
         return decision
-    new_conf = max(0.15, decision.confidence - 0.35)
-    note = decision.note
-    if THIN_CONTEXT_NOTE not in note:
-        note = f"{note}; {THIN_CONTEXT_NOTE}".strip("; ").strip()
-    rationale = decision.rationale
-    if THIN_CONTEXT_NOTE not in rationale:
-        rationale = f"{rationale} {THIN_CONTEXT_NOTE}".strip()
-    return replace(decision, confidence=new_conf, note=note, rationale=rationale)
+    complexity, est_tokens, cursor_rationale = _token_estimate_for_route(
+        "cursor",
+        task=task,
+        root=root,
+    )
+    why = (
+        f"Matched {decision.target}/{decision.route_id} on cheap patterns, "
+        f"but edit verbs require agent path."
+    )
+    return RouteDecision(
+        target="cursor",
+        route_id="cursor-edit-escalate",
+        # Escalation is a deliberate override — keep at least a mid confidence.
+        confidence=max(0.55, decision.confidence),
+        matched=list(decision.matched),
+        command=None,
+        note=EDIT_ESCALATE_NOTE,
+        domains=list(decision.domains),
+        complexity=complexity,
+        est_tokens=est_tokens,
+        rationale=f"{why} {cursor_rationale}".strip(),
+        read_only=False,
+        tool=None,
+        shadow_route_id=decision.shadow_route_id,
+        raw_score=decision.raw_score,
+        confidence_source=decision.confidence_source,
+        calibration_n=decision.calibration_n,
+    )
 
 
 def route_task(task: str, root: Path | None = None) -> RouteDecision:
@@ -500,7 +526,8 @@ def route_task(task: str, root: Path | None = None) -> RouteDecision:
             from greedy_token.budget_policy import apply_budget_policy
 
             decided = apply_budget_policy(best, task, root)
-            return _with_shadow(_apply_thin_context_penalty(decided, task), shadow_id)
+            decided = _escalate_edit_from_cheap(decided, task, root)
+            return _with_shadow(decided, shadow_id)
 
     fb = cfg.get("cursor_fallback", {})
     complexity, est_tokens, rationale = _token_estimate_for_route(

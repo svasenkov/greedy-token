@@ -9,7 +9,9 @@ from pathlib import Path
 
 
 def _tokenize(text: str) -> frozenset[str]:
-    return frozenset(re.findall(r"[a-z0-9_-]{2,}", text.lower()))
+    # Unicode letters/digits (incl. Cyrillic) plus ASCII _- for code ids.
+    # ASCII-only [a-z0-9_] left RU queries as an empty token set → no RAG hits.
+    return frozenset(re.findall(r"[\w-]{2,}", text.casefold(), flags=re.UNICODE))
 
 
 def _strip_frontmatter(text: str) -> str:
