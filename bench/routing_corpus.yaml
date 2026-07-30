@@ -1,0 +1,49 @@
+# Routing benchmark corpus (Trust cut v0.13).
+# expected_target: tool | python | rag | ollama | cursor
+# Cases exercise precision of route_task — not just unit coverage of helpers.
+version: 1
+min_precision: 0.85
+cases:
+  # Pure search → tool
+  - id: find-baseurl
+    task: find baseUrl in configurator-option-presets.html
+    expected_target: tool
+  - id: find-flag-ru
+    task: найди флаг baseUrl в репозитории
+    expected_target: tool
+  - id: where-is-header
+    task: where is header.css defined
+    expected_target: tool
+
+  # False-cheap edit → cursor (must not hold on tool/rg)
+  - id: fix-findings
+    task: fix findings from review
+    expected_target: cursor
+  - id: find-and-fix-ru
+    task: найди race condition и исправь
+    expected_target: cursor
+  - id: search-and-fix
+    task: search for race condition and fix it
+    expected_target: cursor
+  - id: find-and-patch
+    task: find the flaky test and patch it
+    expected_target: cursor
+  - id: pochini-ru
+    task: найди баг и почини
+    expected_target: cursor
+
+  # Wiring / judgment → cursor
+  - id: refactor-header
+    task: refactor monolithic header shell layout
+    expected_target: cursor
+  - id: change-behavior
+    task: change header behavior in one zone
+    expected_target: cursor
+
+  # Docs / patterns → rag (lexical)
+  - id: rag-d-flag
+    task: какой -D flag для baseUrl
+    expected_target: rag
+  - id: rag-patterns
+    task: which pattern docs cover quality gate allure dashboard
+    expected_target: rag

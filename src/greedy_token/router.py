@@ -248,7 +248,8 @@ def _build_tool_command(route: dict, task: str, root: Path) -> str:
     search_paths = route.get("search_paths") or ["."]
     max_count = route.get("max_count", 50)
     glob_flags = " ".join(f"-g {sh_quote(g)}" for g in globs)
-    paths = " ".join(search_paths)
+    # Quote every path: workspace YAML must not inject shell metacharacters.
+    paths = " ".join(sh_quote(p) for p in search_paths)
     return (
         f"{root_cd_prefix(root)} {rg_path_for_shell()} -n --max-columns 200 -F {sh_quote(query)} "
         f"{glob_flags} --max-count {max_count} {paths}"

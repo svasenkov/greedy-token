@@ -271,14 +271,20 @@ def _python_search_tree(
 
 
 def _run_rg(cmd: str) -> tuple[int, str]:
+    from greedy_token.subprocess_safe import UnsafeCommandError, command_to_argv
+
     try:
+        run_cwd, argv = command_to_argv(cmd)
         proc = subprocess.run(
-            cmd,
-            shell=True,
+            argv,
+            shell=False,
             capture_output=True,
             text=True,
+            cwd=run_cwd,
             timeout=RG_TIMEOUT,
         )
+    except UnsafeCommandError as exc:
+        return 1, f"Error: refusing unsafe rg command: {exc}"
     except subprocess.TimeoutExpired:
         return 124, f"Error: ripgrep timed out after {RG_TIMEOUT}s"
     out = (proc.stdout or "") + (proc.stderr or "")

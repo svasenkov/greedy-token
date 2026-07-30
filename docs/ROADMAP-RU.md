@@ -14,7 +14,7 @@
 |--------|--------|---------------------|
 | **v0.11.x hotfix** ✅ | Pin `mcp`, чтобы CI импортировал `mcp.server.fastmcp`; CI green; **честные docs** (README/WHY/guide: ★ $82/$820 = иллюстрация CLI/pipeline, не MCP-чат; нет auto-chain из `route_task`; RAG = lexical) | ✅ docs на `main` (`04362c41`); ✅ `mcp>=1.0,<2` + FastMCP в clean venv; `CUT-v0.11.2.md` READY (tag pending) |
 | **v0.12** ✅ | **Edit-escalation** (глаголы правок / «fix findings…» → не false-cheap `rg`); **RU tokenizer** (кириллица); **false-cheap tests** | ✅ hard-escalate tool/rag+edit → `cursor-edit-escalate`; Unicode `_tokenize`; `tests/test_trust_cut.py`; `CUT-v0.12.0.md` READY (tag pending) |
-| **v0.13** | **Routing benchmark corpus** (precision/recall, не только unit); **shell harden** (не доверять workspace YAML через `shell=True` без allowlist/boundary) | Опубликованный корпус + scorecard в CI; subprocess без слепого `shell=True` для недоверенного конфига |
+| **v0.13** ✅ | **Routing benchmark corpus** (precision/recall, не только unit); **shell harden** (не доверять workspace YAML через `shell=True` без allowlist/boundary) | ✅ `bench/routing_corpus.yaml` + `tests/test_routing_corpus.py`; ✅ `subprocess_safe` (`shell=False` argv) + quoted `search_paths`; `CUT-v0.13.0.md` READY (tag pending) |
 | **v0.14+** (aspirational) | Windows; FTS / лучший docs index; **host pre-router** *если* Cursor (или host) даст API — иначе вне scope | Матрица платформ в docs; без фейковых claim «до LLM» без поддержки хоста |
 
 ## Темы
@@ -192,6 +192,7 @@ CI job → greedy-token CLI → rg | python | cheap_llm (Ollama/internal) | RAG 
 
 | Версия | Фокус |
 |--------|-------|
+| **v0.13.0** (READY) | Routing benchmark corpus scorecard; `shell=False` subprocess harden (`CUT-v0.13.0.md`; tag pending) |
 | **v0.12.0** (READY) | Edit-escalation (false-cheap → cursor); Cyrillic-safe RAG tokenize; trust-cut pytest (`CUT-v0.12.0.md`) |
 | **v0.11.2** (READY) | Trust cut A docs + pin `mcp>=1.0,<2` / CI green (`CUT-v0.11.2.md`; tag pending) |
 | **v0.11.1** | Promote access-diag live (jenkins/selenoid/testops/`--all-standard`); retire auth-storage-probe |

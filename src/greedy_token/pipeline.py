@@ -673,13 +673,27 @@ def _run_step(
 
     if can_run:
         try:
+            from greedy_token.subprocess_safe import UnsafeCommandError, command_to_argv
+
+            run_cwd, argv = command_to_argv(step.command, default_cwd=root)
             proc = subprocess.run(
-                step.command,
-                shell=True,
+                argv,
+                shell=False,
                 capture_output=True,
                 text=True,
-                cwd=root,
+                cwd=run_cwd if run_cwd is not None else root,
                 timeout=SCRIPT_TIMEOUT,
+            )
+        except UnsafeCommandError as exc:
+            duration_ms = int((time.perf_counter() - t0) * 1000)
+            return StepResult(
+                step=step,
+                ok=False,
+                exit_code=1,
+                output=f"Refusing unsafe command: {exc}",
+                duration_ms=duration_ms,
+                est_tokens=0,
+                executed=False,
             )
         except subprocess.TimeoutExpired:
             duration_ms = int((time.perf_counter() - t0) * 1000)

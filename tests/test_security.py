@@ -10,6 +10,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from greedy_token.router import _build_tool_command
+from greedy_token.subprocess_safe import UnsafeCommandError, command_to_argv
 from greedy_token.tool_paths import root_cd_prefix, sh_quote, shell_args
 from greedy_token.wrappers import resolve_wrapper_command
 from tests.allure_reporting import attach_text
@@ -93,6 +94,42 @@ def test_build_tool_command_quotes_root(tmp_path: Path) -> None:
     with allure.step("Verify workspace root is quoted"):
         assert "repo with spaces" in cmd
         assert f"cd '{root}'" in cmd or "cd '" in cmd
+
+
+@allure.story("Shell harden")
+@allure.title("search_paths from workspace YAML are quoted (no bare metacharacters)")
+def test_build_tool_command_quotes_search_paths(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    root.mkdir()
+    route = {
+        "tool": "rg",
+        "globs": ["!node_modules/**"],
+        "search_paths": ["docs; rm -rf /", "src && id"],
+    }
+    cmd = _build_tool_command(route, "find baseUrl", root)
+    attach_text("tool command", cmd)
+    cwd, argv = command_to_argv(cmd)
+    assert cwd == root
+    # Injection strings must be single inert argv tokens, not shell syntax.
+    assert "docs; rm -rf /" in argv
+    assert "src && id" in argv
+    assert ";" not in argv
+    assert "&&" not in argv
+
+
+@allure.story("Shell harden")
+@allure.title("command_to_argv peels cd && and rejects bare shell operators")
+def test_command_to_argv_fail_closed_on_operators(tmp_path: Path) -> None:
+    root = tmp_path / "ws"
+    root.mkdir()
+    safe = f"cd {sh_quote(str(root))} && rg -n foo ."
+    cwd, argv = command_to_argv(safe)
+    assert cwd == root
+    assert argv[0].endswith("rg") or argv[0] == "rg"
+    with pytest.raises(UnsafeCommandError, match="shell operator"):
+        command_to_argv("rg foo && rm -rf /")
+    with pytest.raises(UnsafeCommandError, match="substitution"):
+        command_to_argv("rg $(whoami)")
 
 
 @allure.story("Wrapper scripts")

@@ -994,10 +994,13 @@ def test_remaining_public_branches(
 
     # tool_paths: walk PATH segments + bundled fallbacks when nothing is executable.
     monkeypatch.delenv("GREEDY_TOKEN_RG", raising=False)
-    monkeypatch.setenv("PATH", os.pathsep.join(["", "/nonexistent/bin"]))
+    poisoned_path = os.pathsep.join(["", "/nonexistent/bin"])
+    monkeypatch.setenv("PATH", poisoned_path)
     with patch("greedy_token.tool_paths.shutil.which", return_value=None):
         with patch.object(Path, "is_file", return_value=False):
             assert resolve_rg() is None
+    # Restore PATH: later steps execute real argv (shell=False) and need /bin/echo.
+    monkeypatch.setenv("PATH", os.pathsep.join(["/usr/bin", "/bin"]))
 
     # Short body + meta-only score → excerpt returns head as-is (no ellipsis).
     short_meta = minimal_workspace / "docs" / "rag" / "config" / "short-meta.md"

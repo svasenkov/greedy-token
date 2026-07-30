@@ -350,10 +350,10 @@ def test_run_step_subprocess_success(
     _fixed_time(monkeypatch)
     sr = pl._run_step(step, minimal_workspace, execute=True)
 
-    with allure.step("subprocess.run gets cwd=root and timeout=SCRIPT_TIMEOUT"):
-        assert run_calls["cwd"] == minimal_workspace
+    with allure.step("subprocess.run gets cwd=root, shell=False argv, timeout=SCRIPT_TIMEOUT"):
+        assert run_calls["cwd"] in (minimal_workspace, str(minimal_workspace))
         assert run_calls["timeout"] == pl.SCRIPT_TIMEOUT
-        assert run_calls["cmd"] == "echo hi"
+        assert run_calls["cmd"] == ["echo", "hi"]
     with allure.step("output = (stdout + stderr).strip(); _estimate_step_tokens got that output+root"):
         assert sr.output == "OUT\nERR"
         assert est_calls == {"output": "OUT\nERR\n", "root": minimal_workspace}

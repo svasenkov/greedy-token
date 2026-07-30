@@ -7,6 +7,7 @@ from pathlib import Path
 from greedy_token.paths import find_workspace_root
 from greedy_token.rag_search import format_hits, search_rag
 from greedy_token.router import RouteDecision, route_task
+from greedy_token.subprocess_safe import UnsafeCommandError, command_to_argv
 from greedy_token.tool_paths import RG_TIMEOUT, SCRIPT_TIMEOUT, root_cd_prefix
 from greedy_token.wrappers import wrapper_for_command
 
@@ -103,13 +104,17 @@ def execute_plan(plan: RunPlan) -> tuple[int, str]:
         )
     timeout = RG_TIMEOUT if plan.decision.target == "tool" else SCRIPT_TIMEOUT
     try:
+        run_cwd, argv = command_to_argv(plan.command)
         proc = subprocess.run(
-            plan.command,
-            shell=True,
+            argv,
+            shell=False,
             capture_output=True,
             text=True,
+            cwd=run_cwd,
             timeout=timeout,
         )
+    except UnsafeCommandError as exc:
+        return 1, f"Refusing unsafe command: {exc}\nDry-run:\n{plan.dry_run_output}"
     except subprocess.TimeoutExpired:
         return 124, f"Command timed out after {timeout}s: {plan.command}"
     out = (proc.stdout or "") + (proc.stderr or "")
