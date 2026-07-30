@@ -1,7 +1,6 @@
 # Cut checklist — greedy-token v0.14.1
 
-**Status:** DRAFT — patch prepared locally; no tag, GitHub release, push, or
-PyPI publication performed.
+**Status:** SHIPPED — 2026-07-30 · tag `v0.14.1` · PyPI `0.14.1`.
 
 Patch release after the v0.14.0 repeat review: release integrity, fail-safe
 false-cheap routing, classifier scorecard, and an enforceable route-command
@@ -43,23 +42,24 @@ of scope.
 | Green-commit publish gate | `.github/_ethalon/publish.yml`, `.github/workflows/publish.yml` |
 | Coverage gate | `pyproject.toml`, `scripts/release-gate.sh`, `.github/_ethalon/test.yml` |
 
-## Required verification
+## Out of scope
+
+- Windows CI matrix (→ v0.15+)
+- FTS / embedding “vector RAG”
+- Host-level pre-router (needs host API)
+- `trusted_script_paths` content hash/signature (residual trust risk)
+
+## Gate
 
 ```bash
-python -m pytest -q
-python -m pytest tests/ -q -m unit
-python -m pytest tests/ -q -m component
-python -m pytest tests/ -q -m integration
-python -m pytest tests/ -q -m e2e
-python -m coverage run -m pytest tests/ -q
-python -m coverage report --include='src/greedy_token/*'
-python -m pytest -q --release-version=0.14.1 -m release
-bash scripts/check-github-workflows-sync.sh
+./scripts/release-gate.sh 0.14.1
 ```
 
-## Release actions intentionally not performed
+## Tag / publish
 
-- no push;
-- no `v0.14.1` tag;
-- no GitHub release;
-- no PyPI publication.
+```bash
+git tag -a v0.14.1 -m "Release v0.14.1: routing trust + corpus v3 + publish gate"
+git push origin main v0.14.1
+gh release create v0.14.1 --title "v0.14.1 — Routing trust patch" --notes-file …
+# PyPI via .github/workflows/publish.yml on release published
+```
