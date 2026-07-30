@@ -8,14 +8,15 @@ Legend: ✅ supported · ❌ not yet · 🔜 planned
 
 Track progress: [GitHub issues labeled `roadmap`](https://github.com/svasenkov/greedy-token/issues?q=is%3Aissue+label%3Aroadmap).
 
-## Near-term (Trust cut)
+## Near-term
 
 | Version | Focus | Acceptance sketch |
 |---------|--------|-------------------|
 | **v0.11.x hotfix** ✅ | Pin `mcp` so CI imports `mcp.server.fastmcp`; keep CI green; **honest docs** (README/WHY/guide: ★ $82/$820 = CLI/pipeline illustrative, not MCP-chat; no auto-chain from `route_task`; RAG = lexical) | ✅ folded into **v0.13.0** (`CUT-v0.11.2.md`) |
 | **v0.12** ✅ | **Edit-escalation** (edit verbs / “fix findings…” → not false-cheap `rg`); **RU tokenizer** (Cyrillic); **false-cheap tests** | ✅ folded into **v0.13.0** (`CUT-v0.12.0.md`) |
 | **v0.13** ✅ | **Routing benchmark corpus** (precision/recall, not only unit tests); **shell harden** (no trust of workspace YAML via `shell=True` without allowlist/boundary) | ✅ shipped as **v0.13.0** (`CUT-v0.13.0.md`) |
-| **v0.14+** (aspirational) | Windows support; FTS / better docs index; **host pre-router** *if* Cursor (or host) exposes an API — otherwise stays out of scope | Documented platform matrix; no fake “pre-LLM” claims without host support |
+| **v0.14** 🔜 | **Corpus v2** — expand `bench/routing_corpus.yaml` (zones: tool/python/rag/ollama/cursor; RU+EN; false-cheap + wiring + script + cheap-llm); scorecard precision + per-target recall; raise `min_precision` carefully (0.85 → 0.90) | ≥30 cases; both langs; ≥3/target; CI green on `tests/test_routing_corpus.py`; no “vector RAG” claim |
+| **v0.15+** (aspirational) | Windows support; FTS / better docs index; **host pre-router** *if* Cursor (or host) exposes an API — otherwise stays out of scope | Documented platform matrix; no fake “pre-LLM” claims without host support |
 
 ## Themes
 

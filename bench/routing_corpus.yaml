@@ -1,49 +1,254 @@
-# Routing benchmark corpus (Trust cut v0.13).
+# Routing benchmark corpus v2 (post Trust cut).
 # expected_target: tool | python | rag | ollama | cursor
-# Cases exercise precision of route_task — not just unit coverage of helpers.
-version: 1
-min_precision: 0.85
+# Scores route_task precision/recall — not unit coverage of helpers.
+# confidence ≠ correctness; rag = lexical docs lookup (not embeddings).
+version: 2
+min_precision: 0.90
+min_cases: 30
+# Every listed target must appear ≥ min_per_target times (zone coverage).
+min_per_target: 3
+required_targets:
+  - tool
+  - python
+  - rag
+  - ollama
+  - cursor
 cases:
-  # Pure search → tool
+  # ── tool / search (EN) ───────────────────────────────────────────
   - id: find-baseurl
     task: find baseUrl in configurator-option-presets.html
     expected_target: tool
-  - id: find-flag-ru
-    task: найди флаг baseUrl в репозитории
-    expected_target: tool
+    lang: en
+    family: search
   - id: where-is-header
     task: where is header.css defined
     expected_target: tool
+    lang: en
+    family: search
+  - id: locate-header
+    task: locate header.css
+    expected_target: tool
+    lang: en
+    family: search
+  - id: look-for-baseurl
+    task: look for baseUrl
+    expected_target: tool
+    lang: en
+    family: search
+  - id: grep-selector
+    task: grep for SELECTOR
+    expected_target: tool
+    lang: en
+    family: search
+  - id: jq-manifest
+    task: parse json phase-manifest json
+    expected_target: tool
+    lang: en
+    family: search
 
-  # False-cheap edit → cursor (must not hold on tool/rg)
+  # ── tool / search (RU) ───────────────────────────────────────────
+  - id: find-flag-ru
+    task: найди флаг baseUrl в репозитории
+    expected_target: tool
+    lang: ru
+    family: search
+  - id: naiti-selector-ru
+    task: найти SELECTOR в репо
+    expected_target: tool
+    lang: ru
+    family: search
+  - id: gde-lezhit-ru
+    task: где лежит header.js
+    expected_target: tool
+    lang: ru
+    family: search
+  - id: pokazhi-gde-ru
+    task: покажи где baseUrl
+    expected_target: tool
+    lang: ru
+    family: search
+
+  # ── false-cheap edit → cursor (must not hold on tool/rag) ────────
   - id: fix-findings
     task: fix findings from review
     expected_target: cursor
-  - id: find-and-fix-ru
-    task: найди race condition и исправь
-    expected_target: cursor
+    lang: en
+    family: false-cheap-edit
   - id: search-and-fix
     task: search for race condition and fix it
     expected_target: cursor
+    lang: en
+    family: false-cheap-edit
   - id: find-and-patch
     task: find the flaky test and patch it
     expected_target: cursor
+    lang: en
+    family: false-cheap-edit
+  - id: find-and-fix-selector
+    task: find SELECTOR and fix it
+    expected_target: cursor
+    lang: en
+    family: false-cheap-edit
+  - id: search-todo-patch
+    task: search for TODO and patch
+    expected_target: cursor
+    lang: en
+    family: false-cheap-edit
+  - id: find-and-fix-ru
+    task: найди race condition и исправь
+    expected_target: cursor
+    lang: ru
+    family: false-cheap-edit
   - id: pochini-ru
     task: найди баг и почини
     expected_target: cursor
+    lang: ru
+    family: false-cheap-edit
+  - id: naiti-dubl-ru
+    task: найди дубль и исправь
+    expected_target: cursor
+    lang: ru
+    family: false-cheap-edit
 
-  # Wiring / judgment → cursor
+  # ── wiring / judgment → cursor ───────────────────────────────────
   - id: refactor-header
     task: refactor monolithic header shell layout
     expected_target: cursor
+    lang: en
+    family: wiring
   - id: change-behavior
     task: change header behavior in one zone
     expected_target: cursor
+    lang: en
+    family: wiring
+  - id: implement-header
+    task: implement new header component
+    expected_target: cursor
+    lang: en
+    family: wiring
+  - id: add-component
+    task: add component to design system
+    expected_target: cursor
+    lang: en
+    family: wiring
+  - id: sdelay-wiring-ru
+    task: сделай wiring для boolean
+    expected_target: cursor
+    lang: ru
+    family: wiring
+  - id: dobav-test-ru
+    task: добавь тест на HomeTests
+    expected_target: cursor
+    lang: ru
+    family: wiring
+  - id: vnedri-po-ru
+    task: внедри page object
+    expected_target: cursor
+    lang: ru
+    family: wiring
 
-  # Docs / patterns → rag (lexical)
+  # ── docs / patterns → rag (lexical) ──────────────────────────────
   - id: rag-d-flag
     task: какой -D flag для baseUrl
     expected_target: rag
+    lang: ru
+    family: docs
   - id: rag-patterns
     task: which pattern docs cover quality gate allure dashboard
     expected_target: rag
+    lang: en
+    family: docs
+  - id: rag-what-is-po
+    task: what is page object
+    expected_target: rag
+    lang: en
+    family: docs
+  - id: rag-how-dashboard
+    task: how does allure dashboard work
+    expected_target: rag
+    lang: en
+    family: docs
+  - id: rag-page-object
+    task: page object locator pattern
+    expected_target: rag
+    lang: en
+    family: docs
+  - id: rag-chto-takoe-qg-ru
+    task: что такое quality gate
+    expected_target: rag
+    lang: ru
+    family: docs
+  - id: rag-obyasni-pyramid-ru
+    task: объясни test pyramid
+    expected_target: rag
+    lang: ru
+    family: docs
+  - id: rag-dlya-chego-ru
+    task: для чего нужен base url
+    expected_target: rag
+    lang: ru
+    family: docs
+
+  # ── python / script tier ─────────────────────────────────────────
+  - id: py-meta-sync
+    task: check-meta-sync phase manifest
+    expected_target: python
+    lang: en
+    family: script
+  - id: py-meta-sync-skills
+    task: meta sync skills-map
+    expected_target: python
+    lang: en
+    family: script
+  - id: py-sonar-gate
+    task: sonar gate wait
+    expected_target: python
+    lang: en
+    family: script
+  - id: py-rag-eval
+    task: rag eval golden
+    expected_target: python
+    lang: en
+    family: script
+  - id: py-ssh-check
+    task: ssh check qaguru
+    expected_target: python
+    lang: en
+    family: script
+  - id: py-boolean-audit
+    task: configurator boolean audit
+    expected_target: python
+    lang: en
+    family: script
+  - id: py-stack-verify
+    task: stack verify generated
+    expected_target: python
+    lang: en
+    family: script
+  - id: py-jenkins-access
+    task: jenkins access check
+    expected_target: python
+    lang: en
+    family: script
+
+  # ── ollama / cheap bulk LLM ──────────────────────────────────────
+  - id: ollama-batch-inventory
+    task: batch inventory classify files
+    expected_target: ollama
+    lang: en
+    family: cheap-llm
+  - id: ollama-file-inventory
+    task: file inventory migration
+    expected_target: ollama
+    lang: en
+    family: cheap-llm
+  - id: ollama-audit-skill
+    task: audit skill md
+    expected_target: ollama
+    lang: en
+    family: cheap-llm
+  - id: ollama-review-skill
+    task: review skill md
+    expected_target: ollama
+    lang: en
+    family: cheap-llm
