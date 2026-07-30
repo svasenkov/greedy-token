@@ -1,1 +1,0 @@
-{"id":"43e1b87f832baca8f66db1661c051797","fullName":"tests.test_code_search_gaps#test_parse_hit_lines_bare_row_threaded","name":"parse_hit_lines: bare 'line:content' row becomes a hit only via default_path","status":"passed","testResultsByEnv":{"default":"f1338b0a984cbdd64733b14f9090f7ab"}}

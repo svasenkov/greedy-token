@@ -1,1 +1,0 @@
-{"id":"a302f91f84d7f15ce6ec6548b881178e","fullName":"tests.test_llm_invoke_gaps#test_result_to_dict","name":"invoke_result_to_dict serialises full result","status":"passed","testResultsByEnv":{"default":"0371c279f948e99f16a37ec10c2427ea"}}

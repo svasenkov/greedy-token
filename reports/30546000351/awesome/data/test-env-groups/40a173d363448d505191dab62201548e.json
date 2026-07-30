@@ -1,1 +1,0 @@
-{"id":"40a173d363448d505191dab62201548e","fullName":"tests.test_metered_bulk#test_budget_json_split","name":"budget --json exposes the metered split fields","status":"passed","testResultsByEnv":{"default":"bf48d422fe3c0bb92bffc6788fa4770f"}}

@@ -1,1 +1,0 @@
-{"id":"a72f33d9bd11e0efb7ccb3e52bf3d967","fullName":"tests.test_advisory#test_append_and_emit","name":"append_event respects enabled flag; emit writes tty","status":"passed","testResultsByEnv":{"default":"fe37024fa20e98f6d43f11a31b7b8775"}}

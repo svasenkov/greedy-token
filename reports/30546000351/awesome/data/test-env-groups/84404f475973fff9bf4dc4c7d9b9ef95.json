@@ -1,1 +1,0 @@
-{"id":"84404f475973fff9bf4dc4c7d9b9ef95","fullName":"tests.test_pipeline#test_pipeline_execute_skips_unavailable_ollama","name":"Pipeline execute skips Ollama step when server is unavailable","status":"passed","testResultsByEnv":{"default":"8aa7f92c85d087fa9e17ec278b04d12e"}}
