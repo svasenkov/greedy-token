@@ -245,6 +245,46 @@ def test_build_tool_command_jq_exact(minimal_workspace: Path) -> None:
         assert _build_tool_command(route, "task", minimal_workspace) == expected2
 
 
+@allure.title("_build_tool_argv rejects malformed or outside-workspace route fields")
+@pytest.mark.parametrize(
+    ("route", "message"),
+    [
+        ({"search_paths": [""]}, "workspace-relative"),
+        ({"search_paths": ["/tmp"]}, "workspace-relative"),
+        ({"search_paths": ["../outside"]}, "escapes workspace"),
+        ({"search_paths": "docs"}, "must be a list"),
+        ({"max_count": object()}, "must be an integer"),
+        ({"max_count": 0}, "between 1 and 1000"),
+        ({"tool": "jq", "json_path": "/tmp/data.json"}, "workspace-relative"),
+    ],
+)
+def test_build_tool_argv_rejects_untrusted_route_fields(
+    minimal_workspace: Path, route: dict, message: str
+) -> None:
+    from greedy_token.router import _build_tool_argv
+
+    with pytest.raises(ValueError, match=message):
+        _build_tool_argv(route, "find baseUrl", minimal_workspace)
+
+
+@allure.title("_best_in_tier skips malformed workspace tool routes")
+def test_best_in_tier_skips_malformed_tool_route(minimal_workspace: Path) -> None:
+    decision = router._best_in_tier(
+        [
+            {
+                "id": "outside",
+                "target": "tool",
+                "patterns": ["find"],
+                "search_paths": ["../outside"],
+            }
+        ],
+        "find baseurl",
+        "find baseUrl",
+        minimal_workspace,
+    )
+    assert decision is None
+
+
 @allure.title("_decision_from_route: exact fields for a tool route (note appended)")
 def test_decision_from_route_tool_fields(minimal_workspace: Path) -> None:
     from greedy_token.router import _build_tool_command, _decision_from_route
@@ -546,7 +586,7 @@ def test_best_in_tier_edges(minimal_workspace: Path) -> None:
 
     with allure.step("empty-pattern route scores exactly 1.0 and is still selected"):
         routes = [{"id": "r", "target": "tool", "patterns": [""]}]
-        best = _best_in_tier(routes, "anything", "task", minimal_workspace)
+        best = _best_in_tier(routes, "anything", "find task", minimal_workspace)
         assert best is not None
         assert best.route_id == "r"
 
@@ -555,7 +595,7 @@ def test_best_in_tier_edges(minimal_workspace: Path) -> None:
             {"id": "off", "target": "tool", "patterns": [""], "enabled": False},
             {"id": "on", "target": "tool", "patterns": [""]},
         ]
-        best2 = _best_in_tier(routes, "anything", "task", minimal_workspace)
+        best2 = _best_in_tier(routes, "anything", "find task", minimal_workspace)
         assert best2 is not None
         assert best2.route_id == "on"
 
@@ -718,7 +758,7 @@ def test_route_task_all_tiers_fallback_wiring(
         ],
         "cursor_fallback": {"message": "Open a chat.\nsecond"},
     }
-    monkeypatch.setattr(router, "load_routes_config", lambda: cfg)
+    monkeypatch.setattr(router, "load_routes_config", lambda _root=None: cfg)
     monkeypatch.setattr(router, "ollama_available", lambda: True)
     # Distinct sentinel: if `root or find_workspace_root()` is mutated to consult
     # find_workspace_root, the recorded root diverges from minimal_workspace.
@@ -741,7 +781,7 @@ def test_route_task_all_tiers_fallback_wiring(
 
     monkeypatch.setattr(router, "_fallback_for_tier", spy_fb)
 
-    res = router.route_task_all_tiers("do alpha", minimal_workspace)
+    res = router.route_task_all_tiers("find alpha", minimal_workspace)
 
     with allure.step("all five tiers returned in order"):
         assert [t for t, _ in res] == list(router.TIER_ORDER)
@@ -767,10 +807,10 @@ def test_route_task_all_tiers_selection(
             {"id": "sh", "target": "cursor", "patterns": ["alpha"], "shadow_until": _future()},
         ],
     }
-    monkeypatch.setattr(router, "load_routes_config", lambda: cfg)
+    monkeypatch.setattr(router, "load_routes_config", lambda _root=None: cfg)
     monkeypatch.setattr(router, "ollama_available", lambda: True)
 
-    d = dict(router.route_task_all_tiers("do alpha", minimal_workspace))
+    d = dict(router.route_task_all_tiers("find alpha", minimal_workspace))
     with allure.step("tool tier picks the tool-targeted route (kills target == → !=)"):
         assert d["tool"].route_id == "tool-a"
         assert d["python"].route_id == "python-b"
@@ -782,7 +822,7 @@ def test_route_task_all_tiers_selection(
 def test_route_task_all_tiers_missing_routes(
     minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(router, "load_routes_config", lambda: {})
+    monkeypatch.setattr(router, "load_routes_config", lambda _root=None: {})
     monkeypatch.setattr(router, "ollama_available", lambda: True)
     res = router.route_task_all_tiers("t", minimal_workspace)
     assert [t for t, _ in res] == list(router.TIER_ORDER)
@@ -798,7 +838,7 @@ def test_route_task_selection_budget_shadow(
             {"id": "sh", "target": "cursor", "patterns": ["alpha"], "shadow_until": _future()},
         ],
     }
-    monkeypatch.setattr(router, "load_routes_config", lambda: cfg)
+    monkeypatch.setattr(router, "load_routes_config", lambda _root=None: cfg)
     monkeypatch.setattr(router, "ollama_available", lambda: True)
     monkeypatch.setattr(router, "find_workspace_root", lambda: Path("/sentinel-root"))
 
@@ -820,7 +860,7 @@ def test_route_task_selection_budget_shadow(
 
     monkeypatch.setattr("greedy_token.budget_policy.apply_budget_policy", spy_bp)
 
-    dec = router.route_task("do alpha", minimal_workspace)
+    dec = router.route_task("find alpha", minimal_workspace)
     with allure.step("tool route selected and returned"):
         assert dec.route_id == "tool-a"
     with allure.step("shadow id applied on the return path (kills _with_shadow(..., None))"):
@@ -828,7 +868,7 @@ def test_route_task_selection_budget_shadow(
     with allure.step("root threaded into _best_in_tier (kills root and find_workspace_root)"):
         assert best_roots[0] == minimal_workspace
     with allure.step("task/root threaded into apply_budget_policy (kills task=None/root=None)"):
-        assert bp["task"] == "do alpha"
+        assert bp["task"] == "find alpha"
         assert bp["root"] == minimal_workspace
 
 
@@ -837,10 +877,10 @@ def test_route_task_ollama_and_not_or(
     minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     cfg = {"routes": [{"id": "tool-a", "target": "tool", "patterns": ["alpha"]}]}
-    monkeypatch.setattr(router, "load_routes_config", lambda: cfg)
+    monkeypatch.setattr(router, "load_routes_config", lambda _root=None: cfg)
     monkeypatch.setattr(router, "ollama_available", lambda: False)
     monkeypatch.setattr("greedy_token.budget_policy.apply_budget_policy", lambda b, t, r: b)
-    dec = router.route_task("do alpha", minimal_workspace)
+    dec = router.route_task("find alpha", minimal_workspace)
     assert dec.route_id == "tool-a"  # `or` would skip a non-ollama tier when ollama is down
 
 
@@ -854,7 +894,7 @@ def test_route_task_ollama_continue(
             {"id": "rag-a", "target": "rag", "patterns": ["alpha"], "domains": ["config"]},
         ]
     }
-    monkeypatch.setattr(router, "load_routes_config", lambda: cfg)
+    monkeypatch.setattr(router, "load_routes_config", lambda _root=None: cfg)
     monkeypatch.setattr(router, "ollama_available", lambda: False)
     monkeypatch.setattr("greedy_token.budget_policy.apply_budget_policy", lambda b, t, r: b)
     dec = router.route_task("do alpha", minimal_workspace)
@@ -869,7 +909,7 @@ def test_route_task_cursor_fallback_exact(
         "routes": [{"id": "tool-a", "target": "tool", "patterns": ["alpha"]}],
         "cursor_fallback": {"message": "Open a chat.\nsecond line"},
     }
-    monkeypatch.setattr(router, "load_routes_config", lambda: cfg)
+    monkeypatch.setattr(router, "load_routes_config", lambda _root=None: cfg)
     monkeypatch.setattr(router, "ollama_available", lambda: True)
 
     seen_root: dict = {}
@@ -903,7 +943,11 @@ def test_route_task_cursor_fallback_exact(
 def test_route_task_missing_routes_key(
     minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(router, "load_routes_config", lambda: {"cursor_fallback": {"message": "m"}})
+    monkeypatch.setattr(
+        router,
+        "load_routes_config",
+        lambda _root=None: {"cursor_fallback": {"message": "m"}},
+    )
     monkeypatch.setattr(router, "ollama_available", lambda: True)
     # cfg.get("routes", None) would make the shadow scan iterate None → crash.
     dec = router.route_task("anything", minimal_workspace)
@@ -915,7 +959,7 @@ def test_route_task_cursor_fallback_missing_cfg(
     minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     cfg = {"routes": [{"id": "tool-a", "target": "tool", "patterns": ["alpha"]}]}
-    monkeypatch.setattr(router, "load_routes_config", lambda: cfg)
+    monkeypatch.setattr(router, "load_routes_config", lambda _root=None: cfg)
     monkeypatch.setattr(router, "ollama_available", lambda: True)
     dec = router.route_task("zzzqqq nomatch", minimal_workspace)
     # cfg.get("cursor_fallback", None) would crash on None.get(...) here.
@@ -1013,7 +1057,10 @@ def test_format_decision_exact(
             "Shadow match (log-only): sh1",
             "Note: distinct-note",
             f"Command: {prefix} scripts/x.sh --run",
-            "Execute: read-only (greedy-token run --execute OK)",
+                (
+                    "Execute: read-only metadata; --execute still requires a trusted "
+                    "tool/wrapper/script path"
+                ),
             "Why: WHYTEXT",
             "Runner-up: TOOL (ru, est ~1,234)",
             "Saved est: ~555 tokens vs agent chat (baseline: default-estimate)",

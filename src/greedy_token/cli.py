@@ -366,20 +366,33 @@ def cmd_scripts(args: argparse.Namespace) -> int:
                 return 1
             import subprocess
 
-            from greedy_token.subprocess_safe import UnsafeCommandError, command_to_argv
+            from greedy_token.subprocess_safe import (
+                UnsafeCommandError,
+                trusted_script_invocation,
+            )
             from greedy_token.tool_paths import SCRIPT_TIMEOUT
 
             try:
-                run_cwd, argv = command_to_argv(cmd)
+                invocation = trusted_script_invocation(
+                    cmd,
+                    root=root,
+                    registered_script_paths=(wrapper.path,),
+                )
                 proc = subprocess.run(
-                    argv,
+                    list(invocation.argv),
                     shell=False,
-                    cwd=run_cwd,
+                    cwd=invocation.cwd,
                     timeout=SCRIPT_TIMEOUT,
                 )
             except UnsafeCommandError as exc:
                 print(f"Refusing unsafe command: {exc}", file=sys.stderr)
                 return 1
+            except FileNotFoundError as exc:
+                print(f"Executable not found: {exc}", file=sys.stderr)
+                return 127
+            except OSError as exc:
+                print(f"Cannot execute script: {exc}", file=sys.stderr)
+                return 126
             except subprocess.TimeoutExpired:
                 print(
                     f"Script timed out after {SCRIPT_TIMEOUT}s.",

@@ -124,6 +124,12 @@ def test_wrapper_for_command() -> None:
     w = wrapper_for_command("python scripts/meta-sync-check.py")
     assert w is not None
     assert w.id == "check-meta-sync"
+    assert wrapper_for_command("python scripts/meta-sync-check.py-malicious") is None
+    assert wrapper_for_command("python -c check-meta-sync") is None
+    assert wrapper_for_command("'unterminated") is None
+    prefixed = wrapper_for_command("cd /workspace && python scripts/meta-sync-check.py")
+    assert prefixed is not None and prefixed.id == "check-meta-sync"
+    assert wrapper_for_command("cd /workspace &&") is None
 
 
 @allure.story("Command resolution")

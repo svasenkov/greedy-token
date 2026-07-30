@@ -22,6 +22,24 @@ pytestmark = [
 ]
 
 
+def _trusted_tool_decision(root: Path):
+    from greedy_token.router import RouteDecision
+
+    return RouteDecision(
+        target="tool",
+        route_id="tool-rg",
+        confidence=1.0,
+        matched=[],
+        command="rg -n baseUrl --max-count 50 .",
+        note="",
+        domains=[],
+        read_only=True,
+        tool="rg",
+        command_argv=("rg", "-n", "baseUrl", "--max-count", "50", "."),
+        command_cwd=root,
+    )
+
+
 @allure.title("__main__ entrypoint invokes cli.main when executed as script")
 def test_main_entrypoint(monkeypatch: pytest.MonkeyPatch) -> None:
     called = {"n": 0}
@@ -332,16 +350,7 @@ def test_executors_public_branches(minimal_workspace: Path) -> None:
         with patch("greedy_token.executors.execute_plan", return_value=(2, "only result")):
             with patch(
                 "greedy_token.executors.route_task",
-                return_value=RouteDecision(
-                    target="tool",
-                    route_id="tool-rg",
-                    confidence=1.0,
-                    matched=[],
-                    command="rg",
-                    note="",
-                    domains=[],
-                    read_only=True,
-                ),
+                return_value=_trusted_tool_decision(minimal_workspace),
             ):
                 result = execute_task("find baseUrl", minimal_workspace)
     assert result.exit_code == 2
@@ -379,16 +388,7 @@ def test_executors_public_branches(minimal_workspace: Path) -> None:
             with patch("greedy_token.executors.execute_plan", return_value=(0, "")):
                 with patch(
                     "greedy_token.executors.route_task",
-                    return_value=RouteDecision(
-                        target="tool",
-                        route_id="tool-rg",
-                        confidence=1.0,
-                        matched=[],
-                        command="rg",
-                        note="",
-                        domains=[],
-                        read_only=True,
-                    ),
+                    return_value=_trusted_tool_decision(minimal_workspace),
                 ):
                     rag_fb = execute_task("baseUrl config", minimal_workspace)
     assert rag_fb.used_rag_fallback is True
@@ -398,16 +398,7 @@ def test_executors_public_branches(minimal_workspace: Path) -> None:
         with patch("greedy_token.executors.execute_plan", return_value=(0, "plain output\n")):
             with patch(
                 "greedy_token.executors.route_task",
-                return_value=RouteDecision(
-                    target="tool",
-                    route_id="tool-rg",
-                    confidence=1.0,
-                    matched=[],
-                    command="rg",
-                    note="",
-                    domains=[],
-                    read_only=True,
-                ),
+                return_value=_trusted_tool_decision(minimal_workspace),
             ):
                 plain = execute_task("find x", minimal_workspace)
     assert "plain output" in plain.output
@@ -919,16 +910,7 @@ def test_remaining_public_branches(
         with patch("greedy_token.executors.execute_plan", return_value=(1, "")):
             with patch(
                 "greedy_token.executors.route_task",
-                return_value=RouteDecision(
-                    target="tool",
-                    route_id="tool-rg",
-                    confidence=1.0,
-                    matched=[],
-                    command="rg",
-                    note="",
-                    domains=[],
-                    read_only=True,
-                ),
+                return_value=_trusted_tool_decision(minimal_workspace),
             ):
                 empty_fb = execute_task("find zzzUniqueNoHit", minimal_workspace)
     assert empty_fb.used_rag_fallback is False
@@ -1022,10 +1004,11 @@ def test_remaining_public_branches(
     assert short_hits
     assert short_hits[0].excerpt == "short plain"
 
-    # Empty residue after search-prefix strip → query falls back to full task.
+    # Empty residue after search-prefix strip → extractor falls back to full task.
+    from greedy_token.router import _extract_search_query
+
     with patch("greedy_token.router._strip_search_prefix", return_value=""):
-        empty_res = route_task("find leftoverToken", minimal_workspace)
-    assert empty_res.command and "leftoverToken" in empty_res.command
+        assert _extract_search_query("find leftoverToken") == "find leftoverToken"
 
     # best_in_tier keeps first on equal score (second does not replace).
     tied = {
@@ -1122,16 +1105,7 @@ def test_remaining_public_coverage_edges(
         with patch("greedy_token.executors.execute_plan", return_value=(0, "")):
             with patch(
                 "greedy_token.executors.route_task",
-                return_value=RouteDecision(
-                    target="tool",
-                    route_id="tool-rg",
-                    confidence=1.0,
-                    matched=[],
-                    command="rg",
-                    note="",
-                    domains=[],
-                    read_only=True,
-                ),
+                return_value=_trusted_tool_decision(minimal_workspace),
             ):
                 empty_fb = execute_task("find nothinguseful", minimal_workspace)
     assert empty_fb.used_rag_fallback is False
@@ -1245,7 +1219,8 @@ def test_remaining_public_coverage_edges(
     digit = route_task("find 12345", minimal_workspace)
     assert digit.command
     spaced = route_task("find ", minimal_workspace)
-    assert spaced.command  # strip leaves empty → falls back to task.strip()
+    assert spaced.target == "cursor"
+    assert spaced.command is None  # empty search query is not a recognised read-only intent
     with patch(
         "greedy_token.router.load_routes_config",
         return_value={
@@ -1255,13 +1230,13 @@ def test_remaining_public_coverage_edges(
                     "target": "tool",
                     "tool": "jq",
                     "read_only": True,
-                    "patterns": ["jqphase"],
+                        "patterns": ["jq"],
                     "jq_filter": ".",
                 }
             ]
         },
     ):
-        jq = route_task("jqphase lookup", minimal_workspace)
+        jq = route_task("jq phase lookup", minimal_workspace)
     assert jq.command and "jq -r" in jq.command
     assert "phase-manifest" in jq.command
 
@@ -1287,7 +1262,7 @@ def test_remaining_public_coverage_edges(
             ]
         },
     ):
-        tied = route_task("tiesignal please", minimal_workspace)
+        tied = route_task("find tiesignal please", minimal_workspace)
     assert tied.route_id == "first-tie"
 
     # Short RAG excerpt with no line match (head <= max_len).

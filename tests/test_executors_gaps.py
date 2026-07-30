@@ -38,12 +38,22 @@ def _dec(target: str, **kw) -> RouteDecision:
 
 @allure.title("plan_run tool tier: exact command, dry-run and executable")
 def test_plan_run_tool_exact(minimal_workspace: Path) -> None:
-    dec = _dec("tool", command="rg foo", read_only=True)
+    dec = _dec(
+        "tool",
+        command="rg -n foo --max-count 50 .",
+        read_only=True,
+        tool="rg",
+        command_argv=("rg", "-n", "foo", "--max-count", "50", "."),
+        command_cwd=minimal_workspace,
+    )
     plan = plan_run(dec, "task", minimal_workspace)
     assert plan.decision is dec
-    assert plan.command == "rg foo"
-    assert plan.dry_run_output == "rg foo"  # kills dry_run_output=None
+    assert plan.command == "rg -n foo --max-count 50 ."
+    assert plan.dry_run_output == "rg -n foo --max-count 50 ."  # kills dry_run_output=None
     assert plan.executable is True
+    assert plan.argv == dec.command_argv
+    assert plan.cwd == minimal_workspace
+    assert plan.authorization == "internal-tool:rg"
 
 
 @allure.title("plan_run python tier: root-prefixed command threads real root + wrapper read_only")

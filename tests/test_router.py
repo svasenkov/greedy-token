@@ -149,6 +149,43 @@ def test_route_task_all_tiers_has_five_rows(minimal_workspace: Path) -> None:
         assert [t[0] for t in tiers] == ["tool", "python", "ollama", "rag", "cursor"]
 
 
+@allure.story("Explicit root")
+@allure.title("Explicit root controls both route overlay and command cwd")
+def test_explicit_root_controls_config_and_cwd(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    explicit_root = tmp_path / "explicit"
+    env_root = tmp_path / "from-env"
+    explicit_root.mkdir()
+    env_root.mkdir()
+    route_template = (
+        "routes:\n"
+        "  - id: {route_id}\n"
+        "    target: tool\n"
+        "    tool: rg\n"
+        "    read_only: true\n"
+        "    patterns: [find]\n"
+        "    search_paths: [.]\n"
+    )
+    (explicit_root / ".greedy-token.yaml").write_text(
+        route_template.format(route_id="explicit-search"), encoding="utf-8"
+    )
+    (env_root / ".greedy-token.yaml").write_text(
+        route_template.format(route_id="env-search"), encoding="utf-8"
+    )
+    monkeypatch.setenv("GREEDY_TOKEN_ROOT", str(env_root))
+
+    decision = route_task("find root marker", explicit_root)
+    assert decision.route_id == "explicit-search"
+    assert decision.command is not None
+    assert str(explicit_root) in decision.command
+    assert str(env_root) not in decision.command
+
+    tier_rows = dict(route_task_all_tiers("find root marker", explicit_root))
+    assert tier_rows["tool"].route_id == "explicit-search"
+    assert str(explicit_root) in (tier_rows["tool"].command or "")
+
+
 @allure.story("Shadow routes")
 @allure.title("Disabled shadow route does not execute script tier")
 def test_disabled_shadow_route_is_skipped(minimal_workspace: Path) -> None:

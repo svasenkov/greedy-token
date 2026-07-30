@@ -17,6 +17,21 @@ pytestmark = [
 ]
 
 
+def _tool_invocation(root: Path) -> dict:
+    return {
+        "command_argv": (
+            "rg",
+            "-n",
+            "-F",
+            "baseUrl",
+            "--max-count",
+            "50",
+            ".",
+        ),
+        "command_cwd": root,
+    }
+
+
 @allure.story("Tool tier")
 @allure.title("Execute task runs ripgrep and returns matches without RAG fallback")
 def test_execute_task_tool_finds_baseurl(minimal_workspace: Path) -> None:
@@ -123,6 +138,7 @@ def test_execute_task_rag_fallback_on_weak_rg(
         domains=[],
         read_only=True,
         tool="rg",
+        **_tool_invocation(minimal_workspace),
     )
     mock_execute.return_value = (0, "")
     mock_rag_fallback.return_value = "RAG hits for: baseUrl\n\n1. chunk"
@@ -177,6 +193,104 @@ def test_execute_plan_timeout(mock_run, minimal_workspace: Path) -> None:
     with allure.step("Verify timeout is caught and surfaced"):
         assert code == 124
         assert "timed out" in out
+
+
+@allure.story("Execute safety")
+@allure.title("execute_plan converts process launch OS errors into stable exit codes")
+@pytest.mark.parametrize(
+    ("error", "expected_code", "message"),
+    [
+        (FileNotFoundError("missing-bin"), 127, "Executable not found"),
+        (OSError("exec format"), 126, "Cannot execute command"),
+    ],
+)
+def test_execute_plan_handles_process_launch_errors(
+    minimal_workspace: Path,
+    error: OSError,
+    expected_code: int,
+    message: str,
+) -> None:
+    from greedy_token.executors import execute_plan, plan_run
+    from greedy_token.router import RouteDecision
+
+    decision = RouteDecision(
+        target="python",
+        route_id="script-check-meta-sync",
+        confidence=1.0,
+        matched=["meta"],
+        command="python scripts/meta-sync-check.py",
+        note="",
+        domains=[],
+        read_only=True,
+    )
+    plan = plan_run(decision, "check meta", minimal_workspace)
+    assert plan.executable is True
+    with patch("greedy_token.executors.subprocess.run", side_effect=error):
+        code, out = execute_plan(plan)
+    assert code == expected_code
+    assert message in out
+
+
+@allure.story("Execute safety")
+@allure.title("execute_plan refuses executable flag without trusted structured argv")
+def test_execute_plan_refuses_missing_structured_argv() -> None:
+    from greedy_token.executors import RunPlan, execute_plan
+    from greedy_token.router import RouteDecision
+
+    plan = RunPlan(
+        decision=RouteDecision(
+            target="python",
+            route_id="forged",
+            confidence=1.0,
+            matched=[],
+            command="echo unsafe",
+            note="",
+            domains=[],
+            read_only=True,
+        ),
+        command="echo unsafe",
+        dry_run_output="echo unsafe",
+        executable=True,
+    )
+    code, out = execute_plan(plan)
+    assert code == 1
+    assert "structured trusted argv is missing" in out
+
+
+@allure.story("Execute safety")
+@allure.title("plan_run refuses missing or forged tool invocation metadata")
+@pytest.mark.parametrize(
+    ("argv", "cwd"),
+    [
+        (None, Path(".")),
+        (("rg", "--max-count", "50", "."), None),
+        (("rm", "--max-count", "50", "."), Path(".")),
+    ],
+)
+def test_plan_run_refuses_untrusted_tool_metadata(
+    minimal_workspace: Path,
+    argv: tuple[str, ...] | None,
+    cwd: Path | None,
+) -> None:
+    from greedy_token.executors import plan_run
+    from greedy_token.router import RouteDecision
+
+    decision = RouteDecision(
+        target="tool",
+        route_id="forged-tool",
+        confidence=1.0,
+        matched=["find"],
+        command="forged",
+        note="",
+        domains=[],
+        read_only=True,
+        tool="rg",
+        command_argv=argv,
+        command_cwd=minimal_workspace if cwd is not None else None,
+    )
+    plan = plan_run(decision, "find x", minimal_workspace)
+    assert plan.executable is False
+    assert plan.refusal_reason
 
 
 @allure.story("Plan run")
@@ -281,6 +395,7 @@ def test_execute_task_filtered_short_rg(
         domains=[],
         read_only=True,
         tool="rg",
+        **_tool_invocation(minimal_workspace),
     )
     mock_execute.return_value = (0, ".cursor/hooks/noise\nbaseUrl\n")
     mock_rag_fallback.return_value = "RAG hits\n\n1. chunk"
@@ -310,6 +425,7 @@ def test_execute_task_filtered_sufficient(
         domains=[],
         read_only=True,
         tool="rg",
+        **_tool_invocation(minimal_workspace),
     )
     lines = "\n".join(f"line{i}: baseUrl" for i in range(5))
     mock_execute.return_value = (0, ".cursor/hooks/noise\n" + lines)
@@ -341,6 +457,7 @@ def test_execute_task_weak_rg_no_fallback(
         domains=[],
         read_only=True,
         tool="rg",
+        **_tool_invocation(minimal_workspace),
     )
     mock_execute.return_value = (2, "")
     result = execute_task("find baseUrl", minimal_workspace)
@@ -429,6 +546,9 @@ def test_execute_plan_timeout_selection(
         command="echo hi",
         dry_run_output="echo hi",
         executable=True,
+        argv=("echo", "hi"),
+        cwd=minimal_workspace,
+        authorization="test-fixture",
     )
     captured: dict[str, object] = {}
 
@@ -449,7 +569,7 @@ def test_execute_plan_timeout_selection(
 
 @allure.story("Execute safety")
 @allure.title("execute_plan concatenates stdout and stderr and passes returncode")
-def test_execute_plan_stdout_stderr_concat() -> None:
+def test_execute_plan_stdout_stderr_concat(tmp_path: Path) -> None:
     from greedy_token.executors import RunPlan, execute_plan
     from greedy_token.router import RouteDecision
 
@@ -461,6 +581,9 @@ def test_execute_plan_stdout_stderr_concat() -> None:
         command="c",
         dry_run_output="DRY",
         executable=True,
+        argv=("echo", "hi"),
+        cwd=tmp_path,
+        authorization="test-fixture",
     )
 
     class _Proc:
@@ -476,7 +599,7 @@ def test_execute_plan_stdout_stderr_concat() -> None:
 
 @allure.story("Execute safety")
 @allure.title("execute_plan falls back to dry-run output when command prints nothing")
-def test_execute_plan_empty_output_uses_dry_run() -> None:
+def test_execute_plan_empty_output_uses_dry_run(tmp_path: Path) -> None:
     from greedy_token.executors import RunPlan, execute_plan
     from greedy_token.router import RouteDecision
 
@@ -488,6 +611,9 @@ def test_execute_plan_empty_output_uses_dry_run() -> None:
         command="c",
         dry_run_output="DRY-RUN-FALLBACK",
         executable=True,
+        argv=("echo", "hi"),
+        cwd=tmp_path,
+        authorization="test-fixture",
     )
 
     class _Proc:
@@ -518,9 +644,9 @@ def test_execute_plan_refuse_message_exact() -> None:
     code, out = execute_plan(plan)
     assert code == 1
     assert out == (
-        "Refusing --execute: route is not read-only.\n"
+        "Refusing --execute: route is not authorised for execution.\n"
         "Dry-run:\nDRY\n\n"
-        "Run the script manually if side effects are intended."
+        "read_only is metadata, not execution authority."
     )
 
 

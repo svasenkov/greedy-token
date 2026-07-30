@@ -11,7 +11,12 @@ import pytest
 
 from greedy_token.rag_index import _tokenize, get_indexed_chunks, invalidate_rag_index
 from greedy_token.rag_search import search_rag
-from greedy_token.router import has_edit_verbs, route_task
+from greedy_token.router import (
+    has_edit_verbs,
+    is_read_only_search_intent,
+    is_read_only_tool_intent,
+    route_task,
+)
 from tests.allure_reporting import attach_json, attach_text
 
 pytestmark = [
@@ -21,13 +26,22 @@ pytestmark = [
     allure.suite("Trust cut"),
 ]
 
-# Reviewer false-cheap corpus: search+edit must not hold on tool/rg.
+# Reviewer adversarial corpus: every mixed search+edit request must fail safe.
 FALSE_CHEAP_EDIT_TASKS = [
-    "fix findings from review",
-    "найди race condition и исправь",
-    "search for race condition and fix it",
-    "найди баг и почини",
-    "find the flaky test and patch it",
+    "find config and update it",
+    "search for TODO and remove it",
+    "locate handler and rename it",
+    "grep old API and replace it",
+    "find broken test and repair it",
+    "where is header and change it",
+    "find bug and resolve it",
+    "найди конфиг и обнови",
+    "найди баг и поправь",
+    "найди файл и удали",
+    "найди класс и переименуй",
+    "найти TODO и заменить",
+    "найти баг и исправить",
+    "найти баг и починить",
 ]
 
 
@@ -37,6 +51,8 @@ FALSE_CHEAP_EDIT_TASKS = [
 def test_false_cheap_edit_corpus_escalates(minimal_workspace: Path, task: str) -> None:
     with allure.step(f"Route edit+search task: {task}"):
         assert has_edit_verbs(task)
+        assert not is_read_only_search_intent(task)
+        assert not is_read_only_tool_intent(task)
         decision = route_task(task, minimal_workspace)
         attach_json(
             "decision",
@@ -53,15 +69,42 @@ def test_false_cheap_edit_corpus_escalates(minimal_workspace: Path, task: str) -
         assert decision.target == "cursor"
         assert decision.route_id == "cursor-edit-escalate"
         assert decision.target != "tool"
-        assert "edit verbs" in decision.note
+        assert "non-read-only intent" in decision.note
 
 
 @allure.story("False-cheap edit")
-@allure.title("Pure search without edit verbs still stays on tool")
-def test_pure_search_stays_tool(minimal_workspace: Path) -> None:
-    decision = route_task("find baseUrl in sample.js", minimal_workspace)
-    assert not has_edit_verbs("find baseUrl in sample.js")
+@allure.title("Pure EN/RU search intents still stay on tool")
+@pytest.mark.parametrize(
+    "task",
+    [
+        "find baseUrl in sample.js",
+        "search for TODO",
+        "where is header.css",
+        "найди конфиг baseUrl",
+        "где лежит header.js",
+    ],
+)
+def test_pure_search_stays_tool(minimal_workspace: Path, task: str) -> None:
+    decision = route_task(task, minimal_workspace)
+    assert not has_edit_verbs(task)
+    assert is_read_only_search_intent(task)
+    assert is_read_only_tool_intent(task)
     assert decision.target == "tool"
+
+
+@allure.story("False-cheap edit")
+@allure.title("Structured tool lookup requires a non-mutating payload")
+def test_structured_tool_lookup_intent_is_complete(
+    minimal_workspace: Path,
+) -> None:
+    task = "parse json phase-manifest json"
+    assert not is_read_only_search_intent(task)
+    assert is_read_only_tool_intent(task)
+    assert route_task(task, minimal_workspace).target == "tool"
+    assert not is_read_only_tool_intent("jq")
+    assert not is_read_only_tool_intent("parse json")
+    assert not is_read_only_tool_intent("jq config and update it")
+    assert route_task("jq", minimal_workspace).target == "cursor"
 
 
 @allure.story("Unicode tokenize")

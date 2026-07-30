@@ -274,7 +274,12 @@ def _run_rg(cmd: str) -> tuple[int, str]:
     from greedy_token.subprocess_safe import UnsafeCommandError, command_to_argv
 
     try:
-        run_cwd, argv = command_to_argv(cmd)
+        registered_rg = resolve_rg()
+        allowed = (registered_rg,) if registered_rg is not None else ()
+        run_cwd, argv = command_to_argv(
+            cmd,
+            allowed_absolute_executables=allowed,
+        )
         proc = subprocess.run(
             argv,
             shell=False,
@@ -285,6 +290,10 @@ def _run_rg(cmd: str) -> tuple[int, str]:
         )
     except UnsafeCommandError as exc:
         return 1, f"Error: refusing unsafe rg command: {exc}"
+    except FileNotFoundError as exc:
+        return 127, f"Error: ripgrep executable not found: {exc}"
+    except OSError as exc:
+        return 126, f"Error: cannot execute ripgrep: {exc}"
     except subprocess.TimeoutExpired:
         return 124, f"Error: ripgrep timed out after {RG_TIMEOUT}s"
     out = (proc.stdout or "") + (proc.stderr or "")
@@ -520,9 +529,9 @@ def search_code(
                 f"{root_cd_prefix(root)} {rg_path_for_shell()} -n --max-columns 200 -F "
                 f"{sh_quote(query)} --max-count {limit} {rel}"
             )
-            _, out = _run_rg(cmd)
+            code, out = _run_rg(cmd)
             filtered = filter_tool_output(out)
-            if filtered and "command not found" not in filtered.lower():
+            if code in (0, 1) and filtered and "command not found" not in filtered.lower():
                 return _finalize_search(
                     header=f"Search: {query!r} in {scope}",
                     body=filtered,
@@ -571,9 +580,9 @@ def search_code(
                 f"{sh_quote(query)} {glob_flags} --max-count {limit} "
                 f"{' '.join(search_scope_paths(root))}"
             )
-        _, out = _run_rg(cmd)
+        code, out = _run_rg(cmd)
         filtered = filter_tool_output(out)
-        if filtered and "command not found" not in filtered.lower():
+        if code in (0, 1) and filtered and "command not found" not in filtered.lower():
             return _finalize_search(
                 header=f"Search: {query!r} in {scope}",
                 body=filtered,

@@ -4,10 +4,14 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from greedy_token.paths import find_workspace_root
+from greedy_token.paths import find_workspace_root, workspace_trusted_script_paths
 from greedy_token.rag_search import format_hits, search_rag
 from greedy_token.router import RouteDecision, route_task
-from greedy_token.subprocess_safe import UnsafeCommandError, command_to_argv
+from greedy_token.subprocess_safe import (
+    UnsafeCommandError,
+    trusted_script_invocation,
+    trusted_tool_invocation,
+)
 from greedy_token.tool_paths import RG_TIMEOUT, SCRIPT_TIMEOUT, root_cd_prefix
 from greedy_token.wrappers import wrapper_for_command
 
@@ -20,6 +24,10 @@ class RunPlan:
     command: str | None
     dry_run_output: str
     executable: bool
+    argv: tuple[str, ...] | None = None
+    cwd: Path | None = None
+    authorization: str = ""
+    refusal_reason: str = ""
 
 
 @dataclass
@@ -35,33 +43,101 @@ def plan_run(decision: RouteDecision, task: str, root: Path | None = None) -> Ru
     target = decision.target
 
     if target == "tool" and decision.command:
+        try:
+            if decision.command_argv is None or decision.command_cwd is None:
+                raise UnsafeCommandError(
+                    "tool command was not produced by the internal argv builder"
+                )
+            invocation = trusted_tool_invocation(
+                decision.command_argv,
+                cwd=decision.command_cwd,
+                root=root,
+                tool=decision.tool,
+            )
+        except (UnsafeCommandError, OSError) as exc:
+            return RunPlan(
+                decision=decision,
+                command=decision.command,
+                dry_run_output=decision.command,
+                executable=False,
+                refusal_reason=str(exc),
+            )
         return RunPlan(
             decision=decision,
             command=decision.command,
             dry_run_output=decision.command,
             executable=decision.read_only,
+            argv=invocation.argv,
+            cwd=invocation.cwd,
+            authorization=invocation.authorization,
         )
 
     if target == "python" and decision.command:
         cmd = f"{root_cd_prefix(root)} {decision.command}"
         wrapper = wrapper_for_command(decision.command)
-        read_only = decision.read_only or (wrapper.read_only if wrapper else False)
+        registered = (
+            (wrapper.path,)
+            if wrapper is not None and wrapper.read_only
+            else ()
+        )
+        trusted = workspace_trusted_script_paths(root) if decision.read_only else ()
+        try:
+            invocation = trusted_script_invocation(
+                cmd,
+                root=root,
+                registered_script_paths=registered,
+                trusted_script_paths=trusted,
+            )
+        except (UnsafeCommandError, OSError) as exc:
+            return RunPlan(
+                decision=decision,
+                command=cmd,
+                dry_run_output=cmd,
+                executable=False,
+                refusal_reason=str(exc),
+            )
         return RunPlan(
             decision=decision,
             command=cmd,
             dry_run_output=cmd,
-            executable=read_only,
+            executable=True,
+            argv=invocation.argv,
+            cwd=invocation.cwd,
+            authorization=invocation.authorization,
         )
 
     if target == "ollama" and decision.command:
         cmd = f"{root_cd_prefix(root)} {decision.command}"
         wrapper = wrapper_for_command(decision.command)
-        read_only = decision.read_only or (wrapper.read_only if wrapper else False)
+        registered = (
+            (wrapper.path,)
+            if wrapper is not None and wrapper.read_only
+            else ()
+        )
+        trusted = workspace_trusted_script_paths(root) if decision.read_only else ()
+        try:
+            invocation = trusted_script_invocation(
+                cmd,
+                root=root,
+                registered_script_paths=registered,
+                trusted_script_paths=trusted,
+            )
+        except (UnsafeCommandError, OSError) as exc:
+            return RunPlan(
+                decision=decision,
+                command=cmd,
+                dry_run_output=cmd + "  # pass args as needed",
+                executable=False,
+                refusal_reason=str(exc),
+            )
         return RunPlan(
             decision=decision,
             command=cmd,
             dry_run_output=cmd + "  # pass args as needed",
-            executable=read_only,
+            executable=True,
+            argv=invocation.argv,
+            cwd=invocation.cwd,
+            authorization=invocation.authorization,
         )
 
     if target == "rag":
@@ -94,27 +170,38 @@ def plan_run(decision: RouteDecision, task: str, root: Path | None = None) -> Ru
 
 
 def execute_plan(plan: RunPlan) -> tuple[int, str]:
-    if not plan.command:
+    if not plan.command and not plan.argv:
         return 0, plan.dry_run_output
     if not plan.executable:
+        reason = (
+            f" Trust boundary: {plan.refusal_reason}."
+            if plan.refusal_reason
+            else ""
+        )
         return 1, (
-            "Refusing --execute: route is not read-only.\n"
+            f"Refusing --execute: route is not authorised for execution.{reason}\n"
             f"Dry-run:\n{plan.dry_run_output}\n\n"
-            "Run the script manually if side effects are intended."
+            "read_only is metadata, not execution authority."
+        )
+    if plan.argv is None or plan.cwd is None or not plan.authorization:
+        return 1, (
+            "Refusing --execute: structured trusted argv is missing.\n"
+            f"Dry-run:\n{plan.dry_run_output}"
         )
     timeout = RG_TIMEOUT if plan.decision.target == "tool" else SCRIPT_TIMEOUT
     try:
-        run_cwd, argv = command_to_argv(plan.command)
         proc = subprocess.run(
-            argv,
+            list(plan.argv),
             shell=False,
             capture_output=True,
             text=True,
-            cwd=run_cwd,
+            cwd=plan.cwd,
             timeout=timeout,
         )
-    except UnsafeCommandError as exc:
-        return 1, f"Refusing unsafe command: {exc}\nDry-run:\n{plan.dry_run_output}"
+    except FileNotFoundError as exc:
+        return 127, f"Executable not found: {exc}"
+    except OSError as exc:
+        return 126, f"Cannot execute command: {exc}"
     except subprocess.TimeoutExpired:
         return 124, f"Command timed out after {timeout}s: {plan.command}"
     out = (proc.stdout or "") + (proc.stderr or "")

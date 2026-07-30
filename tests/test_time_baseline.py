@@ -15,6 +15,7 @@ from greedy_token.baseline import (
     MS_PER_1K_BASELINE_TOKENS,
     SOURCE_CALIBRATED,
     SOURCE_DEFAULT,
+    SOURCE_MEASURED,
     format_duration_short,
     get_time_baseline_settings,
     naive_agent_ms,
@@ -24,7 +25,14 @@ from greedy_token.baseline import (
 from greedy_token.budget import format_tool_footer
 from greedy_token.hub.api import handle_api
 from greedy_token.router import route_task
-from greedy_token.usage import aggregate_events, append_event, build_route_event, format_report
+from greedy_token.usage import (
+    aggregate_events,
+    append_event,
+    build_compress_event,
+    build_route_event,
+    build_script_event,
+    format_report,
+)
 from tests.allure_reporting import attach_text
 
 pytestmark = [
@@ -56,6 +64,60 @@ def test_calibrated_time_overhead() -> None:
     assert settings_t.ms_per_1k_tokens == 500
     assert settings_t.source == SOURCE_CALIBRATED
     assert naive_agent_ms(2000) == 20_000 + 1000
+
+
+@allure.story("Config")
+@allure.title("Time baseline parser fails safe and supports measured rate-only config")
+def test_time_baseline_config_parsing_edges(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "_read_yaml", lambda _path: {})
+    assert get_time_baseline_settings().source == SOURCE_DEFAULT
+
+    monkeypatch.setattr(
+        settings,
+        "_read_yaml",
+        lambda _path: {
+            "baseline": {
+                "overhead_ms": "invalid",
+                "ms_per_1k_tokens": object(),
+            }
+        },
+    )
+    invalid = get_time_baseline_settings()
+    assert invalid.overhead_ms == BASE_AGENT_OVERHEAD_MS
+    assert invalid.ms_per_1k_tokens == MS_PER_1K_BASELINE_TOKENS
+    assert invalid.source == SOURCE_DEFAULT
+
+    monkeypatch.setattr(
+        settings,
+        "_read_yaml",
+        lambda _path: {
+            "baseline": {
+                "overhead_ms": 1234,
+                "time_method": "measured",
+                "time_calibrated_at": "2026-07-30",
+            }
+        },
+    )
+    measured = get_time_baseline_settings()
+    assert measured.overhead_ms == 1234
+    assert measured.source == SOURCE_MEASURED
+    assert measured.calibrated_at == "2026-07-30"
+
+    monkeypatch.setattr(
+        settings,
+        "_read_yaml",
+        lambda _path: {
+            "baseline": {
+                "ms_per_1k_tokens": 321,
+                "method": "measured",
+                "calibrated_at": "2026-07-29",
+            }
+        },
+    )
+    rate_only = get_time_baseline_settings()
+    assert rate_only.ms_per_1k_tokens == 321
+    assert rate_only.source == SOURCE_MEASURED
+    assert rate_only.calibrated_at == "2026-07-29"
 
 
 @allure.story("Config")
@@ -136,6 +198,37 @@ def test_route_event_time_fields(tmp_path: Path, monkeypatch, minimal_workspace:
     attach_text("report", report)
     assert "time_saved" in report
     assert "Time baseline:" in report
+
+
+@allure.story("Telemetry")
+@allure.title("Event builders omit time_saved_ms when savings are unavailable")
+def test_event_builders_omit_unavailable_time_saved(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("greedy_token.usage.time_saved_ms", lambda *_args: None)
+    decision = route_task("find baseUrl", minimal_workspace)
+    route_event = build_route_event(
+        cmd="route",
+        task="find baseUrl",
+        root=minimal_workspace,
+        decision=decision,
+        duration_ms=10,
+    )
+    script_event = build_script_event(
+        script_id="check-meta-sync",
+        root=minimal_workspace,
+        duration_ms=10,
+    )
+    compress_event = build_compress_event(
+        text="long input text",
+        short="short",
+        use_ollama=False,
+        duration_ms=10,
+    )
+    assert all(
+        "time_saved_ms" not in event
+        for event in (route_event, script_event, compress_event)
+    )
 
 
 @allure.story("Hub")

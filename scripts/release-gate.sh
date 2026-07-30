@@ -10,6 +10,9 @@ cd "$ROOT"
 
 python -m compileall -q src/greedy_token
 python -m pytest -q
+python -m coverage erase
+python -m coverage run -m pytest tests/ -q
+python -m coverage report --include='src/greedy_token/*'
 python -m pytest -q --release-version="$TARGET" -m release
 bash "$ROOT/scripts/sync-min-tests-count.sh"
 

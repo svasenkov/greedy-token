@@ -20,7 +20,7 @@ from greedy_token.calibration import (
 )
 from greedy_token.paths import find_workspace_root, load_routes_config
 from greedy_token.tokens import count_tokens
-from greedy_token.tool_paths import rg_path_for_shell, root_cd_prefix, sh_quote
+from greedy_token.tool_paths import resolve_rg, root_cd_prefix, sh_quote
 from greedy_token.wrappers import ollama_available, wrapper_for_command
 
 TIER_ORDER = ("tool", "python", "ollama", "rag", "cursor")
@@ -42,13 +42,18 @@ def _metered_bulk_ready(root: Path) -> bool:
 
     return metered_bulk_ready(root)
 
-# Edit / wiring verbs — tool/rag alone is false-cheap; escalate to cursor.
+# Mutation / wiring verbs are a defence-in-depth signal.  Tool routing is
+# authorised by a positive read-only intent grammar below; this list alone is
+# deliberately not the trust boundary.
 EDIT_VERBS = re.compile(
     r"\b(implement|refactor|fix|add|wiring|migrate|patch|rewrite|"
-    r"почини|исправь|добавь|рефактор|внедри|сделай)\b",
+    r"update|remove|delete|rename|replace|repair|change|resolve|modify|"
+    r"почини(?:ть)?|исправ(?:ь|ить)|добав(?:ь|ить)|рефактор\w*|"
+    r"внедри(?:ть)?|сделай|обнови(?:ть)?|поправ(?:ь|ить)|удали(?:ть)?|"
+    r"переименуй|переименовать|замени(?:ть)?|измени(?:ть)?|реши(?:ть)?)\b",
     re.IGNORECASE,
 )
-EDIT_ESCALATE_NOTE = "edit verbs → agent path (not cheap search)"
+EDIT_ESCALATE_NOTE = "non-read-only intent → agent path (not cheap search)"
 
 
 def has_edit_verbs(task: str) -> bool:
@@ -75,6 +80,8 @@ class RouteDecision:
     raw_score: float = 0.0
     confidence_source: str = SOURCE_FORMULA
     calibration_n: int = 0
+    command_argv: tuple[str, ...] | None = None
+    command_cwd: Path | None = None
 
 
 def _normalize(text: str) -> str:
@@ -138,7 +145,75 @@ SEARCH_PREFIXES = (
     r"^найти\s+",
     r"^где\s+(лежит|находится|файл)\s+",
     r"^покажи\s+где\s+",
+    r"^usages\s+of\s+",
+    r"^who\s+uses\s+",
+    r"^кто\s+использует\s+",
 )
+
+STRUCTURED_LOOKUP_PREFIXES = (
+    r"^jq(?:\s+|$)",
+    r"^parse\s+json(?:\s+|$)",
+    r"^json\s+field(?:\s+|$)",
+)
+
+# A conjunction after a search prefix is ambiguous: it can introduce a second
+# action ("find X and update it").  False negatives are intentional here —
+# ambiguous work escalates instead of being reported as a successful cheap hit.
+SEARCH_ACTION_BOUNDARY = re.compile(
+    r"(?:[;\n]|\b(?:and|and\s+then|then|after\s+that|и|затем|потом)\b)",
+    re.IGNORECASE,
+)
+
+
+def _matches_prefix(text: str, prefixes: tuple[str, ...]) -> bool:
+    return any(re.match(prefix, text, flags=re.IGNORECASE) for prefix in prefixes)
+
+
+def _starts_tool_intent(task: str) -> bool:
+    text = _normalize(task)
+    return _matches_prefix(text, SEARCH_PREFIXES + STRUCTURED_LOOKUP_PREFIXES)
+
+
+def is_read_only_search_intent(task: str) -> bool:
+    """True only for a complete, unambiguous read-only search request.
+
+    This is a positive intent grammar, not an edit-verb blacklist: the task
+    must start with a recognised search prefix, contain a query, and contain no
+    action boundary or mutation signal.  Ambiguous mixed requests fail safe.
+    """
+    text = _normalize(task)
+    if not _matches_prefix(text, SEARCH_PREFIXES):
+        return False
+    query = _strip_search_prefix(text)
+    return bool(
+        query
+        and not SEARCH_ACTION_BOUNDARY.search(query)
+        and not has_edit_verbs(query)
+    )
+
+
+def is_read_only_tool_intent(task: str) -> bool:
+    """Authorise tool-tier matching only for recognised read-only lookups."""
+    if is_read_only_search_intent(task):
+        return True
+    text = _normalize(task)
+    match = next(
+        (
+            found
+            for prefix in STRUCTURED_LOOKUP_PREFIXES
+            if (found := re.match(prefix, text, flags=re.IGNORECASE))
+        ),
+        None,
+    )
+    if match is None:
+        return False
+    payload = text[match.end() :].strip()
+    return bool(
+        payload
+        and not SEARCH_ACTION_BOUNDARY.search(payload)
+        and not has_edit_verbs(payload)
+    )
+
 
 # Filler stripped from "find X in Y Z" — keep identifiers (baseUrl), drop scope words.
 SEARCH_FILLER = frozenset(
@@ -227,17 +302,30 @@ def _extract_search_query(task: str) -> str:
     return text
 
 
-def _build_tool_command(route: dict, task: str, root: Path) -> str:
+def _confined_route_path(value: object, root: Path, *, field: str) -> str:
+    text = str(value).strip()
+    path = Path(text)
+    if not text or path.is_absolute():
+        raise ValueError(f"{field} must be a workspace-relative path")
+    try:
+        (root / path).resolve().relative_to(root.resolve())
+    except (OSError, ValueError) as exc:
+        raise ValueError(f"{field} escapes workspace root: {text!r}") from exc
+    return text
+
+
+def _build_tool_argv(route: dict, task: str, root: Path) -> tuple[str, ...]:
     # equivalent: the "rg" default is only compared against "jq" below, so any
     # non-"jq" default routes to the same ripgrep branch.
     tool = (route.get("tool") or "rg").lower()  # pragma: no mutate
     query = _extract_search_query(task)
     if tool == "jq":
-        path_hint = route.get("json_path") or "docs/phase-manifest.json"
-        return (
-            f"{root_cd_prefix(root)} jq -r {sh_quote(route.get('jq_filter', '.'))} "
-            f"{sh_quote(path_hint)}"
+        path_hint = _confined_route_path(
+            route.get("json_path") or "docs/phase-manifest.json",
+            root,
+            field="json_path",
         )
+        return ("jq", "-r", str(route.get("jq_filter", ".")), path_hint)
     globs = route.get("globs") or [
         "!.git/**",
         "!node_modules/**",
@@ -245,15 +333,37 @@ def _build_tool_command(route: dict, task: str, root: Path) -> str:
         "!.venv/**",
         "!.cursor/hooks/**",
     ]
-    search_paths = route.get("search_paths") or ["."]
-    max_count = route.get("max_count", 50)
-    glob_flags = " ".join(f"-g {sh_quote(g)}" for g in globs)
-    # Quote every path: workspace YAML must not inject shell metacharacters.
-    paths = " ".join(sh_quote(p) for p in search_paths)
-    return (
-        f"{root_cd_prefix(root)} {rg_path_for_shell()} -n --max-columns 200 -F {sh_quote(query)} "
-        f"{glob_flags} --max-count {max_count} {paths}"
+    raw_paths = route.get("search_paths") or ["."]
+    if not isinstance(raw_paths, list):
+        raise ValueError("search_paths must be a list")
+    search_paths = tuple(
+        _confined_route_path(path, root, field="search_paths")
+        for path in raw_paths
     )
+    try:
+        max_count = int(route.get("max_count", 50))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("max_count must be an integer") from exc
+    if not 1 <= max_count <= 1000:
+        raise ValueError("max_count must be between 1 and 1000")
+    rg = resolve_rg()
+    argv: list[str] = [
+        str(rg) if rg is not None else "rg",
+        "-n",
+        "--max-columns",
+        "200",
+        "-F",
+        query,
+    ]
+    for glob in globs:
+        argv.extend(("-g", str(glob)))
+    argv.extend(("--max-count", str(max_count), *search_paths))
+    return tuple(argv)
+
+
+def _build_tool_command(route: dict, task: str, root: Path) -> str:
+    argv = _build_tool_argv(route, task, root)
+    return f"{root_cd_prefix(root)} {' '.join(sh_quote(arg) for arg in argv)}"
 
 
 def _token_estimate_for_route(
@@ -337,8 +447,15 @@ def _decision_from_route(
     # equivalent: bool() of the missing-key default is False whether it is False/None/absent.
     read_only = bool(route.get("read_only", False))  # pragma: no mutate
     command = route.get("command")
+    command_argv: tuple[str, ...] | None = None
+    command_cwd: Path | None = None
     if target == "tool":
-        command = _build_tool_command(route, task, root)
+        command_argv = _build_tool_argv(route, task, root)
+        command_cwd = root
+        command = (
+            f"{root_cd_prefix(root)} "
+            f"{' '.join(sh_quote(arg) for arg in command_argv)}"
+        )
         read_only = True
 
     complexity, est_tokens, rationale = _token_estimate_for_route(
@@ -372,6 +489,8 @@ def _decision_from_route(
         raw_score=score,
         confidence_source=calibration.source,
         calibration_n=calibration.n,
+        command_argv=command_argv,
+        command_cwd=command_cwd,
     )
 
 
@@ -381,11 +500,24 @@ def _best_in_tier(routes: list[dict], text: str, task: str, root: Path) -> Route
     for route in routes:
         if not _route_active(route):
             continue
+        if route.get("target") == "tool" and not is_read_only_tool_intent(task):
+            continue
         score, matched = _score_patterns(text, route.get("patterns", []))
         # equivalent: scores are never negative, and a 0 score never beats best_score.
         if score <= 0:  # pragma: no mutate
             continue
-        decision = _decision_from_route(route, score=score, matched=matched, task=task, root=root)
+        try:
+            decision = _decision_from_route(
+                route,
+                score=score,
+                matched=matched,
+                task=task,
+                root=root,
+            )
+        except (OSError, ValueError):
+            # Invalid workspace tool paths/options must not crash routing or
+            # become executable.  Skip the malformed route and continue.
+            continue
         if score > best_score:
             best = decision
             best_score = score
@@ -413,7 +545,7 @@ def _with_shadow(decision: RouteDecision, shadow_route_id: str | None) -> RouteD
 
 def route_task_all_tiers(task: str, root: Path | None = None) -> list[tuple[str, RouteDecision]]:
     root = root or find_workspace_root()
-    cfg = load_routes_config()
+    cfg = load_routes_config(root)
     text = _normalize(task)
     all_routes = cfg.get("routes", [])
     shadow_id, _ = _best_shadow_match(all_routes, text)
@@ -475,7 +607,9 @@ def _escalate_edit_from_cheap(
     """
     if decision.target not in ("tool", "rag"):
         return decision
-    if not has_edit_verbs(task):
+    if not has_edit_verbs(task) and not (
+        _starts_tool_intent(task) and not is_read_only_tool_intent(task)
+    ):
         return decision
     complexity, est_tokens, cursor_rationale = _token_estimate_for_route(
         "cursor",
@@ -509,10 +643,38 @@ def _escalate_edit_from_cheap(
 
 def route_task(task: str, root: Path | None = None) -> RouteDecision:
     root = root or find_workspace_root()
-    cfg = load_routes_config()
+    cfg = load_routes_config(root)
     text = _normalize(task)
     all_routes = cfg.get("routes", [])
     shadow_id, _ = _best_shadow_match(all_routes, text)
+
+    # A recognised lookup prefix with a non-read-only continuation is an
+    # explicit false-cheap case.  Escalate before pattern scoring so a workspace
+    # route cannot turn mixed search+edit into a successful tool hold.
+    if _starts_tool_intent(task) and not is_read_only_tool_intent(task):
+        complexity, est_tokens, rationale = _token_estimate_for_route(
+            "cursor",
+            task=task,
+            root=root,
+        )
+        return _with_shadow(
+            RouteDecision(
+                target="cursor",
+                route_id="cursor-edit-escalate",
+                confidence=0.60,
+                matched=[],
+                command=None,
+                note=EDIT_ESCALATE_NOTE,
+                domains=[],
+                complexity=complexity,
+                est_tokens=est_tokens,
+                rationale=(
+                    "A recognised lookup contains a second or mutating action; "
+                    f"fail-safe escalation. {rationale}"
+                ),
+            ),
+            shadow_id,
+        )
 
     for tier in TIER_ORDER:
         tier_routes = [r for r in all_routes if r.get("target") == tier]
@@ -638,7 +800,10 @@ def format_decision(decision: RouteDecision, task: str, root: Path) -> str:
             cmd = f"{root_cd_prefix(root)} {cmd}"
         lines.append(f"Command: {cmd}")
         if decision.read_only:
-            lines.append("Execute: read-only (greedy-token run --execute OK)")
+            lines.append(
+                "Execute: read-only metadata; --execute still requires a trusted "
+                "tool/wrapper/script path"
+            )
         else:
             lines.append("Execute: not read-only — dry-run only; run script manually")
     if decision.target == "rag" and decision.domains:

@@ -190,6 +190,43 @@ def test_workspace_overlay_routes_file_paths(tmp_path: Path) -> None:
         assert workspace_routes_overlay(ws) == {}
 
 
+@allure.story("Command trust boundary")
+@allure.title("Trusted script paths come only from local workspace config")
+def test_workspace_trusted_script_paths_are_local_only(tmp_path: Path) -> None:
+    from greedy_token.paths import workspace_trusted_script_paths
+
+    ws = tmp_path / "ws"
+    scripts = ws / "scripts"
+    scripts.mkdir(parents=True)
+    (scripts / "safe.py").write_text("print('ok')\n", encoding="utf-8")
+    routes_file = tmp_path / "downloaded-routes.yaml"
+    routes_file.write_text(
+        "trusted_script_paths:\n"
+        "  - scripts/remote.py\n"
+        "routes:\n"
+        "  - id: remote\n"
+        "    target: python\n"
+        "    patterns: [remote]\n"
+        "    command: python scripts/remote.py\n",
+        encoding="utf-8",
+    )
+    (ws / ".greedy-token.yaml").write_text(
+        f"routes_file: {routes_file}\n",
+        encoding="utf-8",
+    )
+    assert workspace_trusted_script_paths(ws) == frozenset()
+
+    (ws / ".greedy-token.yaml").write_text(
+        "trusted_script_paths:\n"
+        "  - scripts/safe.py\n"
+        "  - ../outside.py\n"
+        "  - /tmp/absolute.py\n"
+        "  - 42\n",
+        encoding="utf-8",
+    )
+    assert workspace_trusted_script_paths(ws) == frozenset({"scripts/safe.py"})
+
+
 @allure.story("Workspace overlay")
 @allure.title("Overlay tolerates junk: non-dict yaml, non-list routes, id-less entries")
 def test_workspace_overlay_tolerates_junk(tmp_path: Path) -> None:

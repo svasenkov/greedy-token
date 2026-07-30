@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shlex
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -93,10 +94,26 @@ WRAPPERS: dict[str, ScriptWrapper] = {
 def wrapper_for_command(command: str | None) -> ScriptWrapper | None:
     if not command:
         return None
-    for wrapper in WRAPPERS.values():
-        if wrapper.path in command or wrapper.id in command:
-            return wrapper
-    return None
+    try:
+        parts = shlex.split(command)
+    except ValueError:
+        return None
+    if len(parts) >= 3 and parts[0] == "cd" and parts[2] == "&&":
+        parts = parts[3:]
+    if not parts:
+        return None
+    executable = Path(parts[0]).name
+    if executable in ("python", "python3"):
+        if len(parts) < 2 or parts[1].startswith("-"):
+            return None
+        script_path = parts[1]
+    else:
+        script_path = parts[0]
+    normalized = Path(script_path.removeprefix("./")).as_posix()
+    return next(
+        (wrapper for wrapper in WRAPPERS.values() if wrapper.path == normalized),
+        None,
+    )
 
 
 def resolve_wrapper_command(wrapper_id: str, root: Path, *, extra_args: str = "") -> str:

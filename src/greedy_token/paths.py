@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 WORKSPACE_CONFIG_NAME = ".greedy-token.yaml"
+TRUSTED_SCRIPT_PATHS_KEY = "trusted_script_paths"
 
 
 def find_workspace_root(start: Path | None = None) -> Path:
@@ -85,6 +86,34 @@ def workspace_routes_overlay(root: Path) -> dict:
     if cursor_fallback:
         overlay["cursor_fallback"] = cursor_fallback
     return overlay
+
+
+def workspace_trusted_script_paths(root: Path) -> frozenset[str]:
+    """Explicit local allowlist for route-executable scripts.
+
+    Trust is read only from ``<root>/.greedy-token.yaml``.  It is intentionally
+    not imported from ``routes_file`` or a downloaded/file preset, so route
+    metadata cannot grant itself execution authority.
+    """
+    cfg = _read_yaml_dict(root / WORKSPACE_CONFIG_NAME)
+    raw = cfg.get(TRUSTED_SCRIPT_PATHS_KEY)
+    if not isinstance(raw, list):
+        return frozenset()
+    trusted: set[str] = set()
+    resolved_root = root.resolve()
+    for value in raw:
+        if not isinstance(value, str) or not value.strip():
+            continue
+        path = Path(value.strip())
+        if path.is_absolute():
+            continue
+        try:
+            resolved = (resolved_root / path).resolve()
+            rel = resolved.relative_to(resolved_root)
+        except (OSError, ValueError):
+            continue
+        trusted.add(rel.as_posix())
+    return frozenset(trusted)
 
 
 def merge_routes_config(base: dict, overlay: dict) -> dict:

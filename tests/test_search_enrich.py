@@ -93,4 +93,4 @@ def test_edit_verbs_escalate_off_tool(minimal_workspace: Path) -> None:
     assert plain.target == "tool"
     assert edit.target == "cursor"
     assert edit.route_id == "cursor-edit-escalate"
-    assert "edit verbs" in edit.note
+    assert "non-read-only intent" in edit.note

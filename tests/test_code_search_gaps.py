@@ -150,6 +150,22 @@ def test_resolve_detail_ambiguous(tmp_path: Path) -> None:
         assert len(res_f.candidates) == 2
 
 
+@allure.title("resolve_search_path_detail prefers one default-scope match")
+def test_resolve_detail_prefers_default_scope(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "ws"
+    preferred = root / "projects" / "app" / "unique.txt"
+    secondary = root / "misc" / "app" / "unique.txt"
+    preferred.parent.mkdir(parents=True)
+    secondary.parent.mkdir(parents=True)
+    preferred.write_text("preferred\n", encoding="utf-8")
+    secondary.write_text("secondary\n", encoding="utf-8")
+    monkeypatch.setattr(cs, "search_scope_paths", lambda _root: ["projects"])
+    result = cs.resolve_search_path_detail("unique.txt", root)
+    assert result.path == preferred.resolve()
+
+
 @allure.title("resolve_search_path_detail: candidate lists are capped at 8 (dirs and files)")
 def test_resolve_detail_candidate_cap(tmp_path: Path) -> None:
     root = tmp_path / "ws"
@@ -265,6 +281,27 @@ def test_run_rg_timeout_kwarg(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(cs.subprocess, "run", fake_run)
     cs._run_rg("echo x")
     assert seen.get("timeout") == cs.RG_TIMEOUT
+
+
+@allure.title("_run_rg converts unsafe and process launch failures to result codes")
+def test_run_rg_launch_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    code, text = cs._run_rg("rg x ; id")
+    assert code == 1
+    assert "refusing unsafe" in text
+
+    monkeypatch.setattr(cs, "resolve_rg", lambda: None)
+    for error, expected in (
+        (FileNotFoundError("missing"), 127),
+        (OSError("exec"), 126),
+    ):
+        monkeypatch.setattr(
+            cs.subprocess,
+            "run",
+            lambda *_args, _error=error, **_kwargs: (_ for _ in ()).throw(_error),
+        )
+        code, text = cs._run_rg("rg x")
+        assert code == expected
+        assert "Error:" in text
 
 
 # --- Mutation kill-tests: normalize_hit_body pass-through fidelity ---
@@ -796,3 +833,26 @@ def test_search_code_python_tree_join(tmp_path: Path, monkeypatch: pytest.Monkey
         assert "XX" not in r.text  # rows are newline-joined, not 'XX'-joined
         multi_rows = [ln for ln in r.text.splitlines() if "multi.py" in ln]
         assert len(multi_rows) == 3  # 'XX' join would collapse them onto one line
+
+
+@allure.title("MCP search omits hit summary when search result is empty")
+def test_mcp_search_empty_result(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import greedy_token.mcp as mcp_mod
+
+    monkeypatch.setattr(mcp_mod, "find_workspace_root", lambda: minimal_workspace)
+    monkeypatch.setattr(
+        mcp_mod,
+        "search_code",
+        lambda *args, **kwargs: cs.SearchResult(
+            text="No matches",
+            engine="python",
+        ),
+    )
+    monkeypatch.setattr(
+        mcp_mod,
+        "wrap_mcp_response",
+        lambda body, **kwargs: body,
+    )
+    assert mcp_mod.greedy_token_search("missing") == "No matches"
