@@ -1,18 +1,40 @@
-# Routing benchmark corpus v2 (post Trust cut).
+# Routing benchmark corpus v3 — held-out + adversarial release gate.
 # expected_target: tool | python | rag | ollama | cursor
-# Scores route_task precision/recall — not unit coverage of helpers.
+# Scores route_task classification only — not task execution/retrieval success.
 # confidence ≠ correctness; rag = lexical docs lookup (not embeddings).
-version: 2
-min_precision: 0.90
-min_cases: 30
+version: 3
+split: held-out-adversarial
+route_examples: route_examples.yaml
+min_cases: 50
 # Every listed target must appear ≥ min_per_target times (zone coverage).
 min_per_target: 3
+min_per_family: 3
 required_targets:
   - tool
   - python
   - rag
   - ollama
   - cursor
+thresholds:
+  exact_match_accuracy: 0.95
+  micro_precision: 0.95
+  false_cheap_rate: 0.0
+  per_target:
+    tool: {precision: 0.90, recall: 0.90}
+    python: {precision: 0.90, recall: 0.90}
+    rag: {precision: 0.90, recall: 0.90}
+    ollama: {precision: 0.90, recall: 0.90}
+    cursor: {precision: 0.90, recall: 0.90}
+  per_family:
+    search: 0.90
+    false-cheap-edit: 1.00
+    wiring: 0.90
+    docs: 0.90
+    script: 0.90
+    cheap-llm: 0.90
+  per_language:
+    en: 0.90
+    ru: 0.90
 cases:
   # ── tool / search (EN) ───────────────────────────────────────────
   - id: find-baseurl
@@ -69,46 +91,90 @@ cases:
     family: search
 
   # ── false-cheap edit → cursor (must not hold on tool/rag) ────────
-  - id: fix-findings
-    task: fix findings from review
+  - id: find-config-update
+    task: find config and update it
     expected_target: cursor
     lang: en
     family: false-cheap-edit
-  - id: search-and-fix
-    task: search for race condition and fix it
+    adversarial: true
+  - id: search-todo-remove
+    task: search for TODO and remove it
     expected_target: cursor
     lang: en
     family: false-cheap-edit
-  - id: find-and-patch
-    task: find the flaky test and patch it
+    adversarial: true
+  - id: locate-handler-rename
+    task: locate handler and rename it
     expected_target: cursor
     lang: en
     family: false-cheap-edit
-  - id: find-and-fix-selector
-    task: find SELECTOR and fix it
+    adversarial: true
+  - id: grep-api-replace
+    task: grep old API and replace it
     expected_target: cursor
     lang: en
     family: false-cheap-edit
-  - id: search-todo-patch
-    task: search for TODO and patch
+    adversarial: true
+  - id: find-test-repair
+    task: find broken test and repair it
     expected_target: cursor
     lang: en
     family: false-cheap-edit
-  - id: find-and-fix-ru
-    task: найди race condition и исправь
+    adversarial: true
+  - id: where-header-change
+    task: where is header and change it
+    expected_target: cursor
+    lang: en
+    family: false-cheap-edit
+    adversarial: true
+  - id: find-bug-resolve
+    task: find bug and resolve it
+    expected_target: cursor
+    lang: en
+    family: false-cheap-edit
+    adversarial: true
+  - id: find-config-update-ru
+    task: найди конфиг и обнови
     expected_target: cursor
     lang: ru
     family: false-cheap-edit
-  - id: pochini-ru
-    task: найди баг и почини
+    adversarial: true
+  - id: find-bug-correct-ru
+    task: найди баг и поправь
     expected_target: cursor
     lang: ru
     family: false-cheap-edit
-  - id: naiti-dubl-ru
-    task: найди дубль и исправь
+    adversarial: true
+  - id: find-file-delete-ru
+    task: найди файл и удали
     expected_target: cursor
     lang: ru
     family: false-cheap-edit
+    adversarial: true
+  - id: find-class-rename-ru
+    task: найди класс и переименуй
+    expected_target: cursor
+    lang: ru
+    family: false-cheap-edit
+    adversarial: true
+  - id: search-todo-replace-ru
+    task: найти TODO и заменить
+    expected_target: cursor
+    lang: ru
+    family: false-cheap-edit
+    adversarial: true
+  - id: search-bug-fix-ru
+    task: найти баг и исправить
+    expected_target: cursor
+    lang: ru
+    family: false-cheap-edit
+    adversarial: true
+  - id: search-bug-repair-ru
+    task: найти баг и починить
+    expected_target: cursor
+    lang: ru
+    family: false-cheap-edit
+    adversarial: true
 
   # ── wiring / judgment → cursor ───────────────────────────────────
   - id: refactor-header

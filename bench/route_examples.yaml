@@ -1,0 +1,22 @@
+# Canonical documentation/examples split.  These prompts explain route shape;
+# they are deliberately excluded from the held-out/adversarial release gate in
+# routing_corpus.yaml.
+version: 1
+split: route-examples
+gating: false
+cases:
+  - id: example-tool
+    task: find ROUTE_EXAMPLE_SENTINEL
+    target: tool
+  - id: example-python
+    task: check-meta-sync route example
+    target: python
+  - id: example-rag
+    task: what is the route example convention
+    target: rag
+  - id: example-ollama
+    task: batch inventory route example files
+    target: ollama
+  - id: example-cursor
+    task: implement route example widget
+    target: cursor
