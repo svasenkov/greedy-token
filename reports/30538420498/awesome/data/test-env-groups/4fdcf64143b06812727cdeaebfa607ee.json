@@ -1,0 +1,1 @@
+{"id":"4fdcf64143b06812727cdeaebfa607ee","fullName":"tests.test_trust_cut#test_tokenize_keeps_code_identifiers","name":"ASCII identifiers with underscores still tokenize","status":"passed","testResultsByEnv":{"default":"81209327cf71206bbb40765ac7b4638d"}}

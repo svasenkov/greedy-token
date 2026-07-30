@@ -1,0 +1,1 @@
+{"id":"32a5c5729565b67ecea4faf4b2c83e73","fullName":"tests.test_trust_cut#test_tokenize_cyrillic_not_empty","name":"Cyrillic query yields a non-empty token set","status":"passed","testResultsByEnv":{"default":"0de665ec0e1be513d05dbc2e2c61d09b"}}

@@ -1,0 +1,1 @@
+{"id":"502de3d1ea68c0585101f33beae68040","fullName":"tests.test_security#test_command_to_argv_fail_closed_on_operators","name":"command_to_argv peels cd && and rejects bare shell operators","status":"passed","testResultsByEnv":{"default":"692672a4429b10280bee652281de3edb"}}

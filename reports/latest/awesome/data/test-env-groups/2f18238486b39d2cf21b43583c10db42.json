@@ -1,0 +1,1 @@
+{"id":"2f18238486b39d2cf21b43583c10db42","fullName":"tests.test_trust_cut#test_rag_search_russian_query","name":"RU query finds RU RAG chunk (not empty-token miss)","status":"passed","testResultsByEnv":{"default":"a288dc63d6a0dbee15ad2503423216d5"}}
