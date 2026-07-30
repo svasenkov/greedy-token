@@ -16,6 +16,7 @@
 | **v0.12** ✅ | **Edit-escalation** (глаголы правок / «fix findings…» → не false-cheap `rg`); **RU tokenizer** (кириллица); **false-cheap tests** | ✅ вошло в **v0.13.0** (`CUT-v0.12.0.md`) |
 | **v0.13** ✅ | **Routing benchmark corpus** (precision/recall, не только unit); **shell harden** (не доверять workspace YAML через `shell=True` без allowlist/boundary) | ✅ shipped как **v0.13.0** (`CUT-v0.13.0.md`) |
 | **v0.14** ✅ | **Corpus v2** — расширить `bench/routing_corpus.yaml` (зоны: tool/python/rag/ollama/cursor; RU+EN; false-cheap + wiring + script + cheap-llm); scorecard precision + per-target recall; `min_precision` 0.90 | ✅ shipped как **v0.14.0** (`CUT-v0.14.0.md`); 45 кейсов, precision 100% |
+| **v0.14.1** 🔜 | Patch повторного ревью: positive read-only intent для tool, structured command trust boundary, classifier-метрики Corpus v3, exact-commit PyPI gate, восстановленный coverage gate | Patch подготовлен в `CUT-v0.14.1.md`; release actions ещё не выполнялись |
 | **v0.15+** (aspirational) | Windows; FTS / лучший docs index; **host pre-router** *если* Cursor (или host) даст API — иначе вне scope | Матрица платформ в docs; без фейковых claim «до LLM» без поддержки хоста |
 
 ## Темы
@@ -193,6 +194,8 @@ CI job → greedy-token CLI → rg | python | cheap_llm (Ollama/internal) | RAG 
 
 | Версия | Фокус |
 |--------|-------|
+| **v0.14.1 (DRAFT)** | Strict read-only routing; trusted structured argv; held-out/adversarial Corpus v3; PyPI gate по зелёному commit |
+| **v0.14.0** | Corpus v2: target/family coverage, RU+EN, 45-case exact-match scorecard |
 | **v0.13.0** | Trust cut fold: честные docs, mcp pin, edit-escalation/RU tokenize, routing corpus, `shell=False` harden |
 | **v0.12.0** | Вошло в v0.13.0 — edit-escalation + Cyrillic tokenize (`CUT-v0.12.0.md`) |
 | **v0.11.2** | Вошло в v0.13.0 — Trust cut A docs + `mcp>=1.0,<2` (`CUT-v0.11.2.md`) |

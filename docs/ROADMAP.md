@@ -16,6 +16,7 @@ Track progress: [GitHub issues labeled `roadmap`](https://github.com/svasenkov/g
 | **v0.12** ✅ | **Edit-escalation** (edit verbs / “fix findings…” → not false-cheap `rg`); **RU tokenizer** (Cyrillic); **false-cheap tests** | ✅ folded into **v0.13.0** (`CUT-v0.12.0.md`) |
 | **v0.13** ✅ | **Routing benchmark corpus** (precision/recall, not only unit tests); **shell harden** (no trust of workspace YAML via `shell=True` without allowlist/boundary) | ✅ shipped as **v0.13.0** (`CUT-v0.13.0.md`) |
 | **v0.14** ✅ | **Corpus v2** — expand `bench/routing_corpus.yaml` (zones: tool/python/rag/ollama/cursor; RU+EN; false-cheap + wiring + script + cheap-llm); scorecard precision + per-target recall; `min_precision` 0.90 | ✅ shipped as **v0.14.0** (`CUT-v0.14.0.md`); 45 cases, 100% precision |
+| **v0.14.1** 🔜 | Repeat-review patch: positive read-only tool intent, structured command trust boundary, Corpus v3 classifier metrics, exact-commit PyPI gate, restored coverage gate | Patch prepared in `CUT-v0.14.1.md`; release actions remain pending |
 | **v0.15+** (aspirational) | Windows support; FTS / better docs index; **host pre-router** *if* Cursor (or host) exposes an API — otherwise stays out of scope | Documented platform matrix; no fake “pre-LLM” claims without host support |
 
 ## Themes
@@ -143,6 +144,8 @@ Per-release detail: `CUT-v*.md` checklists in the repo root.
 
 | Version | Focus |
 |---------|-------|
+| **v0.14.1 (DRAFT)** | Strict read-only routing; trusted structured argv; held-out/adversarial Corpus v3; green-commit PyPI gate |
+| **v0.14.0** | Corpus v2: target/family coverage, RU+EN, 45-case exact-match scorecard |
 | **v0.13.0** | Trust cut fold: honest docs, mcp pin, edit-escalation/RU tokenize, routing corpus, `shell=False` harden |
 | **v0.12.0** | Folded into v0.13.0 — edit-escalation + Cyrillic tokenize (`CUT-v0.12.0.md`) |
 | **v0.11.2** | Folded into v0.13.0 — Trust cut A docs + `mcp>=1.0,<2` (`CUT-v0.11.2.md`) |

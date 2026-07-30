@@ -191,6 +191,30 @@ Global: `--no-log` disables telemetry for one invocation.
 
 Auto-execute (read-only or stdout-only): tool-tier `rg` / `jq`, plus pipeline steps in `PIPELINE_AUTO_RUN` (`src/greedy_token/pipeline.py`) — `check-meta-sync`, `configurator-boolean-audit`, `audit-skill`, `classify-file`, `search`, `read-hits`, `rag`.
 
+**Route command trust boundary:** workspace `read_only: true` is metadata, not
+authorization. `greedy-token run --execute` accepts only internally built
+`rg`/`jq` argv, registered read-only wrappers, or a workspace-relative
+`.py`/`.sh` path explicitly listed in the local `.greedy-token.yaml`:
+
+```yaml
+trusted_script_paths:
+  - scripts/my-read-only-check.py
+```
+
+Arbitrary/absolute executables, `python -c`, shell `-c`, paths outside the
+workspace, and untrusted commands imported from URL/file presets remain
+dry-run only. Subprocesses receive a validated argv list with `shell=False`.
+
+### Routing benchmark
+
+`bench/routing_corpus.yaml` is a held-out/adversarial classification gate,
+separate from `bench/route_examples.yaml`. It reports exact-match accuracy
+(equivalently micro-precision for this single-label corpus), a confusion
+matrix, per-target precision/recall, per-family and per-language accuracy, and
+a mandatory zero false-cheap rate. These are **routing classification**
+metrics—not end-to-end execution success or lexical retrieval quality, which
+must be evaluated separately.
+
 ### Confidence calibration
 
 Route **confidence** ≈ “this cheap tier was not overridden soon after,” from `~/.greedy-token/usage.jsonl` — **not** a score of answer correctness. Scores fall into buckets (`[0, 2)`, `[2, 4)`, `[4, 6)`, `[6, 8)`, `[8, +)`). A bucket with **≥ 20 events** (`CALIBRATION_MIN_EVENTS`) is **calibrated**; below the threshold the formula is the fallback, marked `uncalibrated`. `greedy-token report` adds a calibration block — bucket → predicted vs actual vs n:
@@ -203,4 +227,4 @@ Confidence calibration (score buckets, min n=20):
 
 Repeated work → **crystallize** into a script → next time **0 LLM**. Details: [guide](docs/guide.md) · [roadmap](docs/ROADMAP.md)
 
-**License:** MIT · **v0.13.0**
+**License:** MIT · **v0.14.1**

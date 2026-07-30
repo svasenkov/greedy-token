@@ -191,6 +191,30 @@ find baseUrl in configurator-option-presets.html
 
 Auto-execute (read-only или stdout-only): tool-tier `rg` / `jq`, плюс шаги pipeline из `PIPELINE_AUTO_RUN` (`src/greedy_token/pipeline.py`) — `check-meta-sync`, `configurator-boolean-audit`, `audit-skill`, `classify-file`, `search`, `read-hits`, `rag`.
 
+**Граница доверия route-команд:** workspace-поле `read_only: true` — metadata,
+а не разрешение на запуск. `greedy-token run --execute` принимает только
+внутренне собранный argv для `rg`/`jq`, зарегистрированные read-only wrapper-ы
+или workspace-relative `.py`/`.sh`, явно указанный в локальном
+`.greedy-token.yaml`:
+
+```yaml
+trusted_script_paths:
+  - scripts/my-read-only-check.py
+```
+
+Произвольные/абсолютные executables, `python -c`, shell `-c`, выход за workspace
+и недоверенные команды из URL/file presets остаются dry-run. Subprocess
+получает проверенный список argv при `shell=False`.
+
+### Routing benchmark
+
+`bench/routing_corpus.yaml` — held-out/adversarial gate, отдельный от
+`bench/route_examples.yaml`. Он считает exact-match accuracy (она же
+micro-precision для single-label корпуса), confusion matrix, precision/recall
+по каждому target, accuracy по family/language и обязательный
+false-cheap rate 0. Это метрики **классификации маршрута**, а не end-to-end
+успех выполнения или качество lexical retrieval — их нужно измерять отдельно.
+
 ### Калибровка confidence
 
 **Confidence** маршрута ≈ «дешёвый тир скоро не переопределили» по `~/.greedy-token/usage.jsonl` — **не** оценка правильности ответа. Score попадает в бакеты (`[0, 2)`, `[2, 4)`, `[4, 6)`, `[6, 8)`, `[8, +)`). Бакет с **≥ 20 событиями** (`CALIBRATION_MIN_EVENTS`) — **calibrated**; ниже порога — formula fallback с меткой `uncalibrated`. `greedy-token report` добавляет блок калибровки:
@@ -203,4 +227,4 @@ Confidence calibration (score buckets, min n=20):
 
 Повторяющаяся задача → **crystallize** в скрипт → следующий раз **0 LLM**. Подробности: [guide](docs/guide-RU.md) · [roadmap](docs/ROADMAP-RU.md)
 
-**Лицензия:** MIT · **v0.13.0**
+**Лицензия:** MIT · **v0.14.1**
