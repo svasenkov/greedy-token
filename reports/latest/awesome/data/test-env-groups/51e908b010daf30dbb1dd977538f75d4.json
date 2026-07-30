@@ -1,0 +1,1 @@
+{"id":"51e908b010daf30dbb1dd977538f75d4","fullName":"tests.test_security#test_command_to_argv_rejects_outside_workspace_cwd","name":"Command cwd cannot leave the explicit workspace root","status":"passed","testResultsByEnv":{"default":"f00e549e2dbff3ab9a29360672e3f8d2"}}

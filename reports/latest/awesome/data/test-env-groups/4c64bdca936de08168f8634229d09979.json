@@ -1,0 +1,1 @@
+{"id":"4c64bdca936de08168f8634229d09979","fullName":"tests.test_security#test_trusted_tool_invocation_boundary_edges","name":"Internal tool argv validator rejects forged executables and paths","status":"passed","testResultsByEnv":{"default":"e2cac1f1c2e4c25e9bcf5a5cbfe980ce"}}

@@ -1,0 +1,1 @@
+{"id":"355c0aa5c5db3b8a3c37f8bc64db4467","fullName":"tests.test_security#test_trusted_script_invocation_requires_allowlist","name":"Only registered or explicitly trusted workspace scripts get argv","status":"passed","testResultsByEnv":{"default":"e748c599cc144f98b08312bb943b5eef"}}

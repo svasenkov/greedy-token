@@ -1,0 +1,1 @@
+{"id":"e75174e829df28b3d4eb55615ccdb9d0","fullName":"tests.test_security#test_command_to_argv_rejects_code_strings_and_absolute_executables","name":"Code-string launchers and arbitrary absolute executables are rejected","status":"passed","testResultsByEnv":{"default":"52dc678cb6ee620b8228ed19c696074f"}}

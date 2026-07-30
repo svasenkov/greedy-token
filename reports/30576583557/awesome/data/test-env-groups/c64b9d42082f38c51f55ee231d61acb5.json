@@ -1,0 +1,1 @@
+{"id":"c64b9d42082f38c51f55ee231d61acb5","fullName":"tests.test_executors#test_plan_run_refuses_untrusted_tool_metadata","name":"plan_run refuses missing or forged tool invocation metadata","status":"passed","testResultsByEnv":{"default":"426fbeabb5da1df9101a64e9b013258b"}}

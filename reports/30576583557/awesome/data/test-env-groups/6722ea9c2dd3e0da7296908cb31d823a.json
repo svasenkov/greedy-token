@@ -1,0 +1,1 @@
+{"id":"6722ea9c2dd3e0da7296908cb31d823a","fullName":"tests.test_security#test_explicit_trusted_script_path_executes","name":"Explicit local trusted_script_paths authorises structured execution","status":"passed","testResultsByEnv":{"default":"efc187100133c9a416650e347673cdef"}}

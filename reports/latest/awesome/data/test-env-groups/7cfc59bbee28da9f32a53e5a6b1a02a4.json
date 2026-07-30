@@ -1,0 +1,1 @@
+{"id":"7cfc59bbee28da9f32a53e5a6b1a02a4","fullName":"tests.test_code_search_gaps#test_mcp_search_empty_result","name":"MCP search omits hit summary when search result is empty","status":"passed","testResultsByEnv":{"default":"28b9a44dcd8e240ad80615717c12d74b"}}

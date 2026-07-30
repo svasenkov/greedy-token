@@ -1,0 +1,1 @@
+{"id":"3c2f912e393e3d18747115ffa15b376c","fullName":"tests.test_security#test_cli_wrapper_execution_handles_launch_failures","name":"CLI wrapper execution handles trust and process launch failures","status":"passed","testResultsByEnv":{"default":"67ef5d862a16988f8c5132cc92a5b0c3"}}

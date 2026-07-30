@@ -1,0 +1,1 @@
+{"id":"1d3835c10ae11b802399fa8d7d35bf84","fullName":"tests.test_security#test_trusted_script_invocation_rejects_boundary_breaks","name":"Trusted script validation confines interpreter, script, cwd, and args","status":"passed","testResultsByEnv":{"default":"8761e064c2d924277309ea059f8d13f2"}}

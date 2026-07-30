@@ -1,0 +1,1 @@
+{"id":"b4df6e36440203c39961f4a85d43764d","fullName":"tests.test_time_baseline#test_time_baseline_config_parsing_edges","name":"Time baseline parser fails safe and supports measured rate-only config","status":"passed","testResultsByEnv":{"default":"804f204d1906fbc76470e28f9a3cb3c9"}}

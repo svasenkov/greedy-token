@@ -1,0 +1,1 @@
+{"id":"86604185274aa3a6bdb34802b21fa24d","fullName":"tests.test_paths#test_workspace_trusted_script_paths_are_local_only","name":"Trusted script paths come only from local workspace config","status":"passed","testResultsByEnv":{"default":"2eae9094f98c01bc18720e930486991b"}}

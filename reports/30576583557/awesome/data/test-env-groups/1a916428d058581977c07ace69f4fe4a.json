@@ -1,0 +1,1 @@
+{"id":"1a916428d058581977c07ace69f4fe4a","fullName":"tests.test_executors#test_execute_plan_refuses_missing_structured_argv","name":"execute_plan refuses executable flag without trusted structured argv","status":"passed","testResultsByEnv":{"default":"f7a4889cb8bf9d843dd6a0c03e03af13"}}
