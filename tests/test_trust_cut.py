@@ -26,6 +26,8 @@ FALSE_CHEAP_EDIT_TASKS = [
     "fix findings from review",
     "найди race condition и исправь",
     "search for race condition and fix it",
+    "найди баг и почини",
+    "find the flaky test and patch it",
 ]
 
 
