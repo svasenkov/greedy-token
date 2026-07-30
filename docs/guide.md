@@ -28,17 +28,17 @@ First matching tier wins. If Ollama is down, that step is skipped.
 
 **Classical LLM** = the default without a router: every step goes to a cloud / frontier model (or a full Cursor agent chat).
 
-**Dollar model (illustrative, USD / month):** mid-intensity mix of work. Rows tool→cursor are work classes; **TOTAL** is the monthly bill with the router vs without. Ollama power ≈ **$8 / machine / month** (or **$25** for one shared box on ×10).
+**Dollar model (illustrative, USD / month):** mid-intensity **CLI / pipeline / crystallize** mix vs that classical baseline. Rows tool→cursor are work classes; ★ TOTAL (**★ $82** / **★ $820**) is a **headline for that mix**, not measured MCP-chat savings. In Cursor MCP the host model already ran. Ollama power ≈ **$8 / machine / month** (or **$25** for one shared box on ×10). The `rag` row is **lexical docs search**, not vector RAG.
 
 | Path | Use when… | Don’t use for… | $/mo · this path · 1 eng | $/mo · classical LLM · 1 eng | $/mo · you save · 1 eng | $/mo · this path · team ×10 | $/mo · classical LLM · ×10 | $/mo · you save · ×10 | Example |
 |------|-----------|----------------|--------------------------|------------------------------|-------------------------|-----------------------------|----------------------------|------------------------|---------|
 | **tool** (ripgrep) | You need to *find* text in the repo | Editing or designing | $0 | $30 | $30 | $0 | $300 | $300 | `find baseUrl in configurator-option-presets.html` |
 | **python** / script | The same check already has a deterministic script | Open-ended “fix this” / architecture | $0 | $25 | $25 | $0 (shared once) | $250 | $250 | `meta-audit configurator-boolean` |
-| **rag** | The answer lives in our patterns / docs | Code that isn’t documented yet | $0 | $15 | $15 | $0 (shared docs) | $150 | $150 | `какой -D flag для baseUrl` |
+| **rag** (lexical docs) | The answer lives in `docs/rag/` via overlap search | Undocumented code / semantic recall | $0 | $15 | $15 | $0 (shared docs) | $150 | $150 | `какой -D flag для baseUrl` |
 | **ollama** (local LLM) | Bulk classify / light audit on your machine | Precise wiring across many files | $8 | $20 | $12 | $25 (1 shared box) | $200 | $175 | classify a list of skills |
 | **cursor** (agent) | Wiring, refactor, architecture — judgment required | Grep, bulk copy, “analyze the whole raw lake” | $40 | $40 | $0 | $400 | $400 | $0 | change header behavior in one zone |
 | **classical LLM** (no router) | Baseline: everything in the big model | — | $130 | $130 | — | $1,300 | $1,300 | — | paste a whole folder into chat and hope |
-| **★ TOTAL with greedy-token** | Mixed paths via router vs no-router baseline | — | **$48** | **$130** | **★ $82** | **$425** | **$1,300** | **★ $820** | **headline: savings / month** |
+| **★ TOTAL with greedy-token** | Illustrative CLI/pipeline mix vs naive baseline | — | **$48** | **$130** | **★ $82** | **$425** | **$1,300** | **★ $820** | **not MCP-chat savings** |
 
 **Safe mode** (`policy: safe` = cheap-only): paid APIs only if you opt in and pass `--allow-expensive`. Your Cursor chat is never hard-blocked by budget — the router just prefers cheaper paths when it can.
 
@@ -430,7 +430,7 @@ No manual discipline required: while the source is still `default-estimate`, `ro
 
 ### Confidence calibration
 
-Route **confidence** used to be a pure formula (`min(0.95, 0.45 + score × 0.12)`) — a pseudo-probability. It is now calibrated against your own telemetry (`~/.greedy-token/usage.jsonl`):
+Route **confidence** ≈ “cheap tier was not overridden soon after,” not answer correctness. It used to be a pure formula (`min(0.95, 0.45 + score × 0.12)`) — a pseudo-probability. It is now calibrated against your own telemetry (`~/.greedy-token/usage.jsonl`):
 
 - Every scored route event logs its `raw_score`; scores fall into buckets (`[0, 2)`, `[2, 4)`, `[4, 6)`, `[6, 8)`, `[8, +)`).
 - Actual accuracy of a bucket = `1 − override_rate` — override events (`greedy-token override`, auto re-ask attribution) counted against the last cheap-tier hit for the same normalized task.

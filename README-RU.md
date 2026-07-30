@@ -14,6 +14,17 @@ wiring / дизайн          →  дорогой agent chat
 
 Не дообучает модели и не сдаёт ваши данные на обучение. «Умнеет» через читаемые scripts/routes из телеметрии — их можно проверить и откатить.
 
+### Что это / что нет
+
+| Это | Это не |
+|-----|--------|
+| **Прототип** вокруг дешёвых тиров (rg / скрипты / локальная LLM) + **crystallize** (повтор → детерминированный скрипт, в следующий раз 0 LLM) | Универсальный «экономитель Cursor», который убирает host LLM |
+| Реальная экономия на **CLI / CI / hooks / crystallize** и когда правило гонит агента в один дешёвый MCP-tool вместо длинного Grep/Read-цикла | Гарантированная экономия **MCP-чата**: к моменту вызова MCP Cursor уже вызвал frontier-модель |
+| `route_task` / `greedy_token_route` → **один** тир по substring-эвристикам | Auto-chain `rg → python → ollama → docs`; для цепочки нужен явный `pipeline` |
+| Имя tool `rag` сохранено для совместимости — внутри **lexical docs search** (overlap), не embeddings/vector RAG | Prod-grade semantic retrieval или доказанная точность роутинга |
+
+Headline **★ $82 / ★ $820** ниже = иллюстрация **CLI/pipeline mix vs наивный агент**, не измеренная экономия MCP-чата.
+
 <details>
 <summary><strong>Отзывы</strong> (письма моделей — по желанию)</summary>
 
@@ -80,7 +91,11 @@ wiring / дизайн          →  дорогой agent chat
 
 ## Деньги и время: какой путь выбрать
 
-Иллюстрация, USD / месяц **и** wall-clock на вызов. **Классическая LLM** = всё сразу в облачный / frontier-чат (**$130** / инж. · **$1,300** / ×10). Первый подходящий tier побеждает. Зелёные столбцы — экономия; ★ ИТОГО — главные цифры месяца. Время — оценка vs наивный агент-ход (`time_saved_ms` в MCP footer / `report`, v0.11+).
+**Иллюстрация** USD / месяц **и** wall-clock на вызов для mid-intensity смеси **CLI / pipeline / crystallize** vs отправка каждого класса работ в облачный / frontier-чат (**$130** / инж. · **$1,300** / ×10). Зелёные столбцы — дельта этого сценария; ★ ИТОГО (**★ $82** / **★ $820**) — **headline для этой смеси**, не claim про счета MCP Agent chat.
+
+В Cursor MCP host-модель уже работает — футеры tool (`time_saved_ms`, spent/saved) сравнивают работу tool с наивным *ходом* агента, а не «MCP убрал LLM». Для 0 frontier-токенов на шаг предпочитайте CLI / `pipeline --execute` / hooks.
+
+Первый подходящий tier побеждает. Время — оценка (`time_saved_ms` в footer / `report`, v0.11+).
 
 <p align="center">
   <img src="docs/path-savings-ru.svg" alt="Таблица путей greedy-token: зелёные столбцы экономии и ИТОГО" width="760" />
@@ -93,11 +108,11 @@ wiring / дизайн          →  дорогой agent chat
 |------|-------|--------|---------------|-------------------|--------------|------------|----------------|----------------|---------------|----------------|-------------------|--------|
 | **tool** (rg) | найти текст в репо | правки / дизайн | $0 | $30 | $30 | $0 | $300 | $300 | ~1s | ~20s | ~19s | `find baseUrl in configurator-option-presets.html` |
 | **python** | уже есть детерминированный скрипт | «почини всё» / архитектура | $0 | $25 | $25 | $0 | $250 | $250 | ~1s | ~20s | ~19s | `meta-audit configurator-boolean` |
-| **rag** | ответ в паттернах / docs | недокументированный код | $0 | $15 | $15 | $0 | $150 | $150 | ~0.5s | ~15s | ~15s | какой `-D` flag для baseUrl |
+| **rag** (lexical docs) | ответ в `docs/rag/` через overlap-поиск | недокументированный код / semantic recall | $0 | $15 | $15 | $0 | $150 | $150 | ~0.5s | ~15s | ~15s | какой `-D` flag для baseUrl |
 | **ollama** | bulk classify / лёгкий audit | точный wiring | $8 | $20 | $12 | $25 | $200 | $175 | ~5s | ~25s | ~20s | классифицировать пачку skills |
 | **cursor** | wiring, рефакторинг, суждение | grep / bulk-copy | $40 | $40 | $0 | $400 | $400 | $0 | ~same | ~same | ~0 | поменять поведение header в одной зоне |
 | **классич. LLM** | база: всё в большую модель | — | $130 | $130 | — | $1,300 | $1,300 | — | ~same | ~same | — | кинуть в чат целую папку |
-| **★ ИТОГО** | с роутером vs без | — | **$48** | **$130** | **★ $82** | **$425** | **$1,300** | **★ $820** | — | — | **★ ~6 ч · 1 / ~60 ч · ×10** | **главные цифры: $ и время / месяц** |
+| **★ ИТОГО** | иллюстрация CLI/pipeline mix vs naive | — | **$48** | **$130** | **★ $82** | **$425** | **$1,300** | **★ $820** | — | — | **★ ~6 ч · 1 / ~60 ч · ×10** | **не экономия MCP-чата** |
 
 </details>
 
@@ -133,9 +148,9 @@ find baseUrl in configurator-option-presets.html
 | Tool | Зачем |
 |------|--------|
 | `greedy_token_search` | Ripgrep: `query` + опциональный `path` |
-| `greedy_token_rag` | Поиск по чанкам `docs/rag/` |
-| `greedy_token_route` | Рекомендация tier + token footer |
-| `greedy_token_pipeline` | Multi-step цепочка (search/tool → python → ollama → rag) |
+| `greedy_token_rag` | Lexical-поиск по чанкам `docs/rag/` (не vector RAG) |
+| `greedy_token_route` | Рекомендация **одного** tier + token footer (без auto-chain) |
+| `greedy_token_pipeline` | Явная multi-step цепочка (search/tool → python → ollama → rag) |
 | `greedy_token_usage` | Агрегация savings из `~/.greedy-token/usage.jsonl` |
 | `greedy_token_crystallize` | L3 safe mode: `action=draft|promote|reject` + `crystal_id` (без auto-apply) |
 
@@ -178,7 +193,7 @@ Auto-execute (read-only или stdout-only): tool-tier `rg` / `jq`, плюс ш�
 
 ### Калибровка confidence
 
-**Confidence** маршрута калибруется из `~/.greedy-token/usage.jsonl`. Score попадает в бакеты (`[0, 2)`, `[2, 4)`, `[4, 6)`, `[6, 8)`, `[8, +)`). Бакет с **≥ 20 событиями** (`CALIBRATION_MIN_EVENTS`) — **calibrated**; ниже порога — formula fallback с меткой `uncalibrated`. `greedy-token report` добавляет блок калибровки:
+**Confidence** маршрута ≈ «дешёвый тир скоро не переопределили» по `~/.greedy-token/usage.jsonl` — **не** оценка правильности ответа. Score попадает в бакеты (`[0, 2)`, `[2, 4)`, `[4, 6)`, `[6, 8)`, `[8, +)`). Бакет с **≥ 20 событиями** (`CALIBRATION_MIN_EVENTS`) — **calibrated**; ниже порога — formula fallback с меткой `uncalibrated`. `greedy-token report` добавляет блок калибровки:
 
 ```text
 Confidence calibration (score buckets, min n=20):

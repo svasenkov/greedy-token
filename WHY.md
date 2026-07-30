@@ -15,7 +15,7 @@ Some teams add a *second* model to judge the first. That can help quality. It do
 **Ask first: do you need a model at all?**
 
 ```text
-Skills / Rules / RAG / ADR
+Skills / Rules / docs search / ADR
   → rg / jq (fast tools) → Python scripts
   → Ollama (local cheap LLM, if needed)
   → only then Claude / Cursor
@@ -30,9 +30,11 @@ Skills / Rules / RAG / ADR
 
 That is greedy-token: a router next to your coding agent so routine work does not burn the expensive path.
 
-## Money + time
+**Main product value today:** when the same task repeats, **crystallize** it into a reviewable deterministic script (+ route). Next time → **0 LLM**. Heuristic routing and MCP tools are helpers around that loop — not a host-level pre-router that can skip Cursor’s model (Cursor has no public API for that).
 
-Path comparison (1 eng / team ×10, **★ $82 / ★ $820** and **★ ~6 h / ~60 h · mo**) lives in the main READMEs:
+## Money + time (honest framing)
+
+Path comparison (1 eng / team ×10, **★ $82 / ★ $820** and **★ ~6 h / ~60 h · mo**) lives in the main READMEs. Those figures are an **illustrative CLI / pipeline mix vs a naive agent**, **not** measured MCP-chat savings. In Cursor MCP the frontier model is already invoked; real zero-token wins are CLI, CI, hooks, and crystallize.
 
 - [README.md § Money + time](README.md#money--time-which-path-should-i-use)
 - [README-RU.md § Деньги и время](README-RU.md#деньги-и-время-какой-путь-выбрать)

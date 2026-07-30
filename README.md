@@ -14,6 +14,17 @@ wiring / design             →  expensive agent chat
 
 No fine-tuning. No shipping your data for training. It “learns” by adding readable scripts/routes from telemetry — reviewable and revertible.
 
+### What this is / isn’t
+
+| Is | Isn’t |
+|----|--------|
+| A **prototype** around cheap tiers (rg / scripts / local LLM) + **crystallize** (repeat → deterministic script, 0 LLM next time) | A universal “Cursor token saver” that removes the host LLM |
+| Real savings on **CLI / CI / hooks / crystallize** and when a rule steers the agent to one cheap MCP tool instead of a long Grep/Read loop | Guaranteed **MCP-chat** dollar savings: by the time an MCP tool runs, Cursor has already called a frontier model |
+| `route_task` / `greedy_token_route` → **one** tier by substring heuristics | Auto-chain `rg → python → ollama → docs`; that needs an explicit `pipeline` |
+| `rag` tool name kept for compat — implementation is **lexical docs search** (overlap), not embeddings/vector RAG | Production-grade semantic retrieval or proven routing precision |
+
+Headline **★ $82 / ★ $820** below = illustrative **CLI/pipeline mix vs naive agent**, not measured MCP-chat savings.
+
 <details>
 <summary><strong>Reviews</strong> (model write-ups — optional reading)</summary>
 
@@ -80,7 +91,11 @@ No fine-tuning. No shipping your data for training. It “learns” by adding re
 
 ## Money + time: which path should I use?
 
-Illustrative USD / month **and** wall-clock per call. **Classical LLM** = everything goes straight to a cloud / frontier chat (**$130** / eng · **$1,300** / ×10). First matching tier wins. Green columns = savings; ★ TOTAL = headline monthly figures. Per-call times are estimates vs a naive agent turn (`time_saved_ms` in MCP footer / `report`, v0.11+).
+**Illustrative** USD / month **and** wall-clock per call for a mid-intensity **CLI / pipeline / crystallize** mix vs sending every class of work to a cloud / frontier chat (**$130** / eng · **$1,300** / ×10). Green columns = that scenario’s delta; ★ TOTAL (**★ $82** / **★ $820**) is a **headline for that mix**, not a claim about MCP Agent chat bills.
+
+In a Cursor MCP session the host model is already running — tool footers (`time_saved_ms`, spent/saved) compare tool work to a naive agent *turn*, not “MCP removed the LLM.” Prefer CLI/`pipeline --execute`/hooks when you want 0 frontier tokens for a step.
+
+First matching tier wins. Per-call times are estimates (`time_saved_ms` in footer / `report`, v0.11+).
 
 <p align="center">
   <img src="docs/path-savings-en.svg" alt="greedy-token path table: green savings columns and TOTAL" width="760" />
@@ -93,11 +108,11 @@ Illustrative USD / month **and** wall-clock per call. **Classical LLM** = everyt
 |------|----------|---------------|--------------|-------------------|----------|------------|-----------------|------------|--------------|---------------|--------------|---------|
 | **tool** (rg) | find text in the repo | edits / design | $0 | $30 | $30 | $0 | $300 | $300 | ~1s | ~20s | ~19s | `find baseUrl in configurator-option-presets.html` |
 | **python** | a deterministic script already exists | open-ended “fix it” | $0 | $25 | $25 | $0 | $250 | $250 | ~1s | ~20s | ~19s | `meta-audit configurator-boolean` |
-| **rag** | answer lives in patterns / docs | undocumented code | $0 | $15 | $15 | $0 | $150 | $150 | ~0.5s | ~15s | ~15s | which `-D` flag for baseUrl |
+| **rag** (lexical docs) | answer in `docs/rag/` via overlap search | undocumented code / semantic recall | $0 | $15 | $15 | $0 | $150 | $150 | ~0.5s | ~15s | ~15s | which `-D` flag for baseUrl |
 | **ollama** | bulk classify / light audit | precise wiring | $8 | $20 | $12 | $25 | $200 | $175 | ~5s | ~25s | ~20s | classify a list of skills |
 | **cursor** | wiring, refactor, judgment | grep / bulk-copy | $40 | $40 | $0 | $400 | $400 | $0 | ~same | ~same | ~0 | change header behavior in one zone |
 | **classical LLM** | baseline: big model for everything | — | $130 | $130 | — | $1,300 | $1,300 | — | ~same | ~same | — | paste a whole folder into chat |
-| **★ TOTAL** | with router vs without | — | **$48** | **$130** | **★ $82** | **$425** | **$1,300** | **★ $820** | — | — | **★ ~6 h · 1 / ~60 h · ×10** | **headline: $ and time / month** |
+| **★ TOTAL** | illustrative CLI/pipeline mix vs naive | — | **$48** | **$130** | **★ $82** | **$425** | **$1,300** | **★ $820** | — | — | **★ ~6 h · 1 / ~60 h · ×10** | **not MCP-chat savings** |
 
 </details>
 
@@ -133,9 +148,9 @@ Expected after setup: **6 MCP tools** (including `greedy_token_pipeline` and `gr
 | Tool | Purpose |
 |------|---------|
 | `greedy_token_search` | Ripgrep: `query` + optional `path` |
-| `greedy_token_rag` | Search `docs/rag/` chunks |
-| `greedy_token_route` | Recommend tier + token footer |
-| `greedy_token_pipeline` | Multi-step chain (search/tool → python → ollama → rag) |
+| `greedy_token_rag` | Lexical search over `docs/rag/` chunks (not vector RAG) |
+| `greedy_token_route` | Recommend **one** tier + token footer (no auto-chain) |
+| `greedy_token_pipeline` | Explicit multi-step chain (search/tool → python → ollama → rag) |
 | `greedy_token_usage` | Aggregate savings from `~/.greedy-token/usage.jsonl` |
 | `greedy_token_crystallize` | L3 safe mode: `action=draft|promote|reject` + `crystal_id` (no auto-apply) |
 
@@ -178,7 +193,7 @@ Auto-execute (read-only or stdout-only): tool-tier `rg` / `jq`, plus pipeline st
 
 ### Confidence calibration
 
-Route **confidence** is calibrated from `~/.greedy-token/usage.jsonl`. Scores fall into buckets (`[0, 2)`, `[2, 4)`, `[4, 6)`, `[6, 8)`, `[8, +)`). A bucket with **≥ 20 events** (`CALIBRATION_MIN_EVENTS`) is **calibrated**; below the threshold the formula is the fallback, marked `uncalibrated`. `greedy-token report` adds a calibration block — bucket → predicted vs actual vs n:
+Route **confidence** ≈ “this cheap tier was not overridden soon after,” from `~/.greedy-token/usage.jsonl` — **not** a score of answer correctness. Scores fall into buckets (`[0, 2)`, `[2, 4)`, `[4, 6)`, `[6, 8)`, `[8, +)`). A bucket with **≥ 20 events** (`CALIBRATION_MIN_EVENTS`) is **calibrated**; below the threshold the formula is the fallback, marked `uncalibrated`. `greedy-token report` adds a calibration block — bucket → predicted vs actual vs n:
 
 ```text
 Confidence calibration (score buckets, min n=20):

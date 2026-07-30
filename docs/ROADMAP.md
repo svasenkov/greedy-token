@@ -2,11 +2,20 @@
 
 **Русская версия:** [ROADMAP-RU.md](ROADMAP-RU.md)
 
-As of **v0.11.0**, greedy-token runs in any MCP-capable agent host (`agent_host: cursor | claude | continue`, Cursor by default) with Ollama or any OpenAI-compatible runtime as the cheap tier. CLI and MCP are IDE-agnostic; metered bulk APIs are supported opt-in ([ADR-0002](adr/0002-metered-bulk-cheap-tier.md)). Remaining gaps are tracked below.
+As of **v0.11.x**, greedy-token is an MCP/CLI **prototype**: heuristic single-tier routing + crystallize loop, not a proven universal Cursor economizer. It runs in any MCP-capable agent host (`agent_host: cursor | claude | continue`, Cursor by default) with Ollama or any OpenAI-compatible runtime as the cheap tier. Metered bulk APIs are opt-in ([ADR-0002](adr/0002-metered-bulk-cheap-tier.md)). Near-term priorities below supersede “feature sprawl” until Trust cut items land.
 
 Legend: ✅ supported · ❌ not yet · 🔜 planned
 
 Track progress: [GitHub issues labeled `roadmap`](https://github.com/svasenkov/greedy-token/issues?q=is%3Aissue+label%3Aroadmap).
+
+## Near-term (Trust cut)
+
+| Version | Focus | Acceptance sketch |
+|---------|--------|-------------------|
+| **v0.11.x hotfix** | Pin `mcp` so CI imports `mcp.server.fastmcp`; keep CI green; **honest docs** (README/WHY/guide: ★ $82/$820 = CLI/pipeline illustrative, not MCP-chat; no auto-chain from `route_task`; RAG = lexical) | `pip install` + CI green on clean runner; docs say what savings apply where |
+| **v0.12** | **Edit-escalation** (edit verbs / “fix findings…” → not false-cheap `rg`); **RU tokenizer** (Cyrillic); **false-cheap tests** | Corpus of false-cheap prompts fails closed; RU tokenize smoke; pytest for edit→escalate |
+| **v0.13** | **Routing benchmark corpus** (precision/recall, not only unit tests); **shell harden** (no trust of workspace YAML via `shell=True` without allowlist/boundary) | Published corpus + scorecard in CI; subprocess path without blind `shell=True` for untrusted config |
+| **v0.14+** (aspirational) | Windows support; FTS / better docs index; **host pre-router** *if* Cursor (or host) exposes an API — otherwise stays out of scope | Documented platform matrix; no fake “pre-LLM” claims without host support |
 
 ## Themes
 
@@ -119,9 +128,13 @@ Related: [#2](https://github.com/svasenkov/greedy-token/issues/2) (`cheap_llm`),
 ## Out of scope (for now)
 
 - Replacing Cursor/Claude as primary coding agent
+- **Host-level pre-router that skips the host LLM** without a public Cursor (or host) API — MCP tools run *after* the agent is already invoked
+- Claiming MCP-chat dollar savings equal to the illustrative ★ $82 / ★ $820 CLI/pipeline mix
+- Auto-chaining tiers from `route_task` alone (use explicit `pipeline`)
 - Hosted greedy-token SaaS
 - Fine-tuning or training models
 - Ephemeral public runners with no network path to corporate Ollama (without VPN/self-hosted)
+- Treating unit-test green as proof of routing precision / product usefulness (needs corpus — v0.13)
 
 ## Changelog
 
@@ -129,6 +142,7 @@ Per-release detail: `CUT-v*.md` checklists in the repo root.
 
 | Version | Focus |
 |---------|-------|
+| **v0.11.2** (planned) | Trust cut A: honest positioning docs; pin `mcp` / CI green (execution window) |
 | **v0.11.1** | Promote access-diag live routes (jenkins/selenoid/testops/`--all-standard`); retire auth-storage-probe patterns |
 | **v0.11.0** | Time savings: `time_saved_ms` vs naive agent wall-clock (`overhead_ms` + scale), MCP footer / `report` / hub |
 | **v0.10.0** | Beyond-Cursor: `agent_host: cursor \| claude \| continue`, metered bulk APIs under spend guard ([ADR-0002](adr/0002-metered-bulk-cheap-tier.md)), calibration nudges, team route presets (`init --preset`) |
