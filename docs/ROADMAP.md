@@ -12,9 +12,9 @@ Track progress: [GitHub issues labeled `roadmap`](https://github.com/svasenkov/g
 
 | Version | Focus | Acceptance sketch |
 |---------|--------|-------------------|
-| **v0.11.x hotfix** ✅ | Pin `mcp` so CI imports `mcp.server.fastmcp`; keep CI green; **honest docs** (README/WHY/guide: ★ $82/$820 = CLI/pipeline illustrative, not MCP-chat; no auto-chain from `route_task`; RAG = lexical) | ✅ docs on `main` (`04362c41`); ✅ `mcp>=1.0,<2` + clean-venv FastMCP import; `CUT-v0.11.2.md` READY (tag pending) |
-| **v0.12** ✅ | **Edit-escalation** (edit verbs / “fix findings…” → not false-cheap `rg`); **RU tokenizer** (Cyrillic); **false-cheap tests** | ✅ hard-escalate tool/rag+edit → `cursor-edit-escalate`; Unicode `_tokenize`; `tests/test_trust_cut.py`; `CUT-v0.12.0.md` READY (tag pending) |
-| **v0.13** ✅ | **Routing benchmark corpus** (precision/recall, not only unit tests); **shell harden** (no trust of workspace YAML via `shell=True` without allowlist/boundary) | ✅ `bench/routing_corpus.yaml` + `tests/test_routing_corpus.py`; ✅ `subprocess_safe` (`shell=False` argv) + quoted `search_paths`; `CUT-v0.13.0.md` READY (tag pending) |
+| **v0.11.x hotfix** ✅ | Pin `mcp` so CI imports `mcp.server.fastmcp`; keep CI green; **honest docs** (README/WHY/guide: ★ $82/$820 = CLI/pipeline illustrative, not MCP-chat; no auto-chain from `route_task`; RAG = lexical) | ✅ folded into **v0.13.0** (`CUT-v0.11.2.md`) |
+| **v0.12** ✅ | **Edit-escalation** (edit verbs / “fix findings…” → not false-cheap `rg`); **RU tokenizer** (Cyrillic); **false-cheap tests** | ✅ folded into **v0.13.0** (`CUT-v0.12.0.md`) |
+| **v0.13** ✅ | **Routing benchmark corpus** (precision/recall, not only unit tests); **shell harden** (no trust of workspace YAML via `shell=True` without allowlist/boundary) | ✅ shipped as **v0.13.0** (`CUT-v0.13.0.md`) |
 | **v0.14+** (aspirational) | Windows support; FTS / better docs index; **host pre-router** *if* Cursor (or host) exposes an API — otherwise stays out of scope | Documented platform matrix; no fake “pre-LLM” claims without host support |
 
 ## Themes
@@ -142,9 +142,9 @@ Per-release detail: `CUT-v*.md` checklists in the repo root.
 
 | Version | Focus |
 |---------|-------|
-| **v0.13.0** (READY) | Routing benchmark corpus scorecard; `shell=False` subprocess harden (`CUT-v0.13.0.md`; tag pending) |
-| **v0.12.0** (READY) | Edit-escalation (false-cheap → cursor); Cyrillic-safe RAG tokenize; trust-cut pytest corpus (`CUT-v0.12.0.md`) |
-| **v0.11.2** (READY) | Trust cut A docs + pin `mcp>=1.0,<2` / CI green (`CUT-v0.11.2.md`; tag pending) |
+| **v0.13.0** | Trust cut fold: honest docs, mcp pin, edit-escalation/RU tokenize, routing corpus, `shell=False` harden |
+| **v0.12.0** | Folded into v0.13.0 — edit-escalation + Cyrillic tokenize (`CUT-v0.12.0.md`) |
+| **v0.11.2** | Folded into v0.13.0 — Trust cut A docs + `mcp>=1.0,<2` (`CUT-v0.11.2.md`) |
 | **v0.11.1** | Promote access-diag live routes (jenkins/selenoid/testops/`--all-standard`); retire auth-storage-probe patterns |
 | **v0.11.0** | Time savings: `time_saved_ms` vs naive agent wall-clock (`overhead_ms` + scale), MCP footer / `report` / hub |
 | **v0.10.0** | Beyond-Cursor: `agent_host: cursor \| claude \| continue`, metered bulk APIs under spend guard ([ADR-0002](adr/0002-metered-bulk-cheap-tier.md)), calibration nudges, team route presets (`init --preset`) |
