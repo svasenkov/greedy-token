@@ -73,6 +73,63 @@ nav a.active, nav a:hover { color: var(--text); background: var(--card); }
   white-space: nowrap;
 }
 
+.savings-indication {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(61, 214, 140, 0.08);
+  white-space: nowrap;
+}
+
+.savings-indication .si-label {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.savings-indication .si-pill {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.savings-indication .si-sep {
+  color: var(--border);
+}
+
+.meta-bar {
+  display: flex;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  margin: 0.65rem 0 0.35rem;
+  background: rgba(255, 255, 255, 0.04);
+}
+.meta-bar span { display: block; height: 100%; min-width: 0; }
+
+.meta-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 0.75rem;
+}
+.meta-legend i {
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 2px;
+  margin-right: 0.3rem;
+}
+
 .app { padding: 1.25rem; max-width: 1100px; margin: 0 auto; }
 
 .grid {

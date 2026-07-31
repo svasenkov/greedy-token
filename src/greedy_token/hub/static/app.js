@@ -14,8 +14,18 @@ const SINCE_OPTIONS = [
   { value: "30d", label: "30d" },
   { value: "90d", label: "90d" },
   { value: "365d", label: "1y" },
+  { value: "all", label: "all" },
 ];
 const SINCE_STORAGE_KEY = "gt-hub-since";
+
+const META_COLORS = {
+  skill: "#5b9bd5",
+  rule: "#3dd68c",
+  rag: "#f5a623",
+  adr: "#c77dff",
+  meta: "#6ec6ff",
+  other: "#5a6a7e",
+};
 
 function getSince() {
   const saved = localStorage.getItem(SINCE_STORAGE_KEY);
@@ -41,9 +51,20 @@ function formatDuration(ms) {
   if (ms < 1000) return `${Math.round(ms)}ms`;
   if (ms < 10_000) return `${(ms / 1000).toFixed(1)}s`;
   if (ms < 60_000) return `${Math.round(ms / 1000)}s`;
-  const minutes = Math.floor(ms / 60_000);
+  const hours = Math.floor(ms / 3_600_000);
+  const minutes = Math.floor((ms % 3_600_000) / 60_000);
   const seconds = Math.floor((ms % 60_000) / 1000);
+  if (hours > 0) return `${hours}h${String(minutes).padStart(2, "0")}m`;
   return `${minutes}m${String(seconds).padStart(2, "0")}s`;
+}
+
+function formatUsd(n) {
+  n = Number(n) || 0;
+  if (n >= 100) return `~$${Math.round(n)}`;
+  if (n >= 10) return `~$${n.toFixed(1)}`;
+  if (n >= 1) return `~$${n.toFixed(2)}`;
+  if (n > 0) return `~$${n.toFixed(3)}`;
+  return "$0";
 }
 
 async function api(path) {
@@ -75,16 +96,81 @@ function renderNav() {
   }
 }
 
+function renderSavingsIndication(data) {
+  const el = document.getElementById("savings-indication");
+  if (!el) return;
+  const acc = data?.accumulated || {};
+  const money = formatUsd(acc.saved_usd_est);
+  const tokens = fmt(acc.saved_vs_cursor);
+  const time = acc.time_saved_ms > 0 ? formatDuration(acc.time_saved_ms) : "—";
+  el.title =
+    `Accumulated (all-time) vs naive agent chat · ${acc.money_source || "cursor_estimate"}` +
+    ` · ${acc.events || 0} events · $${acc.usd_per_1m_tokens || 15}/1M tok`;
+  el.innerHTML =
+    `<span class="si-label">saved</span>` +
+    `<span class="si-pill" data-metric="money">${money}</span>` +
+    `<span class="si-sep">·</span>` +
+    `<span class="si-pill" data-metric="tokens">${tokens} tok</span>` +
+    `<span class="si-sep">·</span>` +
+    `<span class="si-pill" data-metric="time">${time}</span>`;
+}
+
 async function renderTestWidget() {
   const t = await api("/api/tests");
   document.getElementById("test-widget").innerHTML =
     `pytest: <strong>${t.test_files}</strong> files · TestOps <a class="link" href="${t.dashboard_url}" target="_blank">5276</a>`;
 }
 
+function renderMetaSection(meta) {
+  const kinds = meta?.kinds || [];
+  const hitKinds = kinds.filter((k) => k.kind !== "other" || k.hits > 0);
+  const totalHits = hitKinds.reduce((a, k) => a + (k.hits || 0), 0);
+  const bar = hitKinds
+    .filter((k) => k.hits > 0)
+    .map((k) => {
+      const pct = totalHits ? (100 * k.hits) / totalHits : 0;
+      return `<span style="width:${pct}%;background:${META_COLORS[k.kind] || META_COLORS.other}" title="${k.kind}: ${k.hits}"></span>`;
+    })
+    .join("");
+  const legend = hitKinds
+    .filter((k) => k.hits > 0 || k.inventory > 0)
+    .map(
+      (k) =>
+        `<span><i style="background:${META_COLORS[k.kind] || META_COLORS.other}"></i>${k.kind}</span>`
+    )
+    .join("");
+  const rows = kinds
+    .map(
+      (k) =>
+        `<tr>
+          <td><code>${k.kind}</code></td>
+          <td>${k.inventory}</td>
+          <td>${k.hits}</td>
+          <td>${fmt(k.saved_vs_cursor)}</td>
+          <td>${formatUsd(k.saved_usd_est)}</td>
+          <td>${k.time_saved_ms > 0 ? formatDuration(k.time_saved_ms) : "—"}</td>
+        </tr>`
+    )
+    .join("");
+  return `
+    <div class="card">
+      <h3>Workflow meta intersections <span style="font-weight:400;opacity:.6">— skill · rule · rag · adr · meta</span></h3>
+      <p class="muted" style="margin:0 0 .5rem;font-size:.85rem">${meta?.note || ""}</p>
+      <div class="meta-bar">${bar || ""}</div>
+      <div class="meta-legend">${legend || `<span class="muted">No classified hits in window</span>`}</div>
+      <table>
+        <thead><tr><th>Kind</th><th>Inventory</th><th>Hits</th><th>Saved tok</th><th>Saved $</th><th>Time</th></tr></thead>
+        <tbody>${rows || `<tr><td colspan=6 class=empty>No meta data</td></tr>`}</tbody>
+      </table>
+    </div>`;
+}
+
 async function renderHome() {
   const data = await api(`/api/summary?since=${getSince()}`);
+  renderSavingsIndication(data);
   const tiers = data.by_tier || {};
-  const totalSaved = data.totals?.saved_vs_cursor || 0;
+  const window = data.window || {};
+  const acc = data.accumulated || {};
   const coverage = data.coverage_pct ?? 0;
 
   const tierColors = {
@@ -119,13 +205,27 @@ async function renderHome() {
   const lat = m.latency || {};
   const latencyValue = lat.p50_ms != null ? `${lat.p50_ms}ms` : "—";
   const costValue = `$${(m.cost_per_task_usd ?? 0).toFixed(3)}`;
-  const timeSavedMs = m.time_saved_ms ?? 0;
+  const timeSavedMs = window.time_saved_ms ?? m.time_saved_ms ?? 0;
   const timeSavedValue = timeSavedMs > 0 ? formatDuration(timeSavedMs) : "—";
+  const windowMoney = formatUsd(window.saved_usd_est ?? m.saved_usd_est);
+  const accTime = acc.time_saved_ms > 0 ? formatDuration(acc.time_saved_ms) : "—";
 
   document.getElementById("app").innerHTML = `
     <div class="grid">
-      <div class="card" title="estimate vs naive agent-chat baseline (source: ${data.baseline?.source || "default-estimate"})"><h3>Saved vs agent chat (${data.baseline?.source || "default-estimate"})</h3><div class="value">${fmt(totalSaved)}</div></div>
-      <div class="card" title="estimate vs naive agent wall-clock (${data.baseline?.time_source || "default-estimate"}; ${m.duration_samples || 0} timed events)"><h3>Time saved</h3><div class="value">${timeSavedValue}</div></div>
+      <div class="card" title="all-time estimate vs naive agent chat (${acc.money_source || "cursor_estimate"})">
+        <h3>Accumulated saved $</h3><div class="value">${formatUsd(acc.saved_usd_est)}</div>
+        <p class="muted" style="margin:.35rem 0 0;font-size:.78rem">${fmt(acc.saved_vs_cursor)} tok · ${accTime} · ${acc.events || 0} events</p>
+      </div>
+      <div class="card" title="window (${data.since || getSince()}) estimate vs naive agent chat">
+        <h3>Window saved $ (${data.since || getSince()})</h3><div class="value">${windowMoney}</div>
+        <p class="muted" style="margin:.35rem 0 0;font-size:.78rem">${fmt(window.saved_vs_cursor)} tok · ${timeSavedValue}</p>
+      </div>
+      <div class="card" title="estimate vs naive agent-chat baseline (source: ${data.baseline?.source || "default-estimate"})">
+        <h3>Saved tokens (${data.since || getSince()})</h3><div class="value">${fmt(window.saved_vs_cursor || 0)}</div>
+      </div>
+      <div class="card" title="estimate vs naive agent wall-clock (${data.baseline?.time_source || "default-estimate"}; ${m.duration_samples || 0} timed events)">
+        <h3>Time saved (${data.since || getSince()})</h3><div class="value">${timeSavedValue}</div>
+      </div>
       <div class="card" title="share of events routed to cheap tiers"><h3>Coverage</h3><div class="value">${coverage}%</div></div>
       <div class="card" title="cheap hits kept across all cheap tiers (not re-asked in Cursor)">
         <h3>Cheap hold rate</h3>
@@ -140,6 +240,7 @@ async function renderHome() {
         <h3>Cost / task</h3>
         <div class="value">${costValue}</div></div>
     </div>
+    ${renderMetaSection(data.meta)}
     <div class="card">
       <h3>Route quality <span style="font-weight:400;opacity:.6">— not ML accuracy</span></h3>
       <table><thead><tr><th>Worst crystal</th><th>Override rate</th><th>Overrides/hits</th><th>Action</th></tr></thead>
@@ -249,10 +350,21 @@ function resetAppLayout() {
   document.getElementById("app").classList.remove("app--wide");
 }
 
+async function refreshIndication() {
+  try {
+    const data = await api(`/api/summary?since=${getSince()}`);
+    renderSavingsIndication(data);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
 async function route() {
   renderNav();
   const hash = location.hash || "#/";
   resetAppLayout();
+  // Header indication is always refreshed (accumulated $ / tokens / time).
+  const indicationPromise = refreshIndication();
   const crystalMatch = hash.match(/^#\/crystals\/(.+)$/);
   if (crystalMatch) {
     await renderCrystalDetail(decodeURIComponent(crystalMatch[1]));
@@ -269,6 +381,7 @@ async function route() {
   } else {
     await renderHome();
   }
+  await indicationPromise;
   const health = await api("/api/health");
   document.getElementById("foot-meta").textContent =
     `since ${getSince()} · log ${health.log_path} · ${new Date().toLocaleString()}`;

@@ -59,6 +59,38 @@ def test_api_summary_with_events(tmp_path, monkeypatch, minimal_workspace):
     assert metrics["latency"]["p50_ms"] == 1
     assert "cost_per_task_usd" in metrics
     assert "saved_per_task_tokens" in metrics
+    assert "saved_usd_est" in metrics
+    assert "accumulated" in payload
+    assert payload["accumulated"]["saved_vs_cursor"] >= 0
+    assert "saved_usd_est" in payload["accumulated"]
+    assert "window" in payload
+    assert "meta" in payload
+    kinds = {row["kind"] for row in payload["meta"]["kinds"]}
+    assert {"skill", "rule", "rag", "adr", "meta", "other"} <= kinds
+
+
+@pytest.mark.unit
+def test_api_summary_since_all(tmp_path, monkeypatch, minimal_workspace):
+    log = tmp_path / "usage.jsonl"
+    monkeypatch.setenv("GREEDY_TOKEN_LOG", str(log))
+    root = minimal_workspace
+    decision = route_task("search for baseUrl", root)
+    append_event(
+        build_route_event(
+            cmd="route",
+            task="search for baseUrl",
+            root=root,
+            decision=decision,
+            duration_ms=2,
+        ),
+        path=log,
+    )
+    status, payload = handle_api("/api/summary?since=all")
+    assert status == 200
+    assert payload["since"] == "all"
+    assert payload["events"] == 1
+    assert payload["accumulated"]["events"] == 1
+    assert payload["window"]["events"] == 1
 
 
 @pytest.mark.unit

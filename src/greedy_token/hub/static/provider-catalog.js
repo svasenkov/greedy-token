@@ -485,6 +485,23 @@ window.ProviderCatalog = (function () {
     setActiveTab(state.activeTab);
   }
 
+  let highchartsPromise = null;
+
+  function ensureHighcharts() {
+    if (typeof Highcharts !== "undefined") return Promise.resolve();
+    if (highchartsPromise) return highchartsPromise;
+    highchartsPromise = new Promise((resolve) => {
+      const script = document.createElement("script");
+      script.src = "https://code.highcharts.com/highcharts.js";
+      script.async = true;
+      script.onload = () => resolve();
+      // CDN may 403 in some networks — charts stay empty, rest of catalog works.
+      script.onerror = () => resolve();
+      document.head.appendChild(script);
+    });
+    return highchartsPromise;
+  }
+
   async function mount(container) {
     rootEl = container;
     container.innerHTML = template();
@@ -494,6 +511,7 @@ window.ProviderCatalog = (function () {
       btn.disabled = true;
       btn.textContent = "Loading…";
       try {
+        await ensureHighcharts();
         await loadData();
       } catch (error) {
         container.innerHTML = `<div class="provider-catalog__error">${escapeHtml(error.message)}</div>`;
@@ -503,6 +521,7 @@ window.ProviderCatalog = (function () {
       }
     });
     try {
+      await ensureHighcharts();
       await loadData();
     } catch (error) {
       container.innerHTML = `<div class="provider-catalog__error">${escapeHtml(error.message)}</div>`;

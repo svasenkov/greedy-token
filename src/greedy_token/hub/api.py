@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from statistics import median
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
+from greedy_token.budget_config import get_budget_settings
 from greedy_token.budget_ledger import aggregate_budget
 from greedy_token.hub.crystallize import (
     crystal_timeline,
@@ -12,10 +14,17 @@ from greedy_token.hub.crystallize import (
     rank_candidates,
     savings_by_route,
 )
+from greedy_token.hub.meta_stats import (
+    accumulate_totals,
+    aggregate_meta_intersections,
+    savings_block,
+)
 from greedy_token.hub.providers import catalog_payload, local_models_payload
 from greedy_token.hub.sessions import list_sessions
 from greedy_token.paths import find_workspace_root
 from greedy_token.usage import aggregate_events, load_events, log_path, parse_since
+
+_ALL_SINCE = frozenset({"all", "lifetime", "total"})
 
 
 def _query_since(path: str, default: str = "7d") -> str:
@@ -23,22 +32,35 @@ def _query_since(path: str, default: str = "7d") -> str:
     return (qs.get("since") or [default])[0]
 
 
+def _resolve_since(path: str, default: str = "7d") -> tuple[str, datetime | None]:
+    """Return (label, since_dt). ``all`` / ``lifetime`` / ``total`` → no filter."""
+    since = _query_since(path, default)
+    if since.lower() in _ALL_SINCE:
+        return "all", None
+    return since, parse_since(since)
+
+
+def _workspace_root() -> Path | None:
+    try:
+        return find_workspace_root()
+    except SystemExit:
+        return None
+
+
 def handle_api(path: str) -> tuple[int, dict]:
     parsed = urlparse(path)
     route = parsed.path
 
     if route.startswith("/api/summary"):
-        since = _query_since(path)
-        since_dt = parse_since(since)
+        since, since_dt = _resolve_since(path)
+        all_events, _ = load_events(log_path(), since=None)
         events, skipped = load_events(log_path(), since=since_dt)
         summary = aggregate_events(events, since_label=since)
         summary.skipped_lines = skipped
-        report = rank_candidates(since=since)
-        try:
-            root = find_workspace_root()
-        except SystemExit:
-            root = None
+        report = rank_candidates(since=None if since == "all" else since)
+        root = _workspace_root()
         budget = aggregate_budget(root=root)
+        usd_per_1m = get_budget_settings(root).cursor_usd_per_1m_tokens
         payload = summary.to_dict()
         payload["coverage_pct"] = report.get("coverage_pct")
         payload["budget"] = {
@@ -46,35 +68,55 @@ def handle_api(path: str) -> tuple[int, dict]:
             "cursor_est_spent_usd": budget.cursor_est_spent_usd,
             "mode": budget.mode,
         }
-        payload["metrics"] = _operational_metrics(events, summary, budget)
+        payload["metrics"] = _operational_metrics(
+            events, summary, budget, usd_per_1m=usd_per_1m
+        )
+        payload["accumulated"] = accumulate_totals(all_events, usd_per_1m=usd_per_1m)
+        payload["window"] = savings_block(
+            events=summary.events,
+            saved_vs_cursor=payload["totals"]["saved_vs_cursor"],
+            time_saved_ms=payload["totals"]["time_saved_ms"],
+            est_tokens=payload["totals"]["est_tokens"],
+            usd_per_1m=usd_per_1m,
+        )
+        payload["meta"] = aggregate_meta_intersections(
+            events, root=root, usd_per_1m=usd_per_1m
+        )
         return 200, payload
 
     if route.startswith("/api/sessions"):
-        since = _query_since(path)
-        return 200, {"sessions": list_sessions(since=since), "since": since}
+        since, _ = _resolve_since(path)
+        return 200, {
+            "sessions": list_sessions(since=None if since == "all" else since),
+            "since": since,
+        }
 
     if route.startswith("/api/crystals/"):
         crystal_id = unquote(route.removeprefix("/api/crystals/").strip("/"))
         if crystal_id:
             data = crystal_timeline(crystal_id)
-            since = _query_since(path)
-            events, _ = load_events(log_path(), since=parse_since(since))
+            since, since_dt = _resolve_since(path)
+            events, _ = load_events(log_path(), since=since_dt)
             saved = sum(
                 int(e.get("cursor_saved") or 0)
                 for e in events
                 if crystal_id in (e.get("route_id") or "")
             )
             data["saved_vs_cursor"] = saved
+            data["since"] = since
             return 200, data
         return 404, {"error": "crystal_id required"}
 
     if route == "/api/crystals" or route.startswith("/api/crystals?"):
-        since = _query_since(path)
-        return 200, list_crystals(since=since)
+        since, _ = _resolve_since(path)
+        return 200, list_crystals(since=None if since == "all" else since)
 
     if route.startswith("/api/routes"):
-        since = _query_since(path)
-        return 200, {"routes": savings_by_route(since=since), "since": since}
+        since, _ = _resolve_since(path)
+        return 200, {
+            "routes": savings_by_route(since=None if since == "all" else since),
+            "since": since,
+        }
 
     if route.startswith("/api/tests"):
         return 200, _tests_summary()
@@ -91,7 +133,9 @@ def handle_api(path: str) -> tuple[int, dict]:
     return 404, {"error": "not found"}
 
 
-def _operational_metrics(events: list[dict], summary, budget) -> dict:
+def _operational_metrics(
+    events: list[dict], summary, budget, *, usd_per_1m: float
+) -> dict:
     """Hub-only ops metrics: execution latency + cost/task next to coverage.
 
     Latency from ``duration_ms`` samples (route/script/compress events that
@@ -105,6 +149,7 @@ def _operational_metrics(events: list[dict], summary, budget) -> dict:
     ]
     calls = max(1, summary.events)
     totals = summary.to_dict()["totals"]
+    saved_tokens = int(totals["saved_vs_cursor"])
     latency = {
         "samples": len(durations),
         "p50_ms": int(median(durations)) if durations else None,
@@ -118,7 +163,10 @@ def _operational_metrics(events: list[dict], summary, budget) -> dict:
         "latency": latency,
         "cost_per_task_usd": round(budget.cursor_est_spent_usd / calls, 4),
         "metered_cost_per_task_usd": round(budget.metered_spent_usd / calls, 4),
-        "saved_per_task_tokens": int(totals["saved_vs_cursor"] / calls),
+        "saved_per_task_tokens": int(saved_tokens / calls),
+        "saved_usd_est": round((saved_tokens / 1_000_000) * usd_per_1m, 4),
+        "usd_per_1m_tokens": float(usd_per_1m),
+        "money_source": "cursor_estimate",
         "time_saved_ms": int(totals["time_saved_ms"]),
         "time_saved_per_task_ms": int(totals["time_saved_ms"] / max(1, totals["duration_samples"])),
         "duration_samples": int(totals["duration_samples"]),
