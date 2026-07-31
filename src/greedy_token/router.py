@@ -14,9 +14,12 @@ from greedy_token.baseline import (  # noqa: F401
     uncalibrated_nudge,
 )
 from greedy_token.calibration import (
-    SOURCE_CALIBRATED,
     SOURCE_FORMULA,
-    confidence_for_score,
+)
+from greedy_token.outcome_calibration import (
+    SOURCE_OUTCOME_CALIBRATED,
+    confidence_for_outcome,
+    detect_task_language,
 )
 from greedy_token.paths import find_workspace_root, load_routes_config
 from greedy_token.tokens import count_tokens
@@ -80,6 +83,7 @@ class RouteDecision:
     raw_score: float = 0.0
     confidence_source: str = SOURCE_FORMULA
     calibration_n: int = 0
+    calibration_segment: str = ""
     command_argv: tuple[str, ...] | None = None
     command_cwd: Path | None = None
 
@@ -438,9 +442,14 @@ def _decision_from_route(
     root: Path,
 ) -> RouteDecision:
     target = route["target"]
-    # Telemetry-calibrated when the score bucket has enough events, else the
-    # legacy formula min(0.95, 0.45 + score * 0.12) marked "uncalibrated".
-    calibration = confidence_for_score(score)
+    # Only explicit success/failure outcomes calibrate correctness.  An absent
+    # override is a hold signal, not proof that this route worked.
+    calibration = confidence_for_outcome(
+        score,
+        tier=target,
+        language=detect_task_language(task),
+        route_id=str(route["id"]),
+    )
     confidence = calibration.confidence
     # Tool routes are forced read-only below; for every other tier the default is
     # False, so a literal False here is equivalent to `target == "tool"`.
@@ -489,6 +498,11 @@ def _decision_from_route(
         raw_score=score,
         confidence_source=calibration.source,
         calibration_n=calibration.n,
+        calibration_segment=(
+            f"{calibration.segment_type}:{calibration.segment}"
+            if calibration.segment
+            else ""
+        ),
         command_argv=command_argv,
         command_cwd=command_cwd,
     )
@@ -638,6 +652,7 @@ def _escalate_edit_from_cheap(
         raw_score=decision.raw_score,
         confidence_source=decision.confidence_source,
         calibration_n=decision.calibration_n,
+        calibration_segment=decision.calibration_segment,
     )
 
 
@@ -732,10 +747,18 @@ def _runner_up(task: str, root: Path, selected_target: str) -> tuple[str, RouteD
 
 
 def confidence_label(decision: RouteDecision) -> str:
-    """Where the confidence number comes from: telemetry or the raw formula."""
-    if decision.confidence_source == SOURCE_CALIBRATED:
-        return f"calibrated (n={decision.calibration_n})"
-    return "formula (uncalibrated)"
+    """Where confidence comes from: explicit outcomes or the score formula."""
+    if decision.confidence_source == SOURCE_OUTCOME_CALIBRATED:
+        segment = (
+            f", {decision.calibration_segment}"
+            if decision.calibration_segment
+            else ""
+        )
+        return f"outcome-calibrated (n={decision.calibration_n}{segment})"
+    return (
+        "formula (uncalibrated; "
+        f"explicit outcome n={decision.calibration_n})"
+    )
 
 
 def explain_route(decision: RouteDecision, task: str, root: Path) -> dict:
@@ -774,6 +797,7 @@ def explain_route(decision: RouteDecision, task: str, root: Path) -> dict:
         "confidence": round(decision.confidence, 4),
         "confidence_source": decision.confidence_source,
         "calibration_n": decision.calibration_n,
+        "calibration_segment": decision.calibration_segment,
         "saved_est": saved_est,
         "runner_up": runner_up,
     }

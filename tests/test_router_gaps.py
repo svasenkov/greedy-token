@@ -1049,7 +1049,7 @@ def test_format_decision_exact(
         [
             "Task: mytask",
             "Route: TOOL  (rid, 50%)",
-            "Confidence: 50% — formula (uncalibrated)",
+                "Confidence: 50% — formula (uncalibrated; explicit outcome n=0)",
             "Complexity: low",
             "Est. tokens: 1,000",
             "Rationale: the rationale",

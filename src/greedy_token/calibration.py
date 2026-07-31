@@ -1,10 +1,13 @@
-"""Confidence calibration from usage telemetry (route quality).
+"""Override/hold confidence from usage telemetry.
 
-The router's raw pattern score used to map to confidence through a fixed
-pseudo-probability formula only. This module grounds that number in reality:
+This signal describes whether a cheap-tier result was *overridden*, not whether
+the task was correct or useful.  In particular, absence of an override is only
+a hold observation and must never be counted as task success.  Router
+correctness calibration lives in :mod:`greedy_token.outcome_calibration` and
+uses explicit ``route_outcome`` events.
 
 * **Bucket** = raw-score range (``BUCKET_BOUNDS``).
-* **Actual accuracy** of a bucket = ``1 - override_rate`` — overrides are
+* **Observed hold rate** of a bucket = ``1 - override_rate`` — overrides are
   attributed to the most recent cheap-tier hit for the same normalized task,
   the same rule the usage quality metrics use.
 * A bucket with at least ``CALIBRATION_MIN_EVENTS`` cheap-tier hits is
@@ -34,7 +37,7 @@ CALIBRATION_MIN_EVENTS = 20
 # Raw-score bucket upper bounds; the last bucket is open-ended.
 BUCKET_BOUNDS = (2.0, 4.0, 6.0, 8.0)
 
-SOURCE_CALIBRATED = "calibrated"
+SOURCE_CALIBRATED = "override-hold-calibrated"
 SOURCE_FORMULA = "formula"
 
 
@@ -164,11 +167,11 @@ def _calibrated_values(
         if bucket.hits < threshold:
             values.append(None)
             continue
-        accuracy = max(0.0, 1.0 - bucket.overrides / bucket.hits)
-        if floor is not None and accuracy < floor:
-            accuracy = floor
-        floor = accuracy
-        values.append(round(accuracy, 4))
+        hold_rate = max(0.0, 1.0 - bucket.overrides / bucket.hits)
+        if floor is not None and hold_rate < floor:
+            hold_rate = floor
+        floor = hold_rate
+        values.append(round(hold_rate, 4))
     return values
 
 
@@ -177,7 +180,7 @@ def confidence_for_score(
     *,
     min_events: int = CALIBRATION_MIN_EVENTS,
 ) -> ConfidenceResult:
-    """Telemetry-calibrated confidence for a raw route score (formula fallback)."""
+    """Deprecated compatibility API for override/hold confidence only."""
     stats = _stats_from_log()
     idx = bucket_index(score)
     label = bucket_label(idx)
@@ -202,7 +205,7 @@ def calibration_report(
     *,
     min_events: int = CALIBRATION_MIN_EVENTS,
 ) -> list[dict]:
-    """Report rows: bucket → predicted (formula) vs actual (1 − override_rate) vs n."""
+    """Report override/hold rows; this is not a correctness calibration."""
     stats = collect_bucket_stats(events)
     values = _calibrated_values(stats, min_events)
     rows: list[dict] = []
@@ -215,9 +218,17 @@ def calibration_report(
                 "n": bucket.hits,
                 "overrides": bucket.overrides,
                 "predicted": round(bucket.predicted_sum / bucket.hits, 4),
-                "actual": round(max(0.0, 1.0 - bucket.overrides / bucket.hits), 4),
+                "observed_hold_rate": round(
+                    max(0.0, 1.0 - bucket.overrides / bucket.hits),
+                    4,
+                ),
                 "calibrated": values[idx] is not None,
-                "confidence": values[idx],
+                "hold_confidence": values[idx],
             }
         )
     return rows
+
+
+# Canonical names for new callers; legacy names stay import-compatible.
+hold_confidence_for_score = confidence_for_score
+override_hold_report = calibration_report

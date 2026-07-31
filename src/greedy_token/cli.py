@@ -13,7 +13,7 @@ from greedy_token.paths import find_workspace_root
 from greedy_token.pipeline import format_pipeline_response, list_pipelines, run_pipeline
 from greedy_token.prompt_compress import compress_prompt_detail, format_dual
 from greedy_token.rag_search import format_hits, search_rag
-from greedy_token.router import format_decision, route_task
+from greedy_token.router import RouteDecision, format_decision, route_task
 from greedy_token.settings import (
     apply_ollama_env,
     format_config,
@@ -26,6 +26,7 @@ from greedy_token.tokens import TokenEstimate, collect_paths, count_files, count
 from greedy_token.usage import (
     aggregate_events,
     build_compress_event,
+    build_outcome_event,
     build_route_event,
     build_script_event,
     build_script_override_event,
@@ -97,12 +98,14 @@ def cmd_run(args: argparse.Namespace) -> int:
     print()
     code = 0
     executed = False
+    used_rag_fallback = False
     if args.execute:
         result = execute_task(args.task, root)
         if result.output:
             print(result.output)
         if result.used_rag_fallback:
             print("\n(fallback: rg → RAG)")
+            used_rag_fallback = True
         code = result.exit_code
         executed = True
     else:
@@ -122,8 +125,35 @@ def cmd_run(args: argparse.Namespace) -> int:
             decision=decision,
             duration_ms=duration_ms,
             executed=executed,
+            outcome_success=(code == 0) if executed else None,
         ),
     )
+    if executed:
+        outcome = (
+            "escalated"
+            if decision.target == "cursor"
+            else ("success" if code == 0 else "failure")
+        )
+        layer = (
+            "escalation"
+            if decision.target == "cursor"
+            else ("retrieval" if used_rag_fallback or decision.target == "rag" else "executor")
+        )
+        maybe_append_event(
+            args,
+            build_outcome_event(
+                task=args.task,
+                root=root,
+                decision=decision,
+                outcome=outcome,
+                layer=layer,
+                duration_ms=duration_ms,
+                attempts=2 if used_rag_fallback else 1,
+                retries=0,
+                escalations=["tool->rag"] if used_rag_fallback else [],
+                exit_code=code,
+            ),
+        )
     return code
 
 
@@ -290,6 +320,19 @@ def cmd_rag(args: argparse.Namespace) -> int:
             duration_ms=duration_ms,
             rag_hits=len(hits),
             est_tokens_override=est_tokens,
+            outcome_success=bool(hits),
+        ),
+    )
+    maybe_append_event(
+        args,
+        build_outcome_event(
+            task=args.query,
+            root=root,
+            decision=decision,
+            outcome="success" if hits else "failure",
+            layer="retrieval",
+            duration_ms=duration_ms,
+            exit_code=0,
         ),
     )
     return 0
@@ -415,8 +458,31 @@ def cmd_scripts(args: argparse.Namespace) -> int:
                 root=root,
                 duration_ms=duration_ms,
                 executed=executed,
+                outcome_success=(code == 0) if executed else None,
             ),
         )
+        if executed:
+            decision = RouteDecision(
+                target="python",
+                route_id=f"script-{args.run}",
+                confidence=1.0,
+                matched=[],
+                command=None,
+                note="",
+                domains=[],
+            )
+            maybe_append_event(
+                args,
+                build_outcome_event(
+                    task=f"scripts --run {args.run}",
+                    root=root,
+                    decision=decision,
+                    outcome="success" if code == 0 else "failure",
+                    layer="executor",
+                    duration_ms=duration_ms,
+                    exit_code=code,
+                ),
+            )
         return code
     print("Use scripts --list, scripts --run ID, or scripts lint", file=sys.stderr)
     return 1

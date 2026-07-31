@@ -12,6 +12,7 @@ from greedy_token.usage import (
     SCHEMA_VERSION,
     aggregate_events,
     append_event,
+    build_outcome_event,
     build_route_event,
     build_script_override_event,
     format_report,
@@ -82,6 +83,112 @@ def test_build_route_event_truncates_task(minimal_workspace: Path) -> None:
         assert event["task"].endswith("…")
         assert event["v"] == SCHEMA_VERSION
         assert "tier_scan" in event
+
+
+@allure.story("Outcome events")
+@allure.title("Explicit outcome event carries observable execution evidence")
+def test_build_outcome_event_shape(minimal_workspace: Path) -> None:
+    decision = RouteDecision(
+        target="tool",
+        route_id="tool-rg-search",
+        confidence=0.7,
+        matched=["find"],
+        command=None,
+        note="",
+        domains=[],
+        raw_score=2.5,
+        confidence_source="outcome-calibrated",
+        calibration_n=20,
+        calibration_segment="tier:tool",
+    )
+    event = build_outcome_event(
+        task="найди evidence marker",
+        root=minimal_workspace,
+        decision=decision,
+        outcome="success",
+        layer="executor",
+        duration_ms=12,
+        attempts=2,
+        retries=1,
+        escalations=["python-scan"],
+        exit_code=0,
+    )
+    attach_json("outcome", event)
+    assert event["event"] == "route_outcome"
+    assert event["outcome"] == "success"
+    assert event["task_language"] == "ru"
+    assert event["raw_score"] == 2.5
+    assert event["attempts"] == 2
+    assert event["retries"] == 1
+    assert event["escalations"] == ["python-scan"]
+    assert event["duration_ms"] == 12
+    assert event["exit_code"] == 0
+    assert event["calibration_segment"] == "tier:tool"
+    assert event["cursor_saved"] == 0
+    assert event["savings_eligible"] is True
+
+
+@allure.story("Outcome events")
+@allure.title("Outcome builder rejects ambiguous or impossible observations")
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"outcome": "maybe"}, "outcome must be one of"),
+        ({"layer": "routing"}, "outcome layer must be one of"),
+        ({"attempts": 0}, "attempts must be >= 1"),
+        ({"attempts": 1, "retries": 1}, "retries must be"),
+        ({"attempts": 2, "retries": -1}, "retries must be"),
+    ],
+)
+def test_build_outcome_event_validation(
+    minimal_workspace: Path,
+    kwargs: dict,
+    message: str,
+) -> None:
+    decision = RouteDecision(
+        target="python",
+        route_id="python-check",
+        confidence=0.5,
+        matched=[],
+        command=None,
+        note="",
+        domains=[],
+    )
+    values = {
+        "task": "check evidence",
+        "root": minimal_workspace,
+        "decision": decision,
+        "outcome": "failure",
+        "layer": "executor",
+        **kwargs,
+    }
+    with pytest.raises(ValueError, match=message):
+        build_outcome_event(**values)
+
+
+@allure.story("Savings eligibility")
+@allure.title("Failed execution zeros route-event savings")
+def test_failed_route_event_does_not_claim_savings(minimal_workspace: Path) -> None:
+    decision = RouteDecision(
+        target="tool",
+        route_id="tool-rg-search",
+        confidence=0.5,
+        matched=["find"],
+        command=None,
+        note="",
+        domains=[],
+    )
+    event = build_route_event(
+        cmd="run",
+        task="find absent marker",
+        root=minimal_workspace,
+        decision=decision,
+        tier_scan=[],
+        outcome_success=False,
+    )
+    assert event["cursor_saved"] == 0
+    assert event["savings_eligible"] is False
+    assert event["savings_exclusion"] == "task_failed"
 
 
 @allure.story("Override events")
@@ -696,7 +803,7 @@ def test_format_report_quality_without_by_tier() -> None:
         "by_crystal": [],
     }
     text = format_report(summary)
-    assert "Route quality (not ML accuracy)" in text
+    assert "Route quality — override/hold signal (not correctness)" in text
     assert "cheap hits by tier" not in text
     assert "worst crystals by override" not in text
 
@@ -765,6 +872,9 @@ def test_quality_metrics_rates() -> None:
     assert q["override_events"] == 1
     assert q["override_rate_7d"] == round(1 / 4, 4)
     assert q["cheap_hold_rate"] == round(1 - 1 / 4, 4)
+    assert q["override_hold_rate"] == q["cheap_hold_rate"]
+    assert q["task_success_rate"] is None
+    assert q["successful_outcomes"] == 0
     attach_json("quality", q)
 
 
@@ -813,6 +923,47 @@ def test_quality_metrics_all_cheap_tiers() -> None:
     scope = q["signal_scope"]
     assert scope["no_signal_yet"] == {}
     assert scope["with_override_signal"] == sorted({"tool", "python", "ollama", "rag", "script"})
+    assert scope["override_hold_is_correctness"] is False
+    assert scope["outcome_event"] == "route_outcome"
+
+
+@allure.story("Route quality")
+@allure.title("No override is not success; only explicit outcomes set task success")
+def test_quality_metrics_requires_explicit_outcomes() -> None:
+    from greedy_token.usage import quality_metrics
+
+    events = [
+        _script_hit("tool-rg", tier="tool"),
+        {
+            "event": "route_outcome",
+            "outcome": "success",
+            "selected_tier": "tool",
+            "route_id": "tool-rg",
+        },
+        {
+            "event": "route_outcome",
+            "outcome": "failure",
+            "selected_tier": "rag",
+            "route_id": "rag-x",
+        },
+        {
+            "event": "route_outcome",
+            "outcome": "escalated",
+            "selected_tier": "cursor",
+            "route_id": "cursor-edit-escalate",
+        },
+    ]
+    q = quality_metrics(events)
+    assert q["cheap_hits"] == 1
+    assert q["cheap_hold_rate"] == 1.0
+    assert q["explicit_outcomes"] == 2
+    assert q["successful_outcomes"] == 1
+    assert q["failed_outcomes"] == 1
+    assert q["other_outcomes"] == 1
+    assert q["task_success_rate"] == 0.5
+    assert q["outcomes_by_tier"]["tool"]["success"] == 1
+    assert q["outcomes_by_tier"]["rag"]["failure"] == 1
+    assert q["outcomes_by_tier"]["cursor"]["other"] == 1
 
 
 @allure.story("Route quality")

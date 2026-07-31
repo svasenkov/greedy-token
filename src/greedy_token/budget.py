@@ -23,7 +23,7 @@ from greedy_token.rag_search import RagHit
 from greedy_token.router import RouteDecision, route_task_all_tiers
 from greedy_token.settings import FooterStyle, get_cheap_llm_settings, get_footer_settings
 from greedy_token.tokens import count_tokens
-from greedy_token.usage import append_event, build_route_event
+from greedy_token.usage import append_event, build_outcome_event, build_route_event
 from greedy_token.wrappers import ollama_available
 
 FooterStyleArg = Literal["compact", "markdown", "full"] | None
@@ -201,6 +201,7 @@ class ToolFooterContext:
     baseline_ms: int
     time_saved: int | None
     time_source: str
+    task_success: bool | None = None
 
 
 def _cheap_billing_note(root: Path | None = None) -> str:
@@ -245,12 +246,17 @@ def _build_tool_footer_context(
     duration_ms: int | None = None,
     rag_hits: int | None = None,
     ollama_eval_tokens: int | None = None,
+    task_success: bool | None = None,
 ) -> ToolFooterContext:
     breakdown = cursor_baseline_breakdown(root, task)
     baseline = breakdown.total
     saved = cursor_saved_for(root, task, est_tokens, tier)
+    if task_success is False:
+        saved = 0
     baseline_ms = naive_agent_ms(baseline)
     saved_ms = time_saved_ms(baseline, duration_ms, tier)
+    if task_success is False:
+        saved_ms = None
     time_source = get_time_baseline_settings().source
     sub = executor_sub or tier
     sub_label = EXECUTOR_SUB_LABELS.get(sub, sub)
@@ -277,6 +283,7 @@ def _build_tool_footer_context(
         baseline_ms=baseline_ms,
         time_saved=saved_ms,
         time_source=time_source,
+        task_success=task_success,
     )
 
 
@@ -442,6 +449,7 @@ def format_tool_footer(
     duration_ms: int | None = None,
     rag_hits: int | None = None,
     ollama_eval_tokens: int | None = None,
+    task_success: bool | None = None,
     style: FooterStyleArg = None,
 ) -> str:
     ctx = _build_tool_footer_context(
@@ -454,6 +462,7 @@ def format_tool_footer(
         duration_ms=duration_ms,
         rag_hits=rag_hits,
         ollama_eval_tokens=ollama_eval_tokens,
+        task_success=task_success,
     )
     resolved = _resolve_footer_style(root, style)
     if resolved == "full":
@@ -473,6 +482,7 @@ def log_tool_usage(
     rag_hits: int | None = None,
     duration_ms: int | None = None,
     tier_scan: list[dict] | None = None,
+    outcome_success: bool | None = None,
 ) -> None:
     append_event(
         build_route_event(
@@ -485,6 +495,7 @@ def log_tool_usage(
             duration_ms=duration_ms,
             executed=True,
             tier_scan=tier_scan,
+            outcome_success=outcome_success,
         )
     )
 
@@ -502,8 +513,14 @@ def wrap_mcp_response(
     rag_hits: int | None = None,
     executor_sub: str | None = None,
     ollama_eval_tokens: int | None = None,
+    outcome: str | None = None,
+    outcome_layer: str = "executor",
+    attempts: int = 1,
+    retries: int = 0,
+    escalations: list[str] | None = None,
 ) -> str:
     root = root or find_workspace_root()
+    task_success = None if outcome is None else outcome == "success"
     footer = format_tool_footer(
         task,
         root,
@@ -514,6 +531,7 @@ def wrap_mcp_response(
         duration_ms=duration_ms,
         rag_hits=rag_hits,
         ollama_eval_tokens=ollama_eval_tokens,
+        task_success=task_success,
     )
     if log:
         decision = RouteDecision(
@@ -535,5 +553,21 @@ def wrap_mcp_response(
             rag_hits=rag_hits,
             duration_ms=duration_ms,
             tier_scan=[],
+            outcome_success=task_success,
         )
+        if outcome is not None:
+            append_event(
+                build_outcome_event(
+                    task=task,
+                    root=root,
+                    decision=decision,
+                    outcome=outcome,
+                    layer=outcome_layer,
+                    duration_ms=duration_ms,
+                    attempts=attempts,
+                    retries=retries,
+                    escalations=escalations,
+                    exit_code=0 if outcome == "success" else 1,
+                )
+            )
     return body.rstrip() + footer

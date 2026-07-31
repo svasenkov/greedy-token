@@ -122,10 +122,14 @@ def compute_step_savings(result: PipelineResult, root: Path) -> list[StepSavings
     for i, sr in enumerate(result.steps, 1):
         baseline = cursor_baseline(root, sr.step.label)
         spent = sr.est_tokens
-        # Dry-run did not run the executor — do not claim full baseline savings.
+        # Dry-runs and failed outcomes have not delivered useful work, so they
+        # cannot count as saved.
         if not sr.executed:
             saved = 0
             billing = "dry-run — not executed"
+        elif not sr.ok:
+            saved = 0
+            billing = "failed — no savings claimed"
         else:
             saved = max(0, baseline - spent)
             billing = spent_hint(sr.step.tier, spent, _executor_sub_for_step(sr))

@@ -105,6 +105,8 @@ def greedy_token_rag(query: str, domain: str = "") -> str:
         duration_ms=duration_ms,
         rag_hits=len(hits),
         executor_sub="rag",
+        outcome="success" if hits else "failure",
+        outcome_layer="retrieval",
     )
 
 
@@ -137,6 +139,8 @@ def greedy_token_search(query: str, path: str = "", context: str = "") -> str:
         root=root,
         duration_ms=duration_ms,
         executor_sub=result.engine,
+        outcome="success" if result.hit_count else "failure",
+        outcome_layer="executor",
     )
 
 

@@ -11,6 +11,11 @@ from pathlib import Path
 from greedy_token.baseline import naive_agent_ms, time_saved_ms
 from greedy_token.calibration import CALIBRATION_MIN_EVENTS, calibration_report
 from greedy_token.estimator import cursor_baseline, cursor_saved_for
+from greedy_token.outcome_calibration import (
+    OUTCOME_EVENT,
+    detect_task_language,
+    outcome_calibration_report,
+)
 from greedy_token.router import RouteDecision, route_task_all_tiers
 from greedy_token.settings import get_ollama_settings
 from greedy_token.tokens import count_tokens
@@ -31,6 +36,10 @@ CHEAP_TIERS = frozenset({"tool", "python", "ollama", "rag", "script"})
 # attribution landed. Kept for callers that still reference the script subset.
 SCRIPT_HIT_TIERS = frozenset({"python", "script"})
 OVERRIDE_EVENT = "script_override"
+VALID_OUTCOMES = frozenset({"success", "failure", "escalated", "unknown"})
+VALID_OUTCOME_LAYERS = frozenset(
+    {"executor", "retrieval", "escalation", "agent", "pipeline"}
+)
 # usage-override.md: override_rate >= 0.3 over 7d -> disable / re-shadow.
 OVERRIDE_DISABLE_THRESHOLD = 0.3
 
@@ -143,10 +152,13 @@ def build_route_event(
     billing_tier: str | None = None,
     cost_usd: float | None = None,
     model_billing: str | None = None,
+    outcome_success: bool | None = None,
 ) -> dict:
     baseline = cursor_baseline(root, task)
     est_tokens = est_tokens_override if est_tokens_override is not None else decision.est_tokens
     saved = cursor_saved_for(root, task, est_tokens, decision.target)
+    if outcome_success is False:
+        saved = 0
     counter = count_tokens(task)
     executor = executor_from_decision(decision, root)
     if rag_hits is not None:
@@ -165,6 +177,7 @@ def build_route_event(
         "selected_tier": decision.target,
         "route_id": decision.route_id,
         "confidence": round(decision.confidence, 4),
+        "task_language": detect_task_language(task),
         "est_tokens": est_tokens,
         "cursor_baseline": baseline,
         "cursor_saved": saved,
@@ -173,9 +186,12 @@ def build_route_event(
         "executor": executor,
     }
     if decision.raw_score > 0:
-        # Feeds confidence calibration (score buckets); see calibration.py.
+        # Correlated route_outcome events feed outcome calibration.
         event["raw_score"] = round(decision.raw_score, 4)
         event["confidence_source"] = decision.confidence_source
+        calibration_segment = getattr(decision, "calibration_segment", "")
+        if calibration_segment:
+            event["calibration_segment"] = calibration_segment
     if getattr(decision, "shadow_route_id", None):
         event["shadow_route_id"] = decision.shadow_route_id
         event["shadow"] = True
@@ -194,6 +210,9 @@ def build_route_event(
         event["billing_tier"] = billing_tier
     if cost_usd is not None:
         event["cost_usd"] = round(cost_usd, 6)
+    if outcome_success is False:
+        event["savings_eligible"] = False
+        event["savings_exclusion"] = "task_failed"
     if llm_tags:
         event["tags"] = dict(llm_tags)
 
@@ -218,12 +237,73 @@ def build_route_event(
     return event
 
 
+def build_outcome_event(
+    *,
+    task: str,
+    root: Path,
+    decision: RouteDecision,
+    outcome: str,
+    layer: str,
+    duration_ms: int | None = None,
+    attempts: int = 1,
+    retries: int = 0,
+    escalations: list[str] | None = None,
+    exit_code: int | None = None,
+) -> dict:
+    """Build an explicit observed outcome; absence of this event means unknown."""
+    if outcome not in VALID_OUTCOMES:
+        raise ValueError(f"outcome must be one of: {', '.join(sorted(VALID_OUTCOMES))}")
+    if layer not in VALID_OUTCOME_LAYERS:
+        raise ValueError(
+            f"outcome layer must be one of: {', '.join(sorted(VALID_OUTCOME_LAYERS))}"
+        )
+    if attempts < 1:
+        raise ValueError("outcome attempts must be >= 1")
+    if retries < 0 or retries >= attempts:
+        raise ValueError("outcome retries must be >= 0 and < attempts")
+
+    event: dict = {
+        "v": SCHEMA_VERSION,
+        "ts": _utc_now_iso(),
+        "event": OUTCOME_EVENT,
+        "cmd": "outcome",
+        "task": _truncate_task(task),
+        "task_normalized": normalize_task(task)[:TASK_MAX_LEN],
+        "task_language": detect_task_language(task),
+        "root": str(root),
+        "selected_tier": decision.target,
+        "route_id": decision.route_id,
+        "raw_score": round(decision.raw_score, 4),
+        "confidence": round(decision.confidence, 4),
+        "confidence_source": decision.confidence_source,
+        "outcome": outcome,
+        "outcome_layer": layer,
+        "attempts": attempts,
+        "retries": retries,
+        "escalations": list(escalations or []),
+        # An outcome observation is not another execution/spend event.
+        "est_tokens": 0,
+        "cursor_baseline": 0,
+        "cursor_saved": 0,
+        "savings_eligible": outcome == "success",
+    }
+    calibration_segment = getattr(decision, "calibration_segment", "")
+    if calibration_segment:
+        event["calibration_segment"] = calibration_segment
+    if duration_ms is not None:
+        event["duration_ms"] = duration_ms
+    if exit_code is not None:
+        event["exit_code"] = exit_code
+    return event
+
+
 def build_script_event(
     *,
     script_id: str,
     root: Path,
     duration_ms: int | None = None,
     executed: bool | None = None,
+    outcome_success: bool | None = None,
 ) -> dict:
     task = f"scripts --run {script_id}"
     baseline = cursor_baseline(root, task)
@@ -238,13 +318,16 @@ def build_script_event(
         "confidence": 1.0,
         "est_tokens": 0,
         "cursor_baseline": baseline,
-        "cursor_saved": baseline,
+        "cursor_saved": 0 if outcome_success is False else baseline,
         "token_counter_method": count_tokens(task).method,
         "tier_scan": [],
         "executor": {"kind": "script", "script_id": script_id},
     }
     if executed is not None:
         event["executor"]["executed"] = executed
+    if outcome_success is False:
+        event["savings_eligible"] = False
+        event["savings_exclusion"] = "task_failed"
     baseline_ms = naive_agent_ms(baseline)
     event["cursor_baseline_ms"] = baseline_ms
     if duration_ms is not None:
@@ -616,26 +699,44 @@ class ReportSummary:
 
 
 def quality_metrics(events: list[dict], *, since_label: str | None = None) -> dict:
-    """Route quality telemetry (NOT ML accuracy).
+    """Override/hold and explicit-outcome signals (not interchangeable).
 
-    Two headline numbers over real traffic, per usage-override.md:
+    Override/hold telemetry answers whether a cheap result was re-asked:
       * override_rate = script_override events / cheap-tier hits
       * cheap_hold_rate = 1 - override_rate (cheap hits kept, not re-asked)
 
-    Failures = script_override (weight 1.0). Agent-chat escalation on wiring is not a
-    failure. Auto-override attribution covers every cheap tier (tool/python/
-    ollama/rag/script), so the hold denominator spans all of them — no tier is
-    excluded and there is no fake 100% from unmeasured tiers. ``script_hits``
-    keeps its contract name but now counts all cheap hits; ``cheap_hits`` is the
-    canonical alias and ``cheap_hits_by_tier`` gives the per-tier breakdown.
+    This is explicitly not correctness: no override means only "held", never
+    "successful".  Task success is computed solely from route_outcome events
+    carrying explicit success/failure observations.
     """
     cheap_hits_by_crystal: dict[str, int] = {}
     override_by_crystal: dict[str, int] = {}
     cheap_hits_by_tier: dict[str, int] = {}
     cheap_hits_total = 0
     override_total = 0
+    outcome_successes = 0
+    outcome_failures = 0
+    outcome_other = 0
+    outcomes_by_tier: dict[str, dict[str, int]] = {}
 
     for event in events:
+        if event.get("event") == OUTCOME_EVENT:
+            outcome = str(event.get("outcome") or "unknown")
+            tier = str(event.get("selected_tier") or "unknown")
+            tier_counts = outcomes_by_tier.setdefault(
+                tier,
+                {"success": 0, "failure": 0, "other": 0},
+            )
+            if outcome == "success":
+                outcome_successes += 1
+                tier_counts["success"] += 1
+            elif outcome == "failure":
+                outcome_failures += 1
+                tier_counts["failure"] += 1
+            else:
+                outcome_other += 1
+                tier_counts["other"] += 1
+            continue
         if event.get("event") == OVERRIDE_EVENT:
             crystal = event.get("crystal_id") or event.get("route_id") or "unknown"
             override_by_crystal[crystal] = override_by_crystal.get(crystal, 0) + 1
@@ -650,6 +751,12 @@ def quality_metrics(events: list[dict], *, since_label: str | None = None) -> di
 
     override_rate = round(override_total / max(1, cheap_hits_total), 4)
     cheap_hold_rate = round(max(0.0, 1.0 - override_rate), 4)
+    measured_outcomes = outcome_successes + outcome_failures
+    task_success_rate = (
+        round(outcome_successes / measured_outcomes, 4)
+        if measured_outcomes
+        else None
+    )
 
     by_crystal: list[dict] = []
     for crystal in set(cheap_hits_by_crystal) | set(override_by_crystal):
@@ -674,16 +781,27 @@ def quality_metrics(events: list[dict], *, since_label: str | None = None) -> di
     return {
         "since": since_label,
         "override_rate_7d": override_rate,
+        "override_hold_rate": cheap_hold_rate,
         "cheap_hold_rate": cheap_hold_rate,
         "script_hits": cheap_hits_total,
         "cheap_hits": cheap_hits_total,
         "cheap_hits_by_tier": dict(sorted(cheap_hits_by_tier.items())),
         "override_events": override_total,
+        "explicit_outcomes": measured_outcomes,
+        "successful_outcomes": outcome_successes,
+        "failed_outcomes": outcome_failures,
+        "other_outcomes": outcome_other,
+        "task_success_rate": task_success_rate,
+        "outcomes_by_tier": {
+            tier: counts for tier, counts in sorted(outcomes_by_tier.items())
+        },
         "disable_threshold": OVERRIDE_DISABLE_THRESHOLD,
         "by_crystal": by_crystal,
         "signal_scope": {
             "with_override_signal": sorted(CHEAP_TIERS),
             "no_signal_yet": {},
+            "override_hold_is_correctness": False,
+            "outcome_event": OUTCOME_EVENT,
         },
     }
 
@@ -691,11 +809,14 @@ def quality_metrics(events: list[dict], *, since_label: str | None = None) -> di
 def aggregate_events(events: list[dict], *, since_label: str | None = None) -> ReportSummary:
     summary = ReportSummary(events=len(events), since=since_label)
     summary.quality = quality_metrics(events, since_label=since_label)
-    summary.quality["calibration"] = calibration_report(events)
+    summary.quality["override_hold_calibration"] = calibration_report(events)
+    summary.quality["outcome_calibration"] = outcome_calibration_report(events)
     route_counts: dict[str, int] = {}
     tier_order = ("tool", "python", "ollama", "rag", "cursor", "compress")
 
     for event in events:
+        if event.get("event") == OUTCOME_EVENT:
+            continue
         tier = event.get("selected_tier", "unknown")
         stats = summary.by_tier.setdefault(tier, TierStats())
         stats.count += 1
@@ -790,10 +911,11 @@ def format_report(summary: ReportSummary) -> str:
         lines.extend(
             [
                 "",
-                "Route quality (not ML accuracy):",
+                "Route quality — override/hold signal (not correctness):",
                 f"  override_rate   {quality['override_rate_7d']:.0%}"
                 f"  (threshold {quality['disable_threshold']:.0%})",
-                f"  cheap_hold_rate {quality['cheap_hold_rate']:.0%}"
+                f"  override_hold_rate "
+                f"{quality.get('override_hold_rate', quality['cheap_hold_rate']):.0%}"
                 f"  ({quality['override_events']} overrides / {quality['script_hits']} cheap hits)",
             ]
         )
@@ -812,14 +934,33 @@ def format_report(summary: ReportSummary) -> str:
                     f"({crystal['override_count']}/{crystal['script_hits']}){flag}"
                 )
 
-    calibration = (summary.quality or {}).get("calibration") or []
+    if quality and (
+        quality.get("explicit_outcomes") or quality.get("other_outcomes")
+    ):
+        measured = quality["explicit_outcomes"]
+        success_rate = quality.get("task_success_rate")
+        rate_text = f"{success_rate:.0%}" if success_rate is not None else "unknown"
+        lines.extend(
+            [
+                "",
+                "Observed task outcomes (explicit route_outcome events):",
+                f"  task_success_rate {rate_text}"
+                f"  ({quality['successful_outcomes']} success / "
+                f"{quality['failed_outcomes']} failure; "
+                f"{quality['other_outcomes']} escalation/unknown)",
+                f"  measured outcomes {measured}; missing outcomes remain unknown",
+            ]
+        )
+
+    calibration = (summary.quality or {}).get("outcome_calibration") or []
     if calibration:
         lines.extend(
             [
                 "",
-                "Confidence calibration (score buckets, "
+                "Outcome confidence calibration (explicit success/failure; "
                 f"min n={CALIBRATION_MIN_EVENTS}):",
-                f"  {'bucket':<12} {'n':>5} {'predicted':>10} {'actual':>8}  status",
+                f"  {'segment':<28} {'bucket':<12} {'n':>5} "
+                f"{'predicted':>10} {'observed':>9}  status",
             ]
         )
         for row in calibration:
@@ -828,9 +969,11 @@ def format_report(summary: ReportSummary) -> str:
                 if row["calibrated"]
                 else f"uncalibrated (n<{CALIBRATION_MIN_EVENTS})"
             )
+            segment = f"{row['segment_type']}:{row['segment']}"
             lines.append(
-                f"  {row['bucket']:<12} {row['n']:>5} "
-                f"{row['predicted']:>10.0%} {row['actual']:>8.0%}  {status}"
+                f"  {segment:<28} {row['bucket']:<12} {row['n']:>5} "
+                f"{row['predicted']:>10.0%} "
+                f"{row['observed_success_rate']:>9.0%}  {status}"
             )
 
     if summary.counter_methods:
