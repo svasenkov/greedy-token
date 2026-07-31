@@ -73,6 +73,24 @@ def test_format_tool_footer_detailed_breakdown(minimal_workspace: Path) -> None:
         assert f"~{baseline:,}" in footer
 
 
+@allure.story("Savings eligibility")
+@allure.title("Failed tool outcome shows zero token savings and no time savings")
+def test_format_tool_footer_failed_outcome(minimal_workspace: Path) -> None:
+    footer = format_tool_footer(
+        "find absent marker",
+        minimal_workspace,
+        tier="tool",
+        est_tokens=0,
+        route_id="mcp-search",
+        executor_sub="rg",
+        duration_ms=42,
+        task_success=False,
+        style="full",
+    )
+    assert "Saved:             ~0" in footer
+    assert "  Time saved:" not in footer
+
+
 @allure.story("Tool footer")
 @allure.title("Cursor tier footer shows zero savings")
 def test_format_tool_footer_cursor_no_savings(minimal_workspace: Path) -> None:

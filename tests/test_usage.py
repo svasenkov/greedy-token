@@ -14,6 +14,7 @@ from greedy_token.usage import (
     append_event,
     build_outcome_event,
     build_route_event,
+    build_script_event,
     build_script_override_event,
     format_report,
     load_events,
@@ -127,6 +128,16 @@ def test_build_outcome_event_shape(minimal_workspace: Path) -> None:
     assert event["cursor_saved"] == 0
     assert event["savings_eligible"] is True
 
+    minimal = build_outcome_event(
+        task="escalate evidence task",
+        root=minimal_workspace,
+        decision=decision,
+        outcome="escalated",
+        layer="escalation",
+    )
+    assert "duration_ms" not in minimal
+    assert "exit_code" not in minimal
+
 
 @allure.story("Outcome events")
 @allure.title("Outcome builder rejects ambiguous or impossible observations")
@@ -184,6 +195,21 @@ def test_failed_route_event_does_not_claim_savings(minimal_workspace: Path) -> N
         root=minimal_workspace,
         decision=decision,
         tier_scan=[],
+        outcome_success=False,
+    )
+    assert event["cursor_saved"] == 0
+    assert event["savings_eligible"] is False
+    assert event["savings_exclusion"] == "task_failed"
+
+
+@allure.story("Savings eligibility")
+@allure.title("Failed script event does not claim token savings")
+def test_failed_script_event_does_not_claim_savings(minimal_workspace: Path) -> None:
+    event = build_script_event(
+        script_id="check-meta-sync",
+        root=minimal_workspace,
+        duration_ms=12,
+        executed=True,
         outcome_success=False,
     )
     assert event["cursor_saved"] == 0

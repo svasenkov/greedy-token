@@ -406,6 +406,14 @@ def test_collect_outcome_bucket_stats_segments() -> None:
     with pytest.raises(ValueError, match="unknown calibration segment"):
         outcome_calibration._segment_value(event, "project")
 
+    sparse_dimensions = {
+        **_outcome("documented task", 2.5, "success"),
+        "route_id": "",
+        "selected_tier": "",
+    }
+    rows = outcome_calibration_report([sparse_dimensions], min_events=1)
+    assert {row["segment_type"] for row in rows} == {"language", "global"}
+
 
 def _outcome_series(
     count: int,
@@ -526,6 +534,14 @@ def test_confidence_for_outcome_sparse_fallback() -> None:
     )
     assert tuned.source == SOURCE_OUTCOME_CALIBRATED
     assert tuned.confidence == 1.0
+
+    no_tier = confidence_for_outcome(
+        2.5,
+        tier="",
+        language="en",
+        route_id="missing",
+    )
+    assert no_tier.source == SOURCE_FORMULA
 
 
 @allure.story("Outcome monotonicity")

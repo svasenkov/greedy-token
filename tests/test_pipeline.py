@@ -583,18 +583,27 @@ def test_compute_step_savings_math(minimal_workspace: Path) -> None:
             step=PipelineStep("rag", "rag", "rag-label", command=None),
             ok=True, exit_code=0, output="", duration_ms=1, est_tokens=0, executed=False,
         ),
+        StepResult(
+            step=PipelineStep("search", "tool", "failed-label", command="c"),
+            ok=False, exit_code=1, output="", duration_ms=1, est_tokens=0, executed=True,
+        ),
     ]
     result = PipelineResult(task="t", steps=steps)
     seen_roots: list[object] = []
 
     def fake_baseline(root, label):
         seen_roots.append(root)
-        return {"meta-label": 1000, "audit-label": 50, "rag-label": 999}[label]
+        return {
+            "meta-label": 1000,
+            "audit-label": 50,
+            "rag-label": 999,
+            "failed-label": 999,
+        }[label]
 
     with patch("greedy_token.pipeline.cursor_baseline", fake_baseline):
         rows = compute_step_savings(result, minimal_workspace)
 
-    assert [r.index for r in rows] == [1, 2, 3]  # enumerate starts at 1
+    assert [r.index for r in rows] == [1, 2, 3, 4]  # enumerate starts at 1
     assert all(r == minimal_workspace for r in seen_roots)  # root threaded, not None
     # baseline - spent, clamped at 0 (kills baseline+spent and max(1,...)).
     assert rows[0].saved == 900  # 1000 - 100
@@ -602,6 +611,9 @@ def test_compute_step_savings_math(minimal_workspace: Path) -> None:
     # dry-run step never claims savings.
     assert rows[2].saved == 0
     assert rows[2].billing == "dry-run — not executed"
+    # Failed execution is observable work, but it did not deliver savings.
+    assert rows[3].saved == 0
+    assert rows[3].billing == "failed — no savings claimed"
 
 
 def _sr(step_id: str, tier: str, *, engine: str = "", executed: bool = True,
