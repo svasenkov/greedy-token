@@ -19,9 +19,9 @@ wiring / дизайн          →  дорогой agent chat
 | Это | Это не |
 |-----|--------|
 | **Прототип** вокруг дешёвых тиров (rg / скрипты / локальная LLM) + **crystallize** (повтор → детерминированный скрипт, в следующий раз 0 LLM) | Универсальный «экономитель Cursor», который убирает host LLM |
-| Реальная экономия на **CLI / CI / hooks / crystallize** и когда правило гонит агента в один дешёвый MCP-tool вместо длинного Grep/Read-цикла | Гарантированная экономия **MCP-чата**: к моменту вызова MCP Cursor уже вызвал frontier-модель |
+| Пути, которые могут не вызывать frontier-модель на **CLI / CI / hooks / crystallize**; измеренная экономия требует успешного same-task baseline и authoritative billing | Гарантированная экономия **MCP-чата**: к моменту вызова MCP Cursor уже вызвал frontier-модель |
 | `route_task` / `greedy_token_route` → **один** тир по substring-эвристикам | Auto-chain `rg → python → ollama → docs`; для цепочки нужен явный `pipeline` |
-| Имя tool `rag` сохранено для совместимости — внутри **lexical docs search** (overlap), не embeddings/vector RAG | Prod-grade semantic retrieval или доказанная точность роутинга |
+| Имя tool `rag` сохранено для совместимости — внутри **lexical docs search** (overlap), не embeddings/vector RAG | Prod-grade semantic retrieval или универсальная точность роутинга вне frozen-корпуса |
 
 Headline **★ $82 / ★ $820** ниже = иллюстрация **CLI/pipeline mix vs наивный агент**, не измеренная экономия MCP-чата.
 
@@ -170,7 +170,7 @@ find baseUrl in configurator-option-presets.html
 | `greedy-token calibrate [--overhead N] [--from-file PATH]` | Калибровка базлайна наивного агент-чата (пишет `baseline:` в `~/.greedy-token/config.yaml`) |
 | `greedy-token tokens PATH…` | Count tokens in paths |
 | `greedy-token compress` | Short prompt (stdin; `--ollama`) |
-| `greedy-token report [--since 7d]` | Usage telemetry + качество маршрутов (override_rate / cheap_hold_rate) + калибровка confidence |
+| `greedy-token report [--since 7d]` | Usage telemetry: override/hold signal, явные outcomes и outcome-калибровка |
 | `greedy-token override …` | Записать telemetry-событие `script_override` |
 | `greedy-token crystallize draft ID [--since 30d]` | L3 safe mode: draft-скрипт (`.greedy-token/drafts/`) + shadow-роут (+7d, log-only) |
 | `greedy-token crystallize promote ID` | После ревью человеком: shadow → active (снять `shadow_until`) |
@@ -208,23 +208,41 @@ trusted_script_paths:
 
 ### Routing benchmark
 
-`bench/routing_corpus.yaml` — held-out/adversarial gate, отдельный от
-`bench/route_examples.yaml`. Он считает exact-match accuracy (она же
-micro-precision для single-label корпуса), confusion matrix, precision/recall
-по каждому target, accuracy по family/language и обязательный
-false-cheap rate 0. Это метрики **классификации маршрута**, а не end-to-end
-успех выполнения или качество lexical retrieval — их нужно измерять отдельно.
+`bench/routing_corpus.yaml` — held-out/adversarial gate **классификации**,
+отдельный от `bench/route_examples.yaml`. Он считает exact-match accuracy,
+confusion matrix, precision/recall по target, accuracy по family/language и
+обязательный false-cheap rate 0.
+
+`bench/evidence_corpus.v1.yaml` с SHA-256 lock добавляет отдельный публичный
+**end-to-end evidence** слой: frozen synthetic RU/EN fixtures, task-specific
+oracle по file/line, exit code, chunk ID и escalation, временные workspace-ы и
+сравнение direct `rg`/script, greedy CLI, greedy MCP stdio и agent baseline.
+Детерминированный agent помечен `contract_stub`; реальный host baseline —
+только manual. JSON scorecard отдельно показывает routing и task success,
+executor/retrieval/escalation, attempts, p50/p95 и только authoritative
+billing. Без billing стоимость Cursor остаётся `unknown`; неуспешная работа
+никогда не считается saved. См. [контракт benchmark](bench/README.md).
 
 ### Калибровка confidence
 
-**Confidence** маршрута ≈ «дешёвый тир скоро не переопределили» по `~/.greedy-token/usage.jsonl` — **не** оценка правильности ответа. Score попадает в бакеты (`[0, 2)`, `[2, 4)`, `[4, 6)`, `[6, 8)`, `[8, +)`). Бакет с **≥ 20 событиями** (`CALIBRATION_MIN_EVENTS`) — **calibrated**; ниже порога — formula fallback с меткой `uncalibrated`. `greedy-token report` добавляет блок калибровки:
+Отсутствие override не доказывает корректность. Поэтому legacy-телеметрия
+называется **override/hold confidence** и остаётся только поведенческим
+сигналом.
+
+Confidence роутера калибруется только по явным событиям `route_outcome` с
+outcome `success` или `failure`. Калибровка независима по route, tier и
+language; побеждает самый конкретный segment с **≥ 20 событиями**
+(`CALIBRATION_MIN_EVENTS`), затем tier → language → global. При малом `n`
+используется formula с честной меткой `formula (uncalibrated; explicit outcome
+n=…)`. Score buckets остаются `[0, 2)`, `[2, 4)`, `[4, 6)`, `[6, 8)` и
+`[8, +)`.
 
 ```text
-Confidence calibration (score buckets, min n=20):
-  bucket           n  predicted   actual  status
-  [2, 4)          25        75%      80%  calibrated
+Outcome confidence calibration (explicit success/failure; min n=20):
+  segment           bucket           n  predicted  observed  status
+  tier:python       [2, 4)          25        75%       80%  calibrated
 ```
 
 Повторяющаяся задача → **crystallize** в скрипт → следующий раз **0 LLM**. Подробности: [guide](docs/guide-RU.md) · [roadmap](docs/ROADMAP-RU.md)
 
-**Лицензия:** MIT · **v0.14.1**
+**Лицензия:** MIT · **v0.15.0 CUT (не выпущен)**

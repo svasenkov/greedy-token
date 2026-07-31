@@ -17,7 +17,8 @@ Track progress: [GitHub issues labeled `roadmap`](https://github.com/svasenkov/g
 | **v0.13** ✅ | **Routing benchmark corpus** (precision/recall, not only unit tests); **shell harden** (no trust of workspace YAML via `shell=True` without allowlist/boundary) | ✅ shipped as **v0.13.0** (`CUT-v0.13.0.md`) |
 | **v0.14** ✅ | **Corpus v2** — expand `bench/routing_corpus.yaml` (zones: tool/python/rag/ollama/cursor; RU+EN; false-cheap + wiring + script + cheap-llm); scorecard precision + per-target recall; `min_precision` 0.90 | ✅ shipped as **v0.14.0** (`CUT-v0.14.0.md`); 45 cases, 100% precision |
 | **v0.14.1** ✅ | Repeat-review patch: positive read-only tool intent, structured command trust boundary, Corpus v3 classifier metrics, exact-commit PyPI gate, restored coverage gate | ✅ shipped as **v0.14.1** (`CUT-v0.14.1.md`); 1030 tests, corpus v3, 100% coverage |
-| **v0.15+** (aspirational) | Windows support; FTS / better docs index; **host pre-router** *if* Cursor (or host) exposes an API — otherwise stays out of scope | Documented platform matrix; no fake “pre-LLM” claims without host support |
+| **v0.15.0** CUT | Public end-to-end evidence: frozen RU/EN corpus, observable task oracles, direct/CLI/MCP/agent comparison, outcome confidence, deterministic JSON scorecard + manual live workflow | CUT prepared, not released; full pytest + branch coverage and deterministic CI artifact are release gates |
+| **v0.16+** (aspirational) | Windows support; FTS / better docs index; **host pre-router** *if* Cursor (or host) exposes an API — otherwise stays out of scope | Documented platform matrix; no fake “pre-LLM” claims without host support |
 
 ## Themes
 
@@ -136,7 +137,7 @@ Related: [#2](https://github.com/svasenkov/greedy-token/issues/2) (`cheap_llm`),
 - Hosted greedy-token SaaS
 - Fine-tuning or training models
 - Ephemeral public runners with no network path to corporate Ollama (without VPN/self-hosted)
-- Treating unit-test green as proof of routing precision / product usefulness (needs corpus — v0.13)
+- Treating unit-test green as proof of routing precision / product usefulness (use the frozen classification + end-to-end evidence corpora)
 
 ## Changelog
 
@@ -144,6 +145,7 @@ Per-release detail: `CUT-v*.md` checklists in the repo root.
 
 | Version | Focus |
 |---------|-------|
+| **v0.15.0 CUT** | Frozen public E2E evidence, explicit outcomes, outcome-calibrated confidence, deterministic/live scorecards (not released) |
 | **v0.14.1** | Strict read-only routing; trusted structured argv; held-out/adversarial Corpus v3; green-commit PyPI gate |
 | **v0.14.0** | Corpus v2: target/family coverage, RU+EN, 45-case exact-match scorecard |
 | **v0.13.0** | Trust cut fold: honest docs, mcp pin, edit-escalation/RU tokenize, routing corpus, `shell=False` harden |

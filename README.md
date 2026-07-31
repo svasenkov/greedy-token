@@ -19,9 +19,9 @@ No fine-tuning. No shipping your data for training. It “learns” by adding re
 | Is | Isn’t |
 |----|--------|
 | A **prototype** around cheap tiers (rg / scripts / local LLM) + **crystallize** (repeat → deterministic script, 0 LLM next time) | A universal “Cursor token saver” that removes the host LLM |
-| Real savings on **CLI / CI / hooks / crystallize** and when a rule steers the agent to one cheap MCP tool instead of a long Grep/Read loop | Guaranteed **MCP-chat** dollar savings: by the time an MCP tool runs, Cursor has already called a frontier model |
+| Paths that can avoid frontier calls on **CLI / CI / hooks / crystallize**; measured savings require a successful same-task run and authoritative billing | Guaranteed **MCP-chat** dollar savings: by the time an MCP tool runs, Cursor has already called a frontier model |
 | `route_task` / `greedy_token_route` → **one** tier by substring heuristics | Auto-chain `rg → python → ollama → docs`; that needs an explicit `pipeline` |
-| `rag` tool name kept for compat — implementation is **lexical docs search** (overlap), not embeddings/vector RAG | Production-grade semantic retrieval or proven routing precision |
+| `rag` tool name kept for compat — implementation is **lexical docs search** (overlap), not embeddings/vector RAG | Production-grade semantic retrieval or universal routing precision outside the frozen corpus |
 
 Headline **★ $82 / ★ $820** below = illustrative **CLI/pipeline mix vs naive agent**, not measured MCP-chat savings.
 
@@ -170,7 +170,7 @@ Expected after setup: **6 MCP tools** (including `greedy_token_pipeline` and `gr
 | `greedy-token calibrate [--overhead N] [--from-file PATH]` | Calibrate the naive agent-chat baseline (writes `baseline:` to `~/.greedy-token/config.yaml`) |
 | `greedy-token tokens PATH…` | Count tokens in paths |
 | `greedy-token compress` | Short prompt (stdin; `--ollama`) |
-| `greedy-token report [--since 7d]` | Usage telemetry + route quality (override_rate / cheap_hold_rate) + confidence calibration |
+| `greedy-token report [--since 7d]` | Usage telemetry: override/hold signal, explicit task outcomes, and outcome calibration |
 | `greedy-token override …` | Log a `script_override` telemetry event |
 | `greedy-token crystallize draft ID [--since 30d]` | L3 safe mode: draft script (`.greedy-token/drafts/`) + shadow route (+7d, log-only) |
 | `greedy-token crystallize promote ID` | After human review: shadow → active (drop `shadow_until`) |
@@ -207,24 +207,41 @@ dry-run only. Subprocesses receive a validated argv list with `shell=False`.
 
 ### Routing benchmark
 
-`bench/routing_corpus.yaml` is a held-out/adversarial classification gate,
-separate from `bench/route_examples.yaml`. It reports exact-match accuracy
-(equivalently micro-precision for this single-label corpus), a confusion
-matrix, per-target precision/recall, per-family and per-language accuracy, and
-a mandatory zero false-cheap rate. These are **routing classification**
-metrics—not end-to-end execution success or lexical retrieval quality, which
-must be evaluated separately.
+`bench/routing_corpus.yaml` is a held-out/adversarial **classification** gate,
+separate from `bench/route_examples.yaml`. It reports exact-match accuracy,
+confusion matrix, per-target precision/recall, family/language accuracy, and a
+mandatory zero false-cheap rate.
+
+`bench/evidence_corpus.v1.yaml` and its SHA-256 lock add the separate public
+**end-to-end evidence** layer: frozen synthetic RU/EN fixtures, task-specific
+file/line, exit-code, chunk-ID and escalation oracles, temporary workspaces,
+and comparisons for direct `rg`/script, greedy CLI, greedy MCP stdio, and an
+agent baseline. The deterministic agent is labelled `contract_stub`; a real
+host baseline is manual. The JSON scorecard reports routing and task success
+separately, executor/retrieval/escalation success, attempts, p50/p95, and
+authoritative billing only. Cursor cost remains `unknown` when billing data is
+unavailable; failed work never counts as saved. See [benchmark contract](bench/README.md).
 
 ### Confidence calibration
 
-Route **confidence** ≈ “this cheap tier was not overridden soon after,” from `~/.greedy-token/usage.jsonl` — **not** a score of answer correctness. Scores fall into buckets (`[0, 2)`, `[2, 4)`, `[4, 6)`, `[6, 8)`, `[8, +)`). A bucket with **≥ 20 events** (`CALIBRATION_MIN_EVENTS`) is **calibrated**; below the threshold the formula is the fallback, marked `uncalibrated`. `greedy-token report` adds a calibration block — bucket → predicted vs actual vs n:
+An absent override is not evidence of correctness. The legacy telemetry is
+therefore named **override/hold confidence** and appears only as a behavioural
+signal.
+
+Router confidence calibrates only from explicit `route_outcome` events whose
+outcome is `success` or `failure`. Calibration is independent by route, tier,
+and language; the most-specific segment with **≥ 20 events**
+(`CALIBRATION_MIN_EVENTS`) wins, then tier → language → global. Sparse data
+uses the score formula and is visibly labelled `formula (uncalibrated;
+explicit outcome n=…)`. Score buckets remain `[0, 2)`, `[2, 4)`, `[4, 6)`,
+`[6, 8)`, and `[8, +)`.
 
 ```text
-Confidence calibration (score buckets, min n=20):
-  bucket           n  predicted   actual  status
-  [2, 4)          25        75%      80%  calibrated
+Outcome confidence calibration (explicit success/failure; min n=20):
+  segment           bucket           n  predicted  observed  status
+  tier:python       [2, 4)          25        75%       80%  calibrated
 ```
 
 Repeated work → **crystallize** into a script → next time **0 LLM**. Details: [guide](docs/guide.md) · [roadmap](docs/ROADMAP.md)
 
-**License:** MIT · **v0.14.1**
+**License:** MIT · **v0.15.0 CUT (not released)**
