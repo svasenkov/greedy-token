@@ -1,0 +1,1 @@
+{"id":"f6955b165e97a1dc7fd89c55c23c4c55","fullName":"tests.test_calibration#test_detect_task_language","name":"Outcome language segmentation recognises RU and defaults to EN","status":"passed","testResultsByEnv":{"default":"d65cfeb100019718fccc0ae63ed1ed7f"}}

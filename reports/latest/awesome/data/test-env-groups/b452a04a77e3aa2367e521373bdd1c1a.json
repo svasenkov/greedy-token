@@ -1,0 +1,1 @@
+{"id":"b452a04a77e3aa2367e521373bdd1c1a","fullName":"tests.test_evidence_benchmark#test_evidence_authoritative_metric_guard","name":"Only authoritative billing is accepted; Cursor otherwise stays unknown","status":"passed","testResultsByEnv":{"default":"1950f45e943c937884400eaaf14f67e7"}}

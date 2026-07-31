@@ -1,0 +1,1 @@
+{"id":"60a4b1258defe71176ce0a88612abc26","fullName":"tests.test_usage#test_quality_metrics_requires_explicit_outcomes","name":"No override is not success; only explicit outcomes set task success","status":"passed","testResultsByEnv":{"default":"8cebe481a0926539faf2206a1baaa845"}}

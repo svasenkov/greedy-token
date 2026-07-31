@@ -1,0 +1,1 @@
+{"id":"74336737806e1b14ab3521fb77a63630","fullName":"tests.test_calibration#test_outcome_calibration_monotonic_clamp","name":"Outcome confidence is monotonic inside each segment","status":"passed","testResultsByEnv":{"default":"372b41c4ff469c3f14fb965443e26de5"}}

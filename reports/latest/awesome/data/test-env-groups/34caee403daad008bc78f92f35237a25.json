@@ -1,0 +1,1 @@
+{"id":"34caee403daad008bc78f92f35237a25","fullName":"tests.test_usage#test_build_outcome_event_validation","name":"Outcome builder rejects ambiguous or impossible observations","status":"passed","testResultsByEnv":{"default":"fe259789eca074867bbd3c8146a2898e"}}

@@ -1,0 +1,1 @@
+{"id":"650824828876a40a5629199bc10163b1","fullName":"tests.test_calibration#test_confidence_for_outcome_sparse_fallback","name":"Sparse explicit outcomes stay formula-labelled and report n","status":"passed","testResultsByEnv":{"default":"48308efe03be45a95a8410123e27b584"}}

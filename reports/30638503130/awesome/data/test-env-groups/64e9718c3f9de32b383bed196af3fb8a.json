@@ -1,0 +1,1 @@
+{"id":"64e9718c3f9de32b383bed196af3fb8a","fullName":"tests.test_evidence_benchmark#test_failed_observation_never_counts_as_saved","name":"Failed execution is excluded from every savings field","status":"passed","testResultsByEnv":{"default":"b80faf06ec700ff0b33f637b4ddbcbf3"}}

@@ -1,0 +1,1 @@
+{"id":"22a93c58a80d631ebc47490002ff83d4","fullName":"tests.test_calibration#test_outcome_calibration_cache_invalidation","name":"Outcome cache invalidates when the telemetry log grows","status":"passed","testResultsByEnv":{"default":"e5b8ca96e1c449d49564b410530830f3"}}
