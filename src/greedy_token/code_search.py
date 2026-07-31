@@ -8,7 +8,7 @@ from typing import Literal
 
 from greedy_token.tool_output import filter_tool_output
 from greedy_token.paths import find_workspace_root
-from greedy_token.tool_paths import RG_TIMEOUT, resolve_rg, rg_path_for_shell, root_cd_prefix, sh_quote
+from greedy_token.tool_paths import RG_TIMEOUT, resolve_rg
 
 SearchContextMode = Literal["none", "snippet", "file"]
 
@@ -270,26 +270,16 @@ def _python_search_tree(
     return hits
 
 
-def _run_rg(cmd: str) -> tuple[int, str]:
-    from greedy_token.subprocess_safe import UnsafeCommandError, command_to_argv
-
+def _run_rg(argv: tuple[str, ...], *, cwd: Path) -> tuple[int, str]:
     try:
-        registered_rg = resolve_rg()
-        allowed = (registered_rg,) if registered_rg is not None else ()
-        run_cwd, argv = command_to_argv(
-            cmd,
-            allowed_absolute_executables=allowed,
-        )
         proc = subprocess.run(
-            argv,
+            list(argv),
             shell=False,
             capture_output=True,
             text=True,
-            cwd=run_cwd,
+            cwd=cwd,
             timeout=RG_TIMEOUT,
         )
-    except UnsafeCommandError as exc:
-        return 1, f"Error: refusing unsafe rg command: {exc}"
     except FileNotFoundError as exc:
         return 127, f"Error: ripgrep executable not found: {exc}"
     except OSError as exc:
@@ -524,12 +514,18 @@ def search_code(
     if resolved and resolved.is_file():
         scope = str(resolved.relative_to(root))
         if rg_bin:
-            rel = sh_quote(scope)
-            cmd = (
-                f"{root_cd_prefix(root)} {rg_path_for_shell()} -n --max-columns 200 -F "
-                f"{sh_quote(query)} --max-count {limit} {rel}"
+            argv = (
+                str(rg_bin),
+                "-n",
+                "--max-columns",
+                "200",
+                "-F",
+                query,
+                "--max-count",
+                str(limit),
+                scope,
             )
-            code, out = _run_rg(cmd)
+            code, out = _run_rg(argv, cwd=root)
             filtered = filter_tool_output(out)
             if code in (0, 1) and filtered and "command not found" not in filtered.lower():
                 return _finalize_search(
@@ -563,24 +559,26 @@ def search_code(
             engine="rg" if rg_bin else "python",
         )
 
-    glob_flags = " ".join(f"-g {sh_quote(g)}" for g in DEFAULT_GLOBS)
-
     if rg_bin:
+        argv = [
+            str(rg_bin),
+            "-n",
+            "--max-columns",
+            "200",
+            "-F",
+            query,
+        ]
+        for glob in DEFAULT_GLOBS:
+            argv.extend(("-g", glob))
+        argv.extend(("--max-count", str(limit)))
         if resolved and resolved.is_dir():
             rel = resolved.relative_to(root) if resolved.is_relative_to(root) else resolved
             scope = str(rel)
-            cmd = (
-                f"{root_cd_prefix(root)} {rg_path_for_shell()} -n --max-columns 200 -F "
-                f"{sh_quote(query)} {glob_flags} --max-count {limit} {sh_quote(str(rel))}"
-            )
+            argv.append(str(rel))
         else:
             scope = "workspace"
-            cmd = (
-                f"{root_cd_prefix(root)} {rg_path_for_shell()} -n --max-columns 200 -F "
-                f"{sh_quote(query)} {glob_flags} --max-count {limit} "
-                f"{' '.join(search_scope_paths(root))}"
-            )
-        code, out = _run_rg(cmd)
+            argv.extend(search_scope_paths(root))
+        code, out = _run_rg(tuple(argv), cwd=root)
         filtered = filter_tool_output(out)
         if code in (0, 1) and filtered and "command not found" not in filtered.lower():
             return _finalize_search(

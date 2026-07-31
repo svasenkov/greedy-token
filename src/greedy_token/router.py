@@ -23,8 +23,13 @@ from greedy_token.outcome_calibration import (
 )
 from greedy_token.paths import find_workspace_root, load_routes_config
 from greedy_token.tokens import count_tokens
-from greedy_token.tool_paths import resolve_rg, root_cd_prefix, sh_quote
-from greedy_token.wrappers import ollama_available, wrapper_for_command
+from greedy_token.subprocess_safe import UnsafeCommandError, command_to_argv, format_invocation
+from greedy_token.tool_paths import resolve_jq, resolve_rg
+from greedy_token.wrappers import (
+    ollama_available,
+    resolve_wrapper_invocation,
+    wrapper_for_command,
+)
 
 TIER_ORDER = ("tool", "python", "ollama", "rag", "cursor")
 
@@ -329,7 +334,13 @@ def _build_tool_argv(route: dict, task: str, root: Path) -> tuple[str, ...]:
             root,
             field="json_path",
         )
-        return ("jq", "-r", str(route.get("jq_filter", ".")), path_hint)
+        jq = resolve_jq()
+        return (
+            str(jq) if jq is not None else "jq",
+            "-r",
+            str(route.get("jq_filter", ".")),
+            path_hint,
+        )
     globs = route.get("globs") or [
         "!.git/**",
         "!node_modules/**",
@@ -366,8 +377,9 @@ def _build_tool_argv(route: dict, task: str, root: Path) -> tuple[str, ...]:
 
 
 def _build_tool_command(route: dict, task: str, root: Path) -> str:
+    """Compatibility dry-run display; execution uses :func:`_build_tool_argv`."""
     argv = _build_tool_argv(route, task, root)
-    return f"{root_cd_prefix(root)} {' '.join(sh_quote(arg) for arg in argv)}"
+    return format_invocation(argv, root)
 
 
 def _token_estimate_for_route(
@@ -461,11 +473,27 @@ def _decision_from_route(
     if target == "tool":
         command_argv = _build_tool_argv(route, task, root)
         command_cwd = root
-        command = (
-            f"{root_cd_prefix(root)} "
-            f"{' '.join(sh_quote(arg) for arg in command_argv)}"
-        )
+        command = format_invocation(command_argv, command_cwd)
         read_only = True
+    elif command:
+        wrapper = wrapper_for_command(command)
+        try:
+            if wrapper is not None:
+                invocation = resolve_wrapper_invocation(wrapper.id, root)
+                command_argv = invocation.argv
+                command_cwd = invocation.cwd
+            else:
+                parsed_cwd, parsed_argv = command_to_argv(
+                    command,
+                    default_cwd=root,
+                    workspace_root=root,
+                )
+                command_argv = tuple(parsed_argv)
+                command_cwd = parsed_cwd
+        except (UnsafeCommandError, OSError):
+            # Legacy strings remain visible for dry-run but gain no execution authority.
+            command_argv = None
+            command_cwd = None
 
     complexity, est_tokens, rationale = _token_estimate_for_route(
         target,
@@ -819,9 +847,11 @@ def format_decision(decision: RouteDecision, task: str, root: Path) -> str:
     if decision.note and decision.note not in decision.rationale:
         lines.append(f"Note: {decision.note}")
     if decision.command:
-        cmd = decision.command
-        if not cmd.startswith("cd "):
-            cmd = f"{root_cd_prefix(root)} {cmd}"
+        cmd = (
+            format_invocation(decision.command_argv, decision.command_cwd)
+            if decision.command_argv is not None and decision.command_cwd is not None
+            else decision.command
+        )
         lines.append(f"Command: {cmd}")
         if decision.read_only:
             lines.append(

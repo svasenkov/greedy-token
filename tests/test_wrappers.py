@@ -126,6 +126,9 @@ def test_wrapper_for_command() -> None:
     assert w.id == "check-meta-sync"
     assert wrapper_for_command("python scripts/meta-sync-check.py-malicious") is None
     assert wrapper_for_command("python -c check-meta-sync") is None
+    assert wrapper_for_command("python") is None
+    versioned = wrapper_for_command("python3.14 scripts/meta-sync-check.py")
+    assert versioned is not None and versioned.id == "check-meta-sync"
     assert wrapper_for_command("'unterminated") is None
     prefixed = wrapper_for_command("cd /workspace && python scripts/meta-sync-check.py")
     assert prefixed is not None and prefixed.id == "check-meta-sync"
@@ -148,7 +151,8 @@ def test_resolve_wrapper_command_python_script(minimal_workspace: Path) -> None:
         note="",
     )
     cmd = resolve_wrapper_command("demo-py", minimal_workspace, extra_args="--flag")
-    assert "python scripts/demo.py" in cmd
+    assert "scripts/demo.py" in cmd
+    assert "argv=" in cmd
     assert "--flag" in cmd
     del WRAPPERS["demo-py"]
 

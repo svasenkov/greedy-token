@@ -50,11 +50,20 @@ def mcp_icons() -> list[Icon]:
             except (FileNotFoundError, OSError):
                 continue
         encoded = base64.b64encode(payload).decode("ascii")
+        # MCP 1.15 models SEP-973 ``sizes`` as a string; newer 1.x releases
+        # corrected it to a list. Keep the server compatible with both schemas.
+        sizes_by_schema: dict[bool, str | list[str]] = {
+            False: "any",
+            True: ["any"],
+        }
+        sizes = sizes_by_schema[
+            "list" in str(Icon.model_fields["sizes"].annotation)
+        ]
         return [
             Icon(
                 src=f"data:{mime};base64,{encoded}",
                 mimeType=mime,
-                sizes=["any"],
+                sizes=sizes,
             )
         ]
 

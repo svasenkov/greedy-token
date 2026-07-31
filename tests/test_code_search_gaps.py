@@ -279,17 +279,12 @@ def test_run_rg_timeout_kwarg(monkeypatch: pytest.MonkeyPatch) -> None:
         return _Proc()
 
     monkeypatch.setattr(cs.subprocess, "run", fake_run)
-    cs._run_rg("echo x")
+    cs._run_rg(("echo", "x"), cwd=Path.cwd())
     assert seen.get("timeout") == cs.RG_TIMEOUT
 
 
-@allure.title("_run_rg converts unsafe and process launch failures to result codes")
+@allure.title("_run_rg converts process launch failures to result codes")
 def test_run_rg_launch_errors(monkeypatch: pytest.MonkeyPatch) -> None:
-    code, text = cs._run_rg("rg x ; id")
-    assert code == 1
-    assert "refusing unsafe" in text
-
-    monkeypatch.setattr(cs, "resolve_rg", lambda: None)
     for error, expected in (
         (FileNotFoundError("missing"), 127),
         (OSError("exec"), 126),
@@ -299,7 +294,7 @@ def test_run_rg_launch_errors(monkeypatch: pytest.MonkeyPatch) -> None:
             "run",
             lambda *_args, _error=error, **_kwargs: (_ for _ in ()).throw(_error),
         )
-        code, text = cs._run_rg("rg x")
+        code, text = cs._run_rg(("rg", "x"), cwd=Path.cwd())
         assert code == expected
         assert "Error:" in text
 
@@ -616,10 +611,10 @@ def test_search_code_path_error_engine(minimal_workspace: Path) -> None:
 def _rg_present(monkeypatch: pytest.MonkeyPatch, canned: str) -> dict:
     seen: dict = {}
     monkeypatch.setattr(cs, "resolve_rg", lambda: "rg")
-    monkeypatch.setattr(cs, "rg_path_for_shell", lambda: "RGBIN")
 
-    def fake_run(cmd):  # type: ignore[no-untyped-def]
-        seen["cmd"] = cmd
+    def fake_run(argv, *, cwd):  # type: ignore[no-untyped-def]
+        seen["argv"] = argv
+        seen["cwd"] = cwd
         return (0, canned)
 
     monkeypatch.setattr(cs, "_run_rg", fake_run)
@@ -629,17 +624,15 @@ def _rg_present(monkeypatch: pytest.MonkeyPatch, canned: str) -> dict:
 @allure.title("search_code: workspace rg command is exact; no enrichment for context 'none'")
 def test_search_code_workspace_cmd(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from greedy_token.paths import detect_search_paths
-    from greedy_token.tool_paths import root_cd_prefix, sh_quote
 
     seen = _rg_present(monkeypatch, "projects/sample.js:1:const baseUrl = 'x';")
     r = cs.search_code("baseUrl", minimal_workspace, path=None, limit=7, context="none")
-    prefix = root_cd_prefix(minimal_workspace)
-    glob_flags = " ".join(f"-g {sh_quote(g)}" for g in cs.DEFAULT_GLOBS)
-    expected = (
-        f"{prefix} RGBIN -n --max-columns 200 -F {sh_quote('baseUrl')} "
-        f"{glob_flags} --max-count 7 {' '.join(detect_search_paths(minimal_workspace))}"
-    )
-    assert seen["cmd"] == expected
+    expected = ["rg", "-n", "--max-columns", "200", "-F", "baseUrl"]
+    for glob in cs.DEFAULT_GLOBS:
+        expected.extend(("-g", glob))
+    expected.extend(("--max-count", "7", *detect_search_paths(minimal_workspace)))
+    assert seen["argv"] == tuple(expected)
+    assert seen["cwd"] == minimal_workspace
     assert r.engine == "rg"
     assert r.text.startswith("Search: 'baseUrl' in workspace")
     assert "enriched context" not in r.text  # kills context=None
@@ -647,17 +640,14 @@ def test_search_code_workspace_cmd(minimal_workspace: Path, monkeypatch: pytest.
 
 @allure.title("search_code: directory-scoped rg command + scope header are exact")
 def test_search_code_dir_cmd(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from greedy_token.tool_paths import root_cd_prefix, sh_quote
-
     seen = _rg_present(monkeypatch, "docs/x.md:1:hit here")
     r = cs.search_code("baseUrl", minimal_workspace, path="docs", context="none")
-    prefix = root_cd_prefix(minimal_workspace)
-    glob_flags = " ".join(f"-g {sh_quote(g)}" for g in cs.DEFAULT_GLOBS)
-    expected = (
-        f"{prefix} RGBIN -n --max-columns 200 -F {sh_quote('baseUrl')} "
-        f"{glob_flags} --max-count 50 {sh_quote('docs')}"
-    )
-    assert seen["cmd"] == expected
+    expected = ["rg", "-n", "--max-columns", "200", "-F", "baseUrl"]
+    for glob in cs.DEFAULT_GLOBS:
+        expected.extend(("-g", glob))
+    expected.extend(("--max-count", "50", "docs"))
+    assert seen["argv"] == tuple(expected)
+    assert seen["cwd"] == minimal_workspace
     assert r.text.startswith("Search: 'baseUrl' in docs")
 
 
@@ -686,8 +676,7 @@ def test_search_code_python_global_exact(minimal_workspace: Path, monkeypatch: p
 @allure.title("search_code: rg present but no rg matches → python tree, note suppressed")
 def test_search_code_rg_present_tree_note(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(cs, "resolve_rg", lambda: "rg")
-    monkeypatch.setattr(cs, "rg_path_for_shell", lambda: "RGBIN")
-    monkeypatch.setattr(cs, "_run_rg", lambda cmd: (1, ""))
+    monkeypatch.setattr(cs, "_run_rg", lambda argv, *, cwd: (1, ""))
     r = cs.search_code("baseUrl", minimal_workspace, path=None, context="none")
     assert "[python]" in r.text
     assert "(rg not in PATH" not in r.text  # note only when rg absent (kills if rg_bin flip)
@@ -698,8 +687,7 @@ def test_search_code_rg_present_tree_note(minimal_workspace: Path, monkeypatch: 
 def test_search_code_no_match_engine(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     with allure.step("rg present, nothing found anywhere → engine 'rg' + 'No matches' text"):
         monkeypatch.setattr(cs, "resolve_rg", lambda: "rg")
-        monkeypatch.setattr(cs, "rg_path_for_shell", lambda: "RGBIN")
-        monkeypatch.setattr(cs, "_run_rg", lambda cmd: (1, ""))
+        monkeypatch.setattr(cs, "_run_rg", lambda argv, *, cwd: (1, ""))
         r = cs.search_code("ZZZ-NOMATCH-QUERY", minimal_workspace, path=None, context="none")
         assert r.engine == "rg"
         assert r.text.startswith("No matches for")
@@ -713,8 +701,7 @@ def test_search_code_no_match_engine(minimal_workspace: Path, monkeypatch: pytes
 @allure.title("search_code: scoped-file no-match return engine follows rg availability")
 def test_search_code_file_no_match_engine(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(cs, "resolve_rg", lambda: "rg")
-    monkeypatch.setattr(cs, "rg_path_for_shell", lambda: "RGBIN")
-    monkeypatch.setattr(cs, "_run_rg", lambda cmd: (1, ""))
+    monkeypatch.setattr(cs, "_run_rg", lambda argv, *, cwd: (1, ""))
     r = cs.search_code("ZZZNOMATCH", minimal_workspace, path="sample.js", context="none")
     assert r.engine == "rg"
     assert r.text.startswith("No matches for 'ZZZNOMATCH' in projects/sample.js")
@@ -785,8 +772,11 @@ def test_search_code_file_command_not_found_fallback(
     minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(cs, "resolve_rg", lambda: "rg")
-    monkeypatch.setattr(cs, "rg_path_for_shell", lambda: "RGBIN")
-    monkeypatch.setattr(cs, "_run_rg", lambda cmd: (127, "zsh: command not found: rg"))
+    monkeypatch.setattr(
+        cs,
+        "_run_rg",
+        lambda argv, *, cwd: (127, "executable not found: rg"),
+    )
     r = cs.search_code("baseUrl", minimal_workspace, path="sample.js", context="none")
     with allure.step("'command not found' in rg output → skip rg return, use python scan"):
         assert r.engine == "python"

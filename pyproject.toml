@@ -12,14 +12,15 @@ license = { text = "MIT" }
 authors = [{ name = "Stanislav Vasenkov" }]
 keywords = ["cli", "llm", "cursor", "claude", "chatgpt", "codex", "token-optimization", "rag", "ollama"]
 dependencies = [
-  "PyYAML>=6.0",
+  "PyYAML>=6.0.1",
   "tiktoken>=0.7",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "allure-pytest>=2.16", "coverage>=7.0", "hypothesis>=6.0", "mutmut>=3.6"]
-# mcp 2.0 removed mcp.server.fastmcp (breaks greedy_token.mcp + collection).
-mcp = ["mcp>=1.0,<2"]
+dev = ["pytest>=8.0", "allure-pytest>=2.16", "coverage>=7.0", "hypothesis>=6.10.1", "mutmut>=3.6"]
+# 1.15.0 is the first release whose FastMCP + Icon API passes our contract suite.
+# MCP 2.0 removed mcp.server.fastmcp (breaks greedy_token.mcp + collection).
+mcp = ["mcp>=1.15,<2"]
 
 [project.scripts]
 greedy-token = "greedy_token.cli:main"

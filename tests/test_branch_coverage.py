@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from argparse import Namespace
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import allure
@@ -366,6 +367,7 @@ def test_tool_paths_empty_path_segment(tmp_path: Path, monkeypatch: pytest.Monke
     rg.write_text("#!/bin/sh\necho\n", encoding="utf-8")
     rg.chmod(0o755)
     monkeypatch.delenv("GREEDY_TOKEN_RG", raising=False)
+    monkeypatch.delenv("GREEDY_TOKEN_DISABLE_EXTERNAL_TOOLS", raising=False)
     monkeypatch.setenv("PATH", f"::{bin_dir}")
     monkeypatch.setattr("greedy_token.tool_paths.shutil.which", lambda *_a, **_k: None)
 
@@ -385,8 +387,14 @@ def test_pipeline_audit_skill_estimate_missing_file(minimal_workspace: Path) -> 
         "audit",
         command="echo estimate-out",
         args="no-such-skill.md",
+        argv=("scripts/ollama/audit-skill.sh",),
+        cwd=minimal_workspace,
+        authorization="test-fixture",
     )
-    with patch("greedy_token.pipeline.ollama_available", return_value=True):
+    with patch("greedy_token.pipeline.ollama_available", return_value=True), patch(
+        "greedy_token.pipeline.subprocess.run",
+        return_value=SimpleNamespace(returncode=0, stdout="estimate-out", stderr=""),
+    ):
         with patch(
             "greedy_token.pipeline.PIPELINE_AUTO_RUN",
             frozenset({"audit-skill"}),
@@ -405,8 +413,14 @@ def test_pipeline_ollama_estimate_non_audit_skill(minimal_workspace: Path) -> No
         "classify",
         command="echo classified",
         args="sample.js",
+        argv=("scripts/ollama/classify-file.sh",),
+        cwd=minimal_workspace,
+        authorization="test-fixture",
     )
-    with patch("greedy_token.pipeline.ollama_available", return_value=True):
+    with patch("greedy_token.pipeline.ollama_available", return_value=True), patch(
+        "greedy_token.pipeline.subprocess.run",
+        return_value=SimpleNamespace(returncode=0, stdout="classified", stderr=""),
+    ):
         with patch("greedy_token.pipeline.parse_pipeline", return_value=[step]):
             result = run_pipeline("classify-file gap", minimal_workspace, execute=True)
     assert result.steps[0].executed

@@ -14,7 +14,6 @@ import pytest
 from greedy_token import executors as ex
 from greedy_token.executors import RunPlan, execute_plan, plan_run
 from greedy_token.router import RouteDecision
-from greedy_token.tool_paths import root_cd_prefix
 
 pytestmark = [
     allure.epic("Routing"),
@@ -66,9 +65,9 @@ def test_plan_run_python_wrapper_readonly(
     monkeypatch.setattr(ex, "find_workspace_root", lambda: minimal_workspace / "SENTINEL")
     dec = _dec("python", command="python scripts/meta-sync-check.py", read_only=False)
     plan = plan_run(dec, "task", minimal_workspace)
-    expected = f"{root_cd_prefix(minimal_workspace)} python scripts/meta-sync-check.py"
-    assert plan.command == expected  # kills root=None / root and .. / root_cd_prefix(None)
-    assert plan.dry_run_output == expected  # kills dry_run_output=None
+    assert plan.command == "python scripts/meta-sync-check.py"
+    assert f'cwd="{minimal_workspace}"' in plan.dry_run_output
+    assert '"scripts/meta-sync-check.py"' in plan.dry_run_output
     assert plan.executable is True  # kills wrapper=None / wrapper_for_command(None) / and
     assert plan.decision is dec
 
@@ -84,9 +83,9 @@ def test_plan_run_python_no_wrapper(minimal_workspace: Path) -> None:
 def test_plan_run_ollama_wrapper_readonly(minimal_workspace: Path) -> None:
     dec = _dec("ollama", command="./scripts/ollama/audit-skill.sh", read_only=False)
     plan = plan_run(dec, "task", minimal_workspace)
-    expected = f"{root_cd_prefix(minimal_workspace)} ./scripts/ollama/audit-skill.sh"
-    assert plan.command == expected  # kills root_cd_prefix(None)
-    assert plan.dry_run_output == expected + "  # pass args as needed"  # kills 'XX' string
+    assert plan.command == "./scripts/ollama/audit-skill.sh"
+    assert f'cwd="{minimal_workspace}"' in plan.dry_run_output
+    assert plan.dry_run_output.endswith("  # pass args as needed")
     assert plan.executable is True  # kills wrapper=None / wrapper_for_command(None) / and
     assert plan.decision is dec  # kills decision=None
 

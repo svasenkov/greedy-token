@@ -405,7 +405,7 @@ def test_run_rg_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
 
     with allure.step("Simulate ripgrep timeout"):
         monkeypatch.setattr("greedy_token.code_search.subprocess.run", boom)
-        code, out = _run_rg("rg foo")
+        code, out = _run_rg(("rg", "foo"), cwd=Path.cwd())
         attach_text("exit code", str(code))
         attach_text("output", out)
     with allure.step("Verify timeout exit code and message"):
@@ -775,7 +775,7 @@ def test_run_rg_concatenates_streams(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(subprocess, "run", lambda *a, **k: _Proc())
     with allure.step("Both streams present in output; exit code preserved"):
-        code, out = _run_rg("rg foo")
+        code, out = _run_rg(("rg", "foo"), cwd=Path.cwd())
         attach_text("output", out)
         assert code == 2
         assert "OUTLINE" in out

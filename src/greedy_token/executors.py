@@ -9,10 +9,12 @@ from greedy_token.rag_search import format_hits, search_rag
 from greedy_token.router import RouteDecision, route_task
 from greedy_token.subprocess_safe import (
     UnsafeCommandError,
-    trusted_script_invocation,
+    command_to_argv,
+    format_invocation,
+    trusted_script_argv,
     trusted_tool_invocation,
 )
-from greedy_token.tool_paths import RG_TIMEOUT, SCRIPT_TIMEOUT, root_cd_prefix
+from greedy_token.tool_paths import RG_TIMEOUT, SCRIPT_TIMEOUT
 from greedy_token.wrappers import wrapper_for_command
 
 from greedy_token.tool_output import filter_tool_output
@@ -72,8 +74,7 @@ def plan_run(decision: RouteDecision, task: str, root: Path | None = None) -> Ru
             authorization=invocation.authorization,
         )
 
-    if target == "python" and decision.command:
-        cmd = f"{root_cd_prefix(root)} {decision.command}"
+    if target in ("python", "ollama") and decision.command:
         wrapper = wrapper_for_command(decision.command)
         registered = (
             (wrapper.path,)
@@ -82,58 +83,44 @@ def plan_run(decision: RouteDecision, task: str, root: Path | None = None) -> Ru
         )
         trusted = workspace_trusted_script_paths(root) if decision.read_only else ()
         try:
-            invocation = trusted_script_invocation(
-                cmd,
+            argv = decision.command_argv
+            cwd = decision.command_cwd
+            if argv is None or cwd is None:
+                # Legacy route compatibility only; execution below remains argv/cwd.
+                parsed_cwd, parsed_argv = command_to_argv(
+                    decision.command,
+                    default_cwd=root,
+                    workspace_root=root,
+                )
+                argv = tuple(parsed_argv)
+                cwd = parsed_cwd or root
+            invocation = trusted_script_argv(
+                argv,
+                cwd=cwd,
                 root=root,
                 registered_script_paths=registered,
                 trusted_script_paths=trusted,
             )
         except (UnsafeCommandError, OSError) as exc:
+            dry_run = (
+                format_invocation(decision.command_argv, decision.command_cwd)
+                if decision.command_argv is not None and decision.command_cwd is not None
+                else decision.command
+            )
             return RunPlan(
                 decision=decision,
-                command=cmd,
-                dry_run_output=cmd,
+                command=decision.command,
+                dry_run_output=dry_run,
                 executable=False,
                 refusal_reason=str(exc),
             )
+        dry_run = format_invocation(invocation.argv, invocation.cwd)
+        if target == "ollama":
+            dry_run += "  # pass args as needed"
         return RunPlan(
             decision=decision,
-            command=cmd,
-            dry_run_output=cmd,
-            executable=True,
-            argv=invocation.argv,
-            cwd=invocation.cwd,
-            authorization=invocation.authorization,
-        )
-
-    if target == "ollama" and decision.command:
-        cmd = f"{root_cd_prefix(root)} {decision.command}"
-        wrapper = wrapper_for_command(decision.command)
-        registered = (
-            (wrapper.path,)
-            if wrapper is not None and wrapper.read_only
-            else ()
-        )
-        trusted = workspace_trusted_script_paths(root) if decision.read_only else ()
-        try:
-            invocation = trusted_script_invocation(
-                cmd,
-                root=root,
-                registered_script_paths=registered,
-                trusted_script_paths=trusted,
-            )
-        except (UnsafeCommandError, OSError) as exc:
-            return RunPlan(
-                decision=decision,
-                command=cmd,
-                dry_run_output=cmd + "  # pass args as needed",
-                executable=False,
-                refusal_reason=str(exc),
-            )
-        return RunPlan(
-            decision=decision,
-            command=cmd,
-            dry_run_output=cmd + "  # pass args as needed",
+            command=decision.command,
+            dry_run_output=dry_run,
             executable=True,
             argv=invocation.argv,
             cwd=invocation.cwd,

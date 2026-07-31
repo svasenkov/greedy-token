@@ -9,7 +9,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from greedy_token.router import _build_tool_command
+from greedy_token.router import _build_tool_argv, _build_tool_command
 from greedy_token.subprocess_safe import (
     UnsafeCommandError,
     command_to_argv,
@@ -97,7 +97,8 @@ def test_build_tool_command_quotes_root(tmp_path: Path) -> None:
         attach_text("tool command", cmd)
     with allure.step("Verify workspace root is quoted"):
         assert "repo with spaces" in cmd
-        assert f"cd '{root}'" in cmd or "cd '" in cmd
+        assert cmd.startswith("cwd=")
+        assert "argv=" in cmd
 
 
 @allure.story("Shell harden")
@@ -112,12 +113,8 @@ def test_build_tool_command_quotes_search_paths(tmp_path: Path) -> None:
     }
     cmd = _build_tool_command(route, "find baseUrl", root)
     attach_text("tool command", cmd)
-    rg = resolve_rg()
-    cwd, argv = command_to_argv(
-        cmd,
-        allowed_absolute_executables=(rg,) if rg is not None else (),
-    )
-    assert cwd == root
+    argv = list(_build_tool_argv(route, "find baseUrl", root))
+    assert f'cwd="{root}"' in cmd
     # Injection strings must be single inert argv tokens, not shell syntax.
     assert "docs; rm -rf /" in argv
     assert "src && id" in argv
@@ -277,12 +274,12 @@ def test_trusted_script_invocation_rejects_boundary_breaks(tmp_path: Path) -> No
             root=root,
             registered_script_paths=registered,
         )
-    with pytest.raises(UnsafeCommandError, match="python commands must"):
-        trusted_script_invocation(
-            f"{root_cd_prefix(root)} python3 scripts/check.py",
-            root=root,
-            registered_script_paths=registered,
-        )
+    py3 = trusted_script_invocation(
+        f"{root_cd_prefix(root)} python3 scripts/check.py",
+        root=root,
+        registered_script_paths=registered,
+    )
+    assert py3.argv == ("python3", "scripts/check.py")
     with pytest.raises(UnsafeCommandError, match="shell interpreters"):
         trusted_script_invocation(
             f"{root_cd_prefix(root)} sh scripts/check.sh",
@@ -357,11 +354,11 @@ def test_trusted_tool_invocation_boundary_edges(
         trusted_tool_invocation(valid_rg, cwd=other, root=root, tool="rg")
     with pytest.raises(UnsafeCommandError, match="executable mismatch"):
         trusted_tool_invocation(("rm", "--max-count", "50", "."), cwd=root, root=root, tool="rg")
-    with pytest.raises(UnsafeCommandError, match="absolute tool executable"):
+    with pytest.raises(UnsafeCommandError, match="absolute jq executable"):
         trusted_tool_invocation(("/tmp/jq", "-r", ".", "data.json"), cwd=root, root=root, tool="jq")
 
     monkeypatch.setattr("greedy_token.tool_paths.resolve_rg", lambda: None)
-    with pytest.raises(UnsafeCommandError, match="absolute ripgrep"):
+    with pytest.raises(UnsafeCommandError, match="absolute rg executable"):
         trusted_tool_invocation(
             ("/tmp/rg", "--max-count", "50", "."),
             cwd=root,
@@ -482,13 +479,34 @@ def test_publish_workflow_is_gated_by_green_test_commit() -> None:
     workflow = Path(".github/_ethalon/publish.yml").read_text(encoding="utf-8")
     runnable = Path(".github/workflows/publish.yml").read_text(encoding="utf-8")
     assert "verify-tests:" in workflow
-    assert "head_sha=\"${RELEASE_SHA}\"" in workflow
-    assert '.event == "push"' in workflow
-    assert '[0].conclusion // "missing"' in workflow
-    assert 'LATEST_CONCLUSION}" != "success"' in workflow
+    assert "verify_release_matrix.py" in workflow
+    assert "GITHUB_TOKEN: ${{ github.token }}" in workflow
     assert "needs: verify-tests" in workflow
     assert "id-token: write" in workflow
     assert workflow.splitlines()[1:] == runnable.splitlines()[1:]
+
+
+@allure.story("Release integrity")
+@allure.title("Mandatory CI covers supported OS, Python, dependency, and build matrices")
+def test_required_cross_platform_matrices_are_release_gated() -> None:
+    workflow = Path(".github/_ethalon/test.yml").read_text(encoding="utf-8")
+    assert "os: [ubuntu-latest, macos-latest, windows-latest]" in workflow
+    assert 'python: ["3.12", "3.14"]' in workflow
+    assert "profile: [minimum, latest, mcp-lowest, mcp-latest]" in workflow
+    assert "Unit tests without external tools" in workflow
+    assert "Integration tests with real tools" in workflow
+    assert "Build wheel and sdist, then smoke install" in workflow
+    assert "name: required matrix gate" in workflow
+    for job in (
+        "test",
+        "evidence",
+        "tests",
+        "portability",
+        "integration",
+        "dependencies",
+        "distributions",
+    ):
+        assert f"      - {job}" in workflow
 
 
 @allure.story("Release integrity")
@@ -532,9 +550,41 @@ def test_cli_wrapper_execution_handles_launch_failures(
         no_log=True,
     )
     with patch(
-        "greedy_token.subprocess_safe.trusted_script_invocation",
+            "greedy_token.cli.resolve_wrapper_invocation",
         side_effect=error,
     ):
+        assert cmd_scripts(args) == exit_code
+    assert message in capsys.readouterr().err
+
+
+@allure.story("Release integrity")
+@allure.title("CLI structured subprocess maps launch failures after trust validation")
+@pytest.mark.parametrize(
+    ("error", "exit_code", "message"),
+    [
+        (FileNotFoundError("missing"), 127, "Executable not found"),
+        (OSError("exec"), 126, "Cannot execute script"),
+    ],
+)
+def test_cli_structured_subprocess_launch_failures(
+    minimal_workspace: Path,
+    capsys: pytest.CaptureFixture[str],
+    error: OSError,
+    exit_code: int,
+    message: str,
+) -> None:
+    from argparse import Namespace
+
+    from greedy_token.cli import cmd_scripts
+
+    args = Namespace(
+        list=False,
+        run="check-meta-sync",
+        args="",
+        execute=True,
+        no_log=True,
+    )
+    with patch("subprocess.run", side_effect=error):
         assert cmd_scripts(args) == exit_code
     assert message in capsys.readouterr().err
 
@@ -574,7 +624,8 @@ def test_resolve_wrapper_command_quotes_root_and_args(tmp_path: Path) -> None:
         attach_text("wrapper command", cmd)
     with allure.step("Verify root and args are quoted"):
         assert "space root" in cmd
-        assert "'x; id'" in cmd
+        assert '"x; id"' in cmd
+        assert cmd.startswith("cwd=")
 
 
 @patch("greedy_token.mcp.run_pipeline")

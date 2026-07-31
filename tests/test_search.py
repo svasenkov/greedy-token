@@ -51,7 +51,7 @@ def test_build_tool_command_uses_identifier_not_phrase(minimal_workspace: Path) 
         )
         attach_text("tool command", cmd)
     with allure.step("Verify identifier search not full phrase"):
-        assert "-F baseUrl" in cmd or "-F 'baseUrl'" in cmd
+        assert '"-F", "baseUrl"' in cmd
         assert "baseUrl in configurator presets" not in cmd
         assert "!.cursor/hooks/**" in cmd
 

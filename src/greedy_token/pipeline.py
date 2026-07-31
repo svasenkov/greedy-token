@@ -38,7 +38,12 @@ from greedy_token.model_select import resolve_model, apply_model_env
 from greedy_token.tokens import count_tokens
 from greedy_token.tool_paths import SCRIPT_TIMEOUT
 from greedy_token.usage import append_event, build_route_event
-from greedy_token.wrappers import WRAPPERS, ollama_available, resolve_wrapper_command
+from greedy_token.subprocess_safe import (
+    UnsafeCommandError,
+    format_invocation,
+    trusted_script_argv,
+)
+from greedy_token.wrappers import WRAPPERS, ollama_available, resolve_wrapper_invocation
 
 PIPELINE_SPLIT = re.compile(r"\s+then\s+|\s*→\s*|\s*->\s*|\s*;\s*", re.IGNORECASE)
 
@@ -64,6 +69,9 @@ class PipelineStep:
     command: str | None = None
     args: str = ""
     profile: str = ""
+    argv: tuple[str, ...] | None = None
+    cwd: Path | None = None
+    authorization: str = ""
 
 
 @dataclass
@@ -375,7 +383,12 @@ def _parse_segment(segment: str, *, profile: str = "") -> PipelineStep:
     tier = "ollama" if wrapper.requires_ollama else "python"
     resolved_args = _resolve_wrapper_args(step_id, args)
     root = find_workspace_root()
-    command = resolve_wrapper_command(step_id, root, extra_args=resolved_args)
+    invocation = resolve_wrapper_invocation(
+        step_id,
+        root,
+        extra_args=(resolved_args,) if resolved_args else (),
+    )
+    command = format_invocation(invocation.argv, invocation.cwd)
     return PipelineStep(
         step_id=step_id,
         tier=tier,
@@ -383,6 +396,9 @@ def _parse_segment(segment: str, *, profile: str = "") -> PipelineStep:
         command=command,
         args=resolved_args,
         profile=profile if wrapper.requires_ollama else "",
+        argv=invocation.argv,
+        cwd=invocation.cwd,
+        authorization=invocation.authorization,
     )
 
 
@@ -676,16 +692,33 @@ def _run_step(
             )
 
     if can_run:
+        if step.argv is None or step.cwd is None or not step.authorization:
+            duration_ms = int((time.perf_counter() - t0) * 1000)
+            return StepResult(
+                step=step,
+                ok=False,
+                exit_code=1,
+                output="Refusing unsafe command: structured trusted argv is missing",
+                duration_ms=duration_ms,
+                est_tokens=0,
+                executed=False,
+            )
         try:
-            from greedy_token.subprocess_safe import UnsafeCommandError, command_to_argv
-
-            run_cwd, argv = command_to_argv(step.command, default_cwd=root)
+            wrapper = WRAPPERS.get(step.step_id)
+            if wrapper is None:
+                raise UnsafeCommandError("pipeline step is not a registered wrapper")
+            invocation = trusted_script_argv(
+                step.argv,
+                cwd=step.cwd,
+                root=root,
+                registered_script_paths=(wrapper.path,),
+            )
             proc = subprocess.run(
-                argv,
+                list(invocation.argv),
                 shell=False,
                 capture_output=True,
                 text=True,
-                cwd=run_cwd if run_cwd is not None else root,
+                cwd=invocation.cwd,
                 timeout=SCRIPT_TIMEOUT,
             )
         except UnsafeCommandError as exc:
@@ -695,6 +728,28 @@ def _run_step(
                 ok=False,
                 exit_code=1,
                 output=f"Refusing unsafe command: {exc}",
+                duration_ms=duration_ms,
+                est_tokens=0,
+                executed=False,
+            )
+        except FileNotFoundError as exc:
+            duration_ms = int((time.perf_counter() - t0) * 1000)
+            return StepResult(
+                step=step,
+                ok=False,
+                exit_code=127,
+                output=f"Executable not found: {exc}",
+                duration_ms=duration_ms,
+                est_tokens=0,
+                executed=False,
+            )
+        except OSError as exc:
+            duration_ms = int((time.perf_counter() - t0) * 1000)
+            return StepResult(
+                step=step,
+                ok=False,
+                exit_code=126,
+                output=f"Cannot execute command: {exc}",
                 duration_ms=duration_ms,
                 est_tokens=0,
                 executed=False,

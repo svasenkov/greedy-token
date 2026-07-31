@@ -95,6 +95,29 @@ def test_resolve_rg_skips_invalid(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
 
 
 @allure.story("Ripgrep")
+@allure.title("External tool resolution can be disabled for hermetic unit tests")
+def test_resolve_tools_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GREEDY_TOKEN_DISABLE_EXTERNAL_TOOLS", "1")
+    assert tool_paths.resolve_rg() is None
+    assert tool_paths.resolve_jq() is None
+
+
+@allure.story("Tool resolution")
+@allure.title("Generic resolver handles jq and rejects unknown tools")
+def test_generic_tool_resolution_branches(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("GREEDY_TOKEN_JQ", raising=False)
+    monkeypatch.setattr(tool_paths.shutil, "which", lambda _name: None)
+    monkeypatch.setenv("PATH", str(tmp_path))
+    assert list(
+        tool_paths._tool_candidates("jq", override_var="GREEDY_TOKEN_JQ")
+    ) == [tmp_path / "jq"]
+    with pytest.raises(ValueError, match="unsupported tool"):
+        tool_paths.resolve_tool("unknown")
+
+
+@allure.story("Ripgrep")
 @allure.title("rg_path_for_shell falls back to rg when not found")
 def test_rg_path_for_shell_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("GREEDY_TOKEN_RG", raising=False)

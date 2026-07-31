@@ -37,7 +37,12 @@ from greedy_token.usage import (
     maybe_append_event,
     parse_since,
 )
-from greedy_token.wrappers import WRAPPERS, ollama_status_line, resolve_wrapper_command
+from greedy_token.wrappers import (
+    WRAPPERS,
+    ollama_status_line,
+    resolve_wrapper_command,
+    resolve_wrapper_invocation,
+)
 
 
 from greedy_token.budget import rag_est_tokens
@@ -392,9 +397,26 @@ def cmd_scripts(args: argparse.Namespace) -> int:
         return 0
     if args.run:
         t0 = time.perf_counter()
+        from greedy_token.subprocess_safe import UnsafeCommandError
+
         try:
+            extra_args = (args.args,) if (args.args or "").strip() else ()
+            invocation = resolve_wrapper_invocation(
+                args.run,
+                root,
+                extra_args=extra_args,
+            )
             cmd = resolve_wrapper_command(args.run, root, extra_args=args.args or "")
-        except (KeyError, FileNotFoundError) as exc:
+        except UnsafeCommandError as exc:
+            print(f"Refusing unsafe command: {exc}", file=sys.stderr)
+            return 1
+        except FileNotFoundError as exc:
+            print(f"Executable not found: {exc}", file=sys.stderr)
+            return 127
+        except OSError as exc:
+            print(f"Cannot execute script: {exc}", file=sys.stderr)
+            return 126
+        except KeyError as exc:
             print(exc, file=sys.stderr)
             return 1
         wrapper = WRAPPERS[args.run]
@@ -409,27 +431,15 @@ def cmd_scripts(args: argparse.Namespace) -> int:
                 return 1
             import subprocess
 
-            from greedy_token.subprocess_safe import (
-                UnsafeCommandError,
-                trusted_script_invocation,
-            )
             from greedy_token.tool_paths import SCRIPT_TIMEOUT
 
             try:
-                invocation = trusted_script_invocation(
-                    cmd,
-                    root=root,
-                    registered_script_paths=(wrapper.path,),
-                )
                 proc = subprocess.run(
                     list(invocation.argv),
                     shell=False,
                     cwd=invocation.cwd,
                     timeout=SCRIPT_TIMEOUT,
                 )
-            except UnsafeCommandError as exc:
-                print(f"Refusing unsafe command: {exc}", file=sys.stderr)
-                return 1
             except FileNotFoundError as exc:
                 print(f"Executable not found: {exc}", file=sys.stderr)
                 return 127

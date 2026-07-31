@@ -333,6 +333,9 @@ def test_run_step_subprocess_success(
     minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     step = _step("check-meta-sync", tier="python", command="echo hi")
+    step.argv = ("python", "scripts/meta-sync-check.py")
+    step.cwd = minimal_workspace
+    step.authorization = "test-fixture"
 
     run_calls: dict = {}
     est_calls: dict = {}
@@ -353,7 +356,7 @@ def test_run_step_subprocess_success(
     with allure.step("subprocess.run gets cwd=root, shell=False argv, timeout=SCRIPT_TIMEOUT"):
         assert run_calls["cwd"] in (minimal_workspace, str(minimal_workspace))
         assert run_calls["timeout"] == pl.SCRIPT_TIMEOUT
-        assert run_calls["cmd"] == ["echo", "hi"]
+        assert run_calls["cmd"] == ["python", "scripts/meta-sync-check.py"]
     with allure.step("output = (stdout + stderr).strip(); _estimate_step_tokens got that output+root"):
         assert sr.output == "OUT\nERR"
         assert est_calls == {"output": "OUT\nERR\n", "root": minimal_workspace}
@@ -387,6 +390,9 @@ def test_run_step_subprocess_timeout(
     import subprocess
 
     step = _step("check-meta-sync", tier="python", command="sleep 999")
+    step.argv = ("python", "scripts/meta-sync-check.py")
+    step.cwd = minimal_workspace
+    step.authorization = "test-fixture"
 
     def boom(cmd, **kw):
         raise subprocess.TimeoutExpired(cmd, pl.SCRIPT_TIMEOUT)
@@ -401,6 +407,54 @@ def test_run_step_subprocess_timeout(
         assert sr.est_tokens == 0
         assert sr.executed is True
         assert sr.duration_ms == 2000
+
+
+@allure.title("_run_step fails closed for unknown, unsafe, and unlaunchable argv")
+def test_run_step_structured_failure_edges(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ghost = _step(
+        "ghost",
+        tier="python",
+        command="ghost",
+        argv=("python", "scripts/meta-sync-check.py"),
+        cwd=minimal_workspace,
+        authorization="test-fixture",
+    )
+    monkeypatch.setattr(pl, "PIPELINE_AUTO_RUN", frozenset({"ghost"}))
+    unknown = pl._run_step(ghost, minimal_workspace, execute=True)
+    assert unknown.exit_code == 1
+    assert "not a registered wrapper" in unknown.output
+
+    unsafe = _step(
+        "check-meta-sync",
+        tier="python",
+        command="unsafe",
+        argv=("rm", "workspace"),
+        cwd=minimal_workspace,
+        authorization="test-fixture",
+    )
+    monkeypatch.setattr(pl, "PIPELINE_AUTO_RUN", frozenset({"check-meta-sync"}))
+    refused = pl._run_step(unsafe, minimal_workspace, execute=True)
+    assert refused.exit_code == 1
+    assert "Refusing unsafe command" in refused.output
+
+    valid = _step(
+        "check-meta-sync",
+        tier="python",
+        command="valid",
+        argv=("python", "scripts/meta-sync-check.py"),
+        cwd=minimal_workspace,
+        authorization="test-fixture",
+    )
+    for error, code, message in (
+        (FileNotFoundError("missing"), 127, "Executable not found"),
+        (OSError("exec"), 126, "Cannot execute command"),
+    ):
+        monkeypatch.setattr(pl.subprocess, "run", Mock(side_effect=error))
+        result = pl._run_step(valid, minimal_workspace, execute=True)
+        assert result.exit_code == code
+        assert message in result.output
 
 
 @allure.title("_run_step non-allowlisted step on execute: skipped with exact message/fields")
@@ -831,11 +885,11 @@ def test_parse_segment_fields(minimal_workspace: Path, monkeypatch: pytest.Monke
     monkeypatch.setattr(pl, "find_workspace_root", lambda: minimal_workspace)
     cmd_calls: dict = {}
 
-    def fake_cmd(step_id, root, *, extra_args):
+    def fake_invocation(step_id, root, *, extra_args):
         cmd_calls.update(step_id=step_id, root=root, extra_args=extra_args)
-        return "CMD"
+        return Mock(argv=("PY", "script.py"), cwd=root, authorization="wrapper:script.py")
 
-    monkeypatch.setattr(pl, "resolve_wrapper_command", fake_cmd)
+    monkeypatch.setattr(pl, "resolve_wrapper_invocation", fake_invocation)
 
     with allure.step("python wrapper: split(maxsplit=1) keeps args; profile forced ''"):
         step = pl._parse_segment("check-meta-sync extra args", profile="P")
@@ -843,10 +897,10 @@ def test_parse_segment_fields(minimal_workspace: Path, monkeypatch: pytest.Monke
         assert step.tier == "python"
         assert step.args == "extra args"  # kills rsplit / maxsplit=2
         assert step.label == "check-meta-sync extra args"
-        assert step.command == "CMD"
+        assert step.command == f'cwd="{minimal_workspace}" argv=["PY", "script.py"]'
         assert step.profile == ""  # kills profile→None / "XXXX" / requires_ollama flip
         assert cmd_calls == {
-            "step_id": "check-meta-sync", "root": minimal_workspace, "extra_args": "extra args",
+            "step_id": "check-meta-sync", "root": minimal_workspace, "extra_args": ("extra args",),
         }
 
     with allure.step("ollama wrapper: profile threaded through"):
@@ -967,7 +1021,15 @@ def test_parse_pipeline_gaps(minimal_workspace: Path) -> None:
 @allure.title("parse_pipeline: active-profile threading between recipe and caller profile")
 def test_parse_pipeline_profile_threading(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(pl, "find_workspace_root", lambda: minimal_workspace)
-    monkeypatch.setattr(pl, "resolve_wrapper_command", lambda step_id, root, *, extra_args: "CMD")
+    monkeypatch.setattr(
+        pl,
+        "resolve_wrapper_invocation",
+        lambda step_id, root, *, extra_args: Mock(
+            argv=("PY", "script.py"),
+            cwd=root,
+            authorization="wrapper:script.py",
+        ),
+    )
 
     with allure.step("named recipe without profile → caller profile is used"):
         monkeypatch.setattr(pl, "_load_pipelines_config",

@@ -21,27 +21,12 @@ jobs:
           ref: ${{ github.event.release.tag_name }}
           fetch-depth: 0
 
-      - name: Verify latest Test run for tag commit
+      - name: Verify mandatory Test matrix for tag commit
         env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-        run: |
-          set -euo pipefail
-          RELEASE_SHA=$(git rev-list -n 1 "${RELEASE_TAG}^{commit}")
-          RUNS=$(gh api --method GET \
-            "repos/${GITHUB_REPOSITORY}/actions/workflows/test.yml/runs" \
-            -f event=push \
-            -f head_sha="${RELEASE_SHA}" \
-            -f status=completed \
-            -f per_page=100)
-          LATEST_CONCLUSION=$(jq -r --arg sha "${RELEASE_SHA}" \
-            '[.workflow_runs[] | select(.head_sha == $sha and .event == "push")][0].conclusion // "missing"' \
-            <<<"${RUNS}")
-          if [ "${LATEST_CONCLUSION}" != "success" ]; then
-            echo "Refusing publish: latest completed Test workflow for ${RELEASE_SHA} is ${LATEST_CONCLUSION}."
-            exit 1
-          fi
-          echo "Test workflow gate passed for ${RELEASE_SHA}."
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >-
+          python scripts/ci/verify_release_matrix.py
+          "${{ github.event.release.tag_name }}"
 
   publish:
     needs: verify-tests

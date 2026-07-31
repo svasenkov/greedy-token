@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import shlex
 from dataclasses import dataclass
 from pathlib import Path
+from collections.abc import Iterable
 
 from greedy_token.cheap_llm import (
     CHEAP_LLM_PROBE_TTL,
@@ -12,7 +12,15 @@ from greedy_token.cheap_llm import (
     cheap_llm_status_line,
 )
 from greedy_token.settings import CheapLlmSettings, get_cheap_llm_settings
-from greedy_token.tool_paths import root_cd_prefix, shell_args
+from greedy_token.subprocess_safe import (
+    CommandInvocation,
+    UnsafeCommandError,
+    command_to_argv,
+    format_invocation,
+    is_python_executable,
+    trusted_script_argv,
+)
+from greedy_token.tool_paths import resolve_python
 
 # Backward-compat aliases for tests and external callers
 OLLAMA_PROBE_TTL = CHEAP_LLM_PROBE_TTL
@@ -95,15 +103,10 @@ def wrapper_for_command(command: str | None) -> ScriptWrapper | None:
     if not command:
         return None
     try:
-        parts = shlex.split(command)
-    except ValueError:
+        _cwd, parts = command_to_argv(command)
+    except UnsafeCommandError:
         return None
-    if len(parts) >= 3 and parts[0] == "cd" and parts[2] == "&&":
-        parts = parts[3:]
-    if not parts:
-        return None
-    executable = Path(parts[0]).name
-    if executable in ("python", "python3"):
+    if is_python_executable(parts[0]):
         if len(parts) < 2 or parts[1].startswith("-"):
             return None
         script_path = parts[1]
@@ -116,21 +119,39 @@ def wrapper_for_command(command: str | None) -> ScriptWrapper | None:
     )
 
 
-def resolve_wrapper_command(wrapper_id: str, root: Path, *, extra_args: str = "") -> str:
+def resolve_wrapper_invocation(
+    wrapper_id: str,
+    root: Path,
+    *,
+    extra_args: Iterable[str] = (),
+) -> CommandInvocation:
     wrapper = WRAPPERS.get(wrapper_id)
     if not wrapper:
         raise KeyError(f"Unknown wrapper: {wrapper_id}")
     script = root / wrapper.path
     if not script.is_file():
         raise FileNotFoundError(f"Script not found: {script}")
-    rel = wrapper.path
-    prefix = root_cd_prefix(root)
-    if rel.endswith(".py"):
-        base = f"{prefix} python {rel}"
-    else:
-        base = f"{prefix} ./{rel}"
-    args = shell_args(extra_args)
-    return f"{base} {args}".strip() if args else base
+    argv = (
+        (str(resolve_python()), wrapper.path, *(str(arg) for arg in extra_args))
+        if wrapper.path.endswith(".py")
+        else (wrapper.path, *(str(arg) for arg in extra_args))
+    )
+    return trusted_script_argv(
+        argv,
+        cwd=root,
+        root=root,
+        registered_script_paths=(wrapper.path,),
+    )
+
+
+def resolve_wrapper_command(wrapper_id: str, root: Path, *, extra_args: str = "") -> str:
+    """Return the portable dry-run form of a wrapper invocation."""
+    invocation = resolve_wrapper_invocation(
+        wrapper_id,
+        root,
+        extra_args=(extra_args,) if extra_args.strip() else (),
+    )
+    return format_invocation(invocation.argv, invocation.cwd)
 
 
 def ollama_available(url: str | None = None, timeout: float = 2.0) -> bool:

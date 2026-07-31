@@ -200,49 +200,59 @@ def test_token_estimate_for_route_cursor(
 
 @allure.title("_build_tool_command: exact rg command for default and custom route")
 def test_build_tool_command_rg_exact(minimal_workspace: Path) -> None:
-    from greedy_token.router import _build_tool_command
-    from greedy_token.tool_paths import rg_path_for_shell, root_cd_prefix, sh_quote
+    from greedy_token.router import _build_tool_argv, _build_tool_command
+    from greedy_token.subprocess_safe import format_invocation
+    from greedy_token.tool_paths import resolve_rg
 
-    prefix = root_cd_prefix(minimal_workspace)
-    rg = rg_path_for_shell()
+    rg = resolve_rg()
+    executable = str(rg) if rg is not None else "rg"
 
     with allure.step("Default route → default globs / generic '.' search path / max-count 50"):
-        globs = ["!.git/**", "!node_modules/**", "!build/**", "!.venv/**", "!.cursor/hooks/**"]
-        paths = ["."]
-        glob_flags = " ".join(f"-g {sh_quote(g)}" for g in globs)
-        expected = (
-            f"{prefix} {rg} -n --max-columns 200 -F {sh_quote('baseUrl')} "
-            f"{glob_flags} --max-count 50 {' '.join(paths)}"
+        expected_argv = (
+            executable, "-n", "--max-columns", "200", "-F", "baseUrl",
+            "-g", "!.git/**", "-g", "!node_modules/**", "-g", "!build/**",
+            "-g", "!.venv/**", "-g", "!.cursor/hooks/**", "--max-count", "50", ".",
         )
-        assert _build_tool_command({}, "find baseUrl", minimal_workspace) == expected
+        assert _build_tool_argv({}, "find baseUrl", minimal_workspace) == expected_argv
+        assert _build_tool_command({}, "find baseUrl", minimal_workspace) == format_invocation(
+            expected_argv, minimal_workspace
+        )
 
     with allure.step("Custom route keys override defaults (kills key-name/or-default mutants)"):
         route = {"globs": ["!only/**"], "search_paths": ["myproj"], "max_count": 7}
-        glob_flags = " ".join(f"-g {sh_quote(g)}" for g in ["!only/**"])
         expected2 = (
-            f"{prefix} {rg} -n --max-columns 200 -F {sh_quote('baseUrl')} "
-            f"{glob_flags} --max-count 7 myproj"
+            executable, "-n", "--max-columns", "200", "-F", "baseUrl",
+            "-g", "!only/**", "--max-count", "7", "myproj",
         )
-        assert _build_tool_command(route, "find baseUrl", minimal_workspace) == expected2
+        assert _build_tool_argv(route, "find baseUrl", minimal_workspace) == expected2
+        assert _build_tool_command(route, "find baseUrl", minimal_workspace) == format_invocation(
+            expected2, minimal_workspace
+        )
 
 
 @allure.title("_build_tool_command: exact jq command for default and custom route")
 def test_build_tool_command_jq_exact(minimal_workspace: Path) -> None:
-    from greedy_token.router import _build_tool_command
-    from greedy_token.tool_paths import root_cd_prefix, sh_quote
+    from greedy_token.router import _build_tool_argv, _build_tool_command
+    from greedy_token.subprocess_safe import format_invocation
+    from greedy_token.tool_paths import resolve_jq
 
-    prefix = root_cd_prefix(minimal_workspace)
+    jq = resolve_jq()
+    executable = str(jq) if jq is not None else "jq"
 
     with allure.step("Default jq route → '.' filter, phase-manifest path"):
-        expected = (
-            f"{prefix} jq -r {sh_quote('.')} {sh_quote('docs/phase-manifest.json')}"
+        expected = (executable, "-r", ".", "docs/phase-manifest.json")
+        assert _build_tool_argv({"tool": "jq"}, "task", minimal_workspace) == expected
+        assert _build_tool_command({"tool": "jq"}, "task", minimal_workspace) == format_invocation(
+            expected, minimal_workspace
         )
-        assert _build_tool_command({"tool": "jq"}, "task", minimal_workspace) == expected
 
     with allure.step("Custom jq route → custom filter and json_path"):
         route = {"tool": "jq", "jq_filter": ".items[]", "json_path": "data/x.json"}
-        expected2 = f"{prefix} jq -r {sh_quote('.items[]')} {sh_quote('data/x.json')}"
-        assert _build_tool_command(route, "task", minimal_workspace) == expected2
+        expected2 = (executable, "-r", ".items[]", "data/x.json")
+        assert _build_tool_argv(route, "task", minimal_workspace) == expected2
+        assert _build_tool_command(route, "task", minimal_workspace) == format_invocation(
+            expected2, minimal_workspace
+        )
 
 
 @allure.title("_build_tool_argv rejects malformed or outside-workspace route fields")
@@ -1026,8 +1036,6 @@ def test_explain_route_fallback_reason(
 def test_format_decision_exact(
     minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from greedy_token.tool_paths import root_cd_prefix
-
     monkeypatch.setattr(
         router,
         "explain_route",
@@ -1037,7 +1045,6 @@ def test_format_decision_exact(
             "saved_est": 555,
         },
     )
-    prefix = root_cd_prefix(minimal_workspace)
     dec = RouteDecision(
         target="tool", route_id="rid", confidence=0.5, matched=["a", "b"],
         command="scripts/x.sh --run", note="distinct-note", domains=["config"],
@@ -1056,7 +1063,7 @@ def test_format_decision_exact(
             "Matched: a, b",
             "Shadow match (log-only): sh1",
             "Note: distinct-note",
-            f"Command: {prefix} scripts/x.sh --run",
+            "Command: scripts/x.sh --run",
                 (
                     "Execute: read-only metadata; --execute still requires a trusted "
                     "tool/wrapper/script path"

@@ -316,7 +316,8 @@ def test_route_task_workspace_route_wins_tiebreak(
         attach_text("route_id", decision.route_id)
         assert decision.route_id == "ws-rg-search"
         assert decision.command is not None
-        assert " src" in decision.command
+        assert decision.command_argv is not None
+        assert decision.command_argv[-1] == "src"
 
 
 @allure.story("Init routes helpers")

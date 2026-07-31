@@ -12,7 +12,7 @@ from greedy_token.router import (
     route_task,
     route_task_all_tiers,
 )
-from greedy_token.tool_paths import root_cd_prefix
+from greedy_token.subprocess_safe import format_invocation
 from greedy_token.tokens import count_tokens
 from greedy_token.wrappers import ollama_available, ollama_status_line
 
@@ -74,7 +74,11 @@ def format_estimate(estimate: TaskEstimate, task: str, root: Path) -> str:
     if d.matched:
         lines.append(f"Matched: {', '.join(d.matched)}")
     if d.command:
-        cmd = d.command if d.command.startswith("cd ") else f"{root_cd_prefix(root)} {d.command}"
+        cmd = (
+            format_invocation(d.command_argv, d.command_cwd)
+            if d.command_argv is not None and d.command_cwd is not None
+            else d.command
+        )
         lines.append(f"Command: {cmd}")
     baseline = cursor_baseline(root, task)
     target = d.target

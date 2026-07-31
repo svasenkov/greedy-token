@@ -923,7 +923,9 @@ def test_remaining_public_branches(
 
     # jq tool command builder via route patterns.
     jq = route_task("parse json phase-manifest json", minimal_workspace)
-    assert jq.command and "jq -r" in jq.command
+    assert jq.command_argv is not None
+    assert Path(jq.command_argv[0]).name == "jq"
+    assert jq.command_argv[1] == "-r"
 
     # Pipeline: unknown step, missing .md path, equals-as-positional, no-command, cursor estimate.
     with pytest.raises(ValueError, match="Unknown step"):
@@ -947,6 +949,9 @@ def test_remaining_public_branches(
         "cursor",
         command="echo hello-output",
         args="",
+        argv=("python", "scripts/meta-sync-check.py"),
+        cwd=minimal_workspace,
+        authorization="test-fixture",
     )
     ollama_missing = PipelineStep(
         "audit-skill",
@@ -954,8 +959,14 @@ def test_remaining_public_branches(
         "audit",
         command="echo ollama-out",
         args="docs/rag/config/ghost.md",
+        argv=("scripts/ollama/audit-skill.sh",),
+        cwd=minimal_workspace,
+        authorization="test-fixture",
     )
-    with patch("greedy_token.pipeline.ollama_available", return_value=True):
+    with patch("greedy_token.pipeline.ollama_available", return_value=True), patch(
+        "greedy_token.pipeline.subprocess.run",
+        return_value=MagicMock(returncode=0, stdout="ollama-skill", stderr=""),
+    ):
         with patch(
             "greedy_token.pipeline.PIPELINE_AUTO_RUN",
             frozenset({"check-meta-sync", "audit-skill"}),
@@ -1031,8 +1042,14 @@ def test_remaining_public_branches(
         "audit",
         command="echo ollama-skill",
         args=str(skill_file.relative_to(minimal_workspace)),
+        argv=("scripts/ollama/audit-skill.sh",),
+        cwd=minimal_workspace,
+        authorization="test-fixture",
     )
-    with patch("greedy_token.pipeline.ollama_available", return_value=True):
+    with patch("greedy_token.pipeline.ollama_available", return_value=True), patch(
+        "greedy_token.pipeline.subprocess.run",
+        return_value=MagicMock(returncode=0, stdout="ollama-skill", stderr=""),
+    ):
         with patch(
             "greedy_token.pipeline.PIPELINE_AUTO_RUN",
             frozenset({"audit-skill"}),
@@ -1126,6 +1143,9 @@ def test_remaining_public_coverage_edges(
                 "audit",
                 command="echo ok",
                 args="does-not-exist.md",
+                argv=("scripts/ollama/audit-skill.sh",),
+                cwd=minimal_workspace,
+                authorization="test-fixture",
             )
         ],
     ):
@@ -1144,6 +1164,9 @@ def test_remaining_public_coverage_edges(
                 "cursor-est",
                 command="echo hello",
                 args="",
+                argv=("python", "scripts/meta-sync-check.py"),
+                cwd=minimal_workspace,
+                authorization="test-fixture",
             )
         ],
     ):
@@ -1237,7 +1260,9 @@ def test_remaining_public_coverage_edges(
         },
     ):
         jq = route_task("jq phase lookup", minimal_workspace)
-    assert jq.command and "jq -r" in jq.command
+    assert jq.command_argv is not None
+    assert Path(jq.command_argv[0]).name == "jq"
+    assert jq.command_argv[1] == "-r"
     assert "phase-manifest" in jq.command
 
     # Equal pattern scores: first route wins (score > best is false on tie).

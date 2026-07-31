@@ -1,16 +1,17 @@
-"""Run shell-looking command strings without ``shell=True``.
+"""Validate and run structured subprocess invocations.
 
-Workspace YAML / route overlays can influence command strings. Passing them to
-``subprocess.run(..., shell=True)`` is a supply-chain boundary: unquoted
-metacharacters become real shell syntax. This module peels a leading
-``cd <root> &&`` into ``cwd``, splits the remainder with :func:`shlex.split`,
-rejects leftover shell operators as separate tokens, and runs ``shell=False``.
+Core execution accepts only ``argv`` plus ``cwd``. Legacy command strings are
+parsed here solely for route-file compatibility and dry-run migration; they are
+never passed to a shell.
 """
 
 from __future__ import annotations
 
 import shlex
 import subprocess
+import json
+import ntpath
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,6 +39,36 @@ _SHELL_NAMES = frozenset({"sh", "bash", "dash", "zsh", "ksh", "fish"})
 _PYTHON_NAMES = frozenset({"python", "python3"})
 
 
+def executable_name(value: str | Path) -> str:
+    """Return a case-folded executable name on POSIX and Windows."""
+    name = ntpath.basename(str(value)).lower()
+    for suffix in (".exe", ".cmd", ".bat"):
+        if name.endswith(suffix):
+            return name[: -len(suffix)]
+    return name
+
+
+def is_python_executable(value: str | Path) -> bool:
+    """Accept python, python3, python3.12, and their Windows .exe forms."""
+    name = executable_name(value)
+    return bool(re.fullmatch(r"python(?:\d+(?:\.\d+)*)?", name))
+
+
+def is_absolute_path(value: str | Path) -> bool:
+    """Recognise native, POSIX, and Windows drive/UNC absolute paths."""
+    text = str(value)
+    return Path(text).is_absolute() or ntpath.isabs(text)
+
+
+def format_invocation(argv: Iterable[str], cwd: Path | str) -> str:
+    """Portable, unambiguous dry-run representation."""
+    args = [str(arg) for arg in argv]
+    return (
+        f"cwd={json.dumps(str(cwd), ensure_ascii=False)} "
+        f"argv={json.dumps(args, ensure_ascii=False)}"
+    )
+
+
 def _resolved_allowed_executables(values: Iterable[Path | str]) -> frozenset[Path]:
     resolved: set[Path] = set()
     for value in values:
@@ -49,8 +80,8 @@ def _resolved_allowed_executables(values: Iterable[Path | str]) -> frozenset[Pat
 
 
 def _reject_code_string_launch(argv: list[str]) -> None:
-    executable = Path(argv[0]).name.lower()
-    if executable in _PYTHON_NAMES:
+    executable = executable_name(argv[0])
+    if is_python_executable(argv[0]):
         for arg in argv[1:]:
             if not arg.startswith("-"):
                 break
@@ -105,7 +136,7 @@ def command_to_argv(
     _reject_code_string_launch(parts)
 
     executable = Path(parts[0]).expanduser()
-    if executable.is_absolute():
+    if is_absolute_path(parts[0]):
         try:
             resolved_executable = executable.resolve()
         except OSError as exc:
@@ -132,7 +163,7 @@ def command_to_argv(
 
 def _workspace_script_path(token: str, root: Path) -> tuple[Path, str]:
     candidate = Path(token).expanduser()
-    if candidate.is_absolute():
+    if is_absolute_path(token):
         raise UnsafeCommandError("absolute script paths are not allowed")
     try:
         resolved = (root / candidate).resolve()
@@ -154,7 +185,7 @@ def _validate_script_args(args: Iterable[str], root: Path) -> None:
         if not value or value == "-":
             continue
         candidate = Path(value).expanduser()
-        if candidate.is_absolute() or value.startswith("~"):
+        if is_absolute_path(value) or value.startswith("~"):
             raise UnsafeCommandError(
                 f"absolute argument path is not allowed: {value!r}"
             )
@@ -162,7 +193,7 @@ def _validate_script_args(args: Iterable[str], root: Path) -> None:
             raise UnsafeCommandError(
                 f"argument path escapes workspace root: {value!r}"
             )
-        if "/" in value or value.startswith("."):
+        if "/" in value or "\\" in value or value.startswith("."):
             try:
                 (root / candidate).resolve().relative_to(root.resolve())
             except (OSError, ValueError) as exc:
@@ -171,39 +202,44 @@ def _validate_script_args(args: Iterable[str], root: Path) -> None:
                 ) from exc
 
 
-def trusted_script_invocation(
-    command: str,
+def trusted_script_argv(
+    argv: Iterable[str],
     *,
+    cwd: Path,
     root: Path,
     registered_script_paths: Iterable[str] = (),
     trusted_script_paths: Iterable[str] = (),
 ) -> CommandInvocation:
-    """Validate a route command against wrapper and local script allowlists."""
+    """Validate structured argv against wrapper and local script allowlists."""
     resolved_root = root.resolve()
-    cwd, argv = command_to_argv(
-        command,
-        default_cwd=resolved_root,
-        workspace_root=resolved_root,
-    )
-    assert cwd is not None
-    if cwd != resolved_root:
+    resolved_cwd = cwd.resolve()
+    if resolved_cwd != resolved_root:
         raise UnsafeCommandError("script cwd must equal the workspace root")
+    args = [str(arg) for arg in argv]
+    if not args:
+        raise UnsafeCommandError("empty script argv")
+    _reject_code_string_launch(args)
 
-    executable = Path(argv[0]).name.lower()
-    if executable in _PYTHON_NAMES:
-        if executable != "python" or len(argv) < 2 or argv[1].startswith("-"):
+    executable = executable_name(args[0])
+    if is_python_executable(args[0]):
+        if is_absolute_path(args[0]):
+            from greedy_token.tool_paths import resolve_python
+
+            if Path(args[0]).resolve() != resolve_python():
+                raise UnsafeCommandError("absolute Python executable is not registered")
+        if len(args) < 2 or args[1].startswith("-"):
             raise UnsafeCommandError(
                 "python commands must be 'python <trusted-script.py> [args...]'"
             )
-        _script, rel = _workspace_script_path(argv[1], resolved_root)
-        script_args = argv[2:]
+        _script, rel = _workspace_script_path(args[1], resolved_root)
+        script_args = args[2:]
     else:
         if executable in _SHELL_NAMES:
             raise UnsafeCommandError(
                 "shell interpreters are not route executors; register the script path"
             )
-        _script, rel = _workspace_script_path(argv[0].removeprefix("./"), resolved_root)
-        script_args = argv[1:]
+        _script, rel = _workspace_script_path(args[0].removeprefix("./"), resolved_root)
+        script_args = args[1:]
 
     registered = frozenset(Path(p).as_posix().removeprefix("./") for p in registered_script_paths)
     trusted = frozenset(Path(p).as_posix().removeprefix("./") for p in trusted_script_paths)
@@ -219,8 +255,35 @@ def trusted_script_invocation(
     _validate_script_args(script_args, resolved_root)
     return CommandInvocation(
         cwd=resolved_root,
-        argv=tuple(argv),
+        argv=tuple(args),
         authorization=authorization,
+    )
+
+
+def trusted_script_invocation(
+    command: str,
+    *,
+    root: Path,
+    registered_script_paths: Iterable[str] = (),
+    trusted_script_paths: Iterable[str] = (),
+) -> CommandInvocation:
+    """Parse and validate a legacy route command string.
+
+    New execution code must call :func:`trusted_script_argv` directly.
+    """
+    resolved_root = root.resolve()
+    cwd, argv = command_to_argv(
+        command,
+        default_cwd=resolved_root,
+        workspace_root=resolved_root,
+    )
+    assert cwd is not None
+    return trusted_script_argv(
+        argv,
+        cwd=cwd,
+        root=resolved_root,
+        registered_script_paths=registered_script_paths,
+        trusted_script_paths=trusted_script_paths,
     )
 
 
@@ -240,18 +303,16 @@ def trusted_tool_invocation(
         raise UnsafeCommandError("tool cwd must equal the workspace root")
     expected = "jq" if (tool or "rg").lower() == "jq" else "rg"
     executable = Path(args[0])
-    if executable.name != expected:
+    if executable_name(args[0]) != expected:
         raise UnsafeCommandError(
             f"tool executable mismatch: expected {expected!r}, got {args[0]!r}"
         )
-    if executable.is_absolute():
-        if expected != "rg":
-            raise UnsafeCommandError("absolute tool executable is not registered")
-        from greedy_token.tool_paths import resolve_rg
+    if is_absolute_path(args[0]):
+        from greedy_token.tool_paths import resolve_tool
 
-        registered_rg = resolve_rg()
-        if registered_rg is None or executable.resolve() != registered_rg.resolve():
-            raise UnsafeCommandError("absolute ripgrep executable is not registered")
+        registered = resolve_tool(expected)
+        if registered is None or executable.resolve() != registered.resolve():
+            raise UnsafeCommandError(f"absolute {expected} executable is not registered")
 
     path_values: tuple[str, ...]
     if expected == "jq":
@@ -266,7 +327,7 @@ def trusted_tool_invocation(
         raise UnsafeCommandError(f"{expected} invocation has no workspace path")
     for value in path_values:
         candidate = Path(value)
-        if candidate.is_absolute():
+        if is_absolute_path(value):
             raise UnsafeCommandError("absolute tool path is not allowed")
         try:
             (resolved_root / candidate).resolve().relative_to(resolved_root)
