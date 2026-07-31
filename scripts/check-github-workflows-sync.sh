@@ -27,6 +27,7 @@ check_pair() {
 fail=0
 check_pair test.yml || fail=1
 check_pair publish.yml || fail=1
+check_pair evidence-live.yml || fail=1
 
 while IFS= read -r action; do
   [[ -z "$action" ]] && continue

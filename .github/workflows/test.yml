@@ -288,7 +288,7 @@ jobs:
           fi
           echo "- TestOps project: [5276](https://allure.qa.guru/project/5276)" >> "$GITHUB_STEP_SUMMARY"
           if [ "${QUALITY_GATE_EXIT:-}" = "0" ]; then
-            echo "- Allure 3 quality gate: passed (\`maxFailures: 0\`, \`minTestsCount: 1030\`)" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Allure 3 quality gate: passed (\`maxFailures: 0\`, \`minTestsCount: 1059\`)" >> "$GITHUB_STEP_SUMMARY"
           elif [ -n "${QUALITY_GATE_EXIT:-}" ]; then
             echo "- Allure 3 quality gate: **failed** (exit ${QUALITY_GATE_EXIT})" >> "$GITHUB_STEP_SUMMARY"
           fi
@@ -314,6 +314,41 @@ jobs:
           if [ -n "${QUALITY_GATE_EXIT:-}" ] && [ "${QUALITY_GATE_EXIT}" != "0" ]; then
             exit "${QUALITY_GATE_EXIT}"
           fi
+
+  evidence:
+    name: public E2E evidence benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GREEDY_TOKEN_LOG: "0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: python -m pip install -e ".[dev,mcp]"
+
+      - name: Install ripgrep
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+
+      - name: Run frozen deterministic benchmark
+        run: >-
+          python bench/evidence_benchmark.py
+          --mode deterministic
+          --repetitions 3
+          --output build/evidence/scorecard.json
+
+      - name: Upload JSON scorecard
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: greedy-token-evidence-scorecard
+          path: build/evidence/scorecard.json
+          if-no-files-found: error
 
   deploy-pages:
     name: deploy Allure to GitHub Pages

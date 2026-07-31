@@ -5,12 +5,12 @@
 
 | Key | Action | Used in |
 |-----|--------|---------|
-| `checkout` | `actions/checkout@v7` | test, publish |
-| `setup-python` | `actions/setup-python@v6` | test, publish |
+| `checkout` | `actions/checkout@v7` | test, publish, evidence-live |
+| `setup-python` | `actions/setup-python@v6` | test, publish, evidence-live |
 | `setup-java` | `actions/setup-java@v5` | test (allure-notifications jar) |
 | `setup-node` | `actions/setup-node@v6` | test (`node-version: 24`) |
 | `setup-allurectl` | `allure-framework/setup-allurectl@v1` | test |
-| `upload-artifact` | `actions/upload-artifact@v7` | — |
+| `upload-artifact` | `actions/upload-artifact@v7` | test, evidence-live |
 | `upload-pages-artifact` | `actions/upload-pages-artifact@v5` | test |
 | `deploy-pages` | `actions/deploy-pages@v5` | test |
 | `gh-pages-backup` | `peaceiris/actions-gh-pages@v4` | test (branch backup only) |

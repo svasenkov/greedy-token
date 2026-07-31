@@ -1,0 +1,83 @@
+# Runnable copy of .github/_ethalon/evidence-live.yml — edit ethalon first, then ./scripts/sync-github-workflows.sh.
+name: Evidence benchmark (live manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      repetitions:
+        description: Repetitions per corpus case
+        required: true
+        default: "5"
+        type: string
+      host_command:
+        description: Optional agent-host JSON adapter command available on runner
+        required: false
+        default: ""
+        type: string
+      host_billing:
+        description: Billing mode of the optional host adapter
+        required: true
+        default: unknown
+        type: choice
+        options:
+          - unknown
+          - subscription
+          - metered
+      allow_metered_api:
+        description: Explicitly allow a metered host adapter
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  live-evidence:
+    name: live Ollama + MCP + host
+    runs-on: self-hosted
+    timeout-minutes: 45
+    env:
+      GREEDY_TOKEN_LOG: "0"
+      OLLAMA_URL: ${{ vars.OLLAMA_URL || 'http://127.0.0.1:11434' }}
+      OLLAMA_MODEL: ${{ vars.OLLAMA_MODEL || 'qwen2.5-coder:7b-instruct-q4_K_M' }}
+      BENCH_HOST_COMMAND: ${{ inputs.host_command }}
+      BENCH_HOST_BILLING: ${{ inputs.host_billing }}
+      BENCH_ALLOW_METERED: ${{ inputs.allow_metered_api }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: python -m pip install -e ".[dev,mcp]"
+
+      - name: Require ripgrep
+        run: rg --version
+
+      - name: Run manual live benchmark
+        run: |
+          ARGS=(
+            --mode live
+            --repetitions "${{ inputs.repetitions }}"
+            --output build/evidence/scorecard-live.json
+            --host-billing "${BENCH_HOST_BILLING}"
+          )
+          if [ -n "${BENCH_HOST_COMMAND}" ]; then
+            ARGS+=(--host-command "${BENCH_HOST_COMMAND}")
+          fi
+          if [ "${BENCH_ALLOW_METERED}" = "true" ]; then
+            ARGS+=(--allow-metered-api)
+          fi
+          python bench/evidence_benchmark.py "${ARGS[@]}"
+
+      - name: Upload live JSON scorecard
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: greedy-token-evidence-scorecard-live
+          path: build/evidence/scorecard-live.json
+          if-no-files-found: error

@@ -1,0 +1,233 @@
+# Public end-to-end evidence corpus.  Versioned files are immutable: corrections
+# require evidence_corpus.v2.yaml, never an in-place prompt/oracle rewrite.
+schema_version: 1
+corpus:
+  id: greedy-token-public-e2e-evidence
+  version: 1.0.0
+  status: frozen
+  frozen_at: "2026-07-31"
+  languages: [en, ru]
+  license: CC0-1.0
+  provenance:
+    id: synthetic-public-fixture-v1
+    kind: synthetic
+    authoring_basis: task-specific observable oracles in an isolated workspace
+    statement: >-
+      Prompts were authored for this fixture and were not copied from
+      bench/route_examples.yaml or from route pattern entries. The router is
+      evaluated as shipped; benchmark work must not add or tune route patterns.
+    source_material:
+      - bench fixture contents embedded below
+      - public CLI and MCP contracts
+  exclusions:
+    training_data: false
+    private_telemetry: false
+    route_examples_reused: false
+    route_patterns_reused_as_cases: false
+  comparison_methods:
+    - direct_rg_or_script
+    - greedy_cli
+    - greedy_mcp_stdio
+    - agent_baseline
+thresholds:
+  route_accuracy_min: 0.90
+  false_cheap_rate: 0.0
+  greedy_executor_success_min: 1.0
+  greedy_retrieval_success_min: 1.0
+  greedy_cursor_escalation_min: 1.0
+fixture:
+  version: 1
+  route_config_source: examples/routes/workspace-routes.yaml
+  directories:
+    - stacks
+    - generators
+    - .cursor/rules
+    - scripts/ollama
+  files:
+    docs/phase-manifest.json: |
+      {"phase": "evidence-v1"}
+    projects/app/config.py: |
+      """Frozen evidence fixture."""
+
+      E2E_ALPHA_SENTINEL = "alpha"
+      E2E_BETA_SENTINEL = "beta"
+    scripts/meta-sync-check.py: |
+      #!/usr/bin/env python
+      print("EVIDENCE_META_SYNC_OK")
+    scripts/configurator-boolean-audit.py: |
+      #!/usr/bin/env python
+      print('{"ok": true, "source": "evidence-v1"}')
+    scripts/ollama/audit-skill.sh: |
+      #!/bin/sh
+      echo '{"status":"stubbed","result":"EVIDENCE_SKILL_OK"}'
+    scripts/ollama/classify-file.sh: |
+      #!/bin/sh
+      echo '{"status":"stubbed","class":"evidence"}'
+    .cursor/rules/evidence.mdc: |
+      Evidence fixture rule.
+    docs/rag/manifest.jsonl: |
+      {"id":"evidence-retention-en","domain":"evidence","path":"docs/rag/evidence/retention-en.md","tags":["benchmark","artifact","retention","scorecard"]}
+      {"id":"evidence-retention-ru","domain":"evidence","path":"docs/rag/evidence/retention-ru.md","tags":["benchmark","артефакты","хранение","scorecard"]}
+      {"id":"evidence-fallback-playbook","domain":"evidence","path":"docs/rag/evidence/fallback.md","tags":["evidence","fallback","workflow"]}
+    docs/rag/evidence/retention-en.md: |
+      # Evidence retention
+
+      CI keeps the JSON scorecard as an immutable benchmark artifact.
+      Routing accuracy and task success are reported independently.
+    docs/rag/evidence/retention-ru.md: |
+      # Хранение evidence
+
+      CI сохраняет JSON scorecard как артефакт benchmark.
+      Успех задачи отделён от точности маршрутизации.
+    docs/rag/evidence/fallback.md: |
+      # Fallback workflow
+
+      An evidence fallback workflow escalates a weak code search to lexical
+      retrieval and records every attempt in total latency.
+cases:
+  - id: tool-search-en
+    provenance_id: synthetic-public-fixture-v1
+    lang: en
+    family: search
+    operation: search
+    task: find E2E_ALPHA_SENTINEL inside the frozen project
+    expected_target: tool
+    query: E2E_ALPHA_SENTINEL
+    scope: projects
+    oracle:
+      expected_exit_code: 0
+      expected_files: [projects/app/config.py]
+      expected_lines:
+        - {path: projects/app/config.py, line: 3, contains: E2E_ALPHA_SENTINEL}
+
+  - id: tool-search-ru
+    provenance_id: synthetic-public-fixture-v1
+    lang: ru
+    family: search
+    operation: search
+    task: найди E2E_BETA_SENTINEL среди файлов frozen workspace
+    expected_target: tool
+    query: E2E_BETA_SENTINEL
+    scope: projects
+    oracle:
+      expected_exit_code: 0
+      expected_files: [projects/app/config.py]
+      expected_lines:
+        - {path: projects/app/config.py, line: 4, contains: E2E_BETA_SENTINEL}
+
+  - id: python-script-en
+    provenance_id: synthetic-public-fixture-v1
+    lang: en
+    family: script
+    operation: script
+    task: run check-meta-sync against the evidence snapshot
+    expected_target: python
+    direct_argv: [python, scripts/meta-sync-check.py]
+    mcp_pipeline: check-meta-sync
+    oracle:
+      expected_exit_code: 0
+      output_contains: [EVIDENCE_META_SYNC_OK]
+
+  - id: python-script-ru
+    provenance_id: synthetic-public-fixture-v1
+    lang: ru
+    family: script
+    operation: script
+    task: проверь meta sync для замороженного manifest
+    expected_target: python
+    direct_argv: [python, scripts/meta-sync-check.py]
+    mcp_pipeline: check-meta-sync
+    oracle:
+      expected_exit_code: 0
+      output_contains: [EVIDENCE_META_SYNC_OK]
+
+  - id: rag-retrieval-en
+    provenance_id: synthetic-public-fixture-v1
+    lang: en
+    family: docs
+    operation: rag
+    task: How does benchmark evidence retention work in CI?
+    expected_target: rag
+    query: benchmark evidence retention
+    domain: evidence
+    oracle:
+      expected_exit_code: 0
+      expected_chunk_ids: [evidence-retention-en]
+
+  - id: rag-retrieval-ru
+    provenance_id: synthetic-public-fixture-v1
+    lang: ru
+    family: docs
+    operation: rag
+    task: Как работает хранение benchmark артефактов?
+    expected_target: rag
+    query: хранение benchmark артефактов
+    domain: evidence
+    oracle:
+      expected_exit_code: 0
+      expected_chunk_ids: [evidence-retention-ru]
+
+  - id: tool-to-rag-fallback-en
+    provenance_id: synthetic-public-fixture-v1
+    lang: en
+    family: fallback
+    operation: fallback
+    task: find unavailableIdentifier while reviewing evidence fallback workflow
+    expected_target: tool
+    query: unavailableIdentifier
+    scope: projects
+    mcp_pipeline: search unavailableIdentifier path=projects then rag evidence fallback workflow
+    oracle:
+      expected_exit_code: 0
+      expected_chunk_ids: [evidence-fallback-playbook]
+      expected_escalation: tool->rag
+
+  - id: false-cheap-edit-en
+    provenance_id: synthetic-public-fixture-v1
+    lang: en
+    family: false-cheap-edit
+    adversarial: true
+    operation: escalation
+    task: find E2E_ALPHA_SENTINEL and update the evidence parser
+    expected_target: cursor
+    oracle:
+      expected_escalation: tool->cursor
+
+  - id: false-cheap-edit-ru
+    provenance_id: synthetic-public-fixture-v1
+    lang: ru
+    family: false-cheap-edit
+    adversarial: true
+    operation: escalation
+    task: найди E2E_BETA_SENTINEL и обнови evidence parser
+    expected_target: cursor
+    oracle:
+      expected_escalation: tool->cursor
+
+  - id: cursor-design-en
+    provenance_id: synthetic-public-fixture-v1
+    lang: en
+    family: wiring
+    operation: escalation
+    task: Design an evidence adapter that validates host billing provenance
+    expected_target: cursor
+    oracle:
+      expected_escalation: direct->cursor
+
+  - id: ollama-route-en
+    provenance_id: synthetic-public-fixture-v1
+    lang: en
+    family: cheap-llm
+    operation: route-only
+    task: batch inventory the frozen evidence files by purpose
+    expected_target: ollama
+    oracle: {}
+
+  - id: ollama-route-ru
+    provenance_id: synthetic-public-fixture-v1
+    lang: ru
+    family: cheap-llm
+    operation: route-only
+    task: сделай audit skill для evidence policy
+    expected_target: ollama
+    oracle: {}

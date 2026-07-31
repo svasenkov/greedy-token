@@ -14,6 +14,9 @@ runnable_header() {
     publish.yml)
       echo '# Runnable copy of .github/_ethalon/publish.yml — edit ethalon first, then ./scripts/sync-github-workflows.sh.'
       ;;
+    evidence-live.yml)
+      echo '# Runnable copy of .github/_ethalon/evidence-live.yml — edit ethalon first, then ./scripts/sync-github-workflows.sh.'
+      ;;
     *)
       echo "unknown workflow: $1" >&2
       return 1
@@ -21,7 +24,7 @@ runnable_header() {
   esac
 }
 
-for name in test.yml publish.yml; do
+for name in test.yml publish.yml evidence-live.yml; do
   src="$ETHALON/$name"
   dst="$WORKFLOWS/$name"
   if [[ ! -f "$src" ]]; then
