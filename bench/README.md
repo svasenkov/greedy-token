@@ -4,6 +4,19 @@ This benchmark separates **route classification** from **task usefulness**.
 It does not treat a held route, a missing override, or an estimated saving as
 proof that a task succeeded.
 
+## Lexical BM25/FTS retrieval
+
+The separate `retrieval_corpus.jsonl` labels expected chunk IDs across RU/EN,
+domains, and morphology/paraphrase cases. Run:
+
+```bash
+python bench/retrieval_benchmark.py --root /path/to/workspace
+```
+
+Its JSON output includes Recall@1/3/5, MRR, locale/domain/case-type breakdowns,
+and cold SQLite-index versus warm-query latency. This measures local lexical
+BM25/FTS retrieval only; it does not imply semantic or vector recall.
+
 ## Frozen corpus
 
 - `evidence_corpus.v1.yaml` is the immutable public RU/EN corpus.

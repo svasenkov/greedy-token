@@ -11,5 +11,8 @@ __pycache__/
 .ruff_cache/
 mutants/
 .mutmut-cache
+.greedy-token-cache/
+*.sqlite3-shm
+*.sqlite3-wal
 history.jsonl
 pages/

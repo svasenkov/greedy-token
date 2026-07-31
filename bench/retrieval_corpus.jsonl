@@ -1,0 +1,18 @@
+{"query":"какой -D flag задаёт baseUrl","expected":["cfg-base-url"],"locale":"ru","domain":"config","case_type":"paraphrase"}
+{"query":"resolveBaseUrl trailing slash REST web","expected":["cfg-base-url"],"locale":"en","domain":"config","case_type":"identifier"}
+{"query":"приоритет переопределений properties и профилей окружения","expected":["cfg-env-profile"],"locale":"ru","domain":"config","case_type":"morphology"}
+{"query":"TestConfig property keys","expected":["e2e-config-keys"],"locale":"en","domain":"config","case_type":"identifier"}
+{"query":"локаторы и селекторы page object","expected":["po-locators"],"locale":"ru","domain":"testing","case_type":"morphology"}
+{"query":"fluent page object API","expected":["po-fluent"],"locale":"en","domain":"testing","case_type":"exact"}
+{"query":"шаги allure в page object","expected":["po-step"],"locale":"ru","domain":"testing","case_type":"paraphrase"}
+{"query":"test pyramid layer order api component e2e","expected":["test-pyramid","test-layers"],"locale":"en","domain":"testing","case_type":"exact"}
+{"query":"негативные тесты и ошибочные сценарии","expected":["test-negative"],"locale":"ru","domain":"testing","case_type":"morphology"}
+{"query":"attach screenshot to allure report","expected":["allure-attach"],"locale":"en","domain":"testing","case_type":"paraphrase"}
+{"query":"эталон визуального сравнения пикселей","expected":["visual-baseline"],"locale":"ru","domain":"testing","case_type":"paraphrase"}
+{"query":"quality gate known.json CI enforcement","expected":["alr-quality-gate"],"locale":"en","domain":"analytics","case_type":"exact"}
+{"query":"когда использовать allure agent inspect вместо сырого json","expected":["alr-agent-mode"],"locale":"ru","domain":"analytics","case_type":"paraphrase"}
+{"query":"highcharts chart type per metric","expected":["alr-chart-matrix"],"locale":"en","domain":"analytics","case_type":"exact"}
+{"query":"сетка дашборда со спарклайнами и live feed","expected":["alr-grid-live"],"locale":"ru","domain":"analytics","case_type":"morphology"}
+{"query":"header burger menu on mobile","expected":["hdr-burger-menu"],"locale":"en","domain":"testing-header","case_type":"exact"}
+{"query":"брейкпоинты и ширина viewport шапки","expected":["hdr-viewport","hdr-layout-bp"],"locale":"ru","domain":"testing-header","case_type":"morphology"}
+{"query":"OpenAPI contract diff check","expected":["script-openapi-diff"],"locale":"en","domain":"stacks","case_type":"identifier"}

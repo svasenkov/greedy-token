@@ -135,3 +135,60 @@ def test_rag_index_missing_manifest() -> None:
     chunks = get_indexed_chunks(isolated)
     assert chunks == []
 
+
+def test_manifest_loader_enforces_size_row_and_object_limits(
+    minimal_workspace: Path,
+) -> None:
+    from greedy_token.rag_index import _load_manifest_rows
+
+    manifest = minimal_workspace / "docs" / "rag" / "manifest.jsonl"
+    with patch("greedy_token.rag_index.MAX_MANIFEST_BYTES", 1):
+        assert _load_manifest_rows(manifest) == []
+    manifest.write_text(
+        "[]\n"
+        '{"id":"one","path":"docs/rag/config/test-chunk.md"}\n'
+        '{"id":"two","path":"docs/rag/config/test-chunk.md"}\n',
+        encoding="utf-8",
+    )
+    with patch("greedy_token.rag_index.MAX_MANIFEST_ROWS", 1):
+        rows = _load_manifest_rows(manifest)
+    assert [row["id"] for row in rows] == ["one"]
+
+
+def test_chunk_reader_skips_io_errors_and_invalid_utf8(
+    minimal_workspace: Path,
+) -> None:
+    from greedy_token.rag_index import _read_text_chunk
+
+    chunk = minimal_workspace / "docs" / "rag" / "config" / "test-chunk.md"
+    with patch.object(Path, "read_bytes", side_effect=OSError("denied")):
+        assert _read_text_chunk(chunk) is None
+    chunk.write_bytes(b"\xff\xfe")
+    assert _read_text_chunk(chunk) is None
+
+
+def test_manifest_resolution_error_is_confined(
+    minimal_workspace: Path,
+) -> None:
+    from greedy_token.rag_index import load_manifest_documents
+
+    manifest = minimal_workspace / "docs" / "rag" / "manifest.jsonl"
+    original_resolve = Path.resolve
+
+    def resolve(path: Path, *args, **kwargs):
+        if path == manifest:
+            raise OSError("cannot resolve")
+        return original_resolve(path, *args, **kwargs)
+
+    with patch.object(Path, "resolve", resolve):
+        assert load_manifest_documents(minimal_workspace) == []
+
+
+def test_frontmatter_strip_and_invalid_relative_path(
+    minimal_workspace: Path,
+) -> None:
+    from greedy_token.rag_index import _confined_chunk_path, _strip_frontmatter
+
+    assert _strip_frontmatter("---\nid: x\n---\nBody") == "Body"
+    assert _confined_chunk_path(minimal_workspace, None) is None
+

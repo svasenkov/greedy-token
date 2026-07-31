@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from greedy_token.paths import find_workspace_root
-from greedy_token.rag_index import IndexedChunk, _tokenize, get_indexed_chunks
+from greedy_token.rag_fts import MAX_QUERY_CHARS, Fts5Unavailable, search_bm25
+from greedy_token.rag_index import IndexedChunk, _normalize, _tokenize, get_indexed_chunks
 
 
 @dataclass
@@ -15,6 +16,7 @@ class RagHit:
     score: float
     excerpt: str
     body: str | None = None
+    engine: str = "overlap"
 
 
 def _score_indexed(query_tokens: set[str], chunk: IndexedChunk) -> float:
@@ -36,10 +38,32 @@ def search_rag(
     domains: list[str] | None = None,
     limit: int = 5,
 ) -> list[RagHit]:
+    """Search manifest-backed chunks with FTS5 BM25 or the overlap fallback."""
     root = root or find_workspace_root()
-    query_tokens = _tokenize(query)
-    if not query_tokens:
+    bounded_query = query[:MAX_QUERY_CHARS]
+    query_tokens = _tokenize(bounded_query)
+    if not query_tokens or limit <= 0:
         return []
+
+    try:
+        matches = search_bm25(
+            bounded_query, root, domains=domains, limit=limit
+        )
+    except Fts5Unavailable:
+        matches = None
+    if matches is not None:
+        return [
+            RagHit(
+                chunk_id=str(match.document.meta.get("id", match.document.rel_path)),
+                path=match.document.rel_path,
+                domain=match.document.domain,
+                score=match.score,
+                excerpt=_excerpt(match.document.body, query_tokens),
+                body=match.document.body,
+                engine="fts5-bm25",
+            )
+            for match in matches
+        ]
 
     scored: list[tuple[float, IndexedChunk]] = []
     for chunk in get_indexed_chunks(root):
@@ -54,8 +78,7 @@ def search_rag(
     for score, chunk in scored[:limit]:
         rel = chunk.rel_path
         meta = chunk.meta
-        chunk_path = root / rel
-        body = chunk_path.read_text(encoding="utf-8", errors="replace")
+        body = chunk.body
         hits.append(
             RagHit(
                 chunk_id=meta.get("id", rel),
@@ -64,6 +87,7 @@ def search_rag(
                 score=score,
                 excerpt=_excerpt(body, query_tokens),
                 body=body,
+                engine="overlap",
             )
         )
     return hits
@@ -72,7 +96,7 @@ def search_rag(
 def _excerpt(body: str, query_tokens: set[str], max_len: int = 320) -> str:
     lines = body.splitlines()
     for i, line in enumerate(lines):
-        lower = line.lower()
+        lower = _normalize(line)
         if any(t in lower for t in query_tokens):
             chunk = "\n".join(lines[i : i + 6]).strip()
             if len(chunk) > max_len:
@@ -89,9 +113,14 @@ def format_hits(query: str, hits: list[RagHit]) -> str:
         return f"No RAG hits for: {query}\nIndex: docs/rag/manifest.jsonl"
     lines = [f"RAG hits for: {query}", ""]
     for i, h in enumerate(hits, 1):
+        score_label = (
+            f"score={h.score:.6f} engine={h.engine} bm25={h.score:.6f}"
+            if h.engine == "fts5-bm25"
+            else f"score={h.score:.1f} engine={h.engine}"
+        )
         lines.extend(
             [
-                f"{i}. [{h.chunk_id}] score={h.score:.1f}  ({h.domain})",
+                f"{i}. [{h.chunk_id}] {score_label}  ({h.domain})",
                 f"   {h.path}",
                 "",
                 h.excerpt,

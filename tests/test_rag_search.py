@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import patch
 
 import allure
 import pytest
 
-from greedy_token.rag_search import format_hits, search_rag
+from greedy_token.rag_index import IndexedChunk
+from greedy_token.rag_search import _excerpt, _score_indexed, format_hits, search_rag
 from tests.allure_reporting import attach_json, attach_text
 
 pytestmark = [
@@ -69,3 +71,38 @@ def test_format_hits_includes_excerpt(minimal_workspace: Path) -> None:
     with allure.step("Verify chunk id and excerpt in output"):
         assert "RAG hits for: baseUrl" in out
         assert "test-baseurl" in out
+
+
+def test_overlap_score_returns_zero_without_common_tokens() -> None:
+    chunk = IndexedChunk(
+        meta={"id": "chunk"},
+        rel_path="docs/rag/chunk.md",
+        domain="config",
+        body="body",
+        body_tokens=frozenset({"body"}),
+        meta_tokens=frozenset({"meta"}),
+    )
+
+    assert _score_indexed({"absent"}, chunk) == 0.0
+    assert _score_indexed({"body"}, chunk) == 1.0
+
+
+def test_overlap_fallback_skips_domains_and_zero_scores(
+    minimal_workspace: Path,
+) -> None:
+    from greedy_token.rag_fts import Fts5Unavailable
+
+    with patch(
+        "greedy_token.rag_search.search_bm25",
+        side_effect=Fts5Unavailable("missing"),
+    ):
+        assert search_rag(
+            "baseUrl", minimal_workspace, domains=["testing"]
+        ) == []
+        assert search_rag("absent-token", minimal_workspace) == []
+
+
+def test_excerpt_covers_matching_and_head_truncation() -> None:
+    assert _excerpt("needle " + "x" * 20, {"needle"}, max_len=10).endswith("…")
+    assert _excerpt("short head", {"absent"}, max_len=20) == "short head"
+    assert _excerpt("x" * 20, {"absent"}, max_len=10).endswith("…")

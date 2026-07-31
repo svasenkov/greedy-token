@@ -21,7 +21,7 @@ wiring / дизайн          →  дорогой agent chat
 | **Прототип** вокруг дешёвых тиров (rg / скрипты / локальная LLM) + **crystallize** (повтор → детерминированный скрипт, в следующий раз 0 LLM) | Универсальный «экономитель Cursor», который убирает host LLM |
 | Пути, которые могут не вызывать frontier-модель на **CLI / CI / hooks / crystallize**; измеренная экономия требует успешного same-task baseline и authoritative billing | Гарантированная экономия **MCP-чата**: к моменту вызова MCP Cursor уже вызвал frontier-модель |
 | `route_task` / `greedy_token_route` → **один** тир по substring-эвристикам | Auto-chain `rg → python → ollama → docs`; для цепочки нужен явный `pipeline` |
-| Имя tool `rag` сохранено для совместимости — внутри **lexical docs search** (overlap), не embeddings/vector RAG | Prod-grade semantic retrieval или универсальная точность роутинга вне frozen-корпуса |
+| Имя tool `rag` сохранено для совместимости — внутри **lexical BM25/FTS** на SQLite FTS5, не embeddings/vector RAG | Prod-grade semantic retrieval или универсальная точность роутинга вне frozen-корпуса |
 
 Headline **★ $82 / ★ $820** ниже = иллюстрация **CLI/pipeline mix vs наивный агент**, не измеренная экономия MCP-чата.
 
@@ -108,7 +108,7 @@ Headline **★ $82 / ★ $820** ниже = иллюстрация **CLI/pipeline
 |------|-------|--------|---------------|-------------------|--------------|------------|----------------|----------------|---------------|----------------|-------------------|--------|
 | **tool** (rg) | найти текст в репо | правки / дизайн | $0 | $30 | $30 | $0 | $300 | $300 | ~1s | ~20s | ~19s | `find baseUrl in configurator-option-presets.html` |
 | **python** | уже есть детерминированный скрипт | «почини всё» / архитектура | $0 | $25 | $25 | $0 | $250 | $250 | ~1s | ~20s | ~19s | `meta-audit configurator-boolean` |
-| **rag** (lexical docs) | ответ в `docs/rag/` через overlap-поиск | недокументированный код / semantic recall | $0 | $15 | $15 | $0 | $150 | $150 | ~0.5s | ~15s | ~15s | какой `-D` flag для baseUrl |
+| **rag** (lexical BM25/FTS) | ответ в `docs/rag/` через локальный SQLite FTS5 | недокументированный код / semantic recall | $0 | $15 | $15 | $0 | $150 | $150 | ~0.5s | ~15s | ~15s | какой `-D` flag для baseUrl |
 | **ollama** | bulk classify / лёгкий audit | точный wiring | $8 | $20 | $12 | $25 | $200 | $175 | ~5s | ~25s | ~20s | классифицировать пачку skills |
 | **cursor** | wiring, рефакторинг, суждение | grep / bulk-copy | $40 | $40 | $0 | $400 | $400 | $0 | ~same | ~same | ~0 | поменять поведение header в одной зоне |
 | **классич. LLM** | база: всё в большую модель | — | $130 | $130 | — | $1,300 | $1,300 | — | ~same | ~same | — | кинуть в чат целую папку |
@@ -148,7 +148,7 @@ find baseUrl in configurator-option-presets.html
 | Tool | Зачем |
 |------|--------|
 | `greedy_token_search` | Ripgrep: `query` + опциональный `path` |
-| `greedy_token_rag` | Lexical-поиск по чанкам `docs/rag/` (не vector RAG) |
+| `greedy_token_rag` | Локальный lexical BM25/FTS по manifest-listed чанкам `docs/rag/` (не vector RAG) |
 | `greedy_token_route` | Рекомендация **одного** tier + token footer (без auto-chain) |
 | `greedy_token_pipeline` | Явная multi-step цепочка (search/tool → python → ollama → rag) |
 | `greedy_token_usage` | Агрегация savings из `~/.greedy-token/usage.jsonl` |
@@ -212,6 +212,22 @@ trusted_script_paths:
 отдельный от `bench/route_examples.yaml`. Он считает exact-match accuracy,
 confusion matrix, precision/recall по target, accuracy по family/language и
 обязательный false-cheap rate 0.
+
+### Benchmark lexical retrieval
+
+`bench/retrieval_corpus.jsonl` содержит ожидаемые chunk ID для RU/EN, каждого
+домена и кейсов exact, identifier, morphology и paraphrase.
+`python bench/retrieval_benchmark.py --root /path/to/workspace` считает
+Recall@1/3/5, MRR, разбивки по языку/домену/типу кейса и latency холодного
+индекса против тёплых запросов.
+
+Retrieval остаётся локальным **lexical BM25/FTS**: SQLite FTS5 с tokenizer
+`unicode61`, Unicode NFKC + casefold, без embeddings и сетевых вызовов. В индекс
+попадают только строки `docs/rag/manifest.jsonl`. Persistent index
+инвалидируется по content hash и хранится вне workspace в пользовательском
+cache (`$GREEDY_TOKEN_CACHE_DIR`, `$XDG_CACHE_HOME` или `~/.cache`). Если в
+SQLite нет FTS5, используется совместимый overlap scorer; explain output явно
+показывает engine и BM25 score.
 
 `bench/evidence_corpus.v1.yaml` с SHA-256 lock добавляет отдельный публичный
 **end-to-end evidence** слой: frozen synthetic RU/EN fixtures, task-specific

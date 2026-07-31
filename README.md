@@ -21,7 +21,7 @@ No fine-tuning. No shipping your data for training. It “learns” by adding re
 | A **prototype** around cheap tiers (rg / scripts / local LLM) + **crystallize** (repeat → deterministic script, 0 LLM next time) | A universal “Cursor token saver” that removes the host LLM |
 | Paths that can avoid frontier calls on **CLI / CI / hooks / crystallize**; measured savings require a successful same-task run and authoritative billing | Guaranteed **MCP-chat** dollar savings: by the time an MCP tool runs, Cursor has already called a frontier model |
 | `route_task` / `greedy_token_route` → **one** tier by substring heuristics | Auto-chain `rg → python → ollama → docs`; that needs an explicit `pipeline` |
-| `rag` tool name kept for compat — implementation is **lexical docs search** (overlap), not embeddings/vector RAG | Production-grade semantic retrieval or universal routing precision outside the frozen corpus |
+| `rag` tool name kept for compat — implementation is **lexical BM25/FTS** over SQLite FTS5, not embeddings/vector RAG | Production-grade semantic retrieval or universal routing precision outside the frozen corpus |
 
 Headline **★ $82 / ★ $820** below = illustrative **CLI/pipeline mix vs naive agent**, not measured MCP-chat savings.
 
@@ -108,7 +108,7 @@ First matching tier wins. Per-call times are estimates (`time_saved_ms` in foote
 |------|----------|---------------|--------------|-------------------|----------|------------|-----------------|------------|--------------|---------------|--------------|---------|
 | **tool** (rg) | find text in the repo | edits / design | $0 | $30 | $30 | $0 | $300 | $300 | ~1s | ~20s | ~19s | `find baseUrl in configurator-option-presets.html` |
 | **python** | a deterministic script already exists | open-ended “fix it” | $0 | $25 | $25 | $0 | $250 | $250 | ~1s | ~20s | ~19s | `meta-audit configurator-boolean` |
-| **rag** (lexical docs) | answer in `docs/rag/` via overlap search | undocumented code / semantic recall | $0 | $15 | $15 | $0 | $150 | $150 | ~0.5s | ~15s | ~15s | which `-D` flag for baseUrl |
+| **rag** (lexical BM25/FTS) | answer in `docs/rag/` via local SQLite FTS5 | undocumented code / semantic recall | $0 | $15 | $15 | $0 | $150 | $150 | ~0.5s | ~15s | ~15s | which `-D` flag for baseUrl |
 | **ollama** | bulk classify / light audit | precise wiring | $8 | $20 | $12 | $25 | $200 | $175 | ~5s | ~25s | ~20s | classify a list of skills |
 | **cursor** | wiring, refactor, judgment | grep / bulk-copy | $40 | $40 | $0 | $400 | $400 | $0 | ~same | ~same | ~0 | change header behavior in one zone |
 | **classical LLM** | baseline: big model for everything | — | $130 | $130 | — | $1,300 | $1,300 | — | ~same | ~same | — | paste a whole folder into chat |
@@ -148,7 +148,7 @@ Expected after setup: **6 MCP tools** (including `greedy_token_pipeline` and `gr
 | Tool | Purpose |
 |------|---------|
 | `greedy_token_search` | Ripgrep: `query` + optional `path` |
-| `greedy_token_rag` | Lexical search over `docs/rag/` chunks (not vector RAG) |
+| `greedy_token_rag` | Local lexical BM25/FTS over manifest-listed `docs/rag/` chunks (not vector RAG) |
 | `greedy_token_route` | Recommend **one** tier + token footer (no auto-chain) |
 | `greedy_token_pipeline` | Explicit multi-step chain (search/tool → python → ollama → rag) |
 | `greedy_token_usage` | Aggregate savings from `~/.greedy-token/usage.jsonl` |
@@ -211,6 +211,22 @@ dry-run only. Subprocesses receive a validated argv list with `shell=False`.
 separate from `bench/route_examples.yaml`. It reports exact-match accuracy,
 confusion matrix, per-target precision/recall, family/language accuracy, and a
 mandatory zero false-cheap rate.
+
+### Lexical retrieval benchmark
+
+`bench/retrieval_corpus.jsonl` labels expected chunk IDs for RU/EN, each domain,
+and exact, identifier, morphology, and paraphrase cases.
+`python bench/retrieval_benchmark.py --root /path/to/workspace` reports
+Recall@1/3/5, MRR, locale/domain/case-type breakdowns, and cold-index versus
+warm-query latency.
+
+Retrieval is local **lexical BM25/FTS**: SQLite FTS5 with the `unicode61`
+tokenizer, Unicode NFKC + casefold normalization, and no embeddings or network
+calls. Only `docs/rag/manifest.jsonl` entries are eligible. The persistent index
+is content-hash invalidated and stored under the user cache directory
+(`$GREEDY_TOKEN_CACHE_DIR`, `$XDG_CACHE_HOME`, or `~/.cache`), outside the
+workspace. SQLite builds without FTS5 use the compatibility overlap scorer;
+formatted hits name the engine and BM25 score.
 
 `bench/evidence_corpus.v1.yaml` and its SHA-256 lock add the separate public
 **end-to-end evidence** layer: frozen synthetic RU/EN fixtures, task-specific
