@@ -64,16 +64,18 @@ def _sha256(path: Path) -> str:
 
 
 def _package_version() -> str:
+    pyproject = REPO_ROOT / "pyproject.toml"
+    match = re.search(
+        r'^version\s*=\s*"([^"]+)"',
+        pyproject.read_text(encoding="utf-8"),
+        flags=re.MULTILINE,
+    )
+    if match:
+        return match.group(1)
     try:
         return importlib.metadata.version("greedy-token")
     except importlib.metadata.PackageNotFoundError:
-        pyproject = REPO_ROOT / "pyproject.toml"
-        match = re.search(
-            r'^version\s*=\s*"([^"]+)"',
-            pyproject.read_text(encoding="utf-8"),
-            flags=re.MULTILINE,
-        )
-        return match.group(1) if match else "unknown"
+        return "unknown"
 
 
 def _read_lock(path: Path) -> str:
