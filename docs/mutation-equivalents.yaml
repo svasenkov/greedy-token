@@ -65,17 +65,6 @@ equivalents:
     pragma: true
 
   - module: pipeline.py
-    symbol: format_executor_savings_summary
-    reason: >-
-      this loop only visits keys that exist in TIER_LABELS, so the `tier` default
-      is unreachable (get default → None/removed is a no-op).
-    proof: >-
-      The loop iterates a fixed tier tuple whose members are all TIER_LABELS
-      keys, so the .get default is dead code — mutating or removing it is never
-      observable.
-    pragma: true
-
-  - module: pipeline.py
     symbol: _load_pipelines_config
     reason: >-
       path segments are case-insensitive on the local (macOS/APFS) filesystem, so
@@ -124,15 +113,6 @@ equivalents:
     proof: >-
       The skill file is valid UTF-8 on a UTF-8 locale, so encoding/errors
       mutations decode the same text and count_tokens returns the same number.
-    pragma: true
-
-  - module: pipeline.py
-    symbol: format_pipeline_footer
-    reason: >-
-      loop only visits keys present in TIER_LABELS → default unreachable.
-    proof: >-
-      The footer loop iterates the fixed tier tuple, every member of which is a
-      TIER_LABELS key, so the .get default branch is dead code.
     pragma: true
 
   - module: pipeline.py

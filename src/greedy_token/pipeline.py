@@ -920,10 +920,10 @@ def format_pipeline_footer(result: PipelineResult, root: Path) -> str:
         )
 
     by_executor: dict[str, tuple[int, int]] = {}
-    for row in step_rows:
-        executor = (row.executor_sub or "rg") if row.tier == "tool" else row.tier
+    for sr in result.steps:
+        executor = _executor_sub_for_step(sr)
         count, tokens = by_executor.get(executor, (0, 0))
-        by_executor[executor] = (count + 1, tokens + row.spent)
+        by_executor[executor] = (count + 1, tokens + sr.est_tokens)
 
     lines.extend(["", "Spent by executor:"])
     canonical = ("rg", "python", "ollama", "rag", "cursor")
