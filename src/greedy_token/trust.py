@@ -12,6 +12,7 @@ import hashlib
 import json
 import ntpath
 import os
+import posixpath
 import re
 import stat
 import tempfile
@@ -220,7 +221,12 @@ def normalize_manifest_path(value: str | Path) -> str:
     text = str(value)
     if not text or "\x00" in text:
         raise TrustManifestError("script path must be non-empty and contain no NUL")
-    if Path(text).is_absolute() or ntpath.isabs(text) or ntpath.splitdrive(text)[0]:
+    if (
+        Path(text).is_absolute()
+        or posixpath.isabs(text)
+        or ntpath.isabs(text)
+        or ntpath.splitdrive(text)[0]
+    ):
         raise TrustManifestError("absolute script paths are not allowed in trust manifests")
     if "\\" in text:
         raise TrustManifestError("trust manifest paths must use '/' separators")

@@ -103,6 +103,7 @@ def _run_cli(
         "GREEDY_TOKEN_ROOT": str(workspace),
         "GREEDY_TOKEN_HOME": str(trust_home),
         "GREEDY_TOKEN_LOG": str(log or trust_home / "usage.jsonl"),
+        "PYTHONUTF8": "1",
     }
     return subprocess.run(
         [sys.executable, "-m", "greedy_token", "--no-log", *args],
