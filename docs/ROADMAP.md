@@ -2,7 +2,7 @@
 
 **Русская версия:** [ROADMAP-RU.md](ROADMAP-RU.md)
 
-As of **v0.11.x**, greedy-token is an MCP/CLI **prototype**: heuristic single-tier routing + crystallize loop, not a proven universal Cursor economizer. It runs in any MCP-capable agent host (`agent_host: cursor | claude | continue`, Cursor by default) with Ollama or any OpenAI-compatible runtime as the cheap tier. Metered bulk APIs are opt-in ([ADR-0002](adr/0002-metered-bulk-cheap-tier.md)). Near-term priorities below supersede “feature sprawl” until Trust cut items land.
+greedy-token is an MCP/CLI **prototype**: heuristic single-tier routing + crystallize loop, not a proven universal Cursor economizer. It runs in any MCP-capable agent host (`agent_host: cursor | claude | continue`, Cursor by default) with Ollama or any OpenAI-compatible runtime as the cheap tier. Metered bulk APIs are opt-in ([ADR-0002](adr/0002-metered-bulk-cheap-tier.md)). The v0.16.0 trust cut is shipped; a true host pre-router remains aspirational and requires host support.
 
 Legend: ✅ supported · ❌ not yet · 🔜 planned
 
@@ -18,8 +18,8 @@ Track progress: [GitHub issues labeled `roadmap`](https://github.com/svasenkov/g
 | **v0.14** ✅ | **Corpus v2** — expand `bench/routing_corpus.yaml` (zones: tool/python/rag/ollama/cursor; RU+EN; false-cheap + wiring + script + cheap-llm); scorecard precision + per-target recall; `min_precision` 0.90 | ✅ shipped as **v0.14.0** (`CUT-v0.14.0.md`); 45 cases, 100% precision |
 | **v0.14.1** ✅ | Repeat-review patch: positive read-only tool intent, structured command trust boundary, Corpus v3 classifier metrics, exact-commit PyPI gate, restored coverage gate | ✅ shipped as **v0.14.1** (`CUT-v0.14.1.md`); 1030 tests, corpus v3, 100% coverage |
 | **v0.15.0** ✅ | Public end-to-end evidence: frozen RU/EN corpus, observable task oracles, direct/CLI/MCP/agent comparison, outcome confidence, deterministic JSON scorecard + manual live workflow | ✅ shipped as **v0.15.0** (`CUT-v0.15.0.md`) |
-| **v0.16.0** | Unicode-aware lexical BM25/FTS retrieval plus portable argv/cwd execution and mandatory OS, dependency, integration, and distribution matrices | Release cut in `CUT-v0.16.0.md`; publication requires the exact-commit `required matrix gate` |
-| **v0.17+** (aspirational) | Content-bound workspace script trust; **host pre-router** *if* Cursor (or host) exposes an API — otherwise stays out of scope | No fake “pre-LLM” claims without host support |
+| **v0.16.0** ✅ | Unicode-aware lexical BM25/FTS retrieval, portable argv/cwd execution, mandatory OS/dependency/integration/distribution matrices, and SHA-256 + file-identity trust manifests for workspace scripts | ✅ shipped in **v0.16.0** (`CUT-v0.16.0.md`); trust is rechecked before launch with documented TOCTOU limits |
+| **v0.17+** (aspirational) | **Host pre-router** *if* Cursor (or another host) exposes an API — otherwise stays out of scope | No fake “pre-LLM” claims without host support |
 
 ## Themes
 

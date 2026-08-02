@@ -206,13 +206,15 @@ greedy-token trust add scripts/my-read-only-check.py --note "reviewed: толь�
 greedy-token trust verify
 ```
 
-SHA-256 и file identity проверяются непосредственно перед каждым approved
-execution. Изменение, symlink/path replacement, удаление с пересозданием,
+SHA-256 и file identity перепроверяются непосредственно перед каждым approved
+launch. Изменение, symlink/path replacement, удаление с пересозданием,
 absolute/outside-workspace path, `python -c`, shell `-c` и trust-поля из
-URL/file presets fail closed. Старый ключ `trusted_script_paths` deprecated:
-это только dry-run metadata без execution privilege. Subprocess получает
-проверенный argv при `shell=False`. Детали и ограничения:
-[trust manifest и TOCTOU contract](docs/trust-manifest.md).
+URL/file presets fail closed. На POSIX запуск привязан к проверенному
+дескриптору через `/dev/fd`; на Windows остаётся узкое verify-to-open окно, а
+конкурентная запись в тот же inode не снапшотится. Старый ключ
+`trusted_script_paths` deprecated: это только dry-run metadata без execution
+privilege. Subprocess получает проверенный argv при `shell=False`. Детали и
+ограничения: [trust manifest и TOCTOU contract](docs/trust-manifest.md).
 
 ### Routing benchmark
 

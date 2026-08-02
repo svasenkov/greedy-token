@@ -2,7 +2,7 @@
 
 **English:** [ROADMAP.md](ROADMAP.md)
 
-Начиная с **v0.11.x** greedy-token — MCP/CLI **прототип**: эвристический single-tier роутинг + цикл crystallize, а не доказанный универсальный экономитель Cursor. Работает в любом agent-хосте с MCP (`agent_host: cursor | claude | continue`, по умолчанию Cursor); cheap tier — Ollama или OpenAI-совместимый runtime. Платные bulk-API — opt-in ([ADR-0002](adr/0002-metered-bulk-cheap-tier.md)). Near-term приоритеты ниже важнее «растаскивания фич», пока не закрыт Trust cut.
+greedy-token — MCP/CLI **прототип**: эвристический single-tier роутинг + цикл crystallize, а не доказанный универсальный экономитель Cursor. Работает в любом agent-хосте с MCP (`agent_host: cursor | claude | continue`, по умолчанию Cursor); cheap tier — Ollama или OpenAI-совместимый runtime. Платные bulk-API — opt-in ([ADR-0002](adr/0002-metered-bulk-cheap-tier.md)). Trust cut выпущен в v0.16.0; настоящий host pre-router остаётся aspirational и требует поддержки хоста.
 
 Легенда: ✅ есть · ❌ нет · 🔜 в планах
 
@@ -18,8 +18,8 @@
 | **v0.14** ✅ | **Corpus v2** — расширить `bench/routing_corpus.yaml` (зоны: tool/python/rag/ollama/cursor; RU+EN; false-cheap + wiring + script + cheap-llm); scorecard precision + per-target recall; `min_precision` 0.90 | ✅ shipped как **v0.14.0** (`CUT-v0.14.0.md`); 45 кейсов, precision 100% |
 | **v0.14.1** ✅ | Patch повторного ревью: positive read-only intent для tool, structured command trust boundary, classifier-метрики Corpus v3, exact-commit PyPI gate, восстановленный coverage gate | ✅ shipped как **v0.14.1** (`CUT-v0.14.1.md`); 1030 tests, corpus v3, coverage 100% |
 | **v0.15.0** ✅ | Публичный end-to-end evidence: frozen RU/EN corpus, наблюдаемые task oracle, сравнение direct/CLI/MCP/agent, outcome confidence, deterministic JSON scorecard + manual live workflow | ✅ выпущен как **v0.15.0** (`CUT-v0.15.0.md`) |
-| **v0.16.0** | Unicode-aware lexical BM25/FTS retrieval, portable argv/cwd execution и обязательные OS/dependency/integration/distribution матрицы | Release cut в `CUT-v0.16.0.md`; публикация требует exact-commit `required matrix gate` |
-| **v0.17+** (aspirational) | Content-bound trust workspace-скриптов; **host pre-router** *если* Cursor (или host) даст API — иначе вне scope | Без фейковых claim «до LLM» без поддержки хоста |
+| **v0.16.0** ✅ | Unicode-aware lexical BM25/FTS retrieval, portable argv/cwd execution, обязательные OS/dependency/integration/distribution матрицы и SHA-256 + file-identity trust manifest для workspace-скриптов | ✅ выпущено в **v0.16.0** (`CUT-v0.16.0.md`); trust перепроверяется перед запуском с документированными TOCTOU-ограничениями |
+| **v0.17+** (aspirational) | **Host pre-router** *если* Cursor (или другой host) даст API — иначе вне scope | Без фейковых claim «до LLM» без поддержки хоста |
 
 ## Темы
 

@@ -205,11 +205,13 @@ greedy-token trust add scripts/my-read-only-check.py --note "reviewed: stdout on
 greedy-token trust verify
 ```
 
-SHA-256 and file identity are checked immediately before every approved
-execution. Edits, symlink/path replacement, deleted/recreated files, absolute
-or outside-workspace paths, `python -c`, shell `-c`, and trust-like fields from
-URL/file presets fail closed. The old `trusted_script_paths` config key is
-deprecated dry-run metadata and grants no privilege. Subprocesses receive a
+SHA-256 and file identity are rechecked immediately before each approved
+launch. Edits, symlink/path replacement, deleted/recreated files, absolute or
+outside-workspace paths, `python -c`, shell `-c`, and trust-like fields from
+URL/file presets fail closed. POSIX binds the verified descriptor through
+`/dev/fd`; Windows retains a narrow verify-to-open window, and concurrent
+same-inode writes are not snapshotted. The old `trusted_script_paths` config key
+is deprecated dry-run metadata and grants no privilege. Subprocesses receive a
 validated argv list with `shell=False`. See the
 [trust manifest and TOCTOU contract](docs/trust-manifest.md).
 
