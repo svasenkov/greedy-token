@@ -1,0 +1,1 @@
+{"id":"4ab4d38a704b36608b8235b6baf2c59e","fullName":"tests.test_security#test_cli_structured_subprocess_launch_failures","name":"CLI structured subprocess maps launch failures after trust validation","status":"passed","testResultsByEnv":{"default":"72376f0387e51bd47434f47805419495"}}

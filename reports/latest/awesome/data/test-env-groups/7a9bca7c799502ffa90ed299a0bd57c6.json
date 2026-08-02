@@ -1,0 +1,1 @@
+{"id":"7a9bca7c799502ffa90ed299a0bd57c6","fullName":"tests.test_tool_paths#test_generic_tool_resolution_branches","name":"Generic resolver handles jq and rejects unknown tools","status":"passed","testResultsByEnv":{"default":"de31920d322de9fa07e7e053c24bca69"}}

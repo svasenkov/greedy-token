@@ -1,0 +1,1 @@
+{"id":"dd8637c6b0d658c2510ad9e587cc2973","fullName":"tests.test_security#test_required_cross_platform_matrices_are_release_gated","name":"Mandatory CI covers supported OS, Python, dependency, and build matrices","status":"passed","testResultsByEnv":{"default":"c03a47bc55b6c7adfe2700377654e908"}}

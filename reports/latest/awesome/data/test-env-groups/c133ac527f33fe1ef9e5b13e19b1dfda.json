@@ -1,0 +1,1 @@
+{"id":"c133ac527f33fe1ef9e5b13e19b1dfda","fullName":"tests.test_tool_paths#test_resolve_tools_disabled","name":"External tool resolution can be disabled for hermetic unit tests","status":"passed","testResultsByEnv":{"default":"902df51a8231328aba3de5640499a319"}}
