@@ -73,14 +73,9 @@ def classify_meta_kinds(event: dict) -> list[str]:
     ) or (route.startswith("pipeline-check-meta") or "meta sync" in task):
         kinds.append("meta")
 
-    # de-dupe, preserve order
-    seen: set[str] = set()
-    ordered: list[str] = []
-    for kind in kinds:
-        if kind not in seen:
-            seen.add(kind)
-            ordered.append(kind)
-    return ordered
+    # Each kind has one predicate above, so order is stable and duplicates
+    # cannot be produced.
+    return kinds
 
 
 def workspace_meta_inventory(root: Path | None) -> dict[str, dict]:
