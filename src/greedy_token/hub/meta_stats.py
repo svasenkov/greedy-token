@@ -90,7 +90,11 @@ def workspace_meta_inventory(root: Path | None) -> dict[str, dict]:
         files = [p for p in paths if p.is_file()]
         inv[kind]["count"] = len(files)
         inv[kind]["paths_sample"] = [
-            str(p.relative_to(root)) if p.is_relative_to(root) else str(p)
+            (
+                p.relative_to(root).as_posix()
+                if p.is_relative_to(root)
+                else p.as_posix()
+            )
             for p in files[:limit]
         ]
 
