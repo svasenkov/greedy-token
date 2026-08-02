@@ -216,7 +216,7 @@ def test_command_to_argv_resolution_errors(
 
 
 @allure.story("Command trust boundary")
-@allure.title("Only registered or explicitly trusted workspace scripts get argv")
+@allure.title("Only registered or manifest-approved workspace scripts get argv")
 def test_trusted_script_invocation_requires_allowlist(tmp_path: Path) -> None:
     root = tmp_path / "workspace"
     scripts = root / "scripts"
@@ -237,12 +237,21 @@ def test_trusted_script_invocation_requires_allowlist(tmp_path: Path) -> None:
     assert registered.cwd == root
     assert registered.authorization == "wrapper:scripts/check.py"
 
-    trusted = trusted_script_invocation(
+    with pytest.raises(UnsafeCommandError, match="deprecated and dry-run only"):
+        trusted_script_invocation(
+            command,
+            root=root,
+            trusted_script_paths=("scripts/check.py",),
+        )
+
+    approved = trusted_script_invocation(
         command,
         root=root,
-        trusted_script_paths=("scripts/check.py",),
+        manifest_script_paths=("scripts/check.py",),
     )
-    assert trusted.authorization == "trusted-script:scripts/check.py"
+    assert approved.authorization == "manifest:scripts/check.py"
+    assert approved.script_path == "scripts/check.py"
+    assert approved.script_type == "python"
 
 
 @allure.story("Command trust boundary")
@@ -445,13 +454,13 @@ def test_malicious_read_only_workspace_route_not_executed(
 
     result = execute_task("malicious workspace command", minimal_workspace)
     assert result.exit_code == 1
-    assert "not registered or explicitly trusted" in result.output
+    assert "not registered or approved" in result.output
     assert not side_effect.exists()
 
 
 @allure.story("Command trust boundary")
-@allure.title("Explicit local trusted_script_paths authorises structured execution")
-def test_explicit_trusted_script_path_executes(minimal_workspace: Path) -> None:
+@allure.title("Deprecated trusted_script_paths remains dry-run and grants no privilege")
+def test_deprecated_trusted_script_path_does_not_execute(minimal_workspace: Path) -> None:
     from greedy_token.executors import execute_task
 
     safe = minimal_workspace / "scripts" / "safe.py"
@@ -469,8 +478,8 @@ def test_explicit_trusted_script_path_executes(minimal_workspace: Path) -> None:
     )
 
     result = execute_task("trusted local script", minimal_workspace)
-    assert result.exit_code == 0
-    assert result.output.strip() == "trusted-ok"
+    assert result.exit_code == 1
+    assert "deprecated and dry-run only" in result.output
 
 
 @allure.story("Release integrity")

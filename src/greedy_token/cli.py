@@ -23,6 +23,14 @@ from greedy_token.settings import (
     list_preset_names,
 )
 from greedy_token.tokens import TokenEstimate, collect_paths, count_files, count_tokens, format_size_table
+from greedy_token.trust import (
+    TrustError,
+    approve_script,
+    list_trust_entries,
+    revoke_script,
+    trust_manifest_path,
+    verify_trust_manifest,
+)
 from greedy_token.usage import (
     aggregate_events,
     build_compress_event,
@@ -571,6 +579,62 @@ def cmd_config(args: argparse.Namespace) -> int:
         return 0
     print(format_config(settings, root=root))
     return 0
+
+
+def cmd_trust(args: argparse.Namespace) -> int:
+    """Manage local, content-bound workspace script approvals."""
+    root = find_workspace_root()
+    try:
+        if args.trust_action == "add":
+            entry = approve_script(root, args.path, note=args.note)
+            print(
+                "\n".join(
+                    [
+                        f"Approved {entry.path} [{entry.script_type}]",
+                        f"  sha256:   {entry.sha256}",
+                        f"  approval: {entry.approval_source} at {entry.approved_at}",
+                        f"  manifest: {trust_manifest_path(root)}",
+                    ]
+                )
+            )
+            return 0
+
+        if args.trust_action == "list":
+            entries = list_trust_entries(root)
+            if not entries:
+                print("No approved workspace scripts.")
+                return 0
+            for entry in entries:
+                print(f"{entry.path} [{entry.script_type}]")
+                print(f"  sha256:   {entry.sha256}")
+                print(f"  approval: {entry.approval_source} at {entry.approved_at}")
+                if entry.note:
+                    print(f"  note:     {entry.note}")
+            return 0
+
+        if args.trust_action == "verify":
+            checks = verify_trust_manifest(root)
+            if not checks:
+                print("Trust manifest is empty.")
+                return 0
+            ok = True
+            for check in checks:
+                if check.ok:
+                    print(f"OK   {check.entry.path}")
+                else:
+                    ok = False
+                    print(f"FAIL {check.entry.path}: {check.error}", file=sys.stderr)
+            return 0 if ok else 1
+
+        removed = revoke_script(root, args.path)
+        if not removed:
+            print(f"Not approved: {args.path}", file=sys.stderr)
+            return 1
+        print(f"Revoked {args.path}")
+        return 0
+    except (TrustError, OSError) as exc:
+        print(f"trust {args.trust_action}: {exc}", file=sys.stderr)
+        return 1
 
 
 def cmd_pipeline(args: argparse.Namespace) -> int:
@@ -1164,6 +1228,29 @@ def build_parser() -> argparse.ArgumentParser:
     )
     cfg.set_defaults(func=cmd_config)
 
+    trust = sub.add_parser(
+        "trust",
+        help="Manage local SHA-256 approvals for workspace scripts",
+    )
+    trust_sub = trust.add_subparsers(dest="trust_action", required=True)
+    trust_add = trust_sub.add_parser(
+        "add", help="Approve the current content and identity of PATH"
+    )
+    trust_add.add_argument("path", metavar="PATH", help="Workspace-relative .py or .sh")
+    trust_add.add_argument("--note", default=None, help="Optional human approval note")
+    trust_add.set_defaults(func=cmd_trust)
+    trust_sub.add_parser("list", help="List local script approvals").set_defaults(
+        func=cmd_trust
+    )
+    trust_sub.add_parser(
+        "verify", help="Verify every approved script against disk"
+    ).set_defaults(func=cmd_trust)
+    trust_revoke = trust_sub.add_parser(
+        "revoke", help="Remove execution approval for PATH"
+    )
+    trust_revoke.add_argument("path", metavar="PATH", help="Workspace-relative path")
+    trust_revoke.set_defaults(func=cmd_trust)
+
     pipe = sub.add_parser("pipeline", help="Multi-step python/ollama/rag pipeline")
     pipe.add_argument("task", nargs="?", default="", help="Pipeline task or recipe")
     pipe.add_argument("--list", action="store_true", help="List named pipelines")
@@ -1321,7 +1408,7 @@ def main(argv: list[str] | None = None) -> None:
     _configure_stream_errors(sys.stderr)
     parser = build_parser()
     args = parser.parse_args(argv)
-    if args.command != "config":
+    if args.command not in ("config", "trust"):
         try:
             apply_ollama_env(find_workspace_root())
         except SystemExit:

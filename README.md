@@ -166,6 +166,10 @@ Expected after setup: **6 MCP tools** (including `greedy_token_pipeline` and `gr
 | `greedy-token rag QUERY` | Search `docs/rag/` |
 | `greedy-token scripts --list` | Workspace script wrappers |
 | `greedy-token scripts --run ID [--execute]` | Run wrapper |
+| `greedy-token trust add PATH` | Approve the current SHA-256 and identity of a workspace script |
+| `greedy-token trust list` | List local workspace script approvals |
+| `greedy-token trust verify` | Verify every approval against disk |
+| `greedy-token trust revoke PATH` | Remove a local script approval |
 | `greedy-token audit-context` | Rules/skills token audit |
 | `greedy-token calibrate [--overhead N] [--from-file PATH]` | Calibrate the naive agent-chat baseline (writes `baseline:` to `~/.greedy-token/config.yaml`) |
 | `greedy-token tokens PATH…` | Count tokens in paths |
@@ -194,16 +198,20 @@ Auto-execute (read-only or stdout-only): tool-tier `rg` / `jq`, plus pipeline st
 **Route command trust boundary:** workspace `read_only: true` is metadata, not
 authorization. `greedy-token run --execute` accepts only internally built
 `rg`/`jq` argv, registered read-only wrappers, or a workspace-relative
-`.py`/`.sh` path explicitly listed in the local `.greedy-token.yaml`:
+`.py`/`.sh` path approved in the user-local, workspace-bound trust manifest:
 
-```yaml
-trusted_script_paths:
-  - scripts/my-read-only-check.py
+```bash
+greedy-token trust add scripts/my-read-only-check.py --note "reviewed: stdout only"
+greedy-token trust verify
 ```
 
-Arbitrary/absolute executables, `python -c`, shell `-c`, paths outside the
-workspace, and untrusted commands imported from URL/file presets remain
-dry-run only. Subprocesses receive a validated argv list with `shell=False`.
+SHA-256 and file identity are checked immediately before every approved
+execution. Edits, symlink/path replacement, deleted/recreated files, absolute
+or outside-workspace paths, `python -c`, shell `-c`, and trust-like fields from
+URL/file presets fail closed. The old `trusted_script_paths` config key is
+deprecated dry-run metadata and grants no privilege. Subprocesses receive a
+validated argv list with `shell=False`. See the
+[trust manifest and TOCTOU contract](docs/trust-manifest.md).
 
 ### Routing benchmark
 

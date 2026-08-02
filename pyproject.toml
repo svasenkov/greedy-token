@@ -57,6 +57,8 @@ only_mutate = [
     "src/greedy_token/router.py",
     "src/greedy_token/pipeline.py",
     "src/greedy_token/executors.py",
+    "src/greedy_token/subprocess_safe.py",
+    "src/greedy_token/trust.py",
     "src/greedy_token/spend_guard.py",
     "src/greedy_token/code_search.py",
     "src/greedy_token/tool_paths.py",
@@ -85,6 +87,7 @@ pytest_add_cli_args = [
 also_copy = [
     "README.md",
     "README-RU.md",
+    "docs/",
     "examples/routes/",
     "bench/",
     "scripts/",

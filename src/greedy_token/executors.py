@@ -15,6 +15,13 @@ from greedy_token.subprocess_safe import (
     trusted_tool_invocation,
 )
 from greedy_token.tool_paths import RG_TIMEOUT, SCRIPT_TIMEOUT
+from greedy_token.trust import (
+    TrustError,
+    VerifiedScript,
+    bind_verified_argv,
+    trusted_manifest_paths,
+    verify_script,
+)
 from greedy_token.wrappers import wrapper_for_command
 
 from greedy_token.tool_output import filter_tool_output
@@ -29,6 +36,8 @@ class RunPlan:
     argv: tuple[str, ...] | None = None
     cwd: Path | None = None
     authorization: str = ""
+    script_path: str = ""
+    script_type: str = ""
     refusal_reason: str = ""
 
 
@@ -81,8 +90,11 @@ def plan_run(decision: RouteDecision, task: str, root: Path | None = None) -> Ru
             if wrapper is not None and wrapper.read_only
             else ()
         )
-        trusted = workspace_trusted_script_paths(root) if decision.read_only else ()
         try:
+            approved = trusted_manifest_paths(root) if decision.read_only else ()
+            deprecated = (
+                workspace_trusted_script_paths(root) if decision.read_only else ()
+            )
             argv = decision.command_argv
             cwd = decision.command_cwd
             if argv is None or cwd is None:
@@ -99,9 +111,10 @@ def plan_run(decision: RouteDecision, task: str, root: Path | None = None) -> Ru
                 cwd=cwd,
                 root=root,
                 registered_script_paths=registered,
-                trusted_script_paths=trusted,
+                manifest_script_paths=approved,
+                trusted_script_paths=deprecated,
             )
-        except (UnsafeCommandError, OSError) as exc:
+        except (UnsafeCommandError, TrustError, OSError) as exc:
             dry_run = (
                 format_invocation(decision.command_argv, decision.command_cwd)
                 if decision.command_argv is not None and decision.command_cwd is not None
@@ -125,6 +138,8 @@ def plan_run(decision: RouteDecision, task: str, root: Path | None = None) -> Ru
             argv=invocation.argv,
             cwd=invocation.cwd,
             authorization=invocation.authorization,
+            script_path=invocation.script_path,
+            script_type=invocation.script_type,
         )
 
     if target == "rag":
@@ -176,21 +191,52 @@ def execute_plan(plan: RunPlan) -> tuple[int, str]:
             f"Dry-run:\n{plan.dry_run_output}"
         )
     timeout = RG_TIMEOUT if plan.decision.target == "tool" else SCRIPT_TIMEOUT
+    verified: VerifiedScript | None = None
     try:
+        argv = list(plan.argv)
+        # equivalent: None and an empty tuple are both falsy here and are replaced before any manifest descriptor is forwarded.
+        pass_fds: tuple[int, ...] = ()  # pragma: no mutate
+        if plan.authorization.startswith("manifest:"):
+            if not plan.script_path or not plan.script_type:
+                raise TrustError("manifest-authorised plan is missing script metadata")
+            revalidated = trusted_script_argv(
+                plan.argv,
+                cwd=plan.cwd,
+                root=plan.cwd,
+                manifest_script_paths=(plan.script_path,),
+            )
+            if (
+                revalidated.authorization != plan.authorization
+                or revalidated.script_path != plan.script_path
+                or revalidated.script_type != plan.script_type
+            ):
+                raise TrustError("manifest-authorised argv changed after planning")
+            verified = verify_script(plan.cwd, plan.script_path)
+            argv, pass_fds = bind_verified_argv(verified, plan.argv)
+        run_kwargs = {
+            "shell": False,
+            "capture_output": True,
+            "text": True,
+            "cwd": plan.cwd,
+            "timeout": timeout,
+        }
+        if pass_fds:
+            run_kwargs["pass_fds"] = pass_fds
         proc = subprocess.run(
-            list(plan.argv),
-            shell=False,
-            capture_output=True,
-            text=True,
-            cwd=plan.cwd,
-            timeout=timeout,
+            argv,
+            **run_kwargs,
         )
+    except TrustError as exc:
+        return 1, f"Refusing --execute: trust verification failed: {exc}"
     except FileNotFoundError as exc:
         return 127, f"Executable not found: {exc}"
     except OSError as exc:
         return 126, f"Cannot execute command: {exc}"
     except subprocess.TimeoutExpired:
         return 124, f"Command timed out after {timeout}s: {plan.command}"
+    finally:
+        if verified is not None:
+            verified.close()
     out = (proc.stdout or "") + (proc.stderr or "")
     return proc.returncode, out or plan.dry_run_output
 

@@ -286,3 +286,47 @@ equivalents:
       With cost_per_1m_usd == 0 the early return gives 0.0 and the fall-through
       product is also 0.0, so `<= 0` vs `< 0` returns the same value.
     pragma: false
+
+  - module: trust.py
+    symbol: _read_entries
+    reason: >-
+      valid UTF-8 manifests decode identically with utf-8, UTF-8, or the UTF-8
+      locale default.
+    proof: >-
+      Trust manifests are written as valid UTF-8 JSON; Python's local default
+      encoding is UTF-8, so all three encoding variants produce identical text
+      and parsed entries.
+    pragma: true
+
+  - module: subprocess_safe.py
+    symbol: _reject_code_string_launch
+    reason: >-
+      after the first Python operand, break and return both leave this guard
+      without another applicable check.
+    proof: >-
+      Once Python's first non-option operand is reached, later argv values are
+      script arguments rather than interpreter options. The executable cannot
+      enter the separate shell-only branch, so break and return are identical.
+    pragma: true
+
+  - module: subprocess_safe.py
+    symbol: _reject_code_string_launch
+    reason: >-
+      after the first shell operand, break and return both leave this terminal
+      guard immediately.
+    proof: >-
+      Once a shell's first non-option operand is reached, later values are not
+      shell options. No code follows the shell loop, so break and return have
+      identical behavior.
+    pragma: true
+
+  - module: executors.py
+    symbol: execute_plan
+    reason: >-
+      None and an empty tuple are both falsy here and are replaced before any
+      manifest descriptor is forwarded.
+    proof: >-
+      The initial value is only tested by `if pass_fds`; manifest execution
+      replaces it with bind_verified_argv's tuple first. For non-manifest
+      execution both None and () omit the pass_fds subprocess keyword.
+    pragma: true

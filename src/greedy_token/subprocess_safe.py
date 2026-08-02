@@ -34,6 +34,8 @@ class CommandInvocation:
     cwd: Path
     argv: tuple[str, ...]
     authorization: str
+    script_path: str = ""
+    script_type: str = ""
 
 
 _SHELL_NAMES = frozenset({"sh", "bash", "dash", "zsh", "ksh", "fish"})
@@ -85,13 +87,15 @@ def _reject_code_string_launch(argv: list[str]) -> None:
     if is_python_executable(argv[0]):
         for arg in argv[1:]:
             if not arg.startswith("-"):
-                break
+                # equivalent: after the first Python operand, break and return both leave this guard without another applicable check.
+                break  # pragma: no mutate
             if "c" in arg[1:]:
                 raise UnsafeCommandError("python -c is not allowed")
     if executable in _SHELL_NAMES:
         for arg in argv[1:]:
             if not arg.startswith("-"):
-                break
+                # equivalent: after the first shell operand, break and return both leave this terminal guard immediately.
+                break  # pragma: no mutate
             if "c" in arg[1:]:
                 raise UnsafeCommandError("shell -c is not allowed")
 
@@ -215,9 +219,14 @@ def trusted_script_argv(
     cwd: Path,
     root: Path,
     registered_script_paths: Iterable[str] = (),
+    manifest_script_paths: Iterable[str] = (),
     trusted_script_paths: Iterable[str] = (),
 ) -> CommandInvocation:
-    """Validate structured argv against wrapper and local script allowlists."""
+    """Validate structured argv against wrappers and the local trust manifest.
+
+    ``trusted_script_paths`` is retained only as a deprecated migration input.
+    Values from that bare path list never grant execution authority.
+    """
     resolved_root = root.resolve()
     resolved_cwd = cwd.resolve()
     if resolved_cwd != resolved_root:
@@ -239,24 +248,36 @@ def trusted_script_argv(
                 "python commands must be 'python <trusted-script.py> [args...]'"
             )
         _script, rel = _workspace_script_path(args[1], resolved_root)
+        if _script.suffix != ".py":
+            raise UnsafeCommandError("python trusted scripts must end in .py")
+        script_type = "python"
         script_args = args[2:]
     else:
         if executable in _SHELL_NAMES:
             raise UnsafeCommandError(
                 "shell interpreters are not route executors; register the script path"
             )
-        _script, rel = _workspace_script_path(args[0].removeprefix("./"), resolved_root)
+        _script, rel = _workspace_script_path(args[0], resolved_root)
+        if _script.suffix != ".sh":
+            raise UnsafeCommandError("direct trusted scripts must end in .sh")
+        script_type = "shell"
         script_args = args[1:]
 
-    registered = frozenset(Path(p).as_posix().removeprefix("./") for p in registered_script_paths)
-    trusted = frozenset(Path(p).as_posix().removeprefix("./") for p in trusted_script_paths)
+    registered = frozenset(Path(p).as_posix() for p in registered_script_paths)
+    approved = frozenset(Path(p).as_posix() for p in manifest_script_paths)
+    deprecated = frozenset(Path(p).as_posix() for p in trusted_script_paths)
     if rel in registered:
         authorization = f"wrapper:{rel}"
-    elif rel in trusted:
-        authorization = f"trusted-script:{rel}"
+    elif rel in approved:
+        authorization = f"manifest:{rel}"
+    elif rel in deprecated:
+        raise UnsafeCommandError(
+            "trusted_script_paths is deprecated and dry-run only; "
+            f"review and approve {rel!r} with 'greedy-token trust add'"
+        )
     else:
         raise UnsafeCommandError(
-            f"script is not registered or explicitly trusted: {rel!r}"
+            f"script is not registered or approved in the local trust manifest: {rel!r}"
         )
 
     _validate_script_args(script_args, resolved_root)
@@ -264,6 +285,8 @@ def trusted_script_argv(
         cwd=resolved_root,
         argv=tuple(args),
         authorization=authorization,
+        script_path=rel,
+        script_type=script_type,
     )
 
 
@@ -272,6 +295,7 @@ def trusted_script_invocation(
     *,
     root: Path,
     registered_script_paths: Iterable[str] = (),
+    manifest_script_paths: Iterable[str] = (),
     trusted_script_paths: Iterable[str] = (),
 ) -> CommandInvocation:
     """Parse and validate a legacy route command string.
@@ -290,6 +314,7 @@ def trusted_script_invocation(
         cwd=cwd,
         root=resolved_root,
         registered_script_paths=registered_script_paths,
+        manifest_script_paths=manifest_script_paths,
         trusted_script_paths=trusted_script_paths,
     )
 

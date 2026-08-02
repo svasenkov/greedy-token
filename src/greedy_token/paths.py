@@ -89,11 +89,12 @@ def workspace_routes_overlay(root: Path) -> dict:
 
 
 def workspace_trusted_script_paths(root: Path) -> frozenset[str]:
-    """Explicit local allowlist for route-executable scripts.
+    """Read deprecated bare paths for migration diagnostics only.
 
-    Trust is read only from ``<root>/.greedy-token.yaml``.  It is intentionally
-    not imported from ``routes_file`` or a downloaded/file preset, so route
-    metadata cannot grant itself execution authority.
+    These values never grant execution authority.  They are intentionally not
+    imported from ``routes_file`` or a downloaded/file preset; callers use the
+    returned set only to explain that ``greedy-token trust add PATH`` is now
+    required.
     """
     cfg = _read_yaml_dict(root / WORKSPACE_CONFIG_NAME)
     raw = cfg.get(TRUSTED_SCRIPT_PATHS_KEY)

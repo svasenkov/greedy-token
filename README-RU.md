@@ -166,6 +166,10 @@ find baseUrl in configurator-option-presets.html
 | `greedy-token rag QUERY` | RAG lookup |
 | `greedy-token scripts --list` | Workspace script wrappers |
 | `greedy-token scripts --run ID [--execute]` | Run wrapper |
+| `greedy-token trust add PATH` | Одобрить текущие SHA-256 и identity workspace-скрипта |
+| `greedy-token trust list` | Показать локальные approval workspace-скриптов |
+| `greedy-token trust verify` | Проверить все approval по файлам на диске |
+| `greedy-token trust revoke PATH` | Отозвать локальный approval скрипта |
 | `greedy-token audit-context` | Rules/skills token audit |
 | `greedy-token calibrate [--overhead N] [--from-file PATH]` | Калибровка базлайна наивного агент-чата (пишет `baseline:` в `~/.greedy-token/config.yaml`) |
 | `greedy-token tokens PATH…` | Count tokens in paths |
@@ -194,17 +198,21 @@ Auto-execute (read-only или stdout-only): tool-tier `rg` / `jq`, плюс ш�
 **Граница доверия route-команд:** workspace-поле `read_only: true` — metadata,
 а не разрешение на запуск. `greedy-token run --execute` принимает только
 внутренне собранный argv для `rg`/`jq`, зарегистрированные read-only wrapper-ы
-или workspace-relative `.py`/`.sh`, явно указанный в локальном
-`.greedy-token.yaml`:
+или workspace-relative `.py`/`.sh`, одобренный в локальном, привязанном к
+workspace trust manifest:
 
-```yaml
-trusted_script_paths:
-  - scripts/my-read-only-check.py
+```bash
+greedy-token trust add scripts/my-read-only-check.py --note "reviewed: только stdout"
+greedy-token trust verify
 ```
 
-Произвольные/абсолютные executables, `python -c`, shell `-c`, выход за workspace
-и недоверенные команды из URL/file presets остаются dry-run. Subprocess
-получает проверенный список argv при `shell=False`.
+SHA-256 и file identity проверяются непосредственно перед каждым approved
+execution. Изменение, symlink/path replacement, удаление с пересозданием,
+absolute/outside-workspace path, `python -c`, shell `-c` и trust-поля из
+URL/file presets fail closed. Старый ключ `trusted_script_paths` deprecated:
+это только dry-run metadata без execution privilege. Subprocess получает
+проверенный argv при `shell=False`. Детали и ограничения:
+[trust manifest и TOCTOU contract](docs/trust-manifest.md).
 
 ### Routing benchmark
 
