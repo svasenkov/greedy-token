@@ -1,0 +1,1 @@
+{"id":"60d221ca7c2bb93e6fc03a56c1b54376","fullName":"tests.test_trust#test_verification_edge_refusals","name":"Invalid root, empty source, missing approval, and type drift fail closed","status":"passed","testResultsByEnv":{"default":"84eaf57928107af0074450fa280487ce"}}

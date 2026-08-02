@@ -1,0 +1,1 @@
+{"id":"2f59bd3e30f03b1aa15ec9160abf3d6d","fullName":"tests.test_cli#test_cli_configures_narrow_stream_errors","name":"CLI replaces unsupported Unicode on narrow output streams","status":"passed","testResultsByEnv":{"default":"4ec1344fb3362a7994600978ce76526e"}}

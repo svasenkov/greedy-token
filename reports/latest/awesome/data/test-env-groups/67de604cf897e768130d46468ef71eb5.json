@@ -1,0 +1,1 @@
+{"id":"67de604cf897e768130d46468ef71eb5","fullName":"tests.test_trust#test_bind_verified_argv_rejects_missing_script_argv","name":"Descriptor binding rejects malformed Python and shell argv","status":"passed","testResultsByEnv":{"default":"7b013d50a4536f4930dd6cd260cc7ef6"}}

@@ -1,0 +1,1 @@
+{"id":"d01d8058e75681ffed70bd24317f44b2","fullName":"tests.test_trust#test_trusted_shell_argv_preserves_type_and_validates_first_argument","name":"Shell trust metadata and every script argument survive validation","status":"passed","testResultsByEnv":{"default":"6c57159113609cc163c51f4b503bf34c"}}

@@ -1,0 +1,1 @@
+{"id":"d3621b43ebc61e1d3fe85e438126f239","fullName":"tests.test_trust#test_bind_verified_argv_branches","name":"Verified Python and shell argv bind to FD; fallback keeps structured argv","status":"passed","testResultsByEnv":{"default":"2eb36514c67c9c869acd697452935bcd"}}

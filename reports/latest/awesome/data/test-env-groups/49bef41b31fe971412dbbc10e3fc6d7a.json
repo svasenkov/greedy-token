@@ -1,0 +1,1 @@
+{"id":"49bef41b31fe971412dbbc10e3fc6d7a","fullName":"tests.test_trust#test_malicious_file_preset_cannot_add_trust","name":"Malicious file preset cannot copy trust fields or execute its script","status":"passed","testResultsByEnv":{"default":"6adf8430407af69924e098dca6ae7fb6"}}

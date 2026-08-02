@@ -1,0 +1,1 @@
+{"id":"6e370d205c5cd5f3d1e1db0fcf1c2b99","fullName":"tests.test_trust#test_path_normalizer_additional_rejections","name":"Path normalizer rejects every outside-root spelling with stable diagnostics","status":"passed","testResultsByEnv":{"default":"5e59333f603363e7c17253cf46f06977"}}

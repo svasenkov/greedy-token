@@ -1,0 +1,1 @@
+{"id":"dbb570851fa0e7148638a03d899fe967","fullName":"tests.test_trust#test_manifest_rejects_unsafe_paths","name":"Absolute, outside-workspace, Windows, and unsupported paths are rejected","status":"passed","testResultsByEnv":{"default":"08df1d637c09d293b92f3b3d8144f263"}}

@@ -1,0 +1,1 @@
+{"id":"4a496732cf03b28fe5e07cb6fb242f62","fullName":"tests.test_security#test_deprecated_trusted_script_path_does_not_execute","name":"Deprecated trusted_script_paths remains dry-run and grants no privilege","status":"passed","testResultsByEnv":{"default":"22f8323e616fc17cb413c02bb85759df"}}

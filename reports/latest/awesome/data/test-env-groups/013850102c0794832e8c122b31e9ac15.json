@@ -1,0 +1,1 @@
+{"id":"013850102c0794832e8c122b31e9ac15","fullName":"tests.test_trust#test_trusted_argv_rejects_type_mismatches","name":"Interpreter and direct execution must match the approved script type","status":"passed","testResultsByEnv":{"default":"38c96ecb7bfb5226cbcc651087f9b234"}}

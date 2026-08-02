@@ -1,0 +1,1 @@
+{"id":"d19792b24afc2ace60a5f1b0d460e5f8","fullName":"tests.test_trust#test_manifest_io_failures","name":"Oversized, invalid JSON, write-symlink, and atomic-write errors fail closed","status":"passed","testResultsByEnv":{"default":"b2b95136ad5cd96ee3da1cb673186e8e"}}

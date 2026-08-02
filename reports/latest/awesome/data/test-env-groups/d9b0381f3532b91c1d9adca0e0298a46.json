@@ -1,0 +1,1 @@
+{"id":"d9b0381f3532b91c1d9adca0e0298a46","fullName":"tests.test_trust#test_posix_open_uses_all_security_flags","name":"POSIX opener uses directory, no-follow, and close-on-exec flags","status":"passed","testResultsByEnv":{"default":"1befcb8fb8d56c3344c94a3f4d806384"}}

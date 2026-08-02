@@ -1,0 +1,1 @@
+{"id":"3707ee28cdcd3ed79bcad1a47b0ed300","fullName":"tests.test_trust#test_posix_open_without_cloexec_and_directory_rejection","name":"POSIX opener covers no-CLOEXEC and non-regular final component","status":"passed","testResultsByEnv":{"default":"6ed565417758ee8971b8140e68d0b099"}}

@@ -1,0 +1,1 @@
+{"id":"f3836278f56dde4085bfa3c78d17f656","fullName":"tests.test_trust#test_bare_trusted_paths_do_not_authorize_argv","name":"Bare trusted_script_paths is a deprecated refusal, never authority","status":"passed","testResultsByEnv":{"default":"ccc3e8e98d791c9af407cf5657b5cc0f"}}

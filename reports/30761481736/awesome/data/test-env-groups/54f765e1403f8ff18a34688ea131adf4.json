@@ -1,0 +1,1 @@
+{"id":"54f765e1403f8ff18a34688ea131adf4","fullName":"tests.test_trust#test_execute_plan_requires_each_structured_field","name":"Each missing structured invocation field independently blocks execution","status":"passed","testResultsByEnv":{"default":"bf5b456893bdea4b1797c5adfdfbd90c"}}

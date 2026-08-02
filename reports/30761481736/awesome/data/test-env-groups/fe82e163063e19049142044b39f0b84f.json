@@ -1,0 +1,1 @@
+{"id":"fe82e163063e19049142044b39f0b84f","fullName":"tests.test_trust#test_portable_open_fallback_branches","name":"Portable fallback verifies regular files and rejects symlink, missing, and directory","status":"passed","testResultsByEnv":{"default":"86e59ef087d8f89cd2307b0a3d86ae8b"}}

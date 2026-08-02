@@ -1,0 +1,1 @@
+{"id":"96dbbcc1b2177a8f76b217849ca80ef8","fullName":"tests.test_trust#test_file_identity_rejects_invalid_schema","name":"File identity schema rejects wrong shape and every invalid integer form","status":"passed","testResultsByEnv":{"default":"7b2ec8829da8903a84bcae6a2efa8d17"}}

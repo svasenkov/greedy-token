@@ -1,0 +1,1 @@
+{"id":"37a9138927929402addc744d33e479bb","fullName":"tests.test_trust#test_symlink_swap_is_rejected","name":"Final-component symlink swap is rejected even when target has approved bytes","status":"passed","testResultsByEnv":{"default":"afa5ecfe5c779871167f504eff8dd2fa"}}
