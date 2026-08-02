@@ -35,7 +35,7 @@ def _run_cli(
     return subprocess.run(
         [sys.executable, "-m", "greedy_token", "--no-log", *args],
         capture_output=True,
-        text=True,
+        encoding="utf-8",
         env=env,
         input=input_text,
     )
@@ -134,7 +134,10 @@ def test_cli_config_init(tmp_path: Path, minimal_workspace: Path) -> None:
             "--model",
             "test-model",
             workspace=minimal_workspace,
-            extra_env={"HOME": str(tmp_path)},
+            extra_env={
+                "HOME": str(tmp_path),
+                "USERPROFILE": str(tmp_path),
+            },
         )
         attach_text("stdout", proc.stdout)
         attach_text("stderr", proc.stderr or "")

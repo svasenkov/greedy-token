@@ -26,6 +26,14 @@ pytestmark = [
 ]
 
 
+def _bash_path(path: Path) -> str:
+    """Render native paths for Git Bash as well as POSIX bash."""
+    value = path.as_posix()
+    if len(value) >= 3 and value[1:3] == ":/":
+        return f"/{value[0].lower()}{value[2:]}"
+    return value
+
+
 def _node_eval(expr: str) -> str:
     script = f"""
 import {{
@@ -169,15 +177,16 @@ def test_inject_pyramid_colors_into_report_html() -> None:
             proc = subprocess.run(
                 [
                     "bash",
-                    PREPARE_SH.as_posix(),
-                    pages.as_posix(),
-                    report.as_posix(),
+                    _bash_path(PREPARE_SH),
+                    _bash_path(pages),
+                    _bash_path(report),
                 ],
-                check=True,
                 capture_output=True,
                 encoding="utf-8",
             )
             attach_text("prepare stdout", proc.stdout)
+            attach_text("prepare stderr", proc.stderr)
+            assert proc.returncode == 0, proc.stderr
 
             dash_html = (dashboard / "index.html").read_text(encoding="utf-8")
             awesome_html = (awesome / "index.html").read_text(encoding="utf-8")
