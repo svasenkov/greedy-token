@@ -1,0 +1,1 @@
+{"id":"9c95962dd44567a0ca7b9e78d4923a15","fullName":"tests.test_meta_stats#test_workspace_meta_inventory_rag_markdown_fallback","name":"workspace_meta_inventory falls back to RAG markdown without a manifest","status":"passed","testResultsByEnv":{"default":"062d0a3996b65e09d1792f45bbc0f9f3"}}
