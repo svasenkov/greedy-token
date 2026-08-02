@@ -17,8 +17,9 @@
 | **v0.13** ✅ | **Routing benchmark corpus** (precision/recall, не только unit); **shell harden** (не доверять workspace YAML через `shell=True` без allowlist/boundary) | ✅ shipped как **v0.13.0** (`CUT-v0.13.0.md`) |
 | **v0.14** ✅ | **Corpus v2** — расширить `bench/routing_corpus.yaml` (зоны: tool/python/rag/ollama/cursor; RU+EN; false-cheap + wiring + script + cheap-llm); scorecard precision + per-target recall; `min_precision` 0.90 | ✅ shipped как **v0.14.0** (`CUT-v0.14.0.md`); 45 кейсов, precision 100% |
 | **v0.14.1** ✅ | Patch повторного ревью: positive read-only intent для tool, structured command trust boundary, classifier-метрики Corpus v3, exact-commit PyPI gate, восстановленный coverage gate | ✅ shipped как **v0.14.1** (`CUT-v0.14.1.md`); 1030 tests, corpus v3, coverage 100% |
-| **v0.15.0** CUT | Публичный end-to-end evidence: frozen RU/EN corpus, наблюдаемые task oracle, сравнение direct/CLI/MCP/agent, outcome confidence, deterministic JSON scorecard + manual live workflow | CUT подготовлен, не выпущен; full pytest + branch coverage и deterministic CI artifact — release gates |
-| **v0.16+** (aspirational) | Windows; FTS / лучший docs index; **host pre-router** *если* Cursor (или host) даст API — иначе вне scope | Матрица платформ в docs; без фейковых claim «до LLM» без поддержки хоста |
+| **v0.15.0** ✅ | Публичный end-to-end evidence: frozen RU/EN corpus, наблюдаемые task oracle, сравнение direct/CLI/MCP/agent, outcome confidence, deterministic JSON scorecard + manual live workflow | ✅ выпущен как **v0.15.0** (`CUT-v0.15.0.md`) |
+| **v0.16.0** | Unicode-aware lexical BM25/FTS retrieval, portable argv/cwd execution и обязательные OS/dependency/integration/distribution матрицы | Release cut в `CUT-v0.16.0.md`; публикация требует exact-commit `required matrix gate` |
+| **v0.17+** (aspirational) | Content-bound trust workspace-скриптов; **host pre-router** *если* Cursor (или host) даст API — иначе вне scope | Без фейковых claim «до LLM» без поддержки хоста |
 
 ## Темы
 
@@ -195,7 +196,8 @@ CI job → greedy-token CLI → rg | python | cheap_llm (Ollama/internal) | RAG 
 
 | Версия | Фокус |
 |--------|-------|
-| **v0.15.0 CUT** | Frozen public E2E evidence, explicit outcomes, outcome-calibrated confidence, deterministic/live scorecards (не выпущен) |
+| **v0.16.0** | Unicode lexical BM25/FTS retrieval; portable Windows/macOS/Linux execution и обязательные release-матрицы |
+| **v0.15.0** | Frozen public E2E evidence, explicit outcomes, outcome-calibrated confidence, deterministic/live scorecards |
 | **v0.14.1** | Strict read-only routing; trusted structured argv; held-out/adversarial Corpus v3; PyPI gate по зелёному commit |
 | **v0.14.0** | Corpus v2: target/family coverage, RU+EN, 45-case exact-match scorecard |
 | **v0.13.0** | Trust cut fold: честные docs, mcp pin, edit-escalation/RU tokenize, routing corpus, `shell=False` harden |

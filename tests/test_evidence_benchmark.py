@@ -45,7 +45,7 @@ def test_evidence_corpus_frozen_lock_and_provenance() -> None:
     assert meta["provenance"]["id"] == "synthetic-public-fixture-v1"
     assert meta["exclusions"]["route_examples_reused"] is False
     assert meta["exclusions"]["route_patterns_reused_as_cases"] is False
-    assert benchmark._package_version() == "0.15.0"
+    assert benchmark._package_version() == "0.16.0"
 
 
 @allure.story("Freeze")
