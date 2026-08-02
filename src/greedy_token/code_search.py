@@ -84,7 +84,7 @@ def _under_default_paths(path: Path, root: Path) -> bool:
 
 def _format_rel(path: Path, root: Path) -> str:
     try:
-        return str(path.resolve().relative_to(root.resolve()))
+        return path.resolve().relative_to(root.resolve()).as_posix()
     except ValueError:
         return str(path)
 
@@ -215,7 +215,13 @@ def _path_resolve_error(hint: str, detail: PathResolveResult, root: Path) -> str
     )
 
 
-def _python_search_file(path: Path, query: str, *, limit: int) -> list[str]:
+def _python_search_file(
+    path: Path,
+    query: str,
+    *,
+    limit: int,
+    display_path: str | None = None,
+) -> list[str]:
     try:
         # equivalent: local UTF-8 locale + errors="replace" → utf-8/UTF-8/None and
         # strict/replace decode identically for the ASCII/valid-UTF-8 files scanned.
@@ -223,12 +229,13 @@ def _python_search_file(path: Path, query: str, *, limit: int) -> list[str]:
     except OSError as exc:
         return [f"Error reading {path}: {exc}"]
 
+    shown_path = display_path or str(path)
     hits: list[str] = []
     for line_no, line in enumerate(text.splitlines(), 1):
         if query not in line:
             continue
         display = line if len(line) <= 200 else line[:200] + "…"
-        hits.append(f"{path}:{line_no}:{display}")
+        hits.append(f"{shown_path}:{line_no}:{display}")
         if len(hits) >= limit:
             break
     return hits
@@ -254,9 +261,9 @@ def _python_search_tree(
             if name_glob and not path.match(name_glob):
                 continue
             try:
-                rel = path.relative_to(root)
+                rel = path.relative_to(root).as_posix()
             except ValueError:
-                rel = path
+                rel = str(path)
             for line_no, line in enumerate(
                 # equivalent: encoding/errors variants decode valid files identically.
                 path.read_text(encoding="utf-8", errors="replace").splitlines(), 1  # pragma: no mutate
@@ -512,7 +519,7 @@ def search_code(
     rg_bin = resolve_rg()
 
     if resolved and resolved.is_file():
-        scope = str(resolved.relative_to(root))
+        scope = resolved.relative_to(root).as_posix()
         if rg_bin:
             argv = (
                 str(rg_bin),
@@ -536,10 +543,14 @@ def search_code(
                     context=context,
                     default_path=scope,
                 )
-        lines = _python_search_file(resolved, query, limit=limit)
+        lines = _python_search_file(
+            resolved,
+            query,
+            limit=limit,
+            display_path=scope,
+        )
         if lines:
-            # python file scan already emits full ``abspath:line:content`` rows,
-            # so no default_path prefixing is needed here.
+            # Python file scan emits the same POSIX workspace-relative path as rg.
             body = "\n".join(lines)
             return _finalize_search(
                 header=(
@@ -573,8 +584,8 @@ def search_code(
         argv.extend(("--max-count", str(limit)))
         if resolved and resolved.is_dir():
             rel = resolved.relative_to(root) if resolved.is_relative_to(root) else resolved
-            scope = str(rel)
-            argv.append(str(rel))
+            scope = rel.as_posix()
+            argv.append(scope)
         else:
             scope = "workspace"
             argv.extend(search_scope_paths(root))
@@ -591,7 +602,8 @@ def search_code(
 
     if resolved and resolved.is_dir():
         scope_dirs = [resolved]
-        scope = str(resolved.relative_to(root) if resolved.is_relative_to(root) else resolved)
+        rel = resolved.relative_to(root) if resolved.is_relative_to(root) else resolved
+        scope = rel.as_posix()
     else:
         scope_dirs = [root / p for p in search_scope_paths(root)]
         scope = "workspace"

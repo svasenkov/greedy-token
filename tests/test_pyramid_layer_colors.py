@@ -167,10 +167,15 @@ def test_inject_pyramid_colors_into_report_html() -> None:
             (awesome / "index.html").write_text(stub, encoding="utf-8")
 
             proc = subprocess.run(
-                ["bash", str(PREPARE_SH), str(pages), str(report)],
+                [
+                    "bash",
+                    PREPARE_SH.as_posix(),
+                    pages.as_posix(),
+                    report.as_posix(),
+                ],
                 check=True,
                 capture_output=True,
-                text=True,
+                encoding="utf-8",
             )
             attach_text("prepare stdout", proc.stdout)
 

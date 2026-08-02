@@ -189,18 +189,27 @@ def format_executor_savings_summary(
         return []
     if source is None:
         source = baseline_source()
-    by_tier: dict[str, tuple[int, int, int]] = {}
+    by_executor: dict[str, tuple[int, int, int]] = {}
     for row in rows:
-        spent, saved, count = by_tier.get(row.tier, (0, 0, 0))
-        by_tier[row.tier] = (spent + row.spent, saved + row.saved, count + 1)
+        executor = (row.executor_sub or "rg") if row.tier == "tool" else row.tier
+        spent, saved, count = by_executor.get(executor, (0, 0, 0))
+        by_executor[executor] = (
+            spent + row.spent,
+            saved + row.saved,
+            count + 1,
+        )
     lines = [f"Saved by executor (sum of per-step savings; baseline: {source}):"]
-    for tier in ("tool", "python", "ollama", "rag", "cursor"):
-        if tier not in by_tier:
+    canonical = ("rg", "python", "ollama", "rag", "cursor")
+    extras = sorted(executor for executor in by_executor if executor not in canonical)
+    for executor in (*canonical, *extras):
+        if executor not in by_executor:
             continue
-        spent, saved, count = by_tier[tier]
-        # equivalent: this loop only visits keys that exist in TIER_LABELS, so
-        # the `tier` default is unreachable (get default → None/removed is a no-op).
-        label = TIER_LABELS.get(tier, tier)  # pragma: no mutate
+        spent, saved, count = by_executor[executor]
+        label = (
+            TIER_LABELS["tool"]
+            if executor == "rg"
+            else TIER_LABELS.get(executor, executor)
+        )
         lines.append(
             f"  {label:<28} steps={count}  spent ~{spent:,}  saved ~{saved:,}"
         )
@@ -910,26 +919,32 @@ def format_pipeline_footer(result: PipelineResult, root: Path) -> str:
             f"  {label:<28} {sr.step.tier:<8} {sr.duration_ms:>6} {sr.est_tokens:>8,} {status}{mode}"
         )
 
-    by_tier: dict[str, tuple[int, int]] = {}
-    for sr in result.steps:
-        count, tokens = by_tier.get(sr.step.tier, (0, 0))
-        by_tier[sr.step.tier] = (count + 1, tokens + sr.est_tokens)
+    by_executor: dict[str, tuple[int, int]] = {}
+    for row in step_rows:
+        executor = (row.executor_sub or "rg") if row.tier == "tool" else row.tier
+        count, tokens = by_executor.get(executor, (0, 0))
+        by_executor[executor] = (count + 1, tokens + row.spent)
 
     lines.extend(["", "Spent by executor:"])
-    for tier in ("tool", "python", "ollama", "rag", "cursor"):
-        if tier not in by_tier:
+    canonical = ("rg", "python", "ollama", "rag", "cursor")
+    extras = sorted(executor for executor in by_executor if executor not in canonical)
+    for executor in (*canonical, *extras):
+        if executor not in by_executor:
             continue
-        count, tokens = by_tier[tier]
-        # equivalent: loop only visits keys present in TIER_LABELS → default unreachable.
-        note = TIER_LABELS.get(tier, tier)  # pragma: no mutate
-        if tier == "ollama":
+        count, tokens = by_executor[executor]
+        note = (
+            TIER_LABELS["tool"]
+            if executor == "rg"
+            else TIER_LABELS.get(executor, executor)
+        )
+        if executor == "ollama":
             # equivalent: unset → "" and None are both falsy for the check below.
             model_id = os.environ.get("GREEDY_LLM_MODEL_ID", "")  # pragma: no mutate
             if model_id:
                 note += f" ({model_id}/{llm.model}, cheap)"
             else:
                 note += f" ({llm.provider}/{llm.model}, cheap)"
-        elif tier in ("tool", "python"):
+        elif executor in ("rg", "python"):
             note += " (0 LLM spend)"
         lines.append(f"  {note:<32} steps={count}  ~{tokens:,} tok")
 

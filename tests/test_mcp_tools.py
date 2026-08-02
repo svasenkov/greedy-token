@@ -31,6 +31,17 @@ def _assert_greedy_token_footer(text: str) -> None:
     assert "> spent ~" in text
 
 
+def _assert_search_backend_billing(text: str) -> None:
+    rg_billing = "ripgrep on disk — 0 LLM spend" in text
+    python_billing = "script — 0 LLM spend" in text
+    assert rg_billing or python_billing
+    if rg_billing:
+        assert "rg (disk search)" in text
+    else:
+        assert "python (script)" in text
+        assert "rg (disk search)" not in text
+
+
 @allure.story("Route tool")
 @allure.title("MCP route tool returns tier decision with Greedy token footer")
 def test_mcp_route_includes_greedy_token_footer(minimal_workspace: Path) -> None:
@@ -100,7 +111,7 @@ def test_mcp_pipeline_execute_true(minimal_workspace: Path) -> None:
         assert "[tool/ran]" in out or "ran]" in out
         assert "baseUrl" in out
         assert "Per-step savings" in out
-        assert "ripgrep on disk — 0 LLM spend" in out
+        _assert_search_backend_billing(out)
         assert "(dry-run)" not in out.split("---")[0]
 
 

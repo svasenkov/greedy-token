@@ -11,6 +11,7 @@ import shlex
 import subprocess
 import json
 import ntpath
+import posixpath
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -57,7 +58,7 @@ def is_python_executable(value: str | Path) -> bool:
 def is_absolute_path(value: str | Path) -> bool:
     """Recognise native, POSIX, and Windows drive/UNC absolute paths."""
     text = str(value)
-    return Path(text).is_absolute() or ntpath.isabs(text)
+    return Path(text).is_absolute() or posixpath.isabs(text) or ntpath.isabs(text)
 
 
 def format_invocation(argv: Iterable[str], cwd: Path | str) -> str:
@@ -113,7 +114,13 @@ def command_to_argv(
         raise UnsafeCommandError("empty command")
 
     try:
-        parts = shlex.split(text)
+        lexer = shlex.shlex(text, posix=True)
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        # Legacy route commands use quoted paths, so keep backslashes literal.
+        # This preserves Windows paths without granting shell escape semantics.
+        lexer.escape = ""
+        parts = list(lexer)
     except ValueError as exc:
         raise UnsafeCommandError(f"cannot parse command: {exc}") from exc
 

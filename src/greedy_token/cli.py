@@ -51,6 +51,13 @@ from greedy_token.advisory import watch_events
 COMPRESS_MAX_BYTES = 256 * 1024
 
 
+def _configure_stream_errors(stream: object) -> None:
+    """Keep Unicode-rich CLI output usable on narrow Windows code pages."""
+    reconfigure = getattr(stream, "reconfigure", None)
+    if reconfigure is not None:
+        reconfigure(errors="replace")
+
+
 def cmd_route(args: argparse.Namespace) -> int:
     t0 = time.perf_counter()
     root = find_workspace_root()
@@ -1310,6 +1317,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> None:
+    _configure_stream_errors(sys.stdout)
+    _configure_stream_errors(sys.stderr)
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.command != "config":

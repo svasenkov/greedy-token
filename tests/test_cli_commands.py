@@ -25,7 +25,11 @@ def _run_cli(
     extra_env: dict[str, str] | None = None,
     input_text: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    env = {**os.environ, "GREEDY_TOKEN_ROOT": str(workspace)}
+    env = {
+        **os.environ,
+        "GREEDY_TOKEN_ROOT": str(workspace),
+        "PYTHONUTF8": "1",
+    }
     if extra_env:
         env.update(extra_env)
     return subprocess.run(

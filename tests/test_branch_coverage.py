@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from argparse import Namespace
 from pathlib import Path
 from types import SimpleNamespace
@@ -368,7 +369,7 @@ def test_tool_paths_empty_path_segment(tmp_path: Path, monkeypatch: pytest.Monke
     rg.chmod(0o755)
     monkeypatch.delenv("GREEDY_TOKEN_RG", raising=False)
     monkeypatch.delenv("GREEDY_TOKEN_DISABLE_EXTERNAL_TOOLS", raising=False)
-    monkeypatch.setenv("PATH", f"::{bin_dir}")
+    monkeypatch.setenv("PATH", os.pathsep.join(("", "", str(bin_dir))))
     monkeypatch.setattr("greedy_token.tool_paths.shutil.which", lambda *_a, **_k: None)
 
     path_derived = [p for p in _rg_candidates() if p.parent == bin_dir]

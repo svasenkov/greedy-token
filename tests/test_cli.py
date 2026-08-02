@@ -17,6 +17,28 @@ pytestmark = [
 ]
 
 
+@allure.story("Encoding")
+@allure.title("CLI replaces unsupported Unicode on narrow output streams")
+def test_cli_configures_narrow_stream_errors() -> None:
+    from greedy_token.cli import _configure_stream_errors
+
+    class NarrowStream:
+        errors = "strict"
+
+        def reconfigure(self, *, errors: str) -> None:
+            self.errors = errors
+
+        def write(self, value: str) -> bytes:
+            return value.encode("cp1252", errors=self.errors)
+
+    stream = NarrowStream()
+    _configure_stream_errors(stream)
+
+    assert stream.errors == "replace"
+    assert stream.write("→−") == b"??"
+    _configure_stream_errors(object())
+
+
 @allure.story("Help")
 @allure.title("CLI --help lists route command")
 def test_cli_help() -> None:

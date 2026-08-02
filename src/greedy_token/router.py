@@ -23,7 +23,12 @@ from greedy_token.outcome_calibration import (
 )
 from greedy_token.paths import find_workspace_root, load_routes_config
 from greedy_token.tokens import count_tokens
-from greedy_token.subprocess_safe import UnsafeCommandError, command_to_argv, format_invocation
+from greedy_token.subprocess_safe import (
+    UnsafeCommandError,
+    command_to_argv,
+    format_invocation,
+    is_absolute_path,
+)
 from greedy_token.tool_paths import resolve_jq, resolve_rg
 from greedy_token.wrappers import (
     ollama_available,
@@ -314,7 +319,7 @@ def _extract_search_query(task: str) -> str:
 def _confined_route_path(value: object, root: Path, *, field: str) -> str:
     text = str(value).strip()
     path = Path(text)
-    if not text or path.is_absolute():
+    if not text or is_absolute_path(text):
         raise ValueError(f"{field} must be a workspace-relative path")
     try:
         (root / path).resolve().relative_to(root.resolve())

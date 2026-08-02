@@ -26,7 +26,11 @@ def tool_text(result: Any) -> str:
 
 
 def mcp_env(workspace: Path, *, log_path: Path | None = None) -> dict[str, str]:
-    env = {**os.environ, "GREEDY_TOKEN_ROOT": str(workspace)}
+    env = {
+        **os.environ,
+        "GREEDY_TOKEN_ROOT": str(workspace),
+        "PYTHONUTF8": "1",
+    }
     if log_path is not None:
         env["GREEDY_TOKEN_LOG"] = str(log_path)
     else:

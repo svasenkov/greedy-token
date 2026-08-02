@@ -24,6 +24,17 @@ def _assert_greedy_token_footer(text: str) -> None:
     assert "> spent ~" in text
 
 
+def _assert_search_backend_billing(text: str) -> None:
+    rg_billing = "ripgrep on disk — 0 LLM spend" in text
+    python_billing = "script — 0 LLM spend" in text
+    assert rg_billing or python_billing
+    if rg_billing:
+        assert "rg (disk search)" in text
+    else:
+        assert "python (script)" in text
+        assert "rg (disk search)" not in text
+
+
 @allure.story("Server handshake")
 @allure.title("MCP stdio server advertises six greedy-token tools")
 def test_mcp_stdio_lists_six_tools(minimal_workspace: Path) -> None:
@@ -138,7 +149,7 @@ def test_mcp_stdio_pipeline_execute_true(minimal_workspace: Path) -> None:
         assert "[tool/ran]" in text or "ran]" in text
         assert "baseUrl" in text
         assert "Per-step savings" in text
-        assert "ripgrep on disk — 0 LLM spend" in text
+        _assert_search_backend_billing(text)
         assert "(dry-run)" not in text.split("---")[0]
 
 

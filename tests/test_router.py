@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from unittest.mock import patch
 
@@ -178,12 +179,12 @@ def test_explicit_root_controls_config_and_cwd(
     decision = route_task("find root marker", explicit_root)
     assert decision.route_id == "explicit-search"
     assert decision.command is not None
-    assert str(explicit_root) in decision.command
-    assert str(env_root) not in decision.command
+    assert json.dumps(str(explicit_root)) in decision.command
+    assert json.dumps(str(env_root)) not in decision.command
 
     tier_rows = dict(route_task_all_tiers("find root marker", explicit_root))
     assert tier_rows["tool"].route_id == "explicit-search"
-    assert str(explicit_root) in (tier_rows["tool"].command or "")
+    assert json.dumps(str(explicit_root)) in (tier_rows["tool"].command or "")
 
 
 @allure.story("Shadow routes")

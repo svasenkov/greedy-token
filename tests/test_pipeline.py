@@ -411,6 +411,8 @@ def test_pipeline_search_step_billing_uses_python_fallback(
         assert "ripgrep" not in search_row.billing
         assert "python" in footer
         assert "script — 0 LLM spend" in footer
+        assert "python (script)" in footer
+        assert "rg (disk search)" not in footer
 
 
 @patch("greedy_token.pipeline._run_step")
@@ -518,16 +520,16 @@ def test_format_savings_table_executor_fallback() -> None:
 
 
 @allure.story("Executor summary")
-@allure.title("format_executor_savings_summary aggregates per-tier with exact math")
+@allure.title("format_executor_savings_summary aggregates per-executor with exact math")
 def test_format_executor_summary_math() -> None:
     assert format_executor_savings_summary([]) == []
     rows = [
         _row(tier="python", spent=100, saved=200),
         _row(tier="python", spent=5, saved=6),
-        _row(tier="tool", spent=1, saved=9),
+        _row(tier="tool", executor_sub="rg", spent=1, saved=9),
     ]
     lines = format_executor_savings_summary(rows)
-    # Iterates tiers in fixed order: tool before python.
+    # Iterates executors in fixed order: rg before python.
     assert lines[0] == "Saved by executor (sum of per-step savings; baseline: default-estimate):"
     assert lines[1] == f"  {'rg (disk search)':<28} steps=1  spent ~1  saved ~9"
     # python: spent 100+5=105, saved 200+6=206, count=2 — kills tuple arithmetic mutants.
@@ -541,13 +543,13 @@ def test_format_executor_summary_all_tiers() -> None:
     # forces the "continue" (skip missing tier) path between present tiers.
     rows = [
         _row(tier="cursor", spent=50, saved=60),
-        _row(tier="tool", spent=1, saved=2),
+        _row(tier="tool", executor_sub="rg", spent=1, saved=2),
         _row(tier="rag", spent=7, saved=8),
         _row(tier="ollama", spent=3, saved=4),
         _row(tier="python", spent=5, saved=6),
     ]
     lines = format_executor_savings_summary(rows)
-    # Canonical order tool, python, ollama, rag, cursor — regardless of input order.
+    # Canonical order rg, python, ollama, rag, cursor — regardless of input order.
     assert lines[1] == f"  {'rg (disk search)':<28} steps=1  spent ~1  saved ~2"
     assert lines[2] == f"  {'python (script)':<28} steps=1  spent ~5  saved ~6"
     assert lines[3] == f"  {'ollama (cheap LLM)':<28} steps=1  spent ~3  saved ~4"
@@ -558,13 +560,26 @@ def test_format_executor_summary_all_tiers() -> None:
 @allure.story("Executor summary")
 @allure.title("format_executor_savings_summary skips missing tiers with continue, not break")
 def test_format_executor_summary_skips_missing_tiers() -> None:
-    # tool present, python/ollama/rag absent, cursor present: a `break` on the
+    # rg present, python/ollama/rag absent, cursor present: a `break` on the
     # first missing tier would drop the trailing cursor row.
-    rows = [_row(tier="tool", spent=1, saved=2), _row(tier="cursor", spent=9, saved=10)]
+    rows = [
+        _row(tier="tool", executor_sub="rg", spent=1, saved=2),
+        _row(tier="cursor", spent=9, saved=10),
+    ]
     lines = format_executor_savings_summary(rows)
     assert lines[1] == f"  {'rg (disk search)':<28} steps=1  spent ~1  saved ~2"
     assert lines[2] == f"  {'cursor (expensive LLM)':<28} steps=1  spent ~9  saved ~10"
     assert len(lines) == 3
+
+
+@allure.story("Executor summary")
+@allure.title("format_executor_savings_summary reports tool fallback as python")
+def test_format_executor_summary_python_search_fallback() -> None:
+    lines = format_executor_savings_summary(
+        [_row(tier="tool", executor_sub="python", spent=0, saved=9)]
+    )
+    assert lines[1] == f"  {'python (script)':<28} steps=1  spent ~0  saved ~9"
+    assert all("rg (disk search)" not in line for line in lines)
 
 
 @allure.story("Compute savings")
@@ -774,14 +789,14 @@ def test_format_pipeline_footer_exact(minimal_workspace: Path, monkeypatch: pyte
 
 
 @allure.story("Pipeline footer")
-@allure.title("format_pipeline_footer 'Spent by executor' covers every tier + notes")
+@allure.title("format_pipeline_footer 'Spent by executor' covers every executor + notes")
 def test_format_pipeline_footer_spent_by_executor(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from types import SimpleNamespace
 
     import greedy_token.pipeline as P
 
-    # One executed step per tier exercises every tier string in the loop tuple,
-    # the ollama/tool/python note special-casing, and the continue (skip) path.
+    # One executed step per executor exercises the canonical loop order,
+    # the ollama/rg/python note special-casing, and the continue (skip) path.
     steps = [
         _sr("s-tool", "tool", label="a", est_tokens=10, executed=True),
         _sr("s-py", "python", label="b", est_tokens=20, executed=True),
@@ -792,10 +807,9 @@ def test_format_pipeline_footer_spent_by_executor(minimal_workspace: Path, monke
     result = PipelineResult(task="t", steps=steps)
     monkeypatch.setattr(P, "cursor_baseline_breakdown", lambda root, task: SimpleNamespace(total=9999, rules=1, task=2, overhead=3, source="default-estimate"))
     monkeypatch.setattr(P, "get_cheap_llm_settings", lambda root: SimpleNamespace(provider="prov", model="mod", url="http://x"))
-    monkeypatch.setattr(P, "compute_step_savings", lambda res, root: [])
 
     footer = P.format_pipeline_footer(result, minimal_workspace)
-    with allure.step("Each tier renders once, in canonical order, with the right note"):
+    with allure.step("Each executor renders once, in canonical order, with the right note"):
         assert f"  {'rg (disk search) (0 LLM spend)':<32} steps=1  ~10 tok" in footer
         assert f"  {'python (script) (0 LLM spend)':<32} steps=1  ~20 tok" in footer
         assert f"  {'ollama (cheap LLM) (prov/mod, cheap)':<32} steps=1  ~30 tok" in footer

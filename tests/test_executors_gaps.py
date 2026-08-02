@@ -6,6 +6,7 @@ dry-run / cursor / RAG strings so single-token mutants are caught with ``==``.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import allure
@@ -66,7 +67,7 @@ def test_plan_run_python_wrapper_readonly(
     dec = _dec("python", command="python scripts/meta-sync-check.py", read_only=False)
     plan = plan_run(dec, "task", minimal_workspace)
     assert plan.command == "python scripts/meta-sync-check.py"
-    assert f'cwd="{minimal_workspace}"' in plan.dry_run_output
+    assert f"cwd={json.dumps(str(minimal_workspace))}" in plan.dry_run_output
     assert '"scripts/meta-sync-check.py"' in plan.dry_run_output
     assert plan.executable is True  # kills wrapper=None / wrapper_for_command(None) / and
     assert plan.decision is dec
@@ -84,7 +85,7 @@ def test_plan_run_ollama_wrapper_readonly(minimal_workspace: Path) -> None:
     dec = _dec("ollama", command="./scripts/ollama/audit-skill.sh", read_only=False)
     plan = plan_run(dec, "task", minimal_workspace)
     assert plan.command == "./scripts/ollama/audit-skill.sh"
-    assert f'cwd="{minimal_workspace}"' in plan.dry_run_output
+    assert f"cwd={json.dumps(str(minimal_workspace))}" in plan.dry_run_output
     assert plan.dry_run_output.endswith("  # pass args as needed")
     assert plan.executable is True  # kills wrapper=None / wrapper_for_command(None) / and
     assert plan.decision is dec  # kills decision=None
