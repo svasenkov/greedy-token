@@ -86,7 +86,7 @@ routes:
       - gen-env-configs
       - env config generate
       - properties sync script
-    command: python stacks/java-spring/scripts/gen-env-configs.py
+    command: python projects/autotests-ai-multistack-home/autotests-ai-multistack-app/tests/_tests-meta/scripts/_ethalon/gen-env-configs.py
     note: "Deterministic config generation"
 
   - id: python-openapi-diff

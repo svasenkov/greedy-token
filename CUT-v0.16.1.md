@@ -20,6 +20,8 @@ server past Cursor’s idle timeout and collapses the tool catalog.
   required Python after `(1, "")` now expect engine `rg` and “No matches”.
 - **Hub session fixture:** `list_sessions(since="30d")` uses timestamps relative
   to now so a July 2026 fixture cannot fall out of the window.
+- **Workspace overlay:** `python-gen-env` points at the tests-meta ethalon script
+  so nested-clone `scripts lint` matches the script-tier catalog.
 
 ## Honest evidence
 
