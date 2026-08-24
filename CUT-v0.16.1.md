@@ -25,7 +25,12 @@ server past Cursor’s idle timeout and collapses the tool catalog.
 
 ## Honest evidence
 
-Fill after `./scripts/release-gate.sh 0.16.1` on this cut.
+The local macOS/Python 3.12 release gate on 2026-08-24 passed:
+
+- the full suite twice: 1189 passed, 3 skipped;
+- 100% branch coverage across 7382 statements and 2496 branches;
+- the explicit `0.16.1` release-version gate;
+- Allure `minTestsCount` synced to 1192 (pytest collected).
 
 ## Contract evidence
 
