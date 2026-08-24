@@ -1,0 +1,1 @@
+{"id":"c4217e6b984ce66991c5f43519fd39e7","fullName":"tests.test_code_search_gaps#test_search_code_rg_empty_miss_no_python_tree","name":"search_code: rg present + empty miss → No matches, python tree not used","status":"passed","testResultsByEnv":{"default":"29b285d659876cc553abfb7449ac9469"}}

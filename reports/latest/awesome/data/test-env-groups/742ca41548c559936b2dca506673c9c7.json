@@ -1,0 +1,1 @@
+{"id":"742ca41548c559936b2dca506673c9c7","fullName":"tests.test_code_search_gaps#test_search_code_rg_error_no_python_tree","name":"search_code: rg exit 2 returns error and does not python-scan","status":"passed","testResultsByEnv":{"default":"7a29a0829268e924959552036d1a0b1d"}}

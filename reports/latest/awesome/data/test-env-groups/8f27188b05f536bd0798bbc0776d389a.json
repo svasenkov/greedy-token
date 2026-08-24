@@ -1,0 +1,1 @@
+{"id":"8f27188b05f536bd0798bbc0776d389a","fullName":"tests.test_code_search_gaps#test_search_from_rg_empty_error_text","name":"_search_from_rg: empty rg error output uses the exited-N fallback text","status":"passed","testResultsByEnv":{"default":"367735cc18aacfe561cffa084b6ef2a7"}}
