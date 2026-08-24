@@ -297,6 +297,54 @@ def _run_rg(argv: tuple[str, ...], *, cwd: Path) -> tuple[int, str]:
     return proc.returncode, out
 
 
+def _rg_completed(code: int, output: str) -> bool:
+    """True when rg finished a search (hits or miss), not a launch/timeout failure."""
+    if "command not found" in output.lower():
+        return False
+    return code in (0, 1)
+
+
+def _rg_not_runnable(code: int, output: str) -> bool:
+    """True when python fallback is allowed because rg could not execute."""
+    if "command not found" in output.lower():
+        return True
+    return code in (126, 127)
+
+
+def _search_from_rg(
+    *,
+    query: str,
+    scope: str,
+    code: int,
+    out: str,
+    root: Path,
+    context: SearchContextMode | None,
+    default_path: str | None = None,
+    miss_suffix: str = "",
+) -> SearchResult | None:
+    """Interpret one rg invocation. ``None`` means the caller may python-fallback."""
+    if _rg_completed(code, out):
+        filtered = filter_tool_output(out)
+        if filtered:
+            return _finalize_search(
+                header=f"Search: {query!r} in {scope}",
+                body=filtered,
+                engine="rg",
+                root=root,
+                context=context,
+                default_path=default_path,
+            )
+        text = f"No matches for {query!r} in {scope}."
+        if miss_suffix:
+            text = f"{text}\n{miss_suffix}"
+        return SearchResult(text=text, engine="rg")
+    if _rg_not_runnable(code, out):
+        return None
+    filtered = filter_tool_output(out)
+    text = (filtered or out).strip() or f"Error: ripgrep exited {code}."
+    return SearchResult(text=text, engine="rg")
+
+
 _BARE_LINE_RE = re.compile(r"^(\d+):(.*)$")
 
 
@@ -533,16 +581,20 @@ def search_code(
                 scope,
             )
             code, out = _run_rg(argv, cwd=root)
-            filtered = filter_tool_output(out)
-            if code in (0, 1) and filtered and "command not found" not in filtered.lower():
-                return _finalize_search(
-                    header=f"Search: {query!r} in {scope}",
-                    body=filtered,
-                    engine="rg",
-                    root=root,
-                    context=context,
-                    default_path=scope,
-                )
+            settled = _search_from_rg(
+                query=query,
+                scope=scope,
+                code=code,
+                out=out,
+                root=root,
+                context=context,
+                default_path=scope,
+                miss_suffix=(
+                    "Try greedy_token_rag for docs/rag lookup, or search without path."
+                ),
+            )
+            if settled is not None:
+                return settled
         lines = _python_search_file(
             resolved,
             query,
@@ -590,15 +642,16 @@ def search_code(
             scope = "workspace"
             argv.extend(search_scope_paths(root))
         code, out = _run_rg(tuple(argv), cwd=root)
-        filtered = filter_tool_output(out)
-        if code in (0, 1) and filtered and "command not found" not in filtered.lower():
-            return _finalize_search(
-                header=f"Search: {query!r} in {scope}",
-                body=filtered,
-                engine="rg",
-                root=root,
-                context=context,
-            )
+        settled = _search_from_rg(
+            query=query,
+            scope=scope,
+            code=code,
+            out=out,
+            root=root,
+            context=context,
+        )
+        if settled is not None:
+            return settled
 
     if resolved and resolved.is_dir():
         scope_dirs = [resolved]

@@ -19,6 +19,7 @@ Track progress: [GitHub issues labeled `roadmap`](https://github.com/svasenkov/g
 | **v0.14.1** ✅ | Repeat-review patch: positive read-only tool intent, structured command trust boundary, Corpus v3 classifier metrics, exact-commit PyPI gate, restored coverage gate | ✅ shipped as **v0.14.1** (`CUT-v0.14.1.md`); 1030 tests, corpus v3, 100% coverage |
 | **v0.15.0** ✅ | Public end-to-end evidence: frozen RU/EN corpus, observable task oracles, direct/CLI/MCP/agent comparison, outcome confidence, deterministic JSON scorecard + manual live workflow | ✅ shipped as **v0.15.0** (`CUT-v0.15.0.md`) |
 | **v0.16.0** ✅ | Unicode-aware lexical BM25/FTS retrieval, portable argv/cwd execution, mandatory OS/dependency/integration/distribution matrices, and SHA-256 + file-identity trust manifests for workspace scripts | ✅ shipped in **v0.16.0** (`CUT-v0.16.0.md`); trust is rechecked before launch with documented TOCTOU limits |
+| **v0.16.1** ✅ | Code search: trust a completed `rg` miss/timeout; do not Python-walk the tree afterward (MCP idle hang) | ✅ shipped in **v0.16.1** (`CUT-v0.16.1.md`) |
 | **v0.17+** (aspirational) | **Host pre-router** *if* Cursor (or another host) exposes an API — otherwise stays out of scope | No fake “pre-LLM” claims without host support |
 
 ## Themes
@@ -146,6 +147,7 @@ Per-release detail: `CUT-v*.md` checklists in the repo root.
 
 | Version | Focus |
 |---------|-------|
+| **v0.16.1** | Code search: `rg` miss/timeout is final — no Python tree fallback that stalls MCP |
 | **v0.16.0** | Unicode lexical BM25/FTS retrieval; portable Windows/macOS/Linux execution and required release matrices |
 | **v0.15.0** | Frozen public E2E evidence, explicit outcomes, outcome-calibrated confidence, deterministic/live scorecards |
 | **v0.14.1** | Strict read-only routing; trusted structured argv; held-out/adversarial Corpus v3; green-commit PyPI gate |

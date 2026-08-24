@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import threading
 import urllib.request
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import allure
@@ -161,14 +162,15 @@ def test_parse_ts() -> None:
 @allure.title("list_sessions reads .since files and filters")
 def test_list_sessions_from_files(hub_home: Path) -> None:
     log = hub_home / "usage.jsonl"
-    now = "2026-07-15T12:00:00Z"
+    now = datetime.now(UTC)
+    recent = (now - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
     log.write_text(
-        json.dumps({"ts": now, "cursor_saved": 300, "est_tokens": 20, "root": "/r"}) + "\n",
+        json.dumps({"ts": recent, "cursor_saved": 300, "est_tokens": 20, "root": "/r"}) + "\n",
         encoding="utf-8",
     )
     sdir = hub_home / "statusline-sessions"
     sdir.mkdir()
-    (sdir / "good.since").write_text("2026-07-14T00:00:00Z", encoding="utf-8")
+    (sdir / "good.since").write_text(recent, encoding="utf-8")
     (sdir / "bad.since").write_text("not-a-ts", encoding="utf-8")  # → skipped (parse None)
     (sdir / "old.since").write_text("2020-01-01T00:00:00Z", encoding="utf-8")  # before since_dt → skipped
 

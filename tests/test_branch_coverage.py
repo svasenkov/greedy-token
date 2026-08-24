@@ -500,8 +500,8 @@ def test_ci_linux_branch_gaps(minimal_workspace: Path) -> None:
                 minimal_workspace,
                 path="projects/scoped-search.js",
             )
-    assert scoped_result.engine == "python"
-    assert "python file scan" in scoped_result.text
+    assert scoped_result.engine == "rg"
+    assert scoped_result.text.startswith("No matches for 'needle_ci_branch' in projects/scoped-search.js")
 
 
 @allure.title("Branch gaps: parse_pipeline missing skill args")

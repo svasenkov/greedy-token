@@ -673,14 +673,135 @@ def test_search_code_python_global_exact(minimal_workspace: Path, monkeypatch: p
     assert "enriched context" not in r.text  # kills context=None
 
 
-@allure.title("search_code: rg present but no rg matches → python tree, note suppressed")
-def test_search_code_rg_present_tree_note(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@allure.title("search_code: rg present + empty miss → No matches, python tree not used")
+def test_search_code_rg_empty_miss_no_python_tree(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(cs, "resolve_rg", lambda: "rg")
     monkeypatch.setattr(cs, "_run_rg", lambda argv, *, cwd: (1, ""))
+    tree_calls = {"n": 0}
+    real_tree = cs._python_search_tree
+
+    def spy_tree(*args, **kwargs):  # type: ignore[no-untyped-def]
+        tree_calls["n"] += 1
+        return real_tree(*args, **kwargs)
+
+    monkeypatch.setattr(cs, "_python_search_tree", spy_tree)
     r = cs.search_code("baseUrl", minimal_workspace, path=None, context="none")
-    assert "[python]" in r.text
-    assert "(rg not in PATH" not in r.text  # note only when rg absent (kills if rg_bin flip)
-    assert "XXXX" not in r.text  # kills else "" → "XXXX"
+    assert r.engine == "rg"
+    assert r.text == "No matches for 'baseUrl' in workspace."
+    assert "[python]" not in r.text
+    assert tree_calls["n"] == 0
+
+
+@pytest.mark.parametrize(
+    ("code", "output", "completed", "not_runnable"),
+    [
+        (0, "a.py:1:x", True, False),
+        (1, "", True, False),
+        (124, "Error: ripgrep timed out after 30s", False, False),
+        (2, "rg: error", False, False),
+        (126, "Error: cannot execute ripgrep: x", False, True),
+        (127, "Error: ripgrep executable not found: x", False, True),
+        (1, "command not found: rg", False, True),
+        (0, "rg: command not found", False, True),
+    ],
+)
+@allure.title("rg status predicates: completed vs not-runnable")
+def test_rg_status_predicates(
+    code: int, output: str, completed: bool, not_runnable: bool
+) -> None:
+    assert cs._rg_completed(code, output) is completed
+    assert cs._rg_not_runnable(code, output) is not_runnable
+
+
+@allure.title("search_code: rg timeout returns error and does not python-scan")
+def test_search_code_rg_timeout_no_python_tree(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(cs, "resolve_rg", lambda: "rg")
+    monkeypatch.setattr(
+        cs, "_run_rg", lambda argv, *, cwd: (124, "Error: ripgrep timed out after 30s")
+    )
+    tree_calls = {"n": 0}
+
+    def spy_tree(*args, **kwargs):  # type: ignore[no-untyped-def]
+        tree_calls["n"] += 1
+        return []
+
+    monkeypatch.setattr(cs, "_python_search_tree", spy_tree)
+    r = cs.search_code("baseUrl", minimal_workspace, path=None, context="none")
+    assert r.engine == "rg"
+    assert "timed out" in r.text
+    assert tree_calls["n"] == 0
+
+
+@allure.title("search_code: rg exit 2 returns error and does not python-scan")
+def test_search_code_rg_error_no_python_tree(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(cs, "resolve_rg", lambda: "rg")
+    monkeypatch.setattr(cs, "_run_rg", lambda argv, *, cwd: (2, "rg: regex error"))
+    tree_calls = {"n": 0}
+
+    def spy_tree(*args, **kwargs):  # type: ignore[no-untyped-def]
+        tree_calls["n"] += 1
+        return []
+
+    monkeypatch.setattr(cs, "_python_search_tree", spy_tree)
+    r = cs.search_code("baseUrl", minimal_workspace, path=None, context="none")
+    assert r.engine == "rg"
+    assert "regex error" in r.text
+    assert tree_calls["n"] == 0
+
+
+@allure.title("_search_from_rg: empty rg error output uses the exited-N fallback text")
+def test_search_from_rg_empty_error_text(tmp_path: Path) -> None:
+    r = cs._search_from_rg(
+        query="q",
+        scope="workspace",
+        code=2,
+        out="",
+        root=tmp_path,
+        context="none",
+    )
+    assert r is not None
+    assert r.engine == "rg"
+    assert r.text == "Error: ripgrep exited 2."
+
+
+@allure.title("search_code: rg exit 126 still python-fallbacks (not-runnable)")
+def test_search_code_rg_oserror_python_fallback(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(cs, "resolve_rg", lambda: "rg")
+    monkeypatch.setattr(
+        cs, "_run_rg", lambda argv, *, cwd: (126, "Error: cannot execute ripgrep: x")
+    )
+    r = cs.search_code("baseUrl", minimal_workspace, path=None, context="none")
+    assert r.engine == "python"
+    assert "baseUrl" in r.text
+
+
+@allure.title("search_code: file-scoped rg miss does not python-scan the file")
+def test_search_code_file_rg_empty_miss_no_python_file(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(cs, "resolve_rg", lambda: "rg")
+    monkeypatch.setattr(cs, "_run_rg", lambda argv, *, cwd: (1, ""))
+    file_calls = {"n": 0}
+    real_file = cs._python_search_file
+
+    def spy_file(*args, **kwargs):  # type: ignore[no-untyped-def]
+        file_calls["n"] += 1
+        return real_file(*args, **kwargs)
+
+    monkeypatch.setattr(cs, "_python_search_file", spy_file)
+    r = cs.search_code("baseUrl", minimal_workspace, path="sample.js", context="none")
+    assert r.engine == "rg"
+    assert r.text.startswith("No matches for 'baseUrl' in projects/sample.js.")
+    assert "Try greedy_token_rag" in r.text
+    assert file_calls["n"] == 0
 
 
 @allure.title("search_code: no-match final return engine is 'rg' when rg present, 'python' otherwise")

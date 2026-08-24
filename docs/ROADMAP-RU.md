@@ -19,6 +19,7 @@ greedy-token — MCP/CLI **прототип**: эвристический single
 | **v0.14.1** ✅ | Patch повторного ревью: positive read-only intent для tool, structured command trust boundary, classifier-метрики Corpus v3, exact-commit PyPI gate, восстановленный coverage gate | ✅ shipped как **v0.14.1** (`CUT-v0.14.1.md`); 1030 tests, corpus v3, coverage 100% |
 | **v0.15.0** ✅ | Публичный end-to-end evidence: frozen RU/EN corpus, наблюдаемые task oracle, сравнение direct/CLI/MCP/agent, outcome confidence, deterministic JSON scorecard + manual live workflow | ✅ выпущен как **v0.15.0** (`CUT-v0.15.0.md`) |
 | **v0.16.0** ✅ | Unicode-aware lexical BM25/FTS retrieval, portable argv/cwd execution, обязательные OS/dependency/integration/distribution матрицы и SHA-256 + file-identity trust manifest для workspace-скриптов | ✅ выпущено в **v0.16.0** (`CUT-v0.16.0.md`); trust перепроверяется перед запуском с документированными TOCTOU-ограничениями |
+| **v0.16.1** ✅ | Code search: доверять завершённому miss/timeout `rg`; не обходить дерево Python’ом (MCP hang) | ✅ выпущено в **v0.16.1** (`CUT-v0.16.1.md`) |
 | **v0.17+** (aspirational) | **Host pre-router** *если* Cursor (или другой host) даст API — иначе вне scope | Без фейковых claim «до LLM» без поддержки хоста |
 
 ## Темы
@@ -196,6 +197,7 @@ CI job → greedy-token CLI → rg | python | cheap_llm (Ollama/internal) | RAG 
 
 | Версия | Фокус |
 |--------|-------|
+| **v0.16.1** | Code search: miss/timeout `rg` окончателен — без Python-обхода дерева, который вешает MCP |
 | **v0.16.0** | Unicode lexical BM25/FTS retrieval; portable Windows/macOS/Linux execution и обязательные release-матрицы |
 | **v0.15.0** | Frozen public E2E evidence, explicit outcomes, outcome-calibrated confidence, deterministic/live scorecards |
 | **v0.14.1** | Strict read-only routing; trusted structured argv; held-out/adversarial Corpus v3; PyPI gate по зелёному commit |
