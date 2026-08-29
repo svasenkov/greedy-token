@@ -15,7 +15,7 @@ BRANCH="${3:-main}"
 BUILD="${4:-}"
 COMPONENT_FILTER="${5:-}"
 TITLE="${6:-Selenoid Tests}"
-STACK_FOOTER="${7:-Go 1.26 · Java 21 · Allure 3}"
+STACK_FOOTER="${7:-Go 1.27 · Java 21 · Allure 3}"
 OUTPUT_SUFFIX="${8:-}"
 
 mkdir -p "${OUTPUT_DIR}"
