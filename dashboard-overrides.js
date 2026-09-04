@@ -5,7 +5,7 @@
  * Keep hex/vars in sync with allure/pyramid-layer-colors.mjs + tokens.css.
  */
 (function () {
-  const FUNNEL_TOP_TO_BOTTOM = ["other", "manual", "e2e", "api", "integration", "component", "unit"];
+  const FUNNEL_TOP_TO_BOTTOM = ["other", "manual", "e2e", "ui", "api", "integration", "component", "unit"];
   // Canon shape (variants page: rounded tiers). Set to "funnel" to disable reshaping.
   const SHAPE_MODE = "steps";
   // Corner radius as a fraction of a band's inner height (0 = sharp tiers).
@@ -16,6 +16,7 @@
       component: "#ff8200",
       integration: "#7e22ce",
       api: "#e8bd00",
+      ui: "#db2777",
       e2e: "#dc2626",
       manual: "#459bde",
       other: "#64748b",
@@ -25,6 +26,7 @@
       component: "#ffa833",
       integration: "#a65ac4",
       api: "#ffd833",
+      ui: "#f472b6",
       e2e: "#ff574f",
       manual: "#61b6fb",
       other: "#5d6876",
