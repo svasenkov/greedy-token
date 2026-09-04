@@ -126,7 +126,7 @@ def test_overrides_css_defines_layer_vars() -> None:
     css = OVERRIDES_CSS.read_text(encoding="utf-8")
     attach_text("dashboard-overrides.css head", css[:500])
     with allure.step("Require Palette A vars in :root and dark theme"):
-        for layer in ("unit", "component", "integration", "api", "e2e", "manual"):
+        for layer in ("unit", "component", "integration", "api", "ui", "e2e", "manual"):
             assert f"--layer-{layer}:" in css
         assert 'html[data-theme="dark"]' in css
         assert 'html[data-theme="light"]' in css
