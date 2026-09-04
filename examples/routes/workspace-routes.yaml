@@ -95,7 +95,7 @@ routes:
     patterns:
       - openapi diff
       - contract drift
-      - stacks/_contract
+      - projects/autotests-ai-multistack-home/autotests-ai-multistack-app/_contract
     command: python scripts/openapi-diff.py
     note: "contract_lint gate — crystallized script tier, 0 LLM"
 
@@ -279,7 +279,7 @@ routes:
       - pyramid-map
       - flows/login
     domains: [stacks]
-    note: "stacks/_contract + docs/rag/stacks/"
+    note: "autotests-ai-multistack-app/_contract + docs/rag/stacks/"
 
   - id: python-resolve-testops-project
     target: python
@@ -337,6 +337,38 @@ routes:
     command: python scripts/infra/provider_balance.py
     note: "Provider balance analyzer — shadow (0 hits)"
 
+  - id: python-google-sheets
+    target: python
+    read_only: false
+    enabled: false
+    shadow_until: "2026-08-10T00:00:00Z"
+    patterns:
+      - google sheets
+      - google spreadsheet
+      - sheets get range
+      - sheets metadata
+      - read spreadsheet
+      - write spreadsheet
+      - share-sa
+      - sheets verify
+    command: python scripts/google-sheets/sheets.py
+    note: "Sheets read/write + share-sa — shadow"
+
+  - id: python-qa-guru-students-sheet
+    target: python
+    read_only: false
+    enabled: false
+    shadow_until: "2026-08-15T00:00:00Z"
+    patterns:
+      - qa-guru students sheet
+      - push students sheet
+      - обновить таблицу студентов
+      - ai-first students google sheet
+      - kotlin students sheet
+      - годовой курс sheet
+    command: python projects/qa-guru-home/exports/commercial-export/push-students-sheets.py
+    note: "Push qa-guru students sheet — shadow"
+
   # promoted 2026-07-28 — golden green (jenkins + all-standard dry-run)
   - id: python-access-diag-jenkins
     target: python
@@ -376,6 +408,19 @@ routes:
       - service account access
     command: python scripts/access_diag.py --all-standard
     note: "Access-diag all standard profiles — jenkins+selenoid+testops"
+
+  - id: python-provision-student-contour
+    target: python
+    read_only: false
+    patterns:
+      - provision student contour
+      - student contour qa.guru
+      - onboard student jenkins testops
+      - autotests-cloud app-tests
+      - multistack student contour
+      - новый студент контур
+    command: python scripts/provision-student-contour.py
+    note: "Student contour stub — dry-run unless --live; full run stays manual"
 
 cursor_fallback:
   message: |
