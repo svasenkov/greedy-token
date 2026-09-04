@@ -16,3 +16,7 @@ mutants/
 *.sqlite3-wal
 history.jsonl
 pages/
+
+# local allure-notifications dogfood
+allure-notifications-*.jar
+/notifications/
