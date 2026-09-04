@@ -30,15 +30,25 @@ MCP_INSTRUCTIONS = (
 )
 
 
+# Cursor's offerings UI times out on a 270KB PNG data URI (~370KB initialize).
+# Prefer SVG; skip any payload above this cap.
+MAX_ICON_BYTES = 8_192
+
+
 def mcp_icons() -> list[Icon]:
     """MCP server icon (SEP-973) for Cursor / MCP Inspector."""
     static_dir = Path(__file__).resolve().parent / "static"
     pkg_static = resources.files("greedy_token.static")
 
-    for name, mime in (("icon.png", "image/png"), ("icon.svg", "image/svg+xml")):
+    for name, mime in (("icon.svg", "image/svg+xml"), ("icon.png", "image/png")):
         icon_path = static_dir / name
+        payload: bytes | None = None
         if icon_path.is_file():
-            payload = icon_path.read_bytes() if mime == "image/png" else icon_path.read_text(encoding="utf-8").encode("utf-8")
+            payload = (
+                icon_path.read_bytes()
+                if mime == "image/png"
+                else icon_path.read_text(encoding="utf-8").encode("utf-8")
+            )
         else:
             try:
                 resource = pkg_static.joinpath(name)
@@ -48,7 +58,9 @@ def mcp_icons() -> list[Icon]:
                     else resource.read_text(encoding="utf-8").encode("utf-8")
                 )
             except (FileNotFoundError, OSError):
-                continue
+                payload = None
+        if payload is None or len(payload) > MAX_ICON_BYTES:
+            continue
         encoded = base64.b64encode(payload).decode("ascii")
         # MCP 1.15 models SEP-973 ``sizes`` as a string; newer 1.x releases
         # corrected it to a list. Keep the server compatible with both schemas.
@@ -70,7 +82,10 @@ def mcp_icons() -> list[Icon]:
     raise FileNotFoundError("greedy_token static icon not found (icon.png or icon.svg)")
 
 
-mcp = FastMCP("greedy-token", instructions=MCP_INSTRUCTIONS, icons=mcp_icons())
+# Do not embed icons on the FastMCP server: Cursor caches a failed
+# tools/list as "0 tools" and skips a later list. A 270KB PNG data URI
+# in initialize previously tripped that path.
+mcp = FastMCP("greedy-token", instructions=MCP_INSTRUCTIONS)
 
 
 @mcp.tool()
@@ -267,6 +282,15 @@ def greedy_token_crystallize(action: str, crystal_id: str, since: str = "30d") -
 
 
 def main() -> None:
+    import logging
+    import warnings
+
+    # Cursor treats MCP stderr as errors and may skip tools/list after noise.
+    warnings.filterwarnings("ignore")
+    logging.getLogger("mcp").setLevel(logging.CRITICAL)
+    logging.getLogger("mcp.server").setLevel(logging.CRITICAL)
+    logging.getLogger("mcp.server.lowlevel").setLevel(logging.CRITICAL)
+
     root = find_workspace_root()
     apply_ollama_env(root)
     mcp.run()
