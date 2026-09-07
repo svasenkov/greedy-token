@@ -714,7 +714,10 @@ def test_pipeline_execute_rejects_outside_path(
             parse_pipeline(f"classify-file {minimal_workspace / 'docs' / 'nope.md'}")
 
 
-@patch("greedy_token.cheap_llm.json.load", return_value={"models": []})
+@patch(
+    "greedy_token.cheap_llm.json.load",
+    return_value={"models": [{"name": "qwen2.5-coder:7b-instruct-q4_K_M"}]},
+)
 @patch("urllib.request.urlopen")
 @allure.story("Ollama probe")
 @allure.title("Ollama availability probe caches successful result")

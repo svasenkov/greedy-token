@@ -23,6 +23,7 @@ from greedy_token.wrappers import WRAPPERS
 
 SCHEMA_VERSION = 2
 TASK_MAX_LEN = 500
+TAG_MAX_LEN = 64
 DEFAULT_LOG = Path.home() / ".greedy-token" / "usage.jsonl"
 DEFAULT_MAX_LOG_BYTES = 5 * 1024 * 1024
 DEFAULT_MAX_ROTATED = 5
@@ -547,6 +548,11 @@ def rotate_log_if_needed(path: Path) -> bool:
     return True
 
 
+def env_tag() -> str:
+    """Optional GREEDY_TOKEN_TAG label used to group runs, e.g. by lesson layer."""
+    return os.environ.get("GREEDY_TOKEN_TAG", "").strip()[:TAG_MAX_LEN]
+
+
 def append_event(
     event: dict,
     *,
@@ -554,6 +560,9 @@ def append_event(
     emit_auto_override: bool = True,
 ) -> None:
     target = path or log_path()
+    tag = env_tag()
+    if tag and "tag" not in event:
+        event = {**event, "tag": tag}
     try:
         _ensure_log_dir(target)
         rotate_log_if_needed(target)

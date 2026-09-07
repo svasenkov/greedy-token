@@ -67,7 +67,10 @@ def test_resolve_wrapper_unknown_raises(minimal_workspace: Path) -> None:
             resolve_wrapper_command("no-such-wrapper", minimal_workspace)
 
 
-@patch("greedy_token.cheap_llm.json.load", return_value={"models": []})
+@patch(
+    "greedy_token.cheap_llm.json.load",
+    return_value={"models": [{"name": "qwen2.5-coder:7b-instruct-q4_K_M"}]},
+)
 @patch("urllib.request.urlopen")
 @allure.story("Ollama probe")
 @allure.title("Ollama availability returns true when /api/tags responds")

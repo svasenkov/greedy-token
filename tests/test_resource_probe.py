@@ -15,6 +15,7 @@ from greedy_token.budget_ledger import (
 )
 from greedy_token.budget_policy import apply_budget_policy
 from greedy_token.resource_probe import (
+    InstalledModel,
     _is_deprecated,
     detect_hardware,
     format_doctor_report,
@@ -23,6 +24,7 @@ from greedy_token.resource_probe import (
     run_doctor,
 )
 from greedy_token.router import RouteDecision
+from greedy_token.settings import CheapLlmSettings
 from greedy_token.usage import SCHEMA_VERSION, build_route_event
 
 
@@ -98,6 +100,36 @@ def test_doctor_baseline_calibrated_no_warning() -> None:
 def test_doctor_paid_recommendations() -> None:
     report = run_doctor(include_paid=True, quick=True)
     assert report.paid_recommendations or load_model_catalog().get("paid_models")
+
+
+def test_doctor_warns_when_configured_model_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    from greedy_token.cheap_llm import CheapLlmProbe
+
+    monkeypatch.setattr(
+        "greedy_token.resource_probe.probe_cheap_llm",
+        lambda *a, **k: CheapLlmProbe(
+            reachable=True,
+            model_present=False,
+            models=("qwen2.5-coder:7b",),
+            reason="model 'm' not served",
+        ),
+    )
+    monkeypatch.setattr(
+        "greedy_token.resource_probe.get_cheap_llm_settings",
+        lambda root=None: CheapLlmSettings(
+            provider="ollama",
+            url="http://localhost:11434",
+            model="m",
+            source="user",
+        ),
+    )
+    monkeypatch.setattr(
+        "greedy_token.resource_probe.fetch_ollama_models",
+        lambda *a, **k: [InstalledModel(name="qwen2.5-coder:7b", size_bytes=1)],
+    )
+    report = run_doctor(quick=True)
+    assert report.ollama_available is False
+    assert any("not served" in w and "'m'" in w for w in report.warnings)
 
 
 def test_aggregate_budget_empty_log(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

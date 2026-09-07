@@ -198,6 +198,10 @@ def _clear_cheap_llm_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "CHEAP_LLM_URL",
         "CHEAP_LLM_MODEL",
         "CHEAP_LLM_API_KEY",
+        "CHEAP_LLM_USER",
+        "CHEAP_LLM_PASSWORD",
+        "OLLAMA_USER",
+        "OLLAMA_PASSWORD",
         "GREEDY_LLM_MODEL_ID",
         "GREEDY_LLM_PROFILE",
         "GREEDY_LLM_TIER",
@@ -205,6 +209,7 @@ def _clear_cheap_llm_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "GREEDY_ALLOW_EXPENSIVE",
         "GREEDY_METERED_LLM",
         "GREEDY_TOKEN_FOOTER_STYLE",
+        "GREEDY_TOKEN_TAG",
         "GREEDY_AGENT_HOST",
     ):
         monkeypatch.delenv(key, raising=False)

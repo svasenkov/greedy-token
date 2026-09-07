@@ -299,7 +299,15 @@ def _report(**kw) -> DoctorReport:
 def test_run_doctor_branches(monkeypatch: pytest.MonkeyPatch, minimal_workspace: Path) -> None:
     monkeypatch.setattr(rp, "detect_hardware", lambda: HardwareProfile("mid_vram", 16, 8, 12, 8, "gpu", "Linux"))
     monkeypatch.setattr(rp, "load_model_catalog", lambda: {"tiers": {"mid_vram": {"recommend": ["qwen2.5-coder:7b"], "avoid": ["openchat"]}}, "deprecated": {"openchat": {"reason": "old"}}})
-    monkeypatch.setattr(rp, "cheap_llm_available", lambda *a, **k: True)
+    from greedy_token.cheap_llm import CheapLlmProbe
+
+    monkeypatch.setattr(
+        rp,
+        "probe_cheap_llm",
+        lambda *a, **k: CheapLlmProbe(
+            reachable=True, model_present=True, models=("openchat:7b",)
+        ),
+    )
     installed = [
         InstalledModel("openchat:7b", 100, deprecated=True, deprecated_reason="old"),
         InstalledModel("openchat:latest", 50),
@@ -315,7 +323,13 @@ def test_run_doctor_branches(monkeypatch: pytest.MonkeyPatch, minimal_workspace:
     assert report.benchmark is not None
 
     # ollama unavailable path + paid import fallback
-    monkeypatch.setattr(rp, "cheap_llm_available", lambda *a, **k: False)
+    monkeypatch.setattr(
+        rp,
+        "probe_cheap_llm",
+        lambda *a, **k: CheapLlmProbe(
+            reachable=False, model_present=None, reason="connection refused"
+        ),
+    )
 
     def boom_registry(root):
         raise ImportError("no model_select")
@@ -379,6 +393,17 @@ def test_apply_doctor_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
 def test_local_health_line(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(rp, "run_doctor", lambda **k: _report(ollama_available=False))
     assert "unavailable" in rp.local_health_line()
+
+    monkeypatch.setattr(
+        rp,
+        "run_doctor",
+        lambda **k: _report(
+            ollama_available=False,
+            installed=[InstalledModel("qwen2.5-coder:7b", 1)],
+            configured_model="m",
+        ),
+    )
+    assert "not served" in rp.local_health_line()
 
     monkeypatch.setattr(rp, "run_doctor", lambda **k: _report(deprecated_installed=["openchat:7b"]))
     assert "deprecated" in rp.local_health_line()

@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "allure-pytest>=2.16", "coverage>=7.0", "hypothesis>=6.10.1", "mutmut>=3.6"]
+dev = ["pytest>=8.0", "allure-pytest>=2.16", "coverage>=7.0", "hypothesis>=6.10.1", "mutmut>=3.6", "ruff>=0.6"]
 # 1.15.0 is the first release whose FastMCP + Icon API passes our contract suite.
 # MCP 2.0 removed mcp.server.fastmcp (breaks greedy_token.mcp + collection).
 mcp = ["mcp>=1.15,<2"]
@@ -35,6 +35,15 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 greedy_token = ["config/*.yaml", "presets/*.yaml", "route_presets/*.yaml", "static/icon.png", "static/icon.svg", "hub/static/*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# Deliberately narrow: correctness and imports, not style opinions. Widening this
+# turns a crystal polish into a repo-wide reformat.
+select = ["E", "F", "W", "I", "UP", "B"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

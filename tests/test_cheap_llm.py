@@ -7,11 +7,15 @@ import allure
 import pytest
 
 from greedy_token.cheap_llm import (
-    clear_cheap_llm_probe_cache,
     cheap_llm_available,
     cheap_llm_chat,
     cheap_llm_status_line,
+    clear_cheap_llm_probe_cache,
+    model_is_served,
     openai_compat_base,
+    probe_cheap_llm,
+    request_target,
+    split_userinfo,
 )
 from greedy_token.settings import CheapLlmSettings, get_cheap_llm_settings
 from tests.allure_reporting import attach_text
@@ -33,8 +37,8 @@ def test_openai_compat_base() -> None:
 
 
 @allure.story("Health")
-@allure.title("cheap_llm_available probes Ollama /api/tags")
-@patch("greedy_token.cheap_llm.json.load", return_value={"models": []})
+@allure.title("cheap_llm_available probes Ollama /api/tags and requires the configured model")
+@patch("greedy_token.cheap_llm.json.load", return_value={"models": [{"name": "m"}]})
 @patch("urllib.request.urlopen")
 def test_cheap_llm_available_ollama(mock_urlopen, mock_json_load) -> None:
     clear_cheap_llm_probe_cache()
@@ -116,7 +120,9 @@ def test_openai_compat_sends_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
         return _Resp()
 
     monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
-    monkeypatch.setattr("greedy_token.cheap_llm.json.load", lambda _fh: {"data": []})
+    monkeypatch.setattr(
+        "greedy_token.cheap_llm.json.load", lambda _fh: {"data": [{"id": "m"}]}
+    )
     settings = CheapLlmSettings(
         provider="openai_compat",
         url="http://localhost:1234",
@@ -198,3 +204,166 @@ def test_api_key_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     settings = get_cheap_llm_settings(tmp_path)
     assert settings.api_key == "sk-from-env"
     assert settings.provider == "openai_compat"
+
+
+def _ollama(url: str, model: str = "qwen2.5-coder:7b") -> CheapLlmSettings:
+    return CheapLlmSettings(provider="ollama", url=url, model=model, source="test")
+
+
+@allure.story("Auth")
+@allure.title("split_userinfo strips credentials from the request URL")
+def test_split_userinfo_strips_userinfo() -> None:
+    clean, creds = split_userinfo("https://alice:s3cret@ollama.qa.guru")
+    assert clean == "https://ollama.qa.guru"
+    assert creds == ("alice", "s3cret")
+    untouched, none = split_userinfo("http://localhost:11434")
+    assert untouched == "http://localhost:11434"
+    assert none is None
+
+
+@allure.story("Auth")
+@allure.title("Loopback Ollama sends no Authorization even when env credentials are set")
+def test_loopback_skips_basic_auth(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OLLAMA_USER", "alice")
+    monkeypatch.setenv("OLLAMA_PASSWORD", "s3cret")
+    _, headers = request_target(_ollama("http://127.0.0.1:11434"))
+    assert headers == {}
+    _, headers_local = request_target(_ollama("http://localhost:11434"))
+    assert headers_local == {}
+
+
+@allure.story("Auth")
+@allure.title("Remote Ollama sends Basic from OLLAMA_USER / OLLAMA_PASSWORD")
+def test_remote_ollama_basic_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OLLAMA_USER", "alice")
+    monkeypatch.setenv("OLLAMA_PASSWORD", "s3cret")
+    url, headers = request_target(_ollama("https://ollama.qa.guru"))
+    assert url == "https://ollama.qa.guru"
+    assert headers["Authorization"].startswith("Basic ")
+
+
+@allure.story("Auth")
+@allure.title("Remote Ollama prefers URL userinfo over env credentials")
+def test_remote_ollama_basic_from_userinfo(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OLLAMA_USER", "env-user")
+    monkeypatch.setenv("OLLAMA_PASSWORD", "env-pass")
+    url, headers = request_target(_ollama("https://alice:from-url@ollama.qa.guru"))
+    assert url == "https://ollama.qa.guru"
+    import base64
+
+    expected = "Basic " + base64.b64encode(b"alice:from-url").decode()
+    assert headers["Authorization"] == expected
+
+
+@allure.story("Auth")
+@allure.title("CHEAP_LLM_USER wins over OLLAMA_USER")
+def test_cheap_llm_user_env_wins(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CHEAP_LLM_USER", "cheap")
+    monkeypatch.setenv("CHEAP_LLM_PASSWORD", "llm")
+    monkeypatch.setenv("OLLAMA_USER", "ollama")
+    monkeypatch.setenv("OLLAMA_PASSWORD", "ollama")
+    _, headers = request_target(_ollama("https://ollama.qa.guru"))
+    import base64
+
+    expected = "Basic " + base64.b64encode(b"cheap:llm").decode()
+    assert headers["Authorization"] == expected
+
+
+@allure.story("Auth")
+@allure.title("Remote Ollama probe and chat attach Basic auth")
+def test_remote_ollama_probe_and_chat_use_basic(monkeypatch: pytest.MonkeyPatch) -> None:
+    import base64
+    import json
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    expected = "Basic " + base64.b64encode(b"alice:s3cret").decode()
+    seen: list[str] = []
+
+    class _Handler(BaseHTTPRequestHandler):
+        def log_message(self, format: str, *args) -> None:
+            return
+
+        def do_GET(self) -> None:
+            seen.append(self.headers.get("Authorization") or "")
+            if self.headers.get("Authorization") != expected:
+                self.send_error(401)
+                return
+            body = json.dumps({"models": [{"name": "qwen2.5-coder:7b"}]}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_POST(self) -> None:
+            seen.append(self.headers.get("Authorization") or "")
+            length = int(self.headers.get("Content-Length", 0))
+            self.rfile.read(length)
+            body = json.dumps({"message": {"content": "ok"}, "eval_count": 1}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    _host, port = server.server_address
+    try:
+        from greedy_token import cheap_llm as mod
+
+        # Bind is loopback; patch so this test exercises the remote Basic path.
+        monkeypatch.setattr(mod, "_is_loopback", lambda _url: False)
+        monkeypatch.setenv("OLLAMA_USER", "alice")
+        monkeypatch.setenv("OLLAMA_PASSWORD", "s3cret")
+        settings = _ollama(f"http://127.0.0.1:{port}")
+        clear_cheap_llm_probe_cache()
+        probe = probe_cheap_llm(settings, timeout=2.0)
+        assert probe.ok is True
+        content, tokens = cheap_llm_chat(settings, system="s", user="u", timeout=2.0)
+        assert content == "ok"
+        assert tokens == 1
+        assert all(h == expected for h in seen)
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+@allure.story("Health")
+@allure.title("Probe is not ok when the configured model is missing from /api/tags")
+def test_probe_rejects_missing_model() -> None:
+    from tests.ollama_stub import ollama_stub_server
+
+    with ollama_stub_server() as url:
+        clear_cheap_llm_probe_cache()
+        probe = probe_cheap_llm(_ollama(url, model="m"), timeout=2.0)
+        assert probe.reachable is True
+        assert probe.model_present is False
+        assert probe.ok is False
+        assert "not served" in probe.reason
+        assert cheap_llm_available(_ollama(url, model="m")) is False
+
+
+@allure.story("Health")
+@allure.title("Untagged model matches the :latest tag Ollama reports")
+def test_model_is_served_latest_alias() -> None:
+    assert model_is_served("qwen2.5-coder", ("qwen2.5-coder:latest",)) is True
+    assert model_is_served("qwen2.5-coder:latest", ("qwen2.5-coder:latest",)) is True
+    assert model_is_served("qwen2.5-coder:7b", ("qwen2.5-coder:7b",)) is True
+    assert model_is_served("missing", ("qwen2.5-coder:latest",)) is False
+
+
+@allure.story("Status")
+@allure.title("cheap_llm_status_line names the missing model and lists what is served")
+def test_status_line_missing_model() -> None:
+    from tests.ollama_stub import ollama_stub_server
+
+    with ollama_stub_server() as url:
+        clear_cheap_llm_probe_cache()
+        line = cheap_llm_status_line(_ollama(url, model="m"))
+    assert "model unavailable" in line
+    assert "model=m" in line
+    assert "stub-model" in line

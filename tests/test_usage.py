@@ -52,6 +52,37 @@ def test_append_event(log_file: Path) -> None:
         assert json.loads(lines[0])["cmd"] == "route"
 
 
+@allure.story("Event logging")
+@allure.title("GREEDY_TOKEN_TAG is copied onto events that do not already have a tag")
+def test_append_event_copies_env_tag(log_file: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GREEDY_TOKEN_TAG", "L3")
+    append_event({"v": SCHEMA_VERSION, "cmd": "route"}, path=log_file, emit_auto_override=False)
+    payload = json.loads(log_file.read_text(encoding="utf-8"))
+    assert payload["tag"] == "L3"
+
+
+@allure.story("Event logging")
+@allure.title("Existing event tag is not overwritten by GREEDY_TOKEN_TAG")
+def test_append_event_keeps_explicit_tag(log_file: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GREEDY_TOKEN_TAG", "L5")
+    append_event(
+        {"v": SCHEMA_VERSION, "cmd": "route", "tag": "L3"},
+        path=log_file,
+        emit_auto_override=False,
+    )
+    payload = json.loads(log_file.read_text(encoding="utf-8"))
+    assert payload["tag"] == "L3"
+
+
+@allure.story("Event logging")
+@allure.title("GREEDY_TOKEN_TAG is truncated to TAG_MAX_LEN")
+def test_env_tag_truncates(monkeypatch: pytest.MonkeyPatch) -> None:
+    from greedy_token.usage import TAG_MAX_LEN, env_tag
+
+    monkeypatch.setenv("GREEDY_TOKEN_TAG", "L" * 80)
+    assert len(env_tag()) == TAG_MAX_LEN
+
+
 @allure.story("Route events")
 @allure.title("Route event builder truncates long task strings")
 def test_build_route_event_truncates_task(minimal_workspace: Path) -> None:

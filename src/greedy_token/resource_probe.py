@@ -17,7 +17,12 @@ from typing import Any
 
 import yaml
 
-from greedy_token.cheap_llm import cheap_llm_available, cheap_llm_chat
+from greedy_token.cheap_llm import (
+    cheap_llm_available,
+    cheap_llm_chat,
+    probe_cheap_llm,
+    request_target,
+)
 from greedy_token.settings import get_cheap_llm_settings
 
 HardwareTier = str  # cpu_only | low_vram | mid_vram | high_vram
@@ -218,10 +223,20 @@ def _is_avoided(name: str, avoid_list: list[str]) -> bool:
 
 def fetch_ollama_models(url: str | None = None, *, timeout: float = 3.0) -> list[InstalledModel]:
     settings = get_cheap_llm_settings()
-    base_url = (url or settings.url).rstrip("/")
+    if url:
+        from greedy_token.settings import CheapLlmSettings
+
+        settings = CheapLlmSettings(
+            provider=settings.provider,
+            url=url,
+            model=settings.model,
+            source=settings.source,
+            api_key=settings.api_key,
+        )
+    base_url, auth = request_target(settings)
     catalog = load_model_catalog()
     try:
-        req = urllib.request.Request(f"{base_url}/api/tags")
+        req = urllib.request.Request(f"{base_url}/api/tags", headers=auth)
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = json.load(resp)
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError):
@@ -369,8 +384,11 @@ def run_doctor(
     hw = detect_hardware()
     catalog = load_model_catalog()
     settings = get_cheap_llm_settings(root)
-    ollama_up = cheap_llm_available(settings)
-    installed = fetch_ollama_models(settings.url) if ollama_up else []
+    probe = probe_cheap_llm(settings)
+    ollama_up = probe.ok
+    # A runtime that answers with the wrong model configured is still worth
+    # listing: the fix is the model line, not the URL.
+    installed = fetch_ollama_models(settings.url) if probe.reachable else []
     recommended = recommend_models(hw, catalog)
     avoid = recommend_avoid(hw, catalog)
 
@@ -385,8 +403,15 @@ def run_doctor(
         )
     if avoid_installed:
         warnings.append(f"Suboptimal models for {hw.tier}: {', '.join(avoid_installed)}")
-    if not ollama_up:
-        warnings.append(f"Ollama unavailable at {settings.url}")
+    if not probe.reachable:
+        warnings.append(f"Ollama unavailable at {settings.url} — {probe.reason or 'no response'}")
+    elif probe.model_present is False:
+        served = ", ".join(probe.models) or "none"
+        warnings.append(
+            f"Configured model {settings.model!r} is not served at {settings.url} "
+            f"(served: {served}) → ollama pull {settings.model} "
+            f"or fix cheap_llm.model in ~/.greedy-token/config.yaml"
+        )
     if settings.model and _is_deprecated(settings.model, catalog)[0]:
         warnings.append(f"Configured model {settings.model!r} is deprecated")
 
@@ -400,7 +425,7 @@ def run_doctor(
         )
 
     bench_result: BenchmarkResult | None = None
-    if benchmark and ollama_up and recommended:
+    if benchmark and probe.reachable and recommended:
         bench_result = run_micro_benchmark(recommended[0], quick=quick)
 
     paid_recs: list[str] = []
@@ -523,6 +548,8 @@ def local_health_line() -> str:
     try:
         report = run_doctor(quick=True)
         if not report.ollama_available:
+            if report.installed:
+                return f"Local: {report.configured_model} not served"
             return f"Local: unavailable ({report.ollama_url})"
         if report.deprecated_installed:
             dep = report.deprecated_installed[0]
