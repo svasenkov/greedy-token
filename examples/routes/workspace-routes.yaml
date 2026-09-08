@@ -339,12 +339,10 @@ routes:
     command: python scripts/infra/provider_balance.py
     note: "Retired 2026-09-08 — 0 hits; manual scripts/infra/provider_balance.py only"
 
-  # re-shadow 2026-09-08 — write-capable; not trusted; log-only until 2026-09-15
+  # promoted 2026-09-08 — golden + live API read; locally trusted
   - id: python-google-sheets
     target: python
     read_only: false
-    enabled: false
-    shadow_until: "2026-09-15T00:00:00Z"
     patterns:
       - google sheets
       - google spreadsheet
@@ -355,7 +353,7 @@ routes:
       - share-sa
       - sheets verify
     command: python scripts/google-sheets/sheets.py
-    note: "Sheets read/write + share-sa — re-shadow 2026-09-08 → 2026-09-15"
+    note: "Sheets read/write + share-sa — promoted 2026-09-08; writes need explicit subcommand"
 
   # retired 2026-09-08 — push-students-sheets.py missing; cold skill only
   - id: python-qa-guru-students-sheet
