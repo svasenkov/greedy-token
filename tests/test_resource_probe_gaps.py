@@ -196,6 +196,8 @@ def test_fetch_ollama_models(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(rp.urllib.request, "urlopen", lambda *a, **k: fake_open())
     models = rp.fetch_ollama_models("http://o:11434")
     assert len(models) == 1 and models[0].name == "qwen2.5:7b"
+    default_url = rp.fetch_ollama_models()
+    assert len(default_url) == 1 and default_url[0].name == "qwen2.5:7b"
 
     def boom(*a, **k):
         raise urllib.error.URLError("down")

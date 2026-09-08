@@ -56,6 +56,17 @@ def test_lesson_contour():
         )
         == "lesson"
     )
+    assert not is_lesson_task("")
+    assert not is_lesson_task("   ")
+    assert (
+        crystal_contour(
+            {
+                "pattern": "keep this crystal",
+                "roots": {"/Users/stanislav/greedy-guru-lesson": 1},
+            }
+        )
+        == "lesson"
+    )
     assert crystal_contour({"pattern": "keep this crystal"}) == "workspace"
 
 

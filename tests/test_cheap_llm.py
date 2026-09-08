@@ -15,6 +15,7 @@ from greedy_token.cheap_llm import (
     openai_compat_base,
     probe_cheap_llm,
     request_target,
+    served_models,
     split_userinfo,
 )
 from greedy_token.settings import CheapLlmSettings, get_cheap_llm_settings
@@ -216,6 +217,9 @@ def test_split_userinfo_strips_userinfo() -> None:
     clean, creds = split_userinfo("https://alice:s3cret@ollama.qa.guru")
     assert clean == "https://ollama.qa.guru"
     assert creds == ("alice", "s3cret")
+    with_port, creds_port = split_userinfo("https://alice:s3cret@ollama.qa.guru:11434")
+    assert with_port == "https://ollama.qa.guru:11434"
+    assert creds_port == ("alice", "s3cret")
     untouched, none = split_userinfo("http://localhost:11434")
     assert untouched == "http://localhost:11434"
     assert none is None
@@ -354,6 +358,7 @@ def test_model_is_served_latest_alias() -> None:
     assert model_is_served("qwen2.5-coder:latest", ("qwen2.5-coder:latest",)) is True
     assert model_is_served("qwen2.5-coder:7b", ("qwen2.5-coder:7b",)) is True
     assert model_is_served("missing", ("qwen2.5-coder:latest",)) is False
+    assert model_is_served("", ("qwen2.5-coder:latest",)) is False
 
 
 @allure.story("Status")
@@ -367,3 +372,54 @@ def test_status_line_missing_model() -> None:
     assert "model unavailable" in line
     assert "model=m" in line
     assert "stub-model" in line
+
+
+@allure.story("Health")
+@allure.title("Probe reports HTTP 401, empty catalog, and non-dict payloads")
+def test_probe_auth_and_empty_catalog(monkeypatch: pytest.MonkeyPatch) -> None:
+    import io
+    import urllib.error
+    from greedy_token.cheap_llm import _probe_health
+
+    def unauthorized(*a, **k):
+        raise urllib.error.HTTPError(
+            "https://ollama.qa.guru/api/tags",
+            401,
+            "Unauthorized",
+            hdrs={},
+            fp=io.BytesIO(b""),
+        )
+
+    monkeypatch.setattr("urllib.request.urlopen", unauthorized)
+    probe = _probe_health(_ollama("https://ollama.qa.guru"), timeout=1.0)
+    assert probe.reachable is False
+    assert "401" in probe.reason
+    assert "CHEAP_LLM_USER" in probe.reason
+
+    def server_error(*a, **k):
+        raise urllib.error.HTTPError(
+            "https://ollama.qa.guru/api/tags",
+            500,
+            "Internal Server Error",
+            hdrs={},
+            fp=io.BytesIO(b""),
+        )
+
+    monkeypatch.setattr("urllib.request.urlopen", server_error)
+    five_hundred = _probe_health(_ollama("https://ollama.qa.guru"), timeout=1.0)
+    assert five_hundred.reachable is False
+    assert five_hundred.reason == "HTTP 500"
+
+    mock_resp = MagicMock()
+    mock_resp.__enter__.return_value = mock_resp
+    monkeypatch.setattr("urllib.request.urlopen", lambda *a, **k: mock_resp)
+    monkeypatch.setattr("greedy_token.cheap_llm.json.load", lambda _resp: {"models": []})
+    empty = _probe_health(_ollama("https://ollama.qa.guru"), timeout=1.0)
+    assert empty.reachable is True
+    assert empty.model_present is False
+    assert "no models served" in empty.reason
+
+    assert served_models(None) == ()
+    assert served_models({"models": []}) == ()
+    assert served_models({"data": [{"id": "m"}]}) == ("m",)
+

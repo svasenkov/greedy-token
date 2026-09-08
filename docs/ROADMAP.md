@@ -20,6 +20,7 @@ Track progress: [GitHub issues labeled `roadmap`](https://github.com/svasenkov/g
 | **v0.15.0** ✅ | Public end-to-end evidence: frozen RU/EN corpus, observable task oracles, direct/CLI/MCP/agent comparison, outcome confidence, deterministic JSON scorecard + manual live workflow | ✅ shipped as **v0.15.0** (`CUT-v0.15.0.md`) |
 | **v0.16.0** ✅ | Unicode-aware lexical BM25/FTS retrieval, portable argv/cwd execution, mandatory OS/dependency/integration/distribution matrices, and SHA-256 + file-identity trust manifests for workspace scripts | ✅ shipped in **v0.16.0** (`CUT-v0.16.0.md`); trust is rechecked before launch with documented TOCTOU limits |
 | **v0.16.1** ✅ | Code search: trust a completed `rg` miss/timeout; do not Python-walk the tree afterward (MCP idle hang) | ✅ shipped in **v0.16.1** (`CUT-v0.16.1.md`) |
+| **v0.16.2** ✅ | Hub crystals: hide reject/fixture/stale inbox, split lesson tails; `parse_since("all")`; Ollama Basic auth; google-sheets live + `delete-sheet` | ✅ shipped in **v0.16.2** (`CUT-v0.16.2.md`) |
 | **v0.17+** (aspirational) | **Host pre-router** *if* Cursor (or another host) exposes an API — otherwise stays out of scope | No fake “pre-LLM” claims without host support |
 
 ## Themes
@@ -147,6 +148,7 @@ Per-release detail: `CUT-v*.md` checklists in the repo root.
 
 | Version | Focus |
 |---------|-------|
+| **v0.16.2** | Hub crystals split lesson/workspace; `since=all`; Ollama Basic auth; sheets live + `delete-sheet` |
 | **v0.16.1** | Code search: `rg` miss/timeout is final — no Python tree fallback that stalls MCP |
 | **v0.16.0** | Unicode lexical BM25/FTS retrieval; portable Windows/macOS/Linux execution and required release matrices |
 | **v0.15.0** | Frozen public E2E evidence, explicit outcomes, outcome-calibrated confidence, deterministic/live scorecards |
