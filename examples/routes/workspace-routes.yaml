@@ -324,7 +324,9 @@ routes:
     command: python scripts/auth_storage_probe.py
     note: "Retired — use python-access-diag-testops (access_diag.py testops)"
 
-  # promoted 2026-07-22 — golden green; 0 shadow hits (criteria: golden only)
+  # retired 2026-09-08 — 0 shadow hits; do not promote.
+  # shadow_until kept so test_disabled_shadow_route_is_skipped can pin 2026-07-01;
+  # live clock (after 2026-08-05) → inactive.
   - id: python-provider-balance
     target: python
     read_only: true
@@ -335,13 +337,14 @@ routes:
       - balance analyzer
       - infra burn
     command: python scripts/infra/provider_balance.py
-    note: "Provider balance analyzer — shadow (0 hits)"
+    note: "Retired 2026-09-08 — 0 hits; manual scripts/infra/provider_balance.py only"
 
+  # re-shadow 2026-09-08 — write-capable; not trusted; log-only until 2026-09-15
   - id: python-google-sheets
     target: python
     read_only: false
     enabled: false
-    shadow_until: "2026-08-10T00:00:00Z"
+    shadow_until: "2026-09-15T00:00:00Z"
     patterns:
       - google sheets
       - google spreadsheet
@@ -352,13 +355,13 @@ routes:
       - share-sa
       - sheets verify
     command: python scripts/google-sheets/sheets.py
-    note: "Sheets read/write + share-sa — shadow"
+    note: "Sheets read/write + share-sa — re-shadow 2026-09-08 → 2026-09-15"
 
+  # retired 2026-09-08 — push-students-sheets.py missing; cold skill only
   - id: python-qa-guru-students-sheet
     target: python
     read_only: false
     enabled: false
-    shadow_until: "2026-08-15T00:00:00Z"
     patterns:
       - qa-guru students sheet
       - push students sheet
@@ -367,7 +370,7 @@ routes:
       - kotlin students sheet
       - годовой курс sheet
     command: python projects/qa-guru-home/exports/commercial-export/push-students-sheets.py
-    note: "Push qa-guru students sheet — shadow"
+    note: "Retired 2026-09-08 — push script missing; do not promote"
 
   # promoted 2026-07-28 — golden green (jenkins + all-standard dry-run)
   - id: python-access-diag-jenkins
