@@ -24,8 +24,6 @@ from greedy_token.hub.sessions import list_sessions
 from greedy_token.paths import find_workspace_root
 from greedy_token.usage import aggregate_events, load_events, log_path, parse_since
 
-_ALL_SINCE = frozenset({"all", "lifetime", "total"})
-
 
 def _query_since(path: str, default: str = "7d") -> str:
     qs = parse_qs(urlparse(path).query)
@@ -35,9 +33,10 @@ def _query_since(path: str, default: str = "7d") -> str:
 def _resolve_since(path: str, default: str = "7d") -> tuple[str, datetime | None]:
     """Return (label, since_dt). ``all`` / ``lifetime`` / ``total`` → no filter."""
     since = _query_since(path, default)
-    if since.lower() in _ALL_SINCE:
+    since_dt = parse_since(since)
+    if since_dt is None:
         return "all", None
-    return since, parse_since(since)
+    return since, since_dt
 
 
 def _workspace_root() -> Path | None:
@@ -57,7 +56,7 @@ def handle_api(path: str) -> tuple[int, dict]:
         events, skipped = load_events(log_path(), since=since_dt)
         summary = aggregate_events(events, since_label=since)
         summary.skipped_lines = skipped
-        report = rank_candidates(since=None if since == "all" else since)
+        report = rank_candidates(since=since)
         root = _workspace_root()
         budget = aggregate_budget(root=root)
         usd_per_1m = get_budget_settings(root).cursor_usd_per_1m_tokens
@@ -87,7 +86,7 @@ def handle_api(path: str) -> tuple[int, dict]:
     if route.startswith("/api/sessions"):
         since, _ = _resolve_since(path)
         return 200, {
-            "sessions": list_sessions(since=None if since == "all" else since),
+            "sessions": list_sessions(since=since),
             "since": since,
         }
 
@@ -109,12 +108,12 @@ def handle_api(path: str) -> tuple[int, dict]:
 
     if route == "/api/crystals" or route.startswith("/api/crystals?"):
         since, _ = _resolve_since(path)
-        return 200, list_crystals(since=None if since == "all" else since)
+        return 200, list_crystals(since=since)
 
     if route.startswith("/api/routes"):
         since, _ = _resolve_since(path)
         return 200, {
-            "routes": savings_by_route(since=None if since == "all" else since),
+            "routes": savings_by_route(since=since),
             "since": since,
         }
 

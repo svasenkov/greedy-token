@@ -582,8 +582,17 @@ def maybe_append_event(args, event: dict) -> None:
     append_event(event)
 
 
-def parse_since(value: str) -> datetime:
+# Hub picker + CLI: no lower bound. Keep in sync with hub/static/app.js SINCE_OPTIONS.
+UNBOUNDED_SINCE = frozenset({"all", "lifetime", "total"})
+
+
+def parse_since(value: str | None) -> datetime | None:
+    """Parse a usage window. ``all`` / ``lifetime`` / ``total`` / ``None`` → no filter."""
+    if value is None:
+        return None
     value = value.strip().lower()
+    if value in UNBOUNDED_SINCE:
+        return None
     now = datetime.now(timezone.utc)
     if value.endswith("d") and value[:-1].isdigit():
         return now - timedelta(days=int(value[:-1]))
@@ -596,7 +605,7 @@ def parse_since(value: str) -> datetime:
         return dt
     except ValueError as exc:
         raise ValueError(
-            f"Invalid --since {value!r}; use 7d, 24h, or ISO date"
+            f"Invalid --since {value!r}; use 7d, 24h, all, or ISO date"
         ) from exc
 
 

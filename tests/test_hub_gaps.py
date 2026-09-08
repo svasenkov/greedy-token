@@ -400,6 +400,12 @@ def test_handle_api_routes(hub_home: Path, monkeypatch: pytest.MonkeyPatch) -> N
 
     assert hub_api.handle_api("/api/sessions")[0] == 200
     assert hub_api.handle_api("/api/crystals")[0] == 200
+    status_all, crystals_all = hub_api.handle_api("/api/crystals?since=all")
+    assert status_all == 200
+    assert "crystals" in crystals_all
+    assert crystals_all.get("since") == "all"
+    assert hub_api.handle_api("/api/sessions?since=all")[0] == 200
+    assert hub_api.handle_api("/api/routes?since=all")[0] == 200
     assert hub_api.handle_api("/api/routes?since=7d")[0] == 200
     assert hub_api.handle_api("/api/tests")[0] == 200
     assert hub_api.handle_api("/api/health")[0] == 200

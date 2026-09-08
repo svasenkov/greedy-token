@@ -206,6 +206,8 @@ def test_list_crystals_from_lifecycle(tmp_path, monkeypatch):
 
     data = list_crystals(since="7d")
     assert any(c["crystal_id"] == "script-meta-sync" for c in data["crystals"])
+    unbounded = list_crystals(since="all")
+    assert any(c["crystal_id"] == "script-meta-sync" for c in unbounded["crystals"])
 
 
 @pytest.mark.unit

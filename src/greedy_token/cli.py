@@ -1175,7 +1175,7 @@ def build_parser() -> argparse.ArgumentParser:
     rep.add_argument(
         "--since",
         default="7d",
-        help="Time window: 7d, 24h, or ISO date (default: 7d)",
+        help="Time window: 7d, 24h, all, or ISO date (default: 7d)",
     )
     rep.add_argument("--json", action="store_true", help="JSON output")
     rep.set_defaults(func=cmd_report)

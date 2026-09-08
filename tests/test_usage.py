@@ -540,9 +540,15 @@ def test_parse_since_variants() -> None:
         attach_text("24h", dt_24h.isoformat())
         attach_text("iso", dt_iso.isoformat())
     with allure.step("Verify parsed datetimes"):
-        assert dt_7d.tzinfo is not None
-        assert dt_24h > dt_7d
-        assert dt_iso.year == 2026
+        assert dt_7d is not None and dt_7d.tzinfo is not None
+        assert dt_24h is not None and dt_24h > dt_7d
+        assert dt_iso is not None and dt_iso.year == 2026
+    with allure.step("Unbounded windows match the hub picker"):
+        assert parse_since("all") is None
+        assert parse_since("ALL") is None
+        assert parse_since("lifetime") is None
+        assert parse_since("total") is None
+        assert parse_since(None) is None
 
 
 @allure.story("Log loading")
