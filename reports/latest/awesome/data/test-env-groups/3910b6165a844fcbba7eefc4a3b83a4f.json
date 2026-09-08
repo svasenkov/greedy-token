@@ -1,0 +1,1 @@
+{"id":"3910b6165a844fcbba7eefc4a3b83a4f","fullName":"tests.test_cheap_llm#test_model_is_served_latest_alias","name":"Untagged model matches the :latest tag Ollama reports","status":"passed","testResultsByEnv":{"default":"a5e65b66975cacdc8d3f24e2576d7401"}}

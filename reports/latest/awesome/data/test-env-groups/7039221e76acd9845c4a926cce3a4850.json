@@ -1,0 +1,1 @@
+{"id":"7039221e76acd9845c4a926cce3a4850","fullName":"tests.test_cheap_llm#test_remote_ollama_probe_and_chat_use_basic","name":"Remote Ollama probe and chat attach Basic auth","status":"passed","testResultsByEnv":{"default":"98f5c0a4746119e767bb0e9709d0233a"}}

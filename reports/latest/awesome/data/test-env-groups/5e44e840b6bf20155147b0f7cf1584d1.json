@@ -1,0 +1,1 @@
+{"id":"5e44e840b6bf20155147b0f7cf1584d1","fullName":"tests.test_cheap_llm#test_cheap_llm_user_env_wins","name":"CHEAP_LLM_USER wins over OLLAMA_USER","status":"passed","testResultsByEnv":{"default":"d9f61c408b726d863007a936b4e4ef2b"}}

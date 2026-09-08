@@ -1,0 +1,1 @@
+{"id":"8fb6f943c1204e68247f3910bfae9aaf","fullName":"tests.test_cheap_llm#test_status_line_missing_model","name":"cheap_llm_status_line names the missing model and lists what is served","status":"passed","testResultsByEnv":{"default":"25455449ecd67c7ab0b966dcd556f279"}}
