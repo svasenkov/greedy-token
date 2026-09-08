@@ -1,21 +1,84 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
-from pathlib import Path
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
 from greedy_token.hub.api import handle_api
-from greedy_token.hub.crystallize import list_crystals, rank_candidates, slugify
+from greedy_token.hub.crystallize import (
+    crystal_contour,
+    inbox_is_fresh,
+    is_fixture_task,
+    is_lesson_root,
+    is_lesson_task,
+    list_crystals,
+    parse_iso_ts,
+    rank_candidates,
+    slugify,
+)
 from greedy_token.hub.sessions import list_sessions
-from greedy_token.usage import append_event, build_route_event
 from greedy_token.router import route_task
+from greedy_token.usage import append_event, build_route_event
 
 
 @pytest.mark.unit
 def test_slugify():
     assert slugify("Meta Sync Check!") == "meta-sync-check"
+
+
+@pytest.mark.unit
+def test_is_fixture_task():
+    assert is_fixture_task("audit :: audit")
+    assert is_fixture_task("classify-file gap :: classify")
+    assert not is_fixture_task("audit skill configurator-boolean")
+    assert not is_fixture_task("tests/foo.py::test_bar")
+
+
+@pytest.mark.unit
+def test_lesson_contour():
+    assert is_lesson_task("llm invoke heavy")
+    assert is_lesson_task("schema check lab/users.json: every json object")
+    assert is_lesson_task("python check users keys")
+    assert is_lesson_task("у каждого объекта есть id и email")
+    assert is_lesson_task("проверка ключей id+еmail в lab/users.json")
+    assert is_lesson_root("/Users/stanislav/greedy-guru-lesson")
+    assert is_lesson_root("/Users/stanislav/greedy-token-workshop/.greedy-token/drafts/x.py")
+    assert not is_lesson_task("grafana oss on box2: provision datasources")
+    assert not is_lesson_root("/Users/stanislav/zero-design-system")
+    assert crystal_contour({"pattern": "llm invoke classify"}) == "lesson"
+    assert (
+        crystal_contour(
+            {
+                "pattern": "keep this crystal",
+                "draft_path": "/Users/x/greedy-guru-lesson/.greedy-token/drafts/a.py",
+            }
+        )
+        == "lesson"
+    )
+    assert crystal_contour({"pattern": "keep this crystal"}) == "workspace"
+
+
+@pytest.mark.unit
+def test_inbox_is_fresh():
+    now = datetime.now(UTC)
+    since = now - timedelta(days=7)
+    fresh = now.isoformat().replace("+00:00", "Z")
+    assert inbox_is_fresh({"updated_at": fresh}, since_dt=since, now=now)
+    assert not inbox_is_fresh({"updated_at": "2026-07-15T00:00:00Z"}, since_dt=since, now=now)
+    assert not inbox_is_fresh({}, since_dt=since, now=now)
+    two_days = (now - timedelta(days=2)).isoformat().replace("+00:00", "Z")
+    assert not inbox_is_fresh(
+        {"updated_at": two_days}, since_dt=now - timedelta(hours=24), now=now
+    )
+    eight_days = (now - timedelta(days=8)).isoformat().replace("+00:00", "Z")
+    assert not inbox_is_fresh(
+        {"updated_at": eight_days}, since_dt=now - timedelta(days=90), now=now
+    )
+    assert parse_iso_ts("") is None
+    assert parse_iso_ts("not-a-date") is None
+    naive = parse_iso_ts("2026-09-08T12:00:00")
+    assert naive is not None and naive.tzinfo is not None
 
 
 @pytest.mark.unit
@@ -122,6 +185,7 @@ def test_list_crystals_from_lifecycle(tmp_path, monkeypatch):
     monkeypatch.setenv("GREEDY_TOKEN_HOME", str(home))
     monkeypatch.setenv("GREEDY_TOKEN_LOG", str(home / "usage.jsonl"))
 
+    now = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     lifecycle = home / "crystallize-lifecycle.jsonl"
     lifecycle.write_text(
         json.dumps(
@@ -130,7 +194,7 @@ def test_list_crystals_from_lifecycle(tmp_path, monkeypatch):
                 "event_id": "e1",
                 "crystal_id": "script-meta-sync",
                 "stage": "watch",
-                "ts": "2026-07-14T12:00:00Z",
+                "ts": now,
                 "pattern": "meta sync",
                 "hits": 5,
                 "status": "pending",
@@ -150,7 +214,7 @@ def test_sessions_fallback(tmp_path, monkeypatch):
     monkeypatch.setenv("GREEDY_TOKEN_LOG", str(log))
     monkeypatch.setenv("GREEDY_TOKEN_HOME", str(tmp_path))
 
-    ts = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    ts = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     append_event(
         {
             "v": 2,

@@ -60,11 +60,16 @@ def draft_path(root: Path, crystal_id: str) -> Path:
 
 
 def find_crystal(crystal_id: str, *, since: str | None = "30d") -> dict | None:
-    """Candidate metadata (pattern/hits) from report + inbox + lifecycle."""
-    listing = list_crystals(since=since)
-    for crystal in listing.get("crystals", []):
-        if crystal.get("crystal_id") == crystal_id:
-            return crystal
+    """Candidate metadata (pattern/hits) from report + inbox + lifecycle.
+
+    Includes hub-hidden rows (reject / pytest fixture) so draft/promote after
+    reject still resolves the same id.
+    """
+    listing = list_crystals(since=since, include_hidden=True)
+    for pool in (listing.get("crystals"), listing.get("lesson")):
+        for crystal in pool or []:
+            if crystal.get("crystal_id") == crystal_id:
+                return crystal
     return None
 
 

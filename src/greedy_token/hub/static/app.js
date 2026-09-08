@@ -267,23 +267,43 @@ async function renderSessions() {
     </div>`;
 }
 
+function crystalRows(rows) {
+  return (rows || []).map((c) =>
+    `<tr><td><a class="link" href="#/crystals/${encodeURIComponent(c.crystal_id)}">${c.crystal_id}</a></td>
+    <td>${(c.pattern || "").slice(0, 60)}</td><td>${c.hits}</td><td>${c.latest_stage || "—"}</td><td>${c.status || "—"}</td></tr>`
+  ).join("");
+}
+
 async function renderCrystals() {
   const data = await api(`/api/crystals?since=${getSince()}`);
   const crystals = data.crystals || [];
-  const rows = crystals.map((c) =>
-    `<tr><td><a class="link" href="#/crystals/${encodeURIComponent(c.crystal_id)}">${c.crystal_id}</a></td>
-    <td>${c.pattern.slice(0, 60)}</td><td>${c.hits}</td><td>${c.latest_stage || "—"}</td><td>${c.status || "—"}</td></tr>`
-  ).join("");
+  const lesson = data.lesson || [];
+  const hidden = data.hidden || {};
+  const hiddenCount = hidden.count || 0;
+  const hideNote = hiddenCount || hidden.stale_inbox
+    ? `<p class="muted">Hidden ${hiddenCount}: reject ${hidden.reject || 0}, pytest fixture ${hidden.fixture || 0}${hidden.stale_inbox ? ". Stale inbox ignored" : ""}.</p>`
+    : "";
+  const lessonCard = lesson.length
+    ? `<div class="card">
+      <h3>Lesson</h3>
+      <p class="muted">Workshop / greedy-guru-lesson — not this workspace.</p>
+      <table><thead><tr><th>ID</th><th>Pattern</th><th>Hits</th><th>Stage</th><th>Status</th></tr></thead>
+      <tbody>${crystalRows(lesson)}</tbody></table>
+    </div>`
+    : "";
   document.getElementById("app").innerHTML = `
     <div class="grid">
       <div class="card"><h3>Coverage</h3><div class="value">${data.coverage_pct ?? 0}%</div></div>
       <div class="card"><h3>Crystals</h3><div class="value">${crystals.length}</div></div>
+      ${lesson.length ? `<div class="card"><h3>Lesson</h3><div class="value">${lesson.length}</div></div>` : ""}
     </div>
     <div class="card">
       <h3>Crystallize candidates</h3>
+      ${hideNote}
       <table><thead><tr><th>ID</th><th>Pattern</th><th>Hits</th><th>Stage</th><th>Status</th></tr></thead>
-      <tbody>${rows || "<tr><td colspan=5 class=empty>No candidates — run greedy-token route with repeated LLM tasks</td></tr>"}</tbody></table>
-    </div>`;
+      <tbody>${crystalRows(crystals) || "<tr><td colspan=5 class=empty>No candidates — run greedy-token route with repeated LLM tasks</td></tr>"}</tbody></table>
+    </div>
+    ${lessonCard}`;
 }
 
 async function renderCrystalDetail(id) {

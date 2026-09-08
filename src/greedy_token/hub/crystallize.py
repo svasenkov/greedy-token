@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 import re
 import uuid
-from collections import Counter
-from datetime import datetime, timezone
+from collections import Counter, defaultdict
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from greedy_token.hub.paths import inbox_path, lifecycle_path, watch_state_path
@@ -12,12 +12,91 @@ from greedy_token.usage import load_events, log_path, parse_since
 
 SCRIPT_TIERS = frozenset({"tool", "python", "script", "rag"})
 LLM_TIERS = frozenset({"ollama", "cursor"})
+# Pipeline/pytest dogfood logs tasks as "step :: layer" (audit :: audit).
+INBOX_MAX_AGE = timedelta(days=7)
+HIDDEN_STATUSES = frozenset({"reject", "rejected"})
+# Shared ~/.greedy-token log: lesson folders + workshop task stems.
+LESSON_ROOT_MARKERS = (
+    "greedy-guru-lesson",
+    "greedy-token-workshop",
+    "greedy-token-ladder",
+)
+LESSON_TASK_STEMS = (
+    "lab/users.json",
+    "llm invoke",
+    "check users keys",
+    "l6 cloud ollama",
+)
+_ID_EMAIL = re.compile(r"id.{0,12}[еe]mail", re.IGNORECASE)
 
 
 def slugify(text: str) -> str:
     text = text.lower().strip()
     text = re.sub(r"[^a-z0-9]+", "-", text)
     return text.strip("-")[:48] or "task"
+
+
+def is_fixture_task(pattern: str) -> bool:
+    """True for pytest/pipeline telemetry ('audit :: audit'), not 'Class::method'."""
+    return " :: " in (pattern or "")
+
+
+def is_lesson_root(path: str) -> bool:
+    text = (path or "").replace("\\", "/").lower()
+    return any(marker in text for marker in LESSON_ROOT_MARKERS)
+
+
+def is_lesson_task(pattern: str) -> bool:
+    """Workshop / first-pair prompts (users.json schema, llm invoke profiles)."""
+    text = (pattern or "").strip().lower()
+    if not text:
+        return False
+    if any(stem in text for stem in LESSON_TASK_STEMS):
+        return True
+    return _ID_EMAIL.search(text) is not None
+
+
+def crystal_contour(entry: dict) -> str:
+    """Split shared-log crystals: lesson vs this workspace."""
+    if is_lesson_task(str(entry.get("pattern") or "")):
+        return "lesson"
+    if is_lesson_root(str(entry.get("draft_path") or "")):
+        return "lesson"
+    roots = entry.get("roots") or {}
+    paths = list(roots) if isinstance(roots, dict) else list(roots or [])
+    if any(is_lesson_root(str(path)) for path in paths):
+        return "lesson"
+    return "workspace"
+
+
+def parse_iso_ts(value: object) -> datetime | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
+    return dt
+
+
+def inbox_is_fresh(
+    inbox: dict,
+    *,
+    since_dt: datetime | None,
+    now: datetime | None = None,
+) -> bool:
+    """Merge inbox only when updated_at is parseable, ≤7d old, and inside `since`."""
+    now = now or datetime.now(UTC)
+    updated = parse_iso_ts(inbox.get("updated_at"))
+    if updated is None:
+        return False
+    if now - updated > INBOX_MAX_AGE:
+        return False
+    if since_dt is not None and updated < since_dt:
+        return False
+    return True
 
 
 def rank_candidates(
@@ -39,6 +118,7 @@ def rank_candidates(
             "script_or_tool_events": 0,
             "tier_counts": {},
             "candidates": [],
+            "fixture_skipped": 0,
             "since": since,
         }
 
@@ -47,6 +127,8 @@ def rank_candidates(
     coverage_pct = round(100.0 * script_like / len(events), 1)
 
     llm_tasks: Counter[str] = Counter()
+    fixture_tasks: set[str] = set()
+    task_roots: dict[str, Counter[str]] = defaultdict(Counter)
     for row in events:
         tier = row.get("selected_tier", "")
         if tier not in LLM_TIERS:
@@ -54,7 +136,14 @@ def rank_candidates(
         task = (row.get("task") or "").strip().lower()
         if len(task) < 8:
             continue
+        if is_fixture_task(task):
+            fixture_tasks.add(task)
+            continue
         llm_tasks[task] += 1
+        root = str(row.get("root") or "")
+        if root:
+            task_roots[task][root] += 1
+    fixture_skipped = len(fixture_tasks)
 
     candidates = [
         {
@@ -63,6 +152,7 @@ def rank_candidates(
             "suggested_script": f"script-{slugify(task)}",
             "crystal_id": f"script-{slugify(task)}",
             "tier_seen": "cursor/ollama",
+            "roots": dict(task_roots[task]),
         }
         for task, hits in llm_tasks.most_common(top)
     ]
@@ -74,6 +164,7 @@ def rank_candidates(
         "script_or_tool_events": script_like,
         "tier_counts": dict(tier_counts),
         "candidates": candidates,
+        "fixture_skipped": fixture_skipped,
         "since": since,
     }
 
@@ -100,7 +191,7 @@ def load_json_file(path: Path) -> dict | None:
 
 def _now_iso() -> str:
     return (
-        datetime.now(timezone.utc)
+        datetime.now(UTC)
         .replace(microsecond=0)
         .isoformat()
         .replace("+00:00", "Z")
@@ -180,11 +271,13 @@ def crystal_timeline(crystal_id: str) -> dict:
     }
 
 
-def list_crystals(*, since: str | None = "7d") -> dict:
+def list_crystals(*, since: str | None = "7d", include_hidden: bool = False) -> dict:
     report = rank_candidates(since=since)
+    since_dt = parse_since(since) if since else None
     inbox = load_json_file(inbox_path()) or {}
     watch = load_json_file(watch_state_path()) or {}
     lifecycle = load_lifecycle_events()
+    inbox_fresh = inbox_is_fresh(inbox, since_dt=since_dt)
 
     crystals: dict[str, dict] = {}
     for item in report.get("candidates", []):
@@ -196,26 +289,31 @@ def list_crystals(*, since: str | None = "7d") -> dict:
             "suggested_script": item["suggested_script"],
             "source": "report",
             "latest_stage": "report",
+            "roots": item.get("roots") or {},
         }
 
-    for item in inbox.get("new_candidates", []):
-        cid = f"script-{slugify(item['pattern'])}"
-        entry = crystals.setdefault(
-            cid,
-            {
-                "crystal_id": cid,
-                "pattern": item["pattern"],
-                "hits": item["hits"],
-                "suggested_script": item.get("suggested_script", cid),
-                "source": "inbox",
-            },
-        )
-        entry["latest_stage"] = "watch"
-        entry["inbox_at"] = inbox.get("updated_at")
+    if inbox_fresh:
+        for item in inbox.get("new_candidates", []):
+            cid = f"script-{slugify(item['pattern'])}"
+            entry = crystals.setdefault(
+                cid,
+                {
+                    "crystal_id": cid,
+                    "pattern": item["pattern"],
+                    "hits": item["hits"],
+                    "suggested_script": item.get("suggested_script", cid),
+                    "source": "inbox",
+                },
+            )
+            entry["latest_stage"] = "watch"
+            entry["inbox_at"] = inbox.get("updated_at")
 
     for event in lifecycle:
         cid = event.get("crystal_id", "")
         if not cid:
+            continue
+        ts = parse_iso_ts(event.get("ts"))
+        if since_dt is not None and ts is not None and ts < since_dt:
             continue
         entry = crystals.setdefault(
             cid,
@@ -232,12 +330,48 @@ def list_crystals(*, since: str | None = "7d") -> dict:
             entry["latest_stage"] = stage
         if event.get("status"):
             entry["status"] = event["status"]
+        if event.get("draft_path"):
+            entry["draft_path"] = event["draft_path"]
+
+    hidden_reject = 0
+    hidden_fixture = int(report.get("fixture_skipped") or 0)
+    visible: list[dict] = []
+    for entry in crystals.values():
+        status = str(entry.get("status") or "").strip().lower()
+        if status in HIDDEN_STATUSES:
+            hidden_reject += 1
+            continue
+        if is_fixture_task(str(entry.get("pattern") or "")):
+            hidden_fixture += 1
+            continue
+        visible.append(entry)
 
     notified = watch.get("notified") or {}
+    shown = list(crystals.values()) if include_hidden else visible
+    workspace: list[dict] = []
+    lesson: list[dict] = []
+    for entry in shown:
+        contour = crystal_contour(entry)
+        entry["contour"] = contour
+        if contour == "lesson":
+            lesson.append(entry)
+        else:
+            workspace.append(entry)
+
+    def sort_key(row: dict) -> tuple:
+        return (-row.get("hits", 0), row["crystal_id"])
+
     return {
         "coverage_pct": report.get("coverage_pct"),
         "total_events": report.get("total_events"),
-        "crystals": sorted(crystals.values(), key=lambda x: (-x.get("hits", 0), x["crystal_id"])),
+        "crystals": sorted(workspace, key=sort_key),
+        "lesson": sorted(lesson, key=sort_key),
         "notified_patterns": list(notified.keys()),
+        "hidden": {
+            "count": hidden_reject + hidden_fixture,
+            "reject": hidden_reject,
+            "fixture": hidden_fixture,
+            "stale_inbox": not inbox_fresh and bool(inbox),
+        },
         "since": since,
     }

@@ -122,7 +122,7 @@ def test_list_crystals_merges(hub_home: Path) -> None:
     inbox.write_text(
         json.dumps(
             {
-                "updated_at": "2026-07-15T00:00:00Z",
+                "updated_at": now,
                 "new_candidates": [{"pattern": "inbox pattern", "hits": 4}],
             }
         ),
@@ -146,6 +146,162 @@ def test_list_crystals_merges(hub_home: Path) -> None:
     assert any(c["crystal_id"].startswith("script-repeated") for c in data["crystals"])
     life = next(c for c in data["crystals"] if c["crystal_id"] == "script-life")
     assert life["latest_stage"] == "promoted" and life["status"] == "done"
+
+
+@allure.title("list_crystals hides reject, pytest fixture tasks, and stale inbox")
+def test_list_crystals_hygiene(hub_home: Path) -> None:
+    now = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    log = hub_home / "usage.jsonl"
+    log.write_text(
+        json.dumps({"ts": now, "selected_tier": "cursor", "task": "audit :: audit"})
+        + "\n"
+        + json.dumps(
+            {
+                "ts": now,
+                "selected_tier": "cursor",
+                "task": "real crystallize candidate task",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (hub_home / "crystallize-inbox.json").write_text(
+        json.dumps(
+            {
+                "updated_at": "2026-07-15T00:00:00Z",
+                "new_candidates": [{"pattern": "stale inbox pattern here", "hits": 9}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (hub_home / "crystallize-lifecycle.jsonl").write_text(
+        json.dumps(
+            {
+                "crystal_id": "script-gap-audit",
+                "pattern": "audit-skill gap :: audit",
+                "hits": 6,
+                "stage": "promote",
+                "status": "reject",
+                "ts": now,
+            }
+        )
+        + "\n"
+        + json.dumps(
+            {
+                "crystal_id": "script-keep-me",
+                "pattern": "keep this crystal",
+                "hits": 4,
+                "stage": "watch",
+                "status": "pending",
+                "ts": now,
+            }
+        )
+        + "\n"
+        + json.dumps(
+            {
+                "crystal_id": "script-fixture-pending",
+                "pattern": "pipeline step :: classify",
+                "hits": 2,
+                "stage": "watch",
+                "status": "pending",
+                "ts": now,
+            }
+        )
+        + "\n"
+        + json.dumps(
+            {
+                "crystal_id": "script-old-watch",
+                "pattern": "old watch crystal",
+                "hits": 8,
+                "stage": "watch",
+                "status": "pending",
+                "ts": "2026-07-15T00:00:00Z",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    data = crystallize.list_crystals(since="7d")
+    ids = {c["crystal_id"] for c in data["crystals"]}
+    assert "script-stale-inbox-pattern-here" not in ids
+    assert "script-gap-audit" not in ids
+    assert "script-audit-audit" not in ids
+    assert "script-keep-me" in ids
+    assert "script-fixture-pending" not in ids
+    assert "script-old-watch" not in ids
+    assert any(c["crystal_id"].startswith("script-real-crystallize") for c in data["crystals"])
+    hidden = data["hidden"]
+    assert hidden["stale_inbox"] is True
+    assert hidden["reject"] >= 1
+    assert hidden["fixture"] >= 1
+    assert hidden["count"] == hidden["reject"] + hidden["fixture"]
+    raw_ids = {
+        c["crystal_id"]
+        for c in crystallize.list_crystals(since="7d", include_hidden=True)["crystals"]
+    }
+    assert "script-gap-audit" in raw_ids
+
+
+@allure.title("list_crystals splits workshop lesson tails from workspace candidates")
+def test_list_crystals_splits_lesson(hub_home: Path) -> None:
+    now = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    log = hub_home / "usage.jsonl"
+    log.write_text(
+        json.dumps(
+            {
+                "ts": now,
+                "selected_tier": "cursor",
+                "task": "llm invoke heavy",
+                "root": "/Users/stanislav/zero-design-system",
+            }
+        )
+        + "\n"
+        + json.dumps(
+            {
+                "ts": now,
+                "selected_tier": "cursor",
+                "task": "schema check lab/users.json keys",
+                "root": "/Users/stanislav/greedy-guru-lesson",
+            }
+        )
+        + "\n"
+        + json.dumps(
+            {
+                "ts": now,
+                "selected_tier": "cursor",
+                "task": "grafana oss on box2 provision datasources",
+                "root": "/Users/stanislav/zero-design-system",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (hub_home / "crystallize-lifecycle.jsonl").write_text(
+        json.dumps(
+            {
+                "crystal_id": "script-python-check-users-keys",
+                "pattern": "python check users keys",
+                "hits": 3,
+                "stage": "promoted",
+                "status": "active",
+                "ts": now,
+                "draft_path": (
+                    "/Users/stanislav/greedy-guru-lesson/.greedy-token/drafts/"
+                    "script-python-check-users-keys.py"
+                ),
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    data = crystallize.list_crystals(since="7d")
+    workspace_ids = {c["crystal_id"] for c in data["crystals"]}
+    lesson_ids = {c["crystal_id"] for c in data["lesson"]}
+    assert any(i.startswith("script-grafana") for i in workspace_ids)
+    assert "script-python-check-users-keys" in lesson_ids
+    assert any("llm-invoke-heavy" in i for i in lesson_ids)
+    assert any("lab-users-json" in i for i in lesson_ids)
+    assert not any("llm-invoke" in i for i in workspace_ids)
 
 
 # ---------------------------------------------------------------- sessions
