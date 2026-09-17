@@ -14,6 +14,7 @@ LAYER_BY_MODULE: dict[str, str] = {
     "test_resource_probe": "unit",
     "test_branch_coverage": "unit",
     "test_cli_handlers": "unit",
+    "test_crystal_ids": "unit",
     "test_context_audit": "unit",
     "test_cross_platform_execution": "unit",
     "test_estimator": "unit",

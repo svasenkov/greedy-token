@@ -16,6 +16,7 @@ MAX_STEM_TOKENS = 4
 STEM_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+){1,3}$")
 ROUTE_ID_RE = re.compile(r"^python-([a-z0-9]+(?:-[a-z0-9]+){1,3})$")
 _NON_TOKEN = re.compile(r"[^a-z0-9]+")
+_EXECUTOR_STEM_TOKENS = frozenset({"python", "script"})
 STOPWORDS = frozenset(
     {
         "a",
@@ -54,12 +55,24 @@ def is_valid_stem(stem: str) -> bool:
     return bool(STEM_RE.fullmatch(stem or ""))
 
 
+def _drop_executor_tokens(tokens: list[str]) -> list[str]:
+    """Strip leading python/script so python-{stem} cannot become python-python-*."""
+    dropped = list(tokens)
+    while dropped and dropped[0] in _EXECUTOR_STEM_TOKENS:
+        dropped = dropped[1:]
+    return dropped
+
+
 def choose_stem(pattern: str) -> str:
-    tokens = [t for t in tokens_of(pattern) if t not in STOPWORDS]
+    tokens = _drop_executor_tokens(
+        [t for t in tokens_of(pattern) if t not in STOPWORDS]
+    )
     if len(tokens) < MIN_STEM_TOKENS:
-        tokens = tokens_of(pattern)
+        tokens = _drop_executor_tokens(tokens_of(pattern))
     if len(tokens) < MIN_STEM_TOKENS:
-        fallback = [t for t in slugify(pattern).split("-") if t]
+        fallback = _drop_executor_tokens(
+            [t for t in slugify(pattern).split("-") if t]
+        )
         tokens = fallback or ["task"]
         if len(tokens) < MIN_STEM_TOKENS:
             tokens = (tokens + ["task"])[:MIN_STEM_TOKENS]
@@ -67,7 +80,10 @@ def choose_stem(pattern: str) -> str:
 
 
 def crystal_id_for_pattern(pattern: str) -> str:
-    return f"{ROUTE_PREFIX}{choose_stem(pattern)}"
+    cid = (pattern or "").strip()
+    if is_valid_route_id(cid):
+        return cid
+    return f"{ROUTE_PREFIX}{choose_stem(cid)}"
 
 
 def crystal_id_for_stem(stem: str) -> str:
@@ -126,7 +142,10 @@ def validate_route_id(crystal_id: str, *, pattern: str | None = None) -> str | N
 
 
 def stem_from_script_path(script: str) -> str | None:
-    raw = (script or "").strip().split()[0].lstrip("./")
+    tokens = (script or "").strip().split()
+    if not tokens:
+        return None
+    raw = tokens[0].lstrip("./")
     if not raw:
         return None
     path = Path(raw)

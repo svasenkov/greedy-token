@@ -7,7 +7,7 @@ from collections import Counter, defaultdict
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from greedy_token.crystal_ids import crystal_id_for_pattern, stem_of
+from greedy_token.crystal_ids import crystal_id_for_pattern, stem_of, validate_route_id
 from greedy_token.hub.paths import inbox_path, lifecycle_path, watch_state_path
 from greedy_token.usage import load_events, log_path, parse_since
 
@@ -143,6 +143,8 @@ def rank_candidates(
     candidates = []
     for task, hits in llm_tasks.most_common(top):
         cid = crystal_id_for_pattern(task)
+        if validate_route_id(cid) is not None:
+            continue
         candidates.append(
             {
                 "pattern": task,

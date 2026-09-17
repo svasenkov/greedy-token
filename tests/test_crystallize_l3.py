@@ -103,6 +103,23 @@ def test_draft_passes_scripts_lint(
 
 
 @allure.story("Draft")
+@allure.title("draft rejects a valid-looking id that is the truncated slug of a longer pattern")
+def test_draft_rejects_truncated_slug_pattern(
+    minimal_workspace: Path, crystal_home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dds = "d" * 39
+    cid = f"python-aa-bb-cc-{dds}"
+    pattern = f"aa bb cc {dds} extra"
+
+    def fake_find(crystal_id: str, *, since: str | None = "30d") -> dict:
+        return {"crystal_id": cid, "pattern": pattern, "hits": 5}
+
+    monkeypatch.setattr(l3, "find_crystal", fake_find)
+    with pytest.raises(ValueError, match="slugify"):
+        l3.draft_crystal(cid, root=minimal_workspace)
+
+
+@allure.story("Draft")
 @allure.title("draft: unknown crystal id raises ValueError")
 def test_draft_unknown_crystal(minimal_workspace: Path, crystal_home: Path) -> None:
     with pytest.raises(ValueError, match="not found in candidates"):

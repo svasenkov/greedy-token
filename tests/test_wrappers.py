@@ -160,6 +160,25 @@ def test_resolve_wrapper_command_python_script(minimal_workspace: Path) -> None:
     del WRAPPERS["demo-py"]
 
 
+@allure.story("Telemetry")
+@allure.title("wrapper_route_id uses script-path stem or falls back to run-arg")
+def test_wrapper_route_id_stem_and_empty_path_fallback() -> None:
+    from greedy_token.wrappers import ScriptWrapper, WRAPPERS, wrapper_route_id
+
+    assert wrapper_route_id("check-meta-sync") == "python-meta-sync-check"
+    assert wrapper_route_id("no-such-wrapper") == "python-no-such-wrapper"
+    WRAPPERS["empty-path"] = ScriptWrapper(
+        id="empty-path",
+        path="   ",
+        category="demo",
+        read_only=True,
+    )
+    try:
+        assert wrapper_route_id("empty-path") == "python-empty-path"
+    finally:
+        del WRAPPERS["empty-path"]
+
+
 @allure.story("Status")
 @allure.title("ollama_status_line reports unavailable when server is down")
 def test_ollama_status_line_unavailable() -> None:

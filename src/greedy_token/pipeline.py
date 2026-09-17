@@ -893,7 +893,8 @@ def format_pipeline_footer(result: PipelineResult, root: Path) -> str:
     baseline = breakdown.total
     source = breakdown.source
     total_spent = result.total_est_tokens
-    saved = max(0, baseline - total_spent)
+    any_success = any(sr.executed and sr.ok for sr in result.steps)
+    saved = max(0, baseline - total_spent) if any_success else 0
     llm = get_cheap_llm_settings(root)
     step_rows = compute_step_savings(result, root)
 
@@ -962,7 +963,8 @@ def format_pipeline_footer(result: PipelineResult, root: Path) -> str:
         ]
     )
     any_dry = any(not sr.executed for sr in result.steps)
-    if any_dry and not any(sr.executed for sr in result.steps):
+    any_executed = any(sr.executed for sr in result.steps)
+    if any_dry and not any_executed:
         # Pure dry-run: do not claim baseline−0 as "saved".
         lines.extend(
             [
@@ -970,6 +972,16 @@ def format_pipeline_footer(result: PipelineResult, root: Path) -> str:
                 f"  {BASELINE_LABEL}  ~{baseline:,}  ({source})",
                 f"  Spent (MCP executor, LLM tokens): ~{total_spent:,}  (dry-run — steps not executed)",
                 f"  Saved:             ~0  (dry-run; re-run with execute=true / --execute; baseline: {source})",
+            ]
+        )
+    elif not any_success and any_executed:
+        # Executed but no successful step: same as per-step failed (saved=0).
+        lines.extend(
+            [
+                f"Saved vs naive agent chat (baseline: {source})",
+                f"  {BASELINE_LABEL}  ~{baseline:,}  ({source})",
+                f"  Spent (MCP executor, LLM tokens): ~{total_spent:,}  (failed — no savings claimed)",
+                f"  Saved:             ~0  (failed — no savings claimed; baseline: {source})",
             ]
         )
     else:

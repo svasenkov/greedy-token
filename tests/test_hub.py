@@ -41,6 +41,19 @@ def test_crystal_id_is_python_stem_not_prompt_slug():
 
 
 @pytest.mark.unit
+def test_crystal_id_strips_existing_executor_prefix():
+    cid = crystal_id_for_pattern("python-meta-sync-check")
+    assert cid == "python-meta-sync-check"
+    assert validate_route_id(cid) is None
+    assert stem_of(cid) == "meta-sync-check"
+    script_cid = crystal_id_for_pattern("script-foo-bar")
+    assert script_cid == "python-foo-bar"
+    assert validate_route_id(script_cid) is None
+    assert not script_cid.startswith("python-python-")
+    assert not script_cid.startswith("python-script-")
+
+
+@pytest.mark.unit
 def test_is_fixture_task():
     assert is_fixture_task("audit :: audit")
     assert is_fixture_task("classify-file gap :: classify")
@@ -204,6 +217,43 @@ def test_rank_candidates_llm_hits(tmp_path, monkeypatch, minimal_workspace):
     assert cid.startswith("python-")
     assert not cid.startswith("script-")
     assert cid == crystal_id_for_pattern("find repeated crystallize pattern task")
+
+
+@pytest.mark.unit
+def test_rank_candidates_skips_doubled_python_prefix(tmp_path, monkeypatch):
+    log = tmp_path / "usage.jsonl"
+    monkeypatch.setenv("GREEDY_TOKEN_LOG", str(log))
+    rows = [
+        {
+            "selected_tier": "cursor",
+            "task": "python-python-foo-bar",
+            "root": str(tmp_path),
+        }
+    ] * 3
+    log.write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
+    report = rank_candidates(since=None)
+    assert all(c["crystal_id"] != "python-python-foo-bar" for c in report["candidates"])
+
+
+@pytest.mark.unit
+def test_rank_candidates_strips_python_prefix(tmp_path, monkeypatch):
+    log = tmp_path / "usage.jsonl"
+    monkeypatch.setenv("GREEDY_TOKEN_LOG", str(log))
+    rows = [
+        {
+            "selected_tier": "cursor",
+            "task": "python-meta-sync-check",
+            "root": str(tmp_path),
+        }
+    ] * 3
+    log.write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
+    report = rank_candidates(since=None)
+    assert report["candidates"]
+    cid = report["candidates"][0]["crystal_id"]
+    assert cid == "python-meta-sync-check"
+    assert validate_route_id(cid) is None
+    assert cid == report["candidates"][0]["suggested_script"]
+    assert report["candidates"][0]["stem"] == "meta-sync-check"
 
 
 @pytest.mark.unit

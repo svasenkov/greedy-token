@@ -631,6 +631,40 @@ def test_compute_step_savings_math(minimal_workspace: Path) -> None:
     assert rows[3].billing == "failed — no savings claimed"
 
 
+@allure.story("Token footer")
+@allure.title("Combined pipeline Saved is 0 when every executed step failed")
+def test_format_pipeline_footer_all_failed_execute_saved_zero(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from types import SimpleNamespace
+
+    import greedy_token.pipeline as P
+
+    steps = [
+        _sr("s1", "python", executed=True, ok=False, exit_code=1, est_tokens=0),
+        _sr("s2", "tool", executed=True, ok=False, exit_code=1, est_tokens=0),
+    ]
+    result = PipelineResult(task="t", steps=steps)
+    monkeypatch.setattr(
+        P,
+        "cursor_baseline_breakdown",
+        lambda root, task: SimpleNamespace(
+            total=6001, rules=100, task=200, overhead=5701, source="default-estimate"
+        ),
+    )
+    monkeypatch.setattr(
+        P,
+        "get_cheap_llm_settings",
+        lambda root: SimpleNamespace(provider="prov", model="mod", url="http://x"),
+    )
+    monkeypatch.setattr(P, "compute_step_savings", lambda result, root: [])
+    footer = P.format_pipeline_footer(result, minimal_workspace)
+    with allure.step("Combined Saved is 0, not baseline−spent"):
+        assert "Saved:             ~0" in footer
+        assert "failed — no savings claimed" in footer
+        assert "Saved:             ~6,001" not in footer
+
+
 def _sr(step_id: str, tier: str, *, engine: str = "", executed: bool = True,
         ok: bool = True, exit_code: int = 0, output: str = "", duration_ms: int = 1,
         est_tokens: int = 0, label: str = "l", args: str = "") -> StepResult:
