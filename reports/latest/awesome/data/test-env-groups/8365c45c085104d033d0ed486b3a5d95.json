@@ -1,0 +1,1 @@
+{"id":"8365c45c085104d033d0ed486b3a5d95","fullName":"tests.test_crystallize_l3#test_draft_rejects_truncated_slug_pattern","name":"draft rejects a valid-looking id that is the truncated slug of a longer pattern","status":"passed","testResultsByEnv":{"default":"2ac3c5c19bc48803b7abaa36a4149c24"}}

@@ -1,0 +1,1 @@
+{"id":"c76ab5497ecf2b438069c690b456626f","fullName":"tests.test_cli#test_wrapper_route_id_is_python_stem","name":"scripts --run telemetry uses python-{stem}, not wrapper slug","status":"passed","testResultsByEnv":{"default":"217cbabe198bba55be0da2e00f46fa4c"}}

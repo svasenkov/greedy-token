@@ -1,0 +1,1 @@
+{"id":"91ba054d9adfd0b3fafc3b8edbd28079","fullName":"tests.test_pipeline#test_format_pipeline_footer_all_failed_execute_saved_zero","name":"Combined pipeline Saved is 0 when every executed step failed","status":"passed","testResultsByEnv":{"default":"dca86a8c85c7c61380e034e91f72fa8f"}}

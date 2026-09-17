@@ -1,0 +1,1 @@
+{"id":"5ad8cb851210e2d214db011691b48704","fullName":"tests.test_wrappers#test_wrapper_route_id_stem_and_empty_path_fallback","name":"wrapper_route_id uses script-path stem or falls back to run-arg","status":"passed","testResultsByEnv":{"default":"8a23b9273f558b90f56996d233b88e28"}}

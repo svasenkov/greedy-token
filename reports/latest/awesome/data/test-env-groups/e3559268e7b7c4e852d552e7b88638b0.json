@@ -1,0 +1,1 @@
+{"id":"e3559268e7b7c4e852d552e7b88638b0","fullName":"tests.test_crystal_ids#test_is_slug_prompt_id_short_pattern","name":"is_slug_prompt_id is false when the pattern is already a short stem","status":"passed","testResultsByEnv":{"default":"820804aeb47d0a55e939595944f3abad"}}

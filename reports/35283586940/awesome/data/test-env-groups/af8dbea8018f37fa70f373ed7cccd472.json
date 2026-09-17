@@ -1,0 +1,1 @@
+{"id":"af8dbea8018f37fa70f373ed7cccd472","fullName":"tests.test_crystallize_l3#test_draft_rejects_prompt_slug_id","name":"draft rejects script-{slugify(prompt)} as promote id","status":"passed","testResultsByEnv":{"default":"24222fe912c366c8ba185abf6f0c12a7"}}

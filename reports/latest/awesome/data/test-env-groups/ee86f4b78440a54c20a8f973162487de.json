@@ -1,0 +1,1 @@
+{"id":"ee86f4b78440a54c20a8f973162487de","fullName":"tests.test_crystal_ids#test_stem_of_without_prefix","name":"stem_of strips python-/script- or returns the id","status":"passed","testResultsByEnv":{"default":"0f1ea44361c20f24b418c3fcf8ead580"}}

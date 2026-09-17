@@ -1,0 +1,1 @@
+{"id":"2d4769abe9c19c28b91c953856e7cdc0","fullName":"tests.test_crystal_ids#test_choose_stem_slugify_fallback_long_enough","name":"choose_stem uses slugify fallback when it already has 2+ tokens","status":"passed","testResultsByEnv":{"default":"82e29a1443f737f9e0e83cd49c010c8c"}}
