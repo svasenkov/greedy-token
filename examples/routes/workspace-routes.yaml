@@ -55,7 +55,7 @@ routes:
     jq_filter: .
     note: "Structured JSON lookup — jq, 0 LLM"
 
-  - id: python-rsync
+  - id: python-phase1-rsync
     target: python
     read_only: false
     patterns:
@@ -79,7 +79,7 @@ routes:
     command: python scripts/meta-sync-check.py
     note: "meta_sync_clean gate — crystallized script tier, 0 LLM"
 
-  - id: python-gen-env
+  - id: python-gen-env-configs
     target: python
     read_only: false
     patterns:
@@ -158,7 +158,7 @@ routes:
       - ssh access canon
       - qaguru ssh
       - infra ssh probe
-    command: python scripts/infra-ssh/check.py
+    command: python scripts/ssh-check.py
     note: "infra SSH smoke — crystallized script tier, 0 LLM"
 
   - id: python-ollama-health
@@ -322,7 +322,7 @@ routes:
       - tms auth probe
       - testops auth storage
     command: python scripts/auth_storage_probe.py
-    note: "Retired — use python-access-diag-testops (access_diag.py testops)"
+    note: "Retired — use python-access-diag-testops (access-diag.py testops)"
 
   # retired 2026-09-08 — 0 shadow hits; do not promote.
   # shadow_until kept so test_disabled_shadow_route_is_skipped can pin 2026-07-01;
@@ -353,7 +353,7 @@ routes:
       - share-sa
       - sheets verify
       - delete-sheet
-    command: python scripts/google-sheets/sheets.py
+    command: python scripts/google-sheets/google-sheets.py
     note: "Sheets read/write + share-sa + delete-sheet — promoted 2026-09-08; writes need explicit subcommand"
 
   # retired 2026-09-08 — push-students-sheets.py missing; cold skill only
@@ -378,7 +378,7 @@ routes:
     patterns:
       - jenkins access check
       - jenkins access probe
-    command: python scripts/access_diag.py jenkins
+    command: python scripts/access-diag.py jenkins
     note: "Access-diag jenkins profile — read-only probe, canon schema"
 
   - id: python-access-diag-selenoid
@@ -386,7 +386,7 @@ routes:
     read_only: true
     patterns:
       - selenoid access probe
-    command: python scripts/access_diag.py selenoid
+    command: python scripts/access-diag.py selenoid
     note: "Access-diag selenoid profile — read-only probe, canon schema"
 
   - id: python-access-diag-testops
@@ -398,7 +398,7 @@ routes:
       - auth_storage_probe
       - tms auth probe
       - testops auth storage
-    command: python scripts/access_diag.py testops
+    command: python scripts/access-diag.py testops
     note: "Access-diag testops profile — auth env probe, canon schema"
 
   - id: python-access-diag
@@ -408,7 +408,7 @@ routes:
       - access diag
       - access-diag probe
       - service account access
-    command: python scripts/access_diag.py --all-standard
+    command: python scripts/access-diag.py --all-standard
     note: "Access-diag all standard profiles — jenkins+selenoid+testops"
 
   - id: python-provision-student-contour

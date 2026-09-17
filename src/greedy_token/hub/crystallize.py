@@ -7,6 +7,7 @@ from collections import Counter, defaultdict
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from greedy_token.crystal_ids import crystal_id_for_pattern, stem_of
 from greedy_token.hub.paths import inbox_path, lifecycle_path, watch_state_path
 from greedy_token.usage import load_events, log_path, parse_since
 
@@ -28,12 +29,6 @@ LESSON_TASK_STEMS = (
     "l6 cloud ollama",
 )
 _ID_EMAIL = re.compile(r"id.{0,12}[еe]mail", re.IGNORECASE)
-
-
-def slugify(text: str) -> str:
-    text = text.lower().strip()
-    text = re.sub(r"[^a-z0-9]+", "-", text)
-    return text.strip("-")[:48] or "task"
 
 
 def is_fixture_task(pattern: str) -> bool:
@@ -145,17 +140,20 @@ def rank_candidates(
             task_roots[task][root] += 1
     fixture_skipped = len(fixture_tasks)
 
-    candidates = [
-        {
-            "pattern": task,
-            "hits": hits,
-            "suggested_script": f"script-{slugify(task)}",
-            "crystal_id": f"script-{slugify(task)}",
-            "tier_seen": "cursor/ollama",
-            "roots": dict(task_roots[task]),
-        }
-        for task, hits in llm_tasks.most_common(top)
-    ]
+    candidates = []
+    for task, hits in llm_tasks.most_common(top):
+        cid = crystal_id_for_pattern(task)
+        candidates.append(
+            {
+                "pattern": task,
+                "hits": hits,
+                "suggested_script": cid,
+                "crystal_id": cid,
+                "stem": stem_of(cid),
+                "tier_seen": "cursor/ollama",
+                "roots": dict(task_roots[task]),
+            }
+        )
 
     return {
         "ok": True,
@@ -284,6 +282,7 @@ def list_crystals(*, since: str | None = "7d", include_hidden: bool = False) -> 
         cid = item.get("crystal_id") or item.get("suggested_script")
         crystals[cid] = {
             "crystal_id": cid,
+            "stem": stem_of(cid),
             "pattern": item["pattern"],
             "hits": item["hits"],
             "suggested_script": item["suggested_script"],
@@ -294,11 +293,12 @@ def list_crystals(*, since: str | None = "7d", include_hidden: bool = False) -> 
 
     if inbox_fresh:
         for item in inbox.get("new_candidates", []):
-            cid = f"script-{slugify(item['pattern'])}"
+            cid = crystal_id_for_pattern(item["pattern"])
             entry = crystals.setdefault(
                 cid,
                 {
                     "crystal_id": cid,
+                    "stem": stem_of(cid),
                     "pattern": item["pattern"],
                     "hits": item["hits"],
                     "suggested_script": item.get("suggested_script", cid),
@@ -319,6 +319,7 @@ def list_crystals(*, since: str | None = "7d", include_hidden: bool = False) -> 
             cid,
             {
                 "crystal_id": cid,
+                "stem": stem_of(cid),
                 "pattern": event.get("pattern", cid),
                 "hits": event.get("hits", 0),
                 "suggested_script": cid,
@@ -351,6 +352,7 @@ def list_crystals(*, since: str | None = "7d", include_hidden: bool = False) -> 
     workspace: list[dict] = []
     lesson: list[dict] = []
     for entry in shown:
+        entry["stem"] = entry.get("stem") or stem_of(entry["crystal_id"])
         contour = crystal_contour(entry)
         entry["contour"] = contour
         if contour == "lesson":

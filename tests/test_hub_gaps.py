@@ -140,10 +140,10 @@ def test_list_crystals_merges(hub_home: Path) -> None:
     )
     data = crystallize.list_crystals(since="7d")
     ids = {c["crystal_id"] for c in data["crystals"]}
-    assert "script-inbox-pattern" in ids
+    assert "python-inbox-pattern" in ids
     assert "script-life" in ids
     assert "script-nostage" in ids
-    assert any(c["crystal_id"].startswith("script-repeated") for c in data["crystals"])
+    assert any(c["crystal_id"].startswith("python-repeated") for c in data["crystals"])
     life = next(c for c in data["crystals"] if c["crystal_id"] == "script-life")
     assert life["latest_stage"] == "promoted" and life["status"] == "done"
 
@@ -229,7 +229,7 @@ def test_list_crystals_hygiene(hub_home: Path) -> None:
     assert "script-keep-me" in ids
     assert "script-fixture-pending" not in ids
     assert "script-old-watch" not in ids
-    assert any(c["crystal_id"].startswith("script-real-crystallize") for c in data["crystals"])
+    assert any(c["crystal_id"].startswith("python-real-crystallize") for c in data["crystals"])
     hidden = data["hidden"]
     assert hidden["stale_inbox"] is True
     assert hidden["reject"] >= 1
@@ -297,10 +297,10 @@ def test_list_crystals_splits_lesson(hub_home: Path) -> None:
     data = crystallize.list_crystals(since="7d")
     workspace_ids = {c["crystal_id"] for c in data["crystals"]}
     lesson_ids = {c["crystal_id"] for c in data["lesson"]}
-    assert any(i.startswith("script-grafana") for i in workspace_ids)
+    assert any(i.startswith("python-grafana") for i in workspace_ids)
     assert "script-python-check-users-keys" in lesson_ids
     assert any("llm-invoke-heavy" in i for i in lesson_ids)
-    assert any("lab-users-json" in i for i in lesson_ids)
+    assert any("schema-check-lab-users" in i for i in lesson_ids)
     assert not any("llm-invoke" in i for i in workspace_ids)
 
 

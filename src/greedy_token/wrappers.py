@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from collections.abc import Iterable
 
 from greedy_token.cheap_llm import (
     CHEAP_LLM_PROBE_TTL,
@@ -11,6 +11,7 @@ from greedy_token.cheap_llm import (
     cheap_llm_available,
     cheap_llm_status_line,
 )
+from greedy_token.crystal_ids import route_id_from_run_arg, stem_from_script_path
 from greedy_token.settings import CheapLlmSettings, get_cheap_llm_settings
 from greedy_token.subprocess_safe import (
     CommandInvocation,
@@ -97,6 +98,16 @@ WRAPPERS: dict[str, ScriptWrapper] = {
         note="Deterministic config generation",
     ),
 }
+
+
+def wrapper_route_id(wrapper_id: str) -> str:
+    """Telemetry route_id for scripts --run: python-{stem} from the script path."""
+    wrapper = WRAPPERS.get(wrapper_id)
+    if wrapper:
+        stem = stem_from_script_path(wrapper.path)
+        if stem:
+            return f"python-{stem}"
+    return route_id_from_run_arg(wrapper_id)
 
 
 def wrapper_for_command(command: str | None) -> ScriptWrapper | None:

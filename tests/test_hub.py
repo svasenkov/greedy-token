@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
+from greedy_token.crystal_ids import crystal_id_for_pattern, slugify, stem_of, validate_route_id
 from greedy_token.hub.api import handle_api
 from greedy_token.hub.crystallize import (
     crystal_contour,
@@ -15,7 +16,6 @@ from greedy_token.hub.crystallize import (
     list_crystals,
     parse_iso_ts,
     rank_candidates,
-    slugify,
 )
 from greedy_token.hub.sessions import list_sessions
 from greedy_token.router import route_task
@@ -25,6 +25,19 @@ from greedy_token.usage import append_event, build_route_event
 @pytest.mark.unit
 def test_slugify():
     assert slugify("Meta Sync Check!") == "meta-sync-check"
+
+
+@pytest.mark.unit
+def test_crystal_id_is_python_stem_not_prompt_slug():
+    task = "summarize weekly spend report table"
+    cid = crystal_id_for_pattern(task)
+    assert cid == "python-summarize-weekly-spend-report"
+    assert cid.startswith("python-")
+    assert not cid.startswith("script-")
+    assert cid != f"script-{slugify(task)}"
+    assert validate_route_id(cid) is None
+    assert validate_route_id(f"script-{slugify(task)}") is not None
+    assert stem_of(cid) == "summarize-weekly-spend-report"
 
 
 @pytest.mark.unit
@@ -187,6 +200,10 @@ def test_rank_candidates_llm_hits(tmp_path, monkeypatch, minimal_workspace):
     report = rank_candidates(since="7d")
     assert report["total_events"] == 3
     assert report["candidates"][0]["hits"] == 3
+    cid = report["candidates"][0]["crystal_id"]
+    assert cid.startswith("python-")
+    assert not cid.startswith("script-")
+    assert cid == crystal_id_for_pattern("find repeated crystallize pattern task")
 
 
 @pytest.mark.unit

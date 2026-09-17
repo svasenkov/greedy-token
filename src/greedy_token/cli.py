@@ -50,6 +50,7 @@ from greedy_token.wrappers import (
     ollama_status_line,
     resolve_wrapper_command,
     resolve_wrapper_invocation,
+    wrapper_route_id,
 )
 
 
@@ -489,7 +490,7 @@ def cmd_scripts(args: argparse.Namespace) -> int:
         if executed:
             decision = RouteDecision(
                 target="python",
-                route_id=f"script-{args.run}",
+                route_id=wrapper_route_id(args.run),
                 confidence=1.0,
                 matched=[],
                 command=None,
@@ -1157,7 +1158,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     scr = sub.add_parser("scripts", help="Wrappers for workspace scripts")
     scr.add_argument("--list", action="store_true", help="List script wrappers")
-    scr.add_argument("--run", metavar="ID", help="Wrapper id (e.g. check-meta-sync)")
+    scr.add_argument("--run", metavar="ID", help="Wrapper id (telemetry route_id = python-{stem})")
     scr.add_argument(
         "args",
         nargs="?",

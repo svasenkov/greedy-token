@@ -39,6 +39,17 @@ def test_cli_configures_narrow_stream_errors() -> None:
     _configure_stream_errors(object())
 
 
+@allure.story("Scripts run")
+@allure.title("scripts --run telemetry uses python-{stem}, not wrapper slug")
+def test_wrapper_route_id_is_python_stem() -> None:
+    from greedy_token.wrappers import wrapper_route_id
+
+    assert wrapper_route_id("check-meta-sync") == "python-meta-sync-check"
+    assert wrapper_route_id("phase1-rsync") == "python-phase1-rsync"
+    assert wrapper_route_id("gen-env-configs") == "python-gen-env-configs"
+    assert wrapper_route_id("python-ssh-check") == "python-ssh-check"
+
+
 @allure.story("Help")
 @allure.title("CLI --help lists route command")
 def test_cli_help() -> None:

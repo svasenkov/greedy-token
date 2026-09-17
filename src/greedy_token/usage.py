@@ -19,7 +19,7 @@ from greedy_token.outcome_calibration import (
 from greedy_token.router import RouteDecision, route_task_all_tiers
 from greedy_token.settings import get_ollama_settings
 from greedy_token.tokens import count_tokens
-from greedy_token.wrappers import WRAPPERS
+from greedy_token.wrappers import WRAPPERS, wrapper_route_id
 
 SCHEMA_VERSION = 2
 TASK_MAX_LEN = 500
@@ -308,6 +308,7 @@ def build_script_event(
 ) -> dict:
     task = f"scripts --run {script_id}"
     baseline = cursor_baseline(root, task)
+    rid = wrapper_route_id(script_id)
     event: dict = {
         "v": SCHEMA_VERSION,
         "ts": _utc_now_iso(),
@@ -315,7 +316,7 @@ def build_script_event(
         "task": task,
         "root": str(root),
         "selected_tier": "python",
-        "route_id": f"script-{script_id}",
+        "route_id": rid,
         "confidence": 1.0,
         "est_tokens": 0,
         "cursor_baseline": baseline,

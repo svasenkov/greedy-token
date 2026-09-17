@@ -5,6 +5,7 @@ from pathlib import Path
 import allure
 import pytest
 
+from greedy_token.crystal_ids import crystal_id_for_pattern
 from tests.allure_reporting import attach_text
 from tests.mcp_stdio_helpers import run_mcp, tool_text
 
@@ -172,7 +173,7 @@ def test_mcp_stdio_usage_empty_log(minimal_workspace: Path, tmp_path: Path) -> N
         assert f"Log: {log_file}" in text
 
 
-CRYSTAL_ID = "script-summarize-weekly-spend-report-table"
+CRYSTAL_ID = crystal_id_for_pattern("summarize weekly spend report table")
 
 
 @allure.story("Crystallize tool")

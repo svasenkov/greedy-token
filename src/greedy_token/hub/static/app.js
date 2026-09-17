@@ -197,7 +197,7 @@ async function renderHome() {
   const hasQuality = (q.script_hits || 0) > 0;
   const worst = (q.by_crystal || []).filter((c) => c.override_count > 0).slice(0, 5);
   const worstRows = worst.map((c) =>
-    `<tr><td><code>${c.crystal_id}</code></td><td>${pct(c.override_rate)}</td>` +
+    `<tr><td><code title="${c.crystal_id}">${c.stem || crystalStem(c.crystal_id)}</code></td><td>${pct(c.override_rate)}</td>` +
     `<td>${c.override_count}/${c.script_hits}</td>` +
     `<td>${c.reuse_action ? `<span style="color:var(--warn)">${c.reuse_action}</span>` : "—"}</td></tr>`
   ).join("");
@@ -267,11 +267,17 @@ async function renderSessions() {
     </div>`;
 }
 
+function crystalStem(id) {
+  const s = String(id || "");
+  return s.replace(/^python-/, "").replace(/^script-/, "") || s;
+}
+
 function crystalRows(rows) {
-  return (rows || []).map((c) =>
-    `<tr><td><a class="link" href="#/crystals/${encodeURIComponent(c.crystal_id)}">${c.crystal_id}</a></td>
-    <td>${(c.pattern || "").slice(0, 60)}</td><td>${c.hits}</td><td>${c.latest_stage || "—"}</td><td>${c.status || "—"}</td></tr>`
-  ).join("");
+  return (rows || []).map((c) => {
+    const stem = c.stem || crystalStem(c.crystal_id);
+    return `<tr><td><a class="link" href="#/crystals/${encodeURIComponent(c.crystal_id)}" title="${c.crystal_id}">${stem}</a></td>
+    <td>${(c.pattern || "").slice(0, 60)}</td><td>${c.hits}</td><td>${c.latest_stage || "—"}</td><td>${c.status || "—"}</td></tr>`;
+  }).join("");
 }
 
 async function renderCrystals() {
@@ -287,7 +293,7 @@ async function renderCrystals() {
     ? `<div class="card">
       <h3>Lesson</h3>
       <p class="muted">Workshop / greedy-guru-lesson — not this workspace.</p>
-      <table><thead><tr><th>ID</th><th>Pattern</th><th>Hits</th><th>Stage</th><th>Status</th></tr></thead>
+      <table><thead><tr><th>Stem</th><th>Pattern</th><th>Hits</th><th>Stage</th><th>Status</th></tr></thead>
       <tbody>${crystalRows(lesson)}</tbody></table>
     </div>`
     : "";
@@ -300,7 +306,7 @@ async function renderCrystals() {
     <div class="card">
       <h3>Crystallize candidates</h3>
       ${hideNote}
-      <table><thead><tr><th>ID</th><th>Pattern</th><th>Hits</th><th>Stage</th><th>Status</th></tr></thead>
+      <table><thead><tr><th>Stem</th><th>Pattern</th><th>Hits</th><th>Stage</th><th>Status</th></tr></thead>
       <tbody>${crystalRows(crystals) || "<tr><td colspan=5 class=empty>No candidates — run greedy-token route with repeated LLM tasks</td></tr>"}</tbody></table>
     </div>
     ${lessonCard}`;
@@ -322,7 +328,8 @@ async function renderCrystalDetail(id) {
   document.getElementById("app").innerHTML = `
     <p><a class="link" href="#/crystals">← Crystals</a></p>
     <div class="card">
-      <h3>${id}</h3>
+      <h3>${crystalStem(id)}</h3>
+      <p class="muted"><code>${id}</code></p>
       <p>Saved (route match): <strong>${fmt(data.saved_vs_cursor || 0)}</strong></p>
       <div class="stage-pipeline">${pipeline}</div>
       <table><thead><tr><th>Stage</th><th>Time</th><th>Status</th><th>Link</th></tr></thead>

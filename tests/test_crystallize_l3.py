@@ -12,6 +12,7 @@ import yaml
 
 import greedy_token.cli as cli
 import greedy_token.crystallize_l3 as l3
+from greedy_token.crystal_ids import crystal_id_for_pattern
 from greedy_token.hub.crystallize import crystal_timeline, list_crystals, load_lifecycle_events
 from greedy_token.paths import remove_workspace_route, workspace_config_routes
 from greedy_token.router import route_task
@@ -28,7 +29,7 @@ pytestmark = [
 ]
 
 TASK = "summarize weekly spend report table"
-CRYSTAL_ID = "script-summarize-weekly-spend-report-table"
+CRYSTAL_ID = crystal_id_for_pattern(TASK)
 
 
 def _ns(**kwargs) -> Namespace:
@@ -70,6 +71,15 @@ def test_draft_template_no_llm(
 
 
 @allure.story("Draft")
+@allure.title("draft rejects script-{slugify(prompt)} as promote id")
+def test_draft_rejects_prompt_slug_id(
+    minimal_workspace: Path, crystal_home: Path, no_cheap_llm: None
+) -> None:
+    with pytest.raises(ValueError, match="script- prefix"):
+        l3.draft_crystal("script-summarize-weekly-spend-report-table", root=minimal_workspace)
+
+
+@allure.story("Draft")
 @allure.title("draft with ollama stub: cheap_llm-generated body")
 def test_draft_with_ollama_stub(
     minimal_workspace: Path, crystal_home: Path, ollama_stub: str
@@ -96,7 +106,7 @@ def test_draft_passes_scripts_lint(
 @allure.title("draft: unknown crystal id raises ValueError")
 def test_draft_unknown_crystal(minimal_workspace: Path, crystal_home: Path) -> None:
     with pytest.raises(ValueError, match="not found in candidates"):
-        l3.draft_crystal("script-no-such-crystal", root=minimal_workspace)
+        l3.draft_crystal("python-no-such-crystal", root=minimal_workspace)
 
 
 @allure.story("Draft")
@@ -112,7 +122,8 @@ def test_draft_forbidden_pattern(
     _seed_candidate(log, task="refactor the whole payment module")
     with pytest.raises(ValueError, match="fails scripts lint"):
         l3.draft_crystal(
-            "script-refactor-the-whole-payment-module", root=minimal_workspace
+            crystal_id_for_pattern("refactor the whole payment module"),
+            root=minimal_workspace,
         )
 
 

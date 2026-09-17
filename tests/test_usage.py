@@ -749,6 +749,7 @@ def test_build_script_and_compress_events(minimal_workspace: Path) -> None:
         executed=True,
     )
     assert script_event["executor"]["script_id"] == "check-meta-sync"
+    assert script_event["route_id"] == "python-meta-sync-check"
     assert script_event["duration_ms"] == 10
 
     compress_event = build_compress_event(

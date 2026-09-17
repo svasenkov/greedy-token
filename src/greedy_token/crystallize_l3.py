@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from greedy_token.crystal_ids import validate_route_id
 from greedy_token.hub.crystallize import append_lifecycle_event, list_crystals
 from greedy_token.paths import (
     WORKSPACE_CONFIG_NAME,
@@ -178,6 +179,9 @@ def draft_crystal(
     since: str | None = "30d",
 ) -> DraftResult:
     """Generate a draft script + register a shadow route. Raises ValueError."""
+    err = validate_route_id(crystal_id)
+    if err:
+        raise ValueError(err)
     crystal = find_crystal(crystal_id, since=since)
     if crystal is None:
         raise ValueError(
@@ -185,6 +189,9 @@ def draft_crystal(
             "run greedy-token hub / crystallize report first"
         )
     pattern = str(crystal.get("pattern") or "")
+    err = validate_route_id(crystal_id, pattern=pattern)
+    if err:
+        raise ValueError(err)
     hits = int(crystal.get("hits") or 0)
     reasons = pattern_violations(pattern)
     if reasons:

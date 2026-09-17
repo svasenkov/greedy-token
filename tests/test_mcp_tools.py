@@ -14,6 +14,7 @@ from greedy_token.mcp import (
     greedy_token_search,
     greedy_token_usage,
 )
+from greedy_token.crystal_ids import crystal_id_for_pattern
 from greedy_token.usage import SCHEMA_VERSION
 from tests.allure_reporting import attach_text
 
@@ -173,7 +174,7 @@ def test_mcp_usage_empty_log(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
         assert f"Log: {log_file}" in out
 
 
-CRYSTAL_ID = "script-summarize-weekly-spend-report-table"
+CRYSTAL_ID = crystal_id_for_pattern("summarize weekly spend report table")
 
 
 @allure.story("Crystallize tool")
