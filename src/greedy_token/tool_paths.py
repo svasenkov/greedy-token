@@ -23,14 +23,23 @@ def _tool_candidates(tool: str, *, override_var: str) -> Iterator[Path]:
             yield Path(directory) / tool
 
     if tool == "rg":
+        home = Path.home()
         yield from (
             Path("/opt/homebrew/bin/rg"),
             Path("/usr/local/bin/rg"),
+            # greedy-token's own copy — independent of IDE app bundles.
+            home / ".greedy-token/bin/rg",
             Path("/Applications/Cursor.app/Contents/Resources/app/node_modules/@vscode/ripgrep/bin/rg"),
             Path("/Applications/Visual Studio Code.app/Contents/Resources/app/node_modules/@vscode/ripgrep/bin/rg"),
         )
 
-        home = Path.home()
+        # Devin ships ripgrep-universal under an arch subdir (bin/<platform>-<arch>/rg).
+        yield from sorted(
+            Path(
+                "/Applications/Devin.app/Contents/Resources/app/node_modules/@vscode"
+            ).glob("ripgrep*/bin/*/rg")
+        )
+
         for app in ("Cursor.app", "Visual Studio Code.app"):
             bundled = (
                 home
@@ -39,6 +48,13 @@ def _tool_candidates(tool: str, *, override_var: str) -> Iterator[Path]:
                 / "Contents/Resources/app/node_modules/@vscode/ripgrep/bin/rg"
             )
             yield bundled
+
+        yield from sorted(
+            (
+                home
+                / "Applications/Devin.app/Contents/Resources/app/node_modules/@vscode"
+            ).glob("ripgrep*/bin/*/rg")
+        )
 
 
 def _rg_candidates() -> Iterator[Path]:

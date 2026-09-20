@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
 from pathlib import Path
 from unittest.mock import patch
 
@@ -133,21 +134,50 @@ def test_rg_timeout_constant() -> None:
 
 # --- Mutation kill-tests: _rg_candidates exact ordering and literals ---
 
+_NODE_MODULES = "Contents/Resources/app/node_modules/@vscode"
+_DEVIN_SYS_PARENT = Path("/Applications/Devin.app") / _NODE_MODULES
+_DEVIN_RG_SUFFIX = "ripgrep-universal/bin/darwin-arm64/rg"
+_DEVIN_SYS_RG = _DEVIN_SYS_PARENT / _DEVIN_RG_SUFFIX
 
-_HARDCODED = [
-    Path("/opt/homebrew/bin/rg"),
-    Path("/usr/local/bin/rg"),
-    Path("/Applications/Cursor.app/Contents/Resources/app/node_modules/@vscode/ripgrep/bin/rg"),
-    Path("/Applications/Visual Studio Code.app/Contents/Resources/app/node_modules/@vscode/ripgrep/bin/rg"),
-]
+
+def _fixed_literals(home: Path) -> list[Path]:
+    return [
+        Path("/opt/homebrew/bin/rg"),
+        Path("/usr/local/bin/rg"),
+        home / ".greedy-token/bin/rg",
+        Path(f"/Applications/Cursor.app/{_NODE_MODULES}/ripgrep/bin/rg"),
+        Path(f"/Applications/Visual Studio Code.app/{_NODE_MODULES}/ripgrep/bin/rg"),
+        _DEVIN_SYS_RG,
+    ]
+
+
+def _devin_home_rg(home: Path) -> Path:
+    return home / "Applications/Devin.app" / _NODE_MODULES / _DEVIN_RG_SUFFIX
 
 
 def _home_based(home: Path) -> list[Path]:
-    suffix = "Contents/Resources/app/node_modules/@vscode/ripgrep/bin/rg"
+    suffix = f"{_NODE_MODULES}/ripgrep/bin/rg"
     return [
         home / "Applications" / "Cursor.app" / suffix,
         home / "Applications" / "Visual Studio Code.app" / suffix,
+        _devin_home_rg(home),
     ]
+
+
+def _fake_devin_glob(home: Path):  # type: ignore[no-untyped-def]
+    """Deterministic Path.glob: one Devin hit per known parent, real pattern only."""
+    home_parent = home / "Applications/Devin.app" / _NODE_MODULES
+
+    def fake_glob(self: Path, pattern: str) -> Iterator[Path]:
+        if pattern != "ripgrep*/bin/*/rg":
+            return iter(())
+        if self == _DEVIN_SYS_PARENT:
+            return iter([_DEVIN_SYS_RG])
+        if self == home_parent:
+            return iter([_devin_home_rg(home)])
+        return iter(())
+
+    return fake_glob
 
 
 @allure.story("Ripgrep")
@@ -164,6 +194,7 @@ def test_rg_candidates_exact_order(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(tool_paths.shutil, "which", fake_which)
     monkeypatch.setenv("PATH", os.pathsep.join(["/d1", "", "/d2"]))
     monkeypatch.setattr(tool_paths.Path, "home", staticmethod(lambda: home))
+    monkeypatch.setattr(tool_paths.Path, "glob", _fake_devin_glob(home))
 
     cands = list(tool_paths._rg_candidates())
 
@@ -172,7 +203,7 @@ def test_rg_candidates_exact_order(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     with allure.step("full candidate list matches exactly (kills every literal/case/XX mutant)"):
         expected = (
             [Path("/bin/rgwhich"), Path("/d1") / "rg", Path("/d2") / "rg"]
-            + _HARDCODED
+            + _fixed_literals(home)
             + _home_based(home)
         )
         assert cands == expected
@@ -188,11 +219,12 @@ def test_rg_candidates_path_unset(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     home = tmp_path / "home"
     monkeypatch.setattr(tool_paths.shutil, "which", lambda name: None)
     monkeypatch.setattr(tool_paths.Path, "home", staticmethod(lambda: home))
+    monkeypatch.setattr(tool_paths.Path, "glob", _fake_devin_glob(home))
 
     # get("PATH", None)/get("PATH") would raise on None.split(); "XXXX" would inject a path.
     cands = list(tool_paths._rg_candidates())
     assert Path("XXXX") / "rg" not in cands  # kills PATH default "XXXX"
-    assert cands == _HARDCODED + _home_based(home)  # no PATH-derived entries
+    assert cands == _fixed_literals(home) + _home_based(home)  # no PATH-derived entries
 
 
 @allure.story("Ripgrep")
@@ -274,3 +306,63 @@ def test_rg_path_for_shell_found(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(tool_paths, "resolve_rg", lambda: Path("/x/rg bin"))
     # kills found=None (which would fall back to the literal "rg")
     assert rg_path_for_shell() == sh_quote("/x/rg bin")
+
+
+# --- Own rg copy + Devin bundle resolution ---
+
+
+@allure.story("Ripgrep")
+@allure.title("resolve_rg prefers ~/.greedy-token/bin/rg over IDE bundles")
+def test_resolve_rg_own_copy_beats_ide_bundles(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("GREEDY_TOKEN_RG", raising=False)
+    home = tmp_path / "home"
+    own = home / ".greedy-token/bin/rg"
+    own.parent.mkdir(parents=True)
+    own.write_text("#!/bin/sh\n", encoding="utf-8")
+    own.chmod(0o755)
+    monkeypatch.setattr(tool_paths.Path, "home", staticmethod(lambda: home))
+    monkeypatch.setattr(tool_paths.shutil, "which", lambda _name: None)
+    monkeypatch.setenv("PATH", "")
+    monkeypatch.setattr(tool_paths.Path, "glob", _fake_devin_glob(home))
+    # Hide real-world installs (homebrew, IDE bundles) so only fixtures resolve.
+    real_is_file = Path.is_file
+    monkeypatch.setattr(
+        tool_paths.Path,
+        "is_file",
+        lambda self: real_is_file(self) and str(self).startswith(str(tmp_path)),
+    )
+    with allure.step("own copy wins over Cursor/VS Code/Devin candidates"):
+        assert resolve_rg() == own.resolve()
+
+
+@allure.story("Ripgrep")
+@allure.title("~/Applications Devin glob picks up the ripgrep-universal arch subdir")
+def test_devin_home_bundle_globbed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("GREEDY_TOKEN_RG", raising=False)
+    home = tmp_path / "home"
+    bundled = _devin_home_rg(home)
+    bundled.parent.mkdir(parents=True)
+    bundled.write_text("#!/bin/sh\n", encoding="utf-8")
+    bundled.chmod(0o755)
+    monkeypatch.setattr(tool_paths.Path, "home", staticmethod(lambda: home))
+    monkeypatch.setattr(tool_paths.shutil, "which", lambda _name: None)
+    monkeypatch.setenv("PATH", "")
+    cands = list(tool_paths._rg_candidates())
+    with allure.step("home-level Devin bundle is a candidate"):
+        assert bundled in cands
+
+
+@allure.story("Ripgrep")
+@allure.title("/Applications Devin glob finds a real executable rg on this machine")
+@pytest.mark.skipif(
+    not _DEVIN_SYS_PARENT.is_dir(), reason="Devin.app is not installed"
+)
+def test_devin_system_bundle_real() -> None:
+    hits = sorted(_DEVIN_SYS_PARENT.glob("ripgrep*/bin/*/rg"))
+    attach_text("devin rg hits", "\n".join(str(h) for h in hits))
+    assert hits
+    assert all(h.is_file() and os.access(h, os.X_OK) for h in hits)
