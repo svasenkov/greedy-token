@@ -318,3 +318,50 @@ cases:
     expected_target: ollama
     lang: en
     family: cheap-llm
+
+  # ── window-02 shadow-route baseline (8 tasks + Jenkins extraction) ──
+  - id: w02-find-tier-order
+    task: find TIER_ORDER in greedy-token src
+    expected_target: tool
+    lang: en
+    family: search
+  - id: w02-find-route-task
+    task: find route_task call sites
+    expected_target: tool
+    lang: en
+    family: search
+  - id: w02-jenkins-defined
+    task: find where Jenkins jobs are defined in this workspace
+    expected_target: tool
+    lang: en
+    family: search
+  - id: w02-does-prometheus
+    task: does greedy-token export to prometheus
+    expected_target: tool
+    lang: en
+    family: search
+  - id: w02-list-git-repos
+    task: list nested git repos
+    expected_target: cursor
+    lang: en
+    family: wiring
+  - id: w02-aggregate-usage
+    task: aggregate usage.jsonl tier counts
+    expected_target: python
+    lang: en
+    family: script
+  - id: w02-ollama-alive
+    task: check if Ollama is alive
+    expected_target: python
+    lang: en
+    family: script
+  - id: w02-crystal-state
+    task: crystallization lifecycle state
+    expected_target: python
+    lang: en
+    family: script
+  - id: w02-what-changed
+    task: what changed in last commits of repo X
+    expected_target: cursor
+    lang: en
+    family: wiring

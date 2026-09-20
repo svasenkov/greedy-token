@@ -152,9 +152,11 @@ SEARCH_PREFIXES = (
     r"^search\s+for\s+",
     r"^grep\s+(for\s+)?",
     r"^where\s+is\s+",
+    r"^where\s+are\s+",
     r"^locate\s+",
     r"^look\s+for\s+",
     r"^rg\s+",
+    r"^does\s+",
     r"^найди\s+",
     r"^найти\s+",
     r"^где\s+(лежит|находится|файл)\s+",
@@ -163,6 +165,10 @@ SEARCH_PREFIXES = (
     r"^who\s+uses\s+",
     r"^кто\s+использует\s+",
 )
+
+# Yes/no question scaffolds: the searched entity is the object (last
+# non-filler token), not the subject — "does X export to prometheus" → prometheus.
+QUESTION_SCAFFOLD = re.compile(r"^(?:does|do|is|are|can|which)\b", re.IGNORECASE)
 
 STRUCTURED_LOOKUP_PREFIXES = (
     r"^jq(?:\s+|$)",
@@ -283,6 +289,9 @@ def _score_search_token(token: str) -> float:
         score += 12
     if token.isupper() and len(token) > 2:
         score += 6
+    elif not token.isupper() and token[:1].isupper():
+        # Titlecase / proper noun (Jenkins, TestOps) — beats same-length lowercase.
+        score += 6
     if any(ch in token for ch in ".-_/"):
         score += 4
     if token.isdigit():
@@ -309,6 +318,8 @@ def _extract_search_query(task: str) -> str:
         candidates.append((_score_search_token(token), token))
 
     if candidates:
+        if QUESTION_SCAFFOLD.match(task.strip()):
+            return candidates[-1][1]
         # equivalent: .lower()/.upper() induce the same tie-break ordering.
         candidates.sort(key=lambda item: (-item[0], -len(item[1]), item[1].lower()))  # pragma: no mutate
         return candidates[0][1]

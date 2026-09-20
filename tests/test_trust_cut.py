@@ -42,6 +42,8 @@ FALSE_CHEAP_EDIT_TASKS = [
     "найти TODO и заменить",
     "найти баг и исправить",
     "найти баг и починить",
+    "does this fix the bug",
+    "where are bugs and fix them",
 ]
 
 
@@ -80,6 +82,8 @@ def test_false_cheap_edit_corpus_escalates(minimal_workspace: Path, task: str) -
         "find baseUrl in sample.js",
         "search for TODO",
         "where is header.css",
+        "where are the jenkins jobs",
+        "does greedy-token export to prometheus",
         "найди конфиг baseUrl",
         "где лежит header.js",
     ],

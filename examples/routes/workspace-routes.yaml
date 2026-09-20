@@ -20,6 +20,8 @@ routes:
       - search for
       - grep
       - where is
+      - where are
+      - does
       - locate
       - look for
       - найди
@@ -169,8 +171,33 @@ routes:
       - ollama health
       - local model setup
       - ollama preset
+      - ollama is alive
+      - is ollama running
+      - ollama status
     command: python scripts/ollama-health.py
     note: "Ollama health / presets — crystallized script tier"
+
+  - id: python-usage-stats
+    target: python
+    read_only: true
+    patterns:
+      - usage.jsonl
+      - usage stats
+      - tier counts
+      - usage aggregate
+    command: python scripts/usage-stats.py
+    note: "usage.jsonl tier aggregation — crystallized script tier, 0 LLM"
+
+  - id: python-crystal-status
+    target: python
+    read_only: true
+    patterns:
+      - crystallization lifecycle
+      - crystal status
+      - crystallize status
+      - lifecycle state
+    command: python scripts/crystal-status.py
+    note: "Crystallize lifecycle/watch state — crystallized script tier, 0 LLM"
 
   - id: python-greedy-context-smoke
     target: python

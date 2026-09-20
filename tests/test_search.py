@@ -26,6 +26,8 @@ pytestmark = [
         ("grep for ConfigReader in tests", "ConfigReader"),
         ('search for "healthCheck path"', "healthCheck path"),
         ("find phase-manifest.json", "phase-manifest.json"),
+        ("find where Jenkins jobs are defined in this workspace", "Jenkins"),
+        ("does greedy-token export to prometheus", "prometheus"),
     ],
 )
 @allure.story("Query extraction")

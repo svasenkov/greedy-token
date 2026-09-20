@@ -528,8 +528,10 @@ def test_score_search_token_exact() -> None:
         assert _score_search_token("AB") == 2
     with allure.step("ALLCAPS len>2 gets +6"):
         assert _score_search_token("ABC") == 9  # 3 + 6
+    with allure.step("Titlecase token gets +6 (proper-noun signal)"):
+        assert _score_search_token("Xab") == 9  # 3 + 6
     with allure.step("no bonus token"):
-        assert _score_search_token("Xab") == 3
+        assert _score_search_token("xab") == 3
     with allure.step("path-ish char adds +4"):
         assert _score_search_token("a.b") == 7  # 3 + 4
         assert _score_search_token("a.-_/b") == 10  # 6 + 4
@@ -560,6 +562,16 @@ def test_extract_search_query_branches() -> None:
         assert _extract_search_query('find "X') == "X"
     with allure.step("leading single-quote stripped (kills the \"'\" strip-set mutant)"):
         assert _extract_search_query("find 'X") == "X"
+    with allure.step("Titlecase proper noun beats same-length lowercase"):
+        # 'Jenkins' scores 7+6; 'defined' scores 7 — without the bonus the
+        # alphabetical tie-break picked 'defined' (useless rg query).
+        assert _extract_search_query("find where Jenkins jobs are defined") == "Jenkins"
+    with allure.step("yes/no question scaffold prefers the object (last candidate)"):
+        # subject 'greedy-token' outscores object 'prometheus' — the question
+        # asks about the object.
+        assert _extract_search_query("does greedy-token export to prometheus") == "prometheus"
+    with allure.step("non-scaffold tasks keep max-score extraction"):
+        assert _extract_search_query("find where Jenkins jobs are defined") != "defined"
 
 
 @allure.title("_strip_search_prefix: strips known prefix case-insensitively")
