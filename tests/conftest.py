@@ -210,6 +210,7 @@ def _clear_cheap_llm_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "GREEDY_METERED_LLM",
         "GREEDY_TOKEN_FOOTER_STYLE",
         "GREEDY_TOKEN_TAG",
+        "GREEDY_TOKEN_SESSION",
         "GREEDY_AGENT_HOST",
     ):
         monkeypatch.delenv(key, raising=False)
@@ -237,6 +238,14 @@ def _isolate_usage_log(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from or writes to the real ~/.greedy-token/usage.jsonl. Tests that need a
     specific log path still override GREEDY_TOKEN_LOG themselves."""
     monkeypatch.setenv("GREEDY_TOKEN_LOG", str(tmp_path / "usage.jsonl"))
+
+
+@allure.title("Isolate session file from the developer HOME")
+@pytest.fixture(autouse=True)
+def _isolate_session_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Default the session-id file to a per-test temp path so the suite never
+    reads the real ~/.greedy-token/session written by IDE sessionStart hooks."""
+    monkeypatch.setenv("GREEDY_TOKEN_SESSION_FILE", str(tmp_path / "session"))
 
 
 @pytest.hookimpl(tryfirst=True)

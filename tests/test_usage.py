@@ -83,6 +83,126 @@ def test_env_tag_truncates(monkeypatch: pytest.MonkeyPatch) -> None:
     assert len(env_tag()) == TAG_MAX_LEN
 
 
+@allure.story("Event logging")
+@allure.title("GREEDY_TOKEN_SESSION is copied onto events as session_id")
+def test_append_event_session_from_env(
+    log_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("GREEDY_TOKEN_SESSION", "conv-env-1")
+    append_event({"v": SCHEMA_VERSION, "cmd": "route"}, path=log_file, emit_auto_override=False)
+    payload = json.loads(log_file.read_text(encoding="utf-8"))
+    assert payload["session_id"] == "conv-env-1"
+
+
+@allure.story("Event logging")
+@allure.title("session file supplies session_id when env var is absent")
+def test_append_event_session_from_file(log_file: Path) -> None:
+    from greedy_token.usage import session_file
+
+    session_file().write_text("conv-file-7\n", encoding="utf-8")
+    append_event({"v": SCHEMA_VERSION, "cmd": "route"}, path=log_file, emit_auto_override=False)
+    payload = json.loads(log_file.read_text(encoding="utf-8"))
+    assert payload["session_id"] == "conv-file-7"
+
+
+@allure.story("Event logging")
+@allure.title("GREEDY_TOKEN_SESSION wins over the session file")
+def test_append_event_session_env_precedence(
+    log_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from greedy_token.usage import session_file
+
+    session_file().write_text("conv-file-9\n", encoding="utf-8")
+    monkeypatch.setenv("GREEDY_TOKEN_SESSION", "conv-env-9")
+    append_event({"v": SCHEMA_VERSION, "cmd": "route"}, path=log_file, emit_auto_override=False)
+    payload = json.loads(log_file.read_text(encoding="utf-8"))
+    assert payload["session_id"] == "conv-env-9"
+
+
+@allure.story("Event logging")
+@allure.title("no session source → event written unchanged, gap fallback intact")
+def test_append_event_no_session_source_omits_field(log_file: Path) -> None:
+    event = {"v": SCHEMA_VERSION, "cmd": "route", "task": "find baseUrl"}
+    append_event(dict(event), path=log_file, emit_auto_override=False)
+    payload = json.loads(log_file.read_text(encoding="utf-8"))
+    assert payload == event
+
+
+@allure.story("Event logging")
+@allure.title("explicit session/session_id/sid on the event is not overwritten")
+@pytest.mark.parametrize("key", ["session_id", "session", "sid"])
+def test_append_event_keeps_explicit_session(
+    log_file: Path, monkeypatch: pytest.MonkeyPatch, key: str
+) -> None:
+    monkeypatch.setenv("GREEDY_TOKEN_SESSION", "conv-env-x")
+    append_event(
+        {"v": SCHEMA_VERSION, "cmd": "route", key: "explicit-1"},
+        path=log_file,
+        emit_auto_override=False,
+    )
+    payload = json.loads(log_file.read_text(encoding="utf-8"))
+    assert payload[key] == "explicit-1"
+    if key != "session_id":
+        assert "session_id" not in payload
+
+
+@allure.story("Event logging")
+@allure.title("session inside tags blocks injection — consumer precedence kept")
+def test_append_event_keeps_tags_session(
+    log_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("GREEDY_TOKEN_SESSION", "conv-env-x")
+    append_event(
+        {"v": SCHEMA_VERSION, "cmd": "route", "tags": {"session": "tagged-1"}},
+        path=log_file,
+        emit_auto_override=False,
+    )
+    payload = json.loads(log_file.read_text(encoding="utf-8"))
+    assert "session_id" not in payload
+    assert payload["tags"] == {"session": "tagged-1"}
+
+
+@allure.story("Event logging")
+@allure.title("route/script/outcome/compress events all carry session_id")
+def test_session_id_on_all_event_kinds(
+    log_file: Path, minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from greedy_token.usage import build_compress_event
+
+    monkeypatch.setenv("GREEDY_TOKEN_SESSION", "conv-all-1")
+    decision = RouteDecision(
+        target="tool",
+        route_id="tool-rg-search",
+        confidence=0.7,
+        matched=["find"],
+        command=None,
+        note="",
+        domains=[],
+        raw_score=2.0,
+    )
+    events = [
+        build_route_event(
+            cmd="route", task="find baseUrl", root=minimal_workspace,
+            decision=decision, tier_scan=[],
+        ),
+        build_script_event(script_id="usage-stats", root=minimal_workspace),
+        build_outcome_event(
+            task="find baseUrl", root=minimal_workspace, decision=decision,
+            outcome="success", layer="executor",
+        ),
+        build_compress_event(text="long prompt text", short="short", use_ollama=False),
+        build_script_override_event(
+            task="find baseUrl", selected_tier="cursor", previous_tier="python",
+        ),
+    ]
+    for event in events:
+        append_event(event, path=log_file, emit_auto_override=False)
+    payloads = [json.loads(line) for line in log_file.read_text(encoding="utf-8").splitlines()]
+    assert len(payloads) == 5
+    assert [p["cmd"] for p in payloads] == ["route", "scripts", "outcome", "compress", "override"]
+    assert all(p["session_id"] == "conv-all-1" for p in payloads)
+
+
 @allure.story("Route events")
 @allure.title("Route event builder truncates long task strings")
 def test_build_route_event_truncates_task(minimal_workspace: Path) -> None:

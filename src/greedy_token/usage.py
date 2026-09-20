@@ -24,7 +24,10 @@ from greedy_token.wrappers import WRAPPERS, wrapper_route_id
 SCHEMA_VERSION = 2
 TASK_MAX_LEN = 500
 TAG_MAX_LEN = 64
+SESSION_ID_MAX_LEN = 128
 DEFAULT_LOG = Path.home() / ".greedy-token" / "usage.jsonl"
+DEFAULT_SESSION_FILE = Path.home() / ".greedy-token" / "session"
+SESSION_KEYS = ("session_id", "session", "sid")
 DEFAULT_MAX_LOG_BYTES = 5 * 1024 * 1024
 DEFAULT_MAX_ROTATED = 5
 OVERRIDE_WINDOW_SEC = 900
@@ -554,6 +557,26 @@ def env_tag() -> str:
     return os.environ.get("GREEDY_TOKEN_TAG", "").strip()[:TAG_MAX_LEN]
 
 
+def session_file() -> Path:
+    raw = os.environ.get("GREEDY_TOKEN_SESSION_FILE", "").strip()
+    if raw:
+        return Path(raw).expanduser()
+    return DEFAULT_SESSION_FILE
+
+
+def session_id() -> str:
+    """Conversation id for event attribution: GREEDY_TOKEN_SESSION env, then the
+    session file (written by IDE sessionStart hooks), else "" → field omitted."""
+    env = os.environ.get("GREEDY_TOKEN_SESSION", "").strip()
+    if env:
+        return env[:SESSION_ID_MAX_LEN]
+    try:
+        raw = session_file().read_text(encoding="utf-8").strip()
+    except (OSError, ValueError):
+        return ""
+    return raw.split("\n", 1)[0].strip()[:SESSION_ID_MAX_LEN]
+
+
 def append_event(
     event: dict,
     *,
@@ -564,6 +587,11 @@ def append_event(
     tag = env_tag()
     if tag and "tag" not in event:
         event = {**event, "tag": tag}
+    sid = session_id()
+    if sid:
+        tags = event.get("tags") if isinstance(event.get("tags"), dict) else {}
+        if not any(key in event or key in tags for key in SESSION_KEYS):
+            event = {**event, "session_id": sid}
     try:
         _ensure_log_dir(target)
         rotate_log_if_needed(target)
