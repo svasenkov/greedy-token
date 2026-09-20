@@ -1,0 +1,1 @@
+{"id":"d2d4d8ea7c437c45b3f3b3e92cf9edd7","fullName":"tests.test_usage#test_append_event_no_session_source_omits_field","name":"no session source → event written unchanged, gap fallback intact","status":"passed","testResultsByEnv":{"default":"df0d0849bdc664dbd439d61e1a50a9a1"}}

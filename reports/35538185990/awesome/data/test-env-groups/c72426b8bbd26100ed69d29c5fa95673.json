@@ -1,0 +1,1 @@
+{"id":"c72426b8bbd26100ed69d29c5fa95673","fullName":"tests.test_usage#test_session_id_on_all_event_kinds","name":"route/script/outcome/compress events all carry session_id","status":"passed","testResultsByEnv":{"default":"4e1bd9e989b5027a9e6070f1691d409e"}}

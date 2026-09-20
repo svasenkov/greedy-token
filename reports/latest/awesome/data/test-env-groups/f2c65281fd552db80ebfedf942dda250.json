@@ -1,0 +1,1 @@
+{"id":"f2c65281fd552db80ebfedf942dda250","fullName":"tests.test_usage#test_append_event_session_from_env","name":"GREEDY_TOKEN_SESSION is copied onto events as session_id","status":"passed","testResultsByEnv":{"default":"03fe82d8e6eec9ee9ff2aced3b260d18"}}
