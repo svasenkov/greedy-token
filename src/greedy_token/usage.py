@@ -9,7 +9,14 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from greedy_token.baseline import naive_agent_ms, time_saved_ms
-from greedy_token.calibration import CALIBRATION_MIN_EVENTS, calibration_report
+from greedy_token.calibration import (
+    CALIBRATION_MIN_EVENTS,
+    SOURCE_FIXED,
+    SOURCE_FORMULA,
+    bucket_index,
+    bucket_label,
+    calibration_report,
+)
 from greedy_token.estimator import cursor_baseline, cursor_saved_for
 from greedy_token.outcome_calibration import (
     OUTCOME_EVENT,
@@ -40,6 +47,10 @@ CHEAP_TIERS = frozenset({"tool", "python", "ollama", "rag", "script"})
 # attribution landed. Kept for callers that still reference the script subset.
 SCRIPT_HIT_TIERS = frozenset({"python", "script"})
 OVERRIDE_EVENT = "script_override"
+# Matched pattern strings are logged on route events, capped so a noisy route
+# cannot bloat the JSONL row.
+MATCHED_MAX_ENTRIES = 10
+MATCHED_MAX_CHARS = 256
 VALID_OUTCOMES = frozenset({"success", "failure", "escalated", "unknown"})
 VALID_OUTCOME_LAYERS = frozenset(
     {"executor", "retrieval", "escalation", "agent", "pipeline"}
@@ -138,6 +149,22 @@ def wrapper_for_route_id(route_id: str):
     return None
 
 
+def _cap_matched(matched: list[str]) -> list[str]:
+    """Cap matched pattern strings: ≤ MATCHED_MAX_ENTRIES, ≤ MATCHED_MAX_CHARS total."""
+    out: list[str] = []
+    total = 0
+    for pat in list(matched)[:MATCHED_MAX_ENTRIES]:
+        text = str(pat)
+        budget = MATCHED_MAX_CHARS - total
+        if budget <= 0:
+            break
+        if len(text) > budget:
+            text = text[: budget - 1] + "…"
+        out.append(text)
+        total += len(text)
+    return out
+
+
 def build_route_event(
     *,
     cmd: str,
@@ -189,13 +216,20 @@ def build_route_event(
         "tier_scan": tier_scan if tier_scan is not None else build_tier_scan(task, root),
         "executor": executor,
     }
+    if decision.raw_score > 0 or decision.confidence_source != SOURCE_FORMULA:
+        # Fallback ("none") and hardcoded ("fixed") decisions declare their
+        # source too; a formula default on an unscored decision says nothing.
+        event["confidence_source"] = decision.confidence_source
     if decision.raw_score > 0:
         # Correlated route_outcome events feed outcome calibration.
         event["raw_score"] = round(decision.raw_score, 4)
-        event["confidence_source"] = decision.confidence_source
+        event["calibration_n"] = decision.calibration_n
+        event["bucket"] = bucket_label(bucket_index(decision.raw_score))
         calibration_segment = getattr(decision, "calibration_segment", "")
         if calibration_segment:
             event["calibration_segment"] = calibration_segment
+    if decision.matched:
+        event["matched"] = _cap_matched(decision.matched)
     if getattr(decision, "shadow_route_id", None):
         event["shadow_route_id"] = decision.shadow_route_id
         event["shadow"] = True
@@ -321,6 +355,7 @@ def build_script_event(
         "selected_tier": "python",
         "route_id": rid,
         "confidence": 1.0,
+        "confidence_source": SOURCE_FIXED,
         "est_tokens": 0,
         "cursor_baseline": baseline,
         "cursor_saved": 0 if outcome_success is False else baseline,
@@ -492,6 +527,7 @@ def build_compress_event(
         "selected_tier": "ollama" if use_ollama else "python",
         "route_id": f"compress-{compressor}",
         "confidence": 1.0,
+        "confidence_source": SOURCE_FIXED,
         "est_tokens": after.tokens,
         "cursor_baseline": before.tokens,
         "cursor_saved": max(0, before.tokens - after.tokens),

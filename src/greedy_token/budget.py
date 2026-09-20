@@ -16,6 +16,7 @@ from greedy_token.baseline import (
     naive_agent_ms,
     time_saved_ms,
 )
+from greedy_token.calibration import SOURCE_FIXED
 from greedy_token.context_audit import audit_context
 from greedy_token.estimator import cursor_baseline, cursor_saved_for
 from greedy_token.paths import find_workspace_root
@@ -538,6 +539,7 @@ def wrap_mcp_response(
             target=tier,
             route_id=route_id or f"mcp-{tier}",
             confidence=1.0,
+            confidence_source=SOURCE_FIXED,
             matched=[],
             command=None,
             note="",

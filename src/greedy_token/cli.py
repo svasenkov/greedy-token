@@ -316,12 +316,14 @@ def cmd_rag(args: argparse.Namespace) -> int:
     est_tokens = rag_est_tokens(hits, root) if hits else 0
     duration_ms = int((time.perf_counter() - t0) * 1000)
     print(format_hits(args.query, hits))
+    from greedy_token.calibration import SOURCE_FIXED
     from greedy_token.router import RouteDecision
 
     decision = RouteDecision(
         target="rag",
         route_id="rag-cli",
         confidence=1.0 if hits else 0.0,
+        confidence_source=SOURCE_FIXED,
         matched=["rag"] if hits else [],
         command=None,
         note="",
@@ -488,10 +490,13 @@ def cmd_scripts(args: argparse.Namespace) -> int:
             ),
         )
         if executed:
+            from greedy_token.calibration import SOURCE_FIXED
+
             decision = RouteDecision(
                 target="python",
                 route_id=wrapper_route_id(args.run),
                 confidence=1.0,
+                confidence_source=SOURCE_FIXED,
                 matched=[],
                 command=None,
                 note="",

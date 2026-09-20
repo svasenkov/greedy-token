@@ -426,27 +426,31 @@ baseline:
 
 ### Калибровка confidence
 
-**Confidence** ≈ «дешёвый тир скоро не переопределили», не правильность ответа. Раньше считался по чистой формуле (`min(0.95, 0.45 + score × 0.12)`) — псевдовероятность. Теперь калибруется по вашей же телеметрии (`~/.greedy-token/usage.jsonl`):
+**Confidence** маршрута — это приор роутинга, не правильность ответа. События в `~/.greedy-token/usage.jsonl` объявляют источник каждого значения через `confidence_source`:
 
-- Каждое событие роутинга со score пишет в лог `raw_score`; score попадает в бакеты (`[0, 2)`, `[2, 4)`, `[4, 6)`, `[6, 8)`, `[8, +)`).
-- Фактическая точность бакета = `1 − override_rate` — события override (`greedy-token override`, авто-атрибуция re-ask) засчитываются против последнего cheap-хита по той же нормализованной задаче.
-- Бакет с **≥ 20 событиями** (`CALIBRATION_MIN_EVENTS`) — **калиброванный**: confidence берётся из телеметрии, в выводе маршрута — `calibrated (n=…)`. Ниже порога — fallback на формулу с пометкой `formula (uncalibrated)`.
-- **Monotonic sanity:** калиброванные значения клэмпятся неубывающими по бакетам — больший score никогда не даёт меньший калиброванный confidence.
-- Скан телеметрии **кэшируется по пути лога и инвалидируется по mtime/size `usage.jsonl`** — роутинг не перечитывает лог на каждый вызов, а долгоживущий MCP-сервер подхватывает свежую телеметрию без рестарта.
+- `outcome-calibrated` — наблюдаемая доля success внутри score-бакета для самого конкретного сегмента (route → tier → language → global) с **≥ 20** явными событиями `route_outcome` (`CALIBRATION_MIN_EVENTS`). Размер выборки пишется как `calibration_n`, метка бакета — как `bucket`.
+- `formula` — `min(0.95, 0.45 + score × 0.12)`: некалиброванный приор силы матча ниже порога, помечается `formula (uncalibrated; explicit outcome n=…)`.
+- `fixed` — захардкоженный confidence (script, compress, `rag` CLI, pipeline steps, llm/mcp события) — объявлен, а не измерен.
+- `none` — fallback-решение (`cursor-fallback`, `<tier>-none`): паттерн не совпал, сигнала нет.
+
+Legacy **override/hold** rate (`1 − override_rate` по бакету, `override-hold-calibrated`) остаётся отдельным поведенческим сигналом в `report` — отсутствие override это hold-наблюдение, никогда не корректность. Score-бакеты: `[0, 2)`, `[2, 4)`, `[4, 6)`, `[6, 8)`, `[8, +)`. Калиброванные значения клэмпятся неубывающими по бакетам; скан телеметрии кэшируется по пути лога и инвалидируется по mtime/size `usage.jsonl` — долгоживущий MCP-сервер подхватывает свежую телеметрию без рестарта.
+
+События роутинга со score также пишут сматченные pattern-строки (`matched`, кап 10 штук / 256 символов) — мисроуты можно разбирать по одной телеметрии.
 
 Вывод `route` / `estimate` и `explain_route()` (CLI + MCP) показывают источник:
 
 ```text
-Confidence: 80% — calibrated (n=25)     # или: Confidence: 57% — formula (uncalibrated)
+Confidence: 80% — outcome-calibrated (n=25, route:python-x)   # или: Confidence: 57% — formula (uncalibrated; explicit outcome n=0)
 ```
 
-`greedy-token report` добавляет блок калибровки — бакет → predicted (формула) vs actual (телеметрия) vs n:
+`greedy-token report` добавляет блок калибровки — сегмент → бакет → predicted (формула) vs observed (явные исходы) vs n, включая per-route строки, когда у маршрута набираются исходы:
 
 ```text
-Confidence calibration (score buckets, min n=20):
-  bucket           n  predicted   actual  status
-  [2, 4)          25        75%      80%  calibrated
-  [4, 6)           3        95%     100%  uncalibrated (n<20)
+Outcome confidence calibration (explicit success/failure; min n=20):
+  segment           bucket           n  predicted  observed  status
+  tier:python       [2, 4)          25        75%       80%  calibrated
+  route:python-x    [2, 4)          25        75%       80%  calibrated
+  global:all        [4, 6)           3       100%      100%  uncalibrated (n<20)
 ```
 
 ### Телеметрия

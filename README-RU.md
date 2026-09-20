@@ -263,6 +263,14 @@ language; побеждает самый конкретный segment с **≥ 20
 n=…)`. Score buckets остаются `[0, 2)`, `[2, 4)`, `[4, 6)`, `[6, 8)` и
 `[8, +)`.
 
+События роутинга объявляют provenance рядом с `confidence`:
+`confidence_source` (`outcome-calibrated` | `formula` | `fixed` | `none`),
+`calibration_n`, `bucket` и сматченные pattern-строки (`matched`, с капом).
+`fixed` — захардкоженный confidence (script / compress / rag-cli / pipeline
+steps); `none` — fallback-решения (`cursor-fallback`, `<tier>-none`).
+`override-hold-calibrated` остаётся отдельным поведенческим сигналом —
+отсутствие override это hold-наблюдение, не корректность.
+
 ```text
 Outcome confidence calibration (explicit success/failure; min n=20):
   segment           bucket           n  predicted  observed  status

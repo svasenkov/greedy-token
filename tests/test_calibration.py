@@ -6,15 +6,18 @@ import json
 import os
 from pathlib import Path
 
-import allure
 import pytest
 
+import allure
+import greedy_token.router as router
 from greedy_token import calibration
 from greedy_token.calibration import (
     BUCKET_BOUNDS,
     CALIBRATION_MIN_EVENTS,
     SOURCE_CALIBRATED,
+    SOURCE_FIXED,
     SOURCE_FORMULA,
+    SOURCE_NONE,
     bucket_index,
     bucket_label,
     calibration_report,
@@ -799,3 +802,163 @@ def test_report_calibration_block() -> None:
     with allure.step("no scored events → block absent"):
         empty = aggregate_events([_hit("legacy", 0)], since_label="7d")
         assert "Outcome confidence calibration" not in format_report(empty)
+
+
+@allure.story("Telemetry logging")
+@allure.title("build_route_event logs calibration_n + score bucket + matched patterns")
+def test_build_route_event_calibration_fields(minimal_workspace: Path) -> None:
+    from greedy_token.usage import build_route_event
+
+    scored = RouteDecision(
+        target="python", route_id="python-x", confidence=0.8,
+        matched=["x", "yy"], command=None, note="", domains=[],
+        raw_score=2.5, confidence_source=SOURCE_OUTCOME_CALIBRATED,
+        calibration_n=25, calibration_segment="route:python-x",
+    )
+    event = build_route_event(
+        cmd="route", task="do x", root=minimal_workspace,
+        decision=scored, tier_scan=[],
+    )
+    attach_json("route event", event)
+    assert event["calibration_n"] == 25
+    assert event["bucket"] == "[2, 4)"
+    assert event["matched"] == ["x", "yy"]
+
+    with allure.step("formula-source scored route still logs n, bucket, matched"):
+        formula_dec = RouteDecision(
+            target="python", route_id="r", confidence=0.7, matched=["q"],
+            command=None, note="", domains=[], raw_score=5.0,
+        )
+        fevent = build_route_event(
+            cmd="route", task="do q", root=minimal_workspace,
+            decision=formula_dec, tier_scan=[],
+        )
+        assert fevent["confidence_source"] == SOURCE_FORMULA
+        assert fevent["calibration_n"] == 0
+        assert fevent["bucket"] == "[4, 6)"
+        assert fevent["matched"] == ["q"]
+
+
+@allure.story("Telemetry logging")
+@allure.title("matched patterns on route events are capped (10 entries / 256 chars)")
+def test_build_route_event_matched_capped(minimal_workspace: Path) -> None:
+    from greedy_token.usage import (
+        MATCHED_MAX_CHARS,
+        MATCHED_MAX_ENTRIES,
+        build_route_event,
+    )
+
+    many = RouteDecision(
+        target="python", route_id="r", confidence=0.8,
+        matched=[f"pattern-{i}" for i in range(15)],
+        command=None, note="", domains=[], raw_score=9.0,
+    )
+    event = build_route_event(
+        cmd="route", task="do x", root=minimal_workspace, decision=many, tier_scan=[],
+    )
+    assert event["matched"] == [f"pattern-{i}" for i in range(MATCHED_MAX_ENTRIES)]
+
+    with allure.step("oversized patterns are truncated to the total char cap"):
+        huge = RouteDecision(
+            target="python", route_id="r", confidence=0.8,
+            matched=["x" * 300, "extra"], command=None, note="", domains=[],
+            raw_score=9.0,
+        )
+        hevent = build_route_event(
+            cmd="route", task="do x", root=minimal_workspace,
+            decision=huge, tier_scan=[],
+        )
+        assert sum(len(p) for p in hevent["matched"]) <= MATCHED_MAX_CHARS
+        assert hevent["matched"][0].endswith("…")
+        assert len(hevent["matched"]) == 1  # budget spent → next entry dropped
+
+
+@allure.story("Telemetry logging")
+@allure.title("fixed-confidence builders and fallback decisions declare confidence_source")
+def test_confidence_source_fixed_and_none(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from greedy_token.router import _fallback_for_tier
+    from greedy_token.usage import (
+        build_compress_event,
+        build_outcome_event,
+        build_route_event,
+        build_script_event,
+    )
+
+    with allure.step("tier fallbacks → none (event declares it even unscored)"):
+        for tier in ("cursor", "python"):
+            fb = _fallback_for_tier(tier, "task", minimal_workspace, {})
+            assert fb.confidence_source == SOURCE_NONE
+            event = build_route_event(
+                cmd="route", task="task", root=minimal_workspace,
+                decision=fb, tier_scan=[],
+            )
+            assert event["confidence_source"] == SOURCE_NONE
+
+    with allure.step("route_task cursor-fallback → none"):
+        monkeypatch.setattr(
+            router, "load_routes_config", lambda _root=None: {"routes": []}
+        )
+        monkeypatch.setattr(router, "ollama_available", lambda: True)
+        dec = router.route_task("zzzqqq nomatch", minimal_workspace)
+        assert dec.route_id == "cursor-fallback"
+        assert dec.confidence_source == SOURCE_NONE
+
+    with allure.step("script/compress builders → fixed"):
+        script_event = build_script_event(
+            script_id="usage-stats", root=minimal_workspace
+        )
+        assert script_event["confidence_source"] == SOURCE_FIXED
+        compress_event = build_compress_event(
+            text="long prompt text", short="short", use_ollama=False
+        )
+        assert compress_event["confidence_source"] == SOURCE_FIXED
+
+    with allure.step("outcome events propagate a fixed source"):
+        fixed_dec = RouteDecision(
+            target="python", route_id="python-x", confidence=1.0,
+            matched=[], command=None, note="", domains=[],
+            confidence_source=SOURCE_FIXED,
+        )
+        outcome = build_outcome_event(
+            task="scripts --run usage-stats", root=minimal_workspace,
+            decision=fixed_dec, outcome="success", layer="executor",
+        )
+        assert outcome["confidence_source"] == SOURCE_FIXED
+
+
+@allure.story("Router integration")
+@allure.title("edit-escalation floor labels a floored confidence as fixed")
+def test_escalate_edit_confidence_source(minimal_workspace: Path) -> None:
+    from greedy_token.router import _escalate_edit_from_cheap
+
+    base = dict(
+        target="tool", route_id="tool-rg-search", matched=["find"],
+        command=None, note="", domains=[], raw_score=2.0,
+    )
+    with allure.step("calibrated confidence below the 0.55 floor → fixed"):
+        low = RouteDecision(
+            **base, confidence=0.50,
+            confidence_source=SOURCE_OUTCOME_CALIBRATED,
+            calibration_n=30, calibration_segment="tier:tool",
+        )
+        esc_low = _escalate_edit_from_cheap(
+            low, "fix the flaky test", minimal_workspace
+        )
+        assert esc_low.route_id == "cursor-edit-escalate"
+        assert esc_low.confidence == 0.55
+        assert esc_low.confidence_source == SOURCE_FIXED
+
+    with allure.step("calibrated confidence above the floor keeps its provenance"):
+        high = RouteDecision(
+            **base, confidence=0.8,
+            confidence_source=SOURCE_OUTCOME_CALIBRATED,
+            calibration_n=30, calibration_segment="tier:tool",
+        )
+        esc_high = _escalate_edit_from_cheap(
+            high, "fix the flaky test", minimal_workspace
+        )
+        assert esc_high.confidence == 0.8
+        assert esc_high.confidence_source == SOURCE_OUTCOME_CALIBRATED
+        assert esc_high.calibration_n == 30

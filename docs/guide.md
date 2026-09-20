@@ -430,27 +430,31 @@ No manual discipline required: while the source is still `default-estimate`, `ro
 
 ### Confidence calibration
 
-Route **confidence** ≈ “cheap tier was not overridden soon after,” not answer correctness. It used to be a pure formula (`min(0.95, 0.45 + score × 0.12)`) — a pseudo-probability. It is now calibrated against your own telemetry (`~/.greedy-token/usage.jsonl`):
+Route **confidence** is a routing prior, not answer correctness. Events in `~/.greedy-token/usage.jsonl` declare where each value came from via `confidence_source`:
 
-- Every scored route event logs its `raw_score`; scores fall into buckets (`[0, 2)`, `[2, 4)`, `[4, 6)`, `[6, 8)`, `[8, +)`).
-- Actual accuracy of a bucket = `1 − override_rate` — override events (`greedy-token override`, auto re-ask attribution) counted against the last cheap-tier hit for the same normalized task.
-- A bucket with **≥ 20 events** (`CALIBRATION_MIN_EVENTS`) is **calibrated**: confidence comes from telemetry and the route output shows `calibrated (n=…)`. Below the threshold the formula is the fallback, marked `formula (uncalibrated)`.
-- **Monotonic sanity:** calibrated values are clamped to be non-decreasing across buckets — a higher score never yields a lower calibrated confidence.
-- The telemetry scan is **cached per log path and invalidated by the `usage.jsonl` mtime/size** — routing does not re-read the log on every call, yet a long-lived MCP server picks up fresh telemetry without a restart.
+- `outcome-calibrated` — observed success rate inside the score bucket for the most specific segment (route → tier → language → global) with **≥ 20** explicit `route_outcome` events (`CALIBRATION_MIN_EVENTS`). The sample size rides along as `calibration_n`, the bucket label as `bucket`.
+- `formula` — `min(0.95, 0.45 + score × 0.12)`: an uncalibrated match-strength prior used below the threshold, labelled `formula (uncalibrated; explicit outcome n=…)`.
+- `fixed` — a hardcoded confidence (script, compress, `rag` CLI, pipeline steps, llm/mcp log events) — declared, not measured.
+- `none` — a fallback decision (`cursor-fallback`, `<tier>-none`): no pattern matched, so no signal exists.
+
+The legacy **override/hold** rate (`1 − override_rate` per score bucket, `override-hold-calibrated`) remains a separate behavioural signal in `report` — an absent override is a hold observation, never correctness. Score buckets: `[0, 2)`, `[2, 4)`, `[4, 6)`, `[6, 8)`, `[8, +)`. Calibrated values are clamped non-decreasing across buckets, and the telemetry scan is cached per log path, invalidated by `usage.jsonl` mtime/size — a long-lived MCP server picks up fresh telemetry without a restart.
+
+Scored route events also log the matched pattern strings (`matched`, capped at 10 entries / 256 chars), so misroutes can be debugged from telemetry alone.
 
 `route` / `estimate` output and `explain_route()` (CLI + MCP) carry the provenance:
 
 ```text
-Confidence: 80% — calibrated (n=25)     # or: Confidence: 57% — formula (uncalibrated)
+Confidence: 80% — outcome-calibrated (n=25, route:python-x)   # or: Confidence: 57% — formula (uncalibrated; explicit outcome n=0)
 ```
 
-`greedy-token report` adds a calibration block — bucket → predicted (formula) vs actual (telemetry) vs n:
+`greedy-token report` adds a calibration block — segment → bucket → predicted (formula) vs observed (explicit outcomes) vs n, including per-route rows once a route accumulates outcomes:
 
 ```text
-Confidence calibration (score buckets, min n=20):
-  bucket           n  predicted   actual  status
-  [2, 4)          25        75%      80%  calibrated
-  [4, 6)           3        95%     100%  uncalibrated (n<20)
+Outcome confidence calibration (explicit success/failure; min n=20):
+  segment           bucket           n  predicted  observed  status
+  tier:python       [2, 4)          25        75%       80%  calibrated
+  route:python-x    [2, 4)          25        75%       80%  calibrated
+  global:all        [4, 6)           3       100%      100%  uncalibrated (n<20)
 ```
 
 ### Usage telemetry

@@ -262,6 +262,14 @@ uses the score formula and is visibly labelled `formula (uncalibrated;
 explicit outcome n=…)`. Score buckets remain `[0, 2)`, `[2, 4)`, `[4, 6)`,
 `[6, 8)`, and `[8, +)`.
 
+Route events declare the provenance next to `confidence`:
+`confidence_source` (`outcome-calibrated` | `formula` | `fixed` | `none`),
+`calibration_n`, `bucket`, and the matched pattern strings (`matched`,
+capped). `fixed` marks hardcoded confidences (script / compress / rag-cli /
+pipeline steps); `none` marks fallback decisions (`cursor-fallback`,
+`<tier>-none`). `override-hold-calibrated` stays a separate behavioural
+signal — an absent override is a hold observation, not correctness.
+
 ```text
 Outcome confidence calibration (explicit success/failure; min n=20):
   segment           bucket           n  predicted  observed  status

@@ -14,7 +14,9 @@ from greedy_token.baseline import (  # noqa: F401
     uncalibrated_nudge,
 )
 from greedy_token.calibration import (
+    SOURCE_FIXED,
     SOURCE_FORMULA,
+    SOURCE_NONE,
 )
 from greedy_token.outcome_calibration import (
     SOURCE_OUTCOME_CALIBRATED,
@@ -640,6 +642,7 @@ def _fallback_for_tier(tier: str, task: str, root: Path, cfg: dict) -> RouteDeci
             complexity=complexity,
             est_tokens=est_tokens,
             rationale=rationale,
+            confidence_source=SOURCE_NONE,
         )
     return RouteDecision(
         target=tier,
@@ -652,6 +655,7 @@ def _fallback_for_tier(tier: str, task: str, root: Path, cfg: dict) -> RouteDeci
         complexity=complexity,
         est_tokens=est_tokens,
         rationale="No pattern match in tier.",
+        confidence_source=SOURCE_NONE,
     )
 
 
@@ -694,7 +698,12 @@ def _escalate_edit_from_cheap(
         tool=None,
         shadow_route_id=decision.shadow_route_id,
         raw_score=decision.raw_score,
-        confidence_source=decision.confidence_source,
+        confidence_source=(
+            # A floored value is a policy constant, not the calibrated estimate.
+            decision.confidence_source
+            if decision.confidence >= 0.55
+            else SOURCE_FIXED
+        ),
         calibration_n=decision.calibration_n,
         calibration_segment=decision.calibration_segment,
     )
@@ -731,6 +740,7 @@ def route_task(task: str, root: Path | None = None) -> RouteDecision:
                     "A recognised lookup contains a second or mutating action; "
                     f"fail-safe escalation. {rationale}"
                 ),
+                confidence_source=SOURCE_FIXED,
             ),
             shadow_id,
         )
@@ -771,6 +781,7 @@ def route_task(task: str, root: Path | None = None) -> RouteDecision:
             complexity=complexity,
             est_tokens=est_tokens,
             rationale=first_line,
+            confidence_source=SOURCE_NONE,
         ),
         shadow_id,
     )
@@ -799,6 +810,10 @@ def confidence_label(decision: RouteDecision) -> str:
             else ""
         )
         return f"outcome-calibrated (n={decision.calibration_n}{segment})"
+    if decision.confidence_source == SOURCE_FIXED:
+        return "fixed (hardcoded — not calibrated)"
+    if decision.confidence_source == SOURCE_NONE:
+        return "none (fallback — no match signal)"
     return (
         "formula (uncalibrated; "
         f"explicit outcome n={decision.calibration_n})"

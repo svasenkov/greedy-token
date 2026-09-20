@@ -23,6 +23,27 @@ uses explicit ``route_outcome`` events.
 
 Only route events that carry a positive ``raw_score`` participate (the field
 is logged since this module landed); events without it are ignored.
+
+Confidence semantics — the ``confidence_source`` vocabulary
+------------------------------------------------------------
+
+``RouteDecision.confidence`` is a single float whose meaning is declared by
+``confidence_source`` on the same event:
+
+* ``outcome-calibrated`` — empirical success rate inside the raw-score bucket
+  for the most specific segment (route → tier → language → global) with at
+  least ``CALIBRATION_MIN_EVENTS`` explicit ``route_outcome`` events.  The
+  sample size rides along as ``calibration_n``.  This is the only source that
+  measures correctness.
+* ``formula`` — ``0.45 + 0.12 * raw_score`` capped at 0.95.  An uncalibrated
+  prior over *match strength*, not a probability the route is correct.
+* ``override-hold-calibrated`` — this module's legacy signal: absence of a
+  user override is a *hold* observation, explicitly not correctness.
+* ``fixed`` — a hardcoded value (script, compress, ``rag`` CLI, pipeline
+  steps, llm/mcp log decisions).  Declares "no calibration happened", so
+  dashboards can exclude it from measured-confidence views.
+* ``none`` — a fallback decision (``cursor-fallback``, ``<tier>-none``): no
+  pattern matched, so there is no confidence signal at all.
 """
 
 from __future__ import annotations
@@ -39,6 +60,12 @@ BUCKET_BOUNDS = (2.0, 4.0, 6.0, 8.0)
 
 SOURCE_CALIBRATED = "override-hold-calibrated"
 SOURCE_FORMULA = "formula"
+# Hardcoded confidence on non-routed decisions (script/compress/rag-cli/
+# pipeline/llm/mcp events): a declared constant, not a measured prior.
+SOURCE_FIXED = "fixed"
+# Fallback decisions (cursor-fallback, <tier>-none): nothing matched, so no
+# confidence signal exists.
+SOURCE_NONE = "none"
 
 
 def formula_confidence(score: float) -> float:

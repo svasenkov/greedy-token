@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from greedy_token.calibration import SOURCE_FIXED
 from greedy_token.expensive_llm import llm_chat
 from greedy_token.model_select import (
     ResolvedModel,
@@ -170,6 +171,7 @@ def invoke_profile(
             target=tier,
             route_id=f"llm-{profile}",
             confidence=1.0,
+            confidence_source=SOURCE_FIXED,
             matched=[profile],
             command=None,
             note="",

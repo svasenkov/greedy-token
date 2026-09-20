@@ -12,6 +12,7 @@ from pathlib import Path
 import yaml
 
 from greedy_token.baseline import baseline_source
+from greedy_token.calibration import SOURCE_FIXED
 from greedy_token.budget import (
     BASELINE_LABEL,
     TOTAL_BASELINE_LABEL,
@@ -844,6 +845,7 @@ def _log_pipeline(result: PipelineResult, root: Path) -> None:
                     target=step_result.step.tier,
                     route_id=f"pipeline-{step_result.step.step_id}",
                     confidence=1.0,
+                    confidence_source=SOURCE_FIXED,
                     matched=[],
                     command=step_result.step.command,
                     note="",
