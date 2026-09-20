@@ -199,6 +199,31 @@ routes:
     command: python scripts/crystal-status.py
     note: "Crystallize lifecycle/watch state — crystallized script tier, 0 LLM"
 
+  - id: python-git-recent
+    target: python
+    read_only: true
+    patterns:
+      - what changed
+      - last commits
+      - recent commits
+      - что изменилось
+      - git log
+    command: python scripts/git-recent.py
+    note: "Recent git history — crystallized script tier, 0 LLM"
+
+  - id: python-git-repos
+    target: python
+    read_only: true
+    patterns:
+      - nested git
+      - git repos
+      - nested repos
+      - list repos
+      - список репо
+      - где репо
+    command: python scripts/git-repos.py
+    note: "Nested git repo inventory — crystallized script tier, 0 LLM"
+
   - id: python-greedy-context-smoke
     target: python
     read_only: true

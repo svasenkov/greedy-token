@@ -340,11 +340,11 @@ cases:
     expected_target: tool
     lang: en
     family: search
-  - id: w02-list-git-repos
+  - id: w02-git-repos
     task: list nested git repos
-    expected_target: cursor
+    expected_target: python
     lang: en
-    family: wiring
+    family: script
   - id: w02-aggregate-usage
     task: aggregate usage.jsonl tier counts
     expected_target: python
@@ -360,8 +360,18 @@ cases:
     expected_target: python
     lang: en
     family: script
-  - id: w02-what-changed
+  - id: w02-git-recent
     task: what changed in last commits of repo X
-    expected_target: cursor
+    expected_target: python
     lang: en
-    family: wiring
+    family: script
+  - id: w02-git-log
+    task: git log of repo X
+    expected_target: python
+    lang: en
+    family: script
+  - id: w02-git-repos-ru
+    task: где репо selenoid-ui
+    expected_target: python
+    lang: ru
+    family: script
