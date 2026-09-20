@@ -1,0 +1,1 @@
+greedy-token: CHEAP_LLM_MODEL / OLLAMA_MODEL env override is deprecated; use llm.cheap.models[] profiles or GREEDY_LLM_MODEL_ID
