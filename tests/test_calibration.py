@@ -667,6 +667,10 @@ def test_confidence_label() -> None:
     assert confidence_label(formula) == (
         "formula (uncalibrated; explicit outcome n=0)"
     )
+    fixed = RouteDecision(**base, confidence_source=SOURCE_FIXED)
+    assert confidence_label(fixed) == "fixed (hardcoded — not calibrated)"
+    fallback = RouteDecision(**base, confidence_source=SOURCE_NONE)
+    assert confidence_label(fallback) == "none (fallback — no match signal)"
 
 
 @allure.story("Router integration")

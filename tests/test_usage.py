@@ -120,6 +120,15 @@ def test_append_event_session_env_precedence(
 
 
 @allure.story("Event logging")
+@allure.title("no GREEDY_TOKEN_SESSION_FILE → session_file uses the default path")
+def test_session_file_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    from greedy_token.usage import DEFAULT_SESSION_FILE, session_file
+
+    monkeypatch.delenv("GREEDY_TOKEN_SESSION_FILE", raising=False)
+    assert session_file() == DEFAULT_SESSION_FILE
+
+
+@allure.story("Event logging")
 @allure.title("no session source → event written unchanged, gap fallback intact")
 def test_append_event_no_session_source_omits_field(log_file: Path) -> None:
     event = {"v": SCHEMA_VERSION, "cmd": "route", "task": "find baseUrl"}

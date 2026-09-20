@@ -199,6 +199,7 @@ CI job → greedy-token CLI → rg | python | cheap_llm (Ollama/internal) | RAG 
 
 | Версия | Фокус |
 |--------|-------|
+| **v0.17.1** | Usage-события: `session_id`, calibration n/bucket/matched, `confidence_source`; router: question-form prefixes + Titlecase boost; резолв `rg` из `~/.greedy-token` и Devin-бандла; маршруты `python-git-recent`/`python-git-repos` |
 | **v0.17.0** | Crystal ids: lock `python-{stem}`; срез executor-префиксов; pipeline Saved=0 при all-failed execute |
 | **v0.16.2** | Хаб: lesson/workspace; `since=all`; Ollama Basic auth; sheets live + `delete-sheet` |
 | **v0.16.1** | Code search: miss/timeout `rg` окончателен — без Python-обхода дерева, который вешает MCP |
