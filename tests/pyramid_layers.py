@@ -38,6 +38,7 @@ LAYER_BY_MODULE: dict[str, str] = {
     "test_budget_gaps": "unit",
     "test_router_gaps": "unit",
     "test_trust_cut": "unit",
+    "test_result_contract": "unit",
     "test_routing_corpus": "component",
     "test_evidence_benchmark": "component",
     "test_retrieval_benchmark": "component",

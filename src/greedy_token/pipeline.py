@@ -51,12 +51,14 @@ from greedy_token.subprocess_safe import (
 )
 from greedy_token.wrappers import WRAPPERS, ollama_available, resolve_wrapper_invocation
 
-PIPELINE_SPLIT = re.compile(r"\s+then\s+|\s*→\s*|\s*->\s*|\s*;\s*", re.IGNORECASE)
+from greedy_token.result_contract import (
+    RESULT_EMPTY,
+    RESULT_NOT_EVALUATED,
+    RESULT_PRODUCED,
+    evaluate_script_result,
+)
 
-# Observed result of a step, for steps whose result contract we can check.
-RESULT_NOT_EVALUATED = ""
-RESULT_PRODUCED = "produced"
-RESULT_EMPTY = "empty"
+PIPELINE_SPLIT = re.compile(r"\s+then\s+|\s*→\s*|\s*->\s*|\s*;\s*", re.IGNORECASE)
 
 # Safe to auto-run from MCP (read-only or stdout-only).
 PIPELINE_AUTO_RUN = frozenset(
@@ -810,10 +812,12 @@ def _run_step(
                 est_tokens=0,
                 executed=True,
             )
-        output = (proc.stdout or "") + (proc.stderr or "")
+        stdout_text = proc.stdout or ""
+        output = stdout_text + (proc.stderr or "")
         exit_code = proc.returncode
         executed = True
     else:
+        stdout_text = ""
         output = f"(dry-run) {step.command}"
         exit_code = 0
 
@@ -827,6 +831,11 @@ def _run_step(
         duration_ms=duration_ms,
         est_tokens=est,
         executed=executed,
+        result_status=(
+            evaluate_script_result(stdout_text, exit_code)
+            if executed and step.tier == "python"
+            else RESULT_NOT_EVALUATED
+        ),
     )
 
 

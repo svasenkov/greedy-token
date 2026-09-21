@@ -8,6 +8,7 @@ import platform
 import subprocess
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -319,6 +320,26 @@ def run_micro_benchmark(
 
     if not cheap_llm_available(probe_settings, timeout=2.0):
         return BenchmarkResult(model=model, latency_ms=0, eval_tokens=None, ok=False, error="ollama unavailable")
+
+    # Spend guard: a benchmark against a remote endpoint is a metered call.
+    from greedy_token.model_select import ModelSpec
+    from greedy_token.spend_guard import check_metered_allowed
+
+    host = (urllib.parse.urlsplit(probe_settings.url).hostname or "").lower()
+    probe_spec = ModelSpec(
+        id="probe",
+        enabled=True,
+        provider=probe_settings.provider,  # type: ignore[arg-type]
+        url=probe_settings.url,
+        model=probe_settings.model,
+        profiles=("*",),
+        billing="free" if host in ("localhost", "127.0.0.1", "0.0.0.0", "::1", "") else "metered",
+    )
+    decision = check_metered_allowed(probe_spec)
+    if not decision.allowed:
+        return BenchmarkResult(
+            model=model, latency_ms=0, eval_tokens=None, ok=False, error=decision.reason
+        )
 
     t0 = time.perf_counter()
     try:

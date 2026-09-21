@@ -204,6 +204,7 @@ def build_route_event(
     billing_tier: str | None = None,
     cost_usd: float | None = None,
     model_billing: str | None = None,
+    llm_attempts: list[str] | None = None,
     outcome_success: bool | None = None,
     execution_requested: bool = False,
     authorized: bool | None = None,
@@ -295,6 +296,10 @@ def build_route_event(
         event["billing_tier"] = billing_tier
     if cost_usd is not None:
         event["cost_usd"] = round(cost_usd, 6)
+    if llm_attempts:
+        # Every attempted model id, in order — escalation honesty means the
+        # log shows all tries, not just the model that served.
+        event["llm_attempts"] = list(llm_attempts)
     if exclusion:
         event["savings_eligible"] = False
         event["savings_exclusion"] = exclusion

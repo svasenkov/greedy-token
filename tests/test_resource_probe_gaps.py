@@ -269,6 +269,57 @@ def test_run_micro_benchmark(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     assert res4.ok is False and "boom" in res4.error
 
 
+@allure.title("run_micro_benchmark: remote endpoint is spend-guarded, fails closed")
+def test_run_micro_benchmark_remote_metered_denied(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("GREEDY_TOKEN_HOME", str(tmp_path / "home"))
+    monkeypatch.delenv("GREEDY_METERED_LLM", raising=False)
+    monkeypatch.delenv("GREEDY_EXPENSIVE_LLM", raising=False)
+    monkeypatch.setattr(
+        rp,
+        "get_cheap_llm_settings",
+        lambda root=None: types.SimpleNamespace(
+            provider="ollama",
+            url="http://203.0.113.7:11434",
+            model="m",
+            api_key=None,
+        ),
+    )
+    monkeypatch.setattr(rp, "cheap_llm_available", lambda *a, **k: True)
+    called: list[bool] = []
+    monkeypatch.setattr(
+        rp, "cheap_llm_chat", lambda *a, **k: called.append(True) or ("ok", 1)
+    )
+    res = rp.run_micro_benchmark("m", quick=True, use_cache=False)
+    assert res.ok is False
+    assert res.error  # a guard denial reason, not a generic transport error
+    assert "LLM" in res.error
+    assert called == []
+
+
+@allure.title("run_micro_benchmark: loopback endpoint stays free, not guarded")
+def test_run_micro_benchmark_loopback_not_metered(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("GREEDY_TOKEN_HOME", str(tmp_path / "home"))
+    monkeypatch.delenv("GREEDY_METERED_LLM", raising=False)
+    monkeypatch.setattr(
+        rp,
+        "get_cheap_llm_settings",
+        lambda root=None: types.SimpleNamespace(
+            provider="ollama",
+            url="http://127.0.0.1:11434",
+            model="m",
+            api_key=None,
+        ),
+    )
+    monkeypatch.setattr(rp, "cheap_llm_available", lambda *a, **k: True)
+    monkeypatch.setattr(rp, "cheap_llm_chat", lambda *a, **k: ("ok", 7))
+    res = rp.run_micro_benchmark("m", quick=True, use_cache=False)
+    assert res.ok is True and res.eval_tokens == 7
+
+
 @allure.title("paid_economy_recommendations: filters and sorts")
 def test_paid_economy_recommendations(monkeypatch: pytest.MonkeyPatch) -> None:
     catalog = {

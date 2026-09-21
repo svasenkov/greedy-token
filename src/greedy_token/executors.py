@@ -6,6 +6,7 @@ from pathlib import Path
 
 from greedy_token.paths import find_workspace_root, workspace_trusted_script_paths
 from greedy_token.rag_search import format_hits, search_rag
+from greedy_token.result_contract import RESULT_NOT_EVALUATED, evaluate_script_result
 from greedy_token.router import RouteDecision, route_task
 from greedy_token.subprocess_safe import (
     UnsafeCommandError,
@@ -39,6 +40,9 @@ class RunPlan:
     script_path: str = ""
     script_type: str = ""
     refusal_reason: str = ""
+    # Refusal class (not_approved / stale_bytes / missing_file / symlink /
+    # untrusted_type / …) when the refusal came from a trust decision.
+    refusal_code: str = ""
 
 
 @dataclass(frozen=True)
@@ -47,12 +51,15 @@ class PlanRunResult:
 
     Unpacks as the historical ``(exit_code, output)`` tuple, so callers that only
     need those two keep working; ``started`` exists because a refusal, a missing
-    executable, and a real failing command all share exit codes.
+    executable, and a real failing command all share exit codes.  ``result_status``
+    is the SCRIPT-CANON verdict on the output contract (produced / invalid /
+    not_evaluated) — exit_code alone is never a validated result.
     """
 
     exit_code: int
     output: str
     started: bool = False
+    result_status: str = RESULT_NOT_EVALUATED
 
     def __iter__(self):
         return iter((self.exit_code, self.output))
@@ -67,6 +74,8 @@ class TaskRunResult:
     # Observed fact: the executor process really started. False also covers
     # "never observed" — it is never inferred from a request to execute.
     started: bool = False
+    # SCRIPT-CANON result-contract verdict for script-tier output.
+    result_status: str = RESULT_NOT_EVALUATED
 
 
 def plan_run(decision: RouteDecision, task: str, root: Path | None = None) -> RunPlan:
@@ -92,6 +101,7 @@ def plan_run(decision: RouteDecision, task: str, root: Path | None = None) -> Ru
                 dry_run_output=decision.command,
                 executable=False,
                 refusal_reason=str(exc),
+                refusal_code=getattr(exc, "code", ""),
             )
         return RunPlan(
             decision=decision,
@@ -146,6 +156,7 @@ def plan_run(decision: RouteDecision, task: str, root: Path | None = None) -> Ru
                 dry_run_output=dry_run,
                 executable=False,
                 refusal_reason=str(exc),
+                refusal_code=getattr(exc, "code", ""),
             )
         dry_run = format_invocation(invocation.argv, invocation.cwd)
         if target == "ollama":
@@ -200,10 +211,11 @@ def execute_plan(plan: RunPlan) -> PlanRunResult:
             if plan.refusal_reason
             else ""
         )
+        code = f" [{plan.refusal_code}]" if plan.refusal_code else ""
         return PlanRunResult(
             1,
             (
-                f"Refusing --execute: route is not authorised for execution.{reason}\n"
+                f"Refusing --execute: route is not authorised for execution{code}.{reason}\n"
                 f"Dry-run:\n{plan.dry_run_output}\n\n"
                 "read_only is metadata, not execution authority."
             ),
@@ -253,7 +265,11 @@ def execute_plan(plan: RunPlan) -> PlanRunResult:
             **run_kwargs,
         )
     except TrustError as exc:
-        return PlanRunResult(1, f"Refusing --execute: trust verification failed: {exc}")
+        code = getattr(exc, "code", "")
+        tag = f" [{code}]" if code else ""
+        return PlanRunResult(
+            1, f"Refusing --execute: trust verification failed{tag}: {exc}"
+        )
     except FileNotFoundError as exc:
         return PlanRunResult(127, f"Executable not found: {exc}")
     except OSError as exc:
@@ -267,7 +283,19 @@ def execute_plan(plan: RunPlan) -> PlanRunResult:
         if verified is not None:
             verified.close()
     out = (proc.stdout or "") + (proc.stderr or "")
-    return PlanRunResult(proc.returncode, out or plan.dry_run_output, started=True)
+    # The canon contract applies to script stdout; the exit code stays the
+    # observed fact, result_status is the contract verdict.
+    result_status = (
+        evaluate_script_result(proc.stdout or "", proc.returncode)
+        if plan.script_type == "python"
+        else RESULT_NOT_EVALUATED
+    )
+    return PlanRunResult(
+        proc.returncode,
+        out or plan.dry_run_output,
+        started=True,
+        result_status=result_status,
+    )
 
 
 def _filter_tool_output(output: str) -> str:
@@ -277,6 +305,11 @@ def _filter_tool_output(output: str) -> str:
 def _plan_started(run: PlanRunResult | tuple[int, str]) -> bool:
     """Whether the executor started; a plain tuple never observed it."""
     return getattr(run, "started", False)
+
+
+def _plan_result_status(run: PlanRunResult | tuple[int, str]) -> str:
+    """The contract verdict; a plain tuple was never evaluated."""
+    return getattr(run, "result_status", RESULT_NOT_EVALUATED)
 
 
 def _tool_output_weak(output: str, exit_code: int) -> bool:
@@ -410,13 +443,21 @@ def execute_task(task: str, root: Path | None = None) -> TaskRunResult:
             )
 
         return TaskRunResult(
-            decision=decision, output=out, exit_code=code, started=started
+            decision=decision,
+            output=out,
+            exit_code=code,
+            started=started,
+            result_status=_plan_result_status(run),
         )
 
     run = execute_plan(plan)
     code, out = run
     return TaskRunResult(
-        decision=decision, output=out, exit_code=code, started=_plan_started(run)
+        decision=decision,
+        output=out,
+        exit_code=code,
+        started=_plan_started(run),
+        result_status=_plan_result_status(run),
     )
 
 

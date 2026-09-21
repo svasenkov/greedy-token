@@ -311,19 +311,54 @@ def test_generate_draft_code_llm_fallbacks(
 ) -> None:
     monkeypatch.setattr("greedy_token.cheap_llm.cheap_llm_available", lambda settings: True)
 
-    def _raise(settings, *, system, user):
+    def _raise(*args, **kwargs):
         raise OSError("connection refused")
 
-    monkeypatch.setattr("greedy_token.cheap_llm.cheap_llm_chat", _raise)
+    # The draft path calls providers via llm_invoke.llm_chat (guarded) — mock
+    # at that seam, not at cheap_llm_chat which is no longer invoked here.
+    monkeypatch.setattr("greedy_token.llm_invoke.llm_chat", _raise)
     code, source = l3.generate_draft_code("script-x", "pattern text", 3, root=minimal_workspace)
     assert source == "template"
 
     monkeypatch.setattr(
-        "greedy_token.cheap_llm.cheap_llm_chat",
-        lambda settings, *, system, user: ("def broken(:", None),
+        "greedy_token.llm_invoke.llm_chat",
+        lambda *args, **kwargs: ("def broken(:", None),
     )
     code, source = l3.generate_draft_code("script-x", "pattern text", 3, root=minimal_workspace)
     assert source == "template"
+    assert "TODO" in code
+
+
+@allure.story("Codegen")
+@allure.title("draft generation goes through the guarded invoke path — metered denial makes no provider call")
+def test_generate_draft_code_metered_denied_no_http(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cfg = {
+        "llm": {
+            "cheap": {
+                "models": [{
+                    "id": "bulk", "enabled": True, "model": "bulk-m",
+                    "profiles": ["*"], "billing": "metered", "cost_per_1m_usd": 0.1,
+                }]
+            },
+            "escalation": {"enabled": False},
+        }
+    }
+    (minimal_workspace / ".greedy-token.yaml").write_text(
+        yaml.safe_dump(cfg), encoding="utf-8"
+    )
+    monkeypatch.setattr("greedy_token.cheap_llm.cheap_llm_available", lambda settings: True)
+
+    from greedy_token import llm_invoke
+
+    calls: list = []
+    monkeypatch.setattr(
+        llm_invoke, "llm_chat", lambda *a, **k: calls.append((a, k)) or ("x", 1)
+    )
+    code, source = l3.generate_draft_code("script-x", "pattern text", 3, root=minimal_workspace)
+    assert source == "template"
+    assert calls == []
     assert "TODO" in code
 
 

@@ -102,6 +102,9 @@ def invoke_profile(
     text = ""
     eval_tokens: int | None = None
     used: ResolvedModel = current
+    # Spend accrues for every completed provider call, not only the model that
+    # served — an escalated-away attempt still consumed tokens.
+    cost = 0.0
 
     for candidate in candidates:
         attempts.append(candidate.model_id)
@@ -131,6 +134,7 @@ def invoke_profile(
         except (OSError, RuntimeError, ValueError, TimeoutError) as exc:
             last_error = str(exc)
             continue
+        cost += estimate_cost_usd(candidate.spec, eval_tokens)
 
         used = candidate
         if candidate.model_id != current.model_id:
@@ -148,7 +152,7 @@ def invoke_profile(
         msg = last_error or "all models in escalation chain failed"
         raise RuntimeError(f"LLM invoke failed for profile {profile!r}: {msg}")
 
-    cost = estimate_cost_usd(used.spec, eval_tokens)
+
     duration_ms = int((time.perf_counter() - t0) * 1000)
     est_tokens = (eval_tokens or 0) + count_tokens(system + user).tokens
 
@@ -194,6 +198,7 @@ def invoke_profile(
                 billing_tier=result.tier_billing,
                 cost_usd=result.cost_usd,
                 model_billing=used.spec.billing,
+                llm_attempts=result.attempts,
                 operation_id=new_operation_id(),
             )
         )

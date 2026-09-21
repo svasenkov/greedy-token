@@ -24,7 +24,15 @@ _FORBIDDEN_OPERATOR_TOKENS = frozenset(
 
 
 class UnsafeCommandError(ValueError):
-    """Command string is empty or contains a disallowed shell operator token."""
+    """Command string is empty or contains a disallowed shell operator token.
+
+    ``code`` carries a refusal class when the failure is a trust decision
+    (e.g. ``not_approved``); empty for plain argv/shape validation errors.
+    """
+
+    def __init__(self, message: str, *, code: str = "") -> None:
+        super().__init__(message)
+        self.code = code
 
 
 @dataclass(frozen=True)
@@ -176,6 +184,16 @@ def _workspace_script_path(token: str, root: Path) -> tuple[Path, str]:
     candidate = Path(token).expanduser()
     if is_absolute_path(token):
         raise UnsafeCommandError("absolute script paths are not allowed")
+    # A symlink anywhere in the path is refused before any resolve, so the
+    # refusal class stays "symlink" even when the target escapes the root.
+    current = root
+    for part in candidate.parts:
+        current = current / part
+        if current.is_symlink():
+            raise UnsafeCommandError(
+                f"script path contains a symlink: {token!r}",
+                code="symlink",
+            )
     try:
         resolved = (root / candidate).resolve()
         rel = resolved.relative_to(root.resolve())
@@ -186,7 +204,14 @@ def _workspace_script_path(token: str, root: Path) -> tuple[Path, str]:
     if resolved.suffix not in (".py", ".sh"):
         raise UnsafeCommandError("trusted script must end in .py or .sh")
     if not resolved.is_file():
-        raise FileNotFoundError(f"Script not found: {resolved}")
+        if resolved.exists() or resolved.is_symlink():
+            raise UnsafeCommandError(
+                f"Script path is not a regular file: {resolved}",
+                code="untrusted_type",
+            )
+        missing = FileNotFoundError(f"Script not found: {resolved}")
+        missing.code = "missing_file"  # type: ignore[attr-defined]
+        raise missing
     return resolved, rel.as_posix()
 
 
@@ -273,11 +298,13 @@ def trusted_script_argv(
     elif rel in deprecated:
         raise UnsafeCommandError(
             "trusted_script_paths is deprecated and dry-run only; "
-            f"review and approve {rel!r} with 'greedy-token trust add'"
+            f"review and approve {rel!r} with 'greedy-token trust add'",
+            code="not_approved",
         )
     else:
         raise UnsafeCommandError(
-            f"script is not registered or approved in the local trust manifest: {rel!r}"
+            f"script is not registered or approved in the local trust manifest: {rel!r}",
+            code="not_approved",
         )
 
     _validate_script_args(script_args, resolved_root)

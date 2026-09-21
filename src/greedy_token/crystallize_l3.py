@@ -134,8 +134,13 @@ def generate_draft_code(
     *,
     root: Path | None = None,
 ) -> tuple[str, str]:
-    """Draft script text + source ("cheap_llm" | "template")."""
-    from greedy_token.cheap_llm import cheap_llm_available, cheap_llm_chat
+    """Draft script text + source ("cheap_llm" | "template").
+
+    The LLM call goes through ``invoke_profile`` so the spend guard applies —
+    a metered denial falls back to the template, never to an unguarded call.
+    """
+    from greedy_token.cheap_llm import cheap_llm_available
+    from greedy_token.llm_invoke import invoke_profile
     from greedy_token.settings import get_cheap_llm_settings
 
     settings = get_cheap_llm_settings(root)
@@ -146,8 +151,16 @@ def generate_draft_code(
             "Write the deterministic Python script that replaces it."
         )
         try:
-            text, _tokens = cheap_llm_chat(settings, system=DRAFT_SYSTEM_PROMPT, user=user)
-        except (OSError, ValueError, KeyError, TimeoutError):
+            result = invoke_profile(
+                "crystallize",
+                system=DRAFT_SYSTEM_PROMPT,
+                user=user,
+                root=root,
+                allow_escalate=False,
+                log=False,
+            )
+            text = result.text
+        except (OSError, ValueError, KeyError, TimeoutError, RuntimeError):
             text = ""
         code = extract_python_code(text) if text else None
         if code:

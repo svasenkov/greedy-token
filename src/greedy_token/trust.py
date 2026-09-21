@@ -8,6 +8,7 @@ and the file identity observed during approval.
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
 import ntpath
@@ -39,8 +40,28 @@ class TrustManifestError(TrustError):
     """The local manifest is malformed or unsafe."""
 
 
+# Externally meaningful refusal classes for trust verification. They surface
+# in TrustCheck.code, RunPlan.refusal_code, and refusal output so a denial is
+# actionable without parsing human-readable prose.
+REFUSAL_NOT_APPROVED = "not_approved"
+REFUSAL_STALE_BYTES = "stale_bytes"
+REFUSAL_STALE_IDENTITY = "stale_identity"
+REFUSAL_MISSING_FILE = "missing_file"
+REFUSAL_SYMLINK = "symlink"
+REFUSAL_UNTRUSTED_TYPE = "untrusted_type"
+
+
 class TrustVerificationError(TrustError):
-    """The current script no longer matches its approval."""
+    """The current script no longer matches its approval.
+
+    ``code`` carries the refusal class (``not_approved``, ``stale_bytes``,
+    ``stale_identity``, ``missing_file``, ``symlink``, ``untrusted_type``);
+    ``internal`` marks an invariant breach rather than a trust decision.
+    """
+
+    def __init__(self, message: str, *, code: str = "internal") -> None:
+        super().__init__(message)
+        self.code = code
 
 
 @dataclass(frozen=True)
@@ -197,6 +218,11 @@ class TrustCheck:
     entry: TrustEntry
     ok: bool
     error: str = ""
+    code: str = ""
+    # A failed check whose path is covered by a registered wrapper grants no
+    # execution authority (wrapper authorization wins over the manifest), so it
+    # is reported as inert rather than a hard failure.
+    inert: bool = False
 
 
 def _trust_home() -> Path:
@@ -269,8 +295,14 @@ def _open_posix_nofollow(root: Path, relative_path: str) -> tuple[int, os.stat_r
             directory_fd = next_fd
         file_fd = os.open(parts[-1], file_flags, dir_fd=directory_fd)
     except OSError as exc:
+        code = (
+            REFUSAL_SYMLINK
+            if exc.errno == errno.ELOOP
+            else REFUSAL_MISSING_FILE
+        )
         raise TrustVerificationError(
-            f"script path is missing, replaced, or contains a symlink: {relative_path!r}"
+            f"script path is missing, replaced, or contains a symlink: {relative_path!r}",
+            code=code,
         ) from exc
     finally:
         os.close(directory_fd)
@@ -278,7 +310,10 @@ def _open_posix_nofollow(root: Path, relative_path: str) -> tuple[int, os.stat_r
     file_stat = os.fstat(file_fd)
     if not stat.S_ISREG(file_stat.st_mode):
         os.close(file_fd)
-        raise TrustVerificationError(f"trusted script is not a regular file: {relative_path!r}")
+        raise TrustVerificationError(
+            f"trusted script is not a regular file: {relative_path!r}",
+            code=REFUSAL_UNTRUSTED_TYPE,
+        )
     return file_fd, file_stat
 
 
@@ -292,7 +327,8 @@ def _open_portable_nofollow(root: Path, relative_path: str) -> tuple[int, os.sta
             current_stat = current.lstat()
             if stat.S_ISLNK(current_stat.st_mode):
                 raise TrustVerificationError(
-                    f"script path contains a symlink: {relative_path!r}"
+                    f"script path contains a symlink: {relative_path!r}",
+                    code=REFUSAL_SYMLINK,
                 )
         resolved = candidate.resolve()
         resolved.relative_to(root)
@@ -307,17 +343,27 @@ def _open_portable_nofollow(root: Path, relative_path: str) -> tuple[int, os.sta
         if file_fd is not None:
             os.close(file_fd)
         raise TrustVerificationError(
-            f"script path is missing, replaced, or outside workspace: {relative_path!r}"
+            f"script path is missing, replaced, or outside workspace: {relative_path!r}",
+            code=REFUSAL_MISSING_FILE,
         ) from exc
 
-    if (
-        stat.S_ISLNK(path_stat.st_mode)
-        or not stat.S_ISREG(file_stat.st_mode)
-        or FileIdentity.from_stat(path_stat) != FileIdentity.from_stat(file_stat)
-    ):
+    if stat.S_ISLNK(path_stat.st_mode):
         os.close(file_fd)
         raise TrustVerificationError(
-            f"script path changed while it was opened: {relative_path!r}"
+            f"script path changed to a symlink while it was opened: {relative_path!r}",
+            code=REFUSAL_SYMLINK,
+        )
+    if not stat.S_ISREG(file_stat.st_mode):
+        os.close(file_fd)
+        raise TrustVerificationError(
+            f"script path changed while it was opened (not a regular file): {relative_path!r}",
+            code=REFUSAL_UNTRUSTED_TYPE,
+        )
+    if FileIdentity.from_stat(path_stat) != FileIdentity.from_stat(file_stat):
+        os.close(file_fd)
+        raise TrustVerificationError(
+            f"script path changed while it was opened: {relative_path!r}",
+            code=REFUSAL_STALE_IDENTITY,
         )
     return file_fd, file_stat
 
@@ -476,22 +522,26 @@ def verify_script(root: Path, path: str | Path) -> VerifiedScript:
     entry = next((item for item in entries if item.path == relative_path), None)
     if entry is None:
         raise TrustVerificationError(
-            f"script is not approved in the local trust manifest: {relative_path!r}"
+            f"script is not approved in the local trust manifest: {relative_path!r}",
+            code=REFUSAL_NOT_APPROVED,
         )
     file_fd, file_stat = _open_script(root, relative_path)
     try:
         actual_hash = _sha256_fd(file_fd)
         if actual_hash != entry.sha256:
             raise TrustVerificationError(
-                f"SHA-256 mismatch for {relative_path!r}; run 'greedy-token trust add' after review"
+                f"SHA-256 mismatch for {relative_path!r}; run 'greedy-token trust add' after review",
+                code=REFUSAL_STALE_BYTES,
             )
         if FileIdentity.from_stat(file_stat) != entry.file_identity:
             raise TrustVerificationError(
-                f"file identity changed for {relative_path!r}; re-approval is required"
+                f"file identity changed for {relative_path!r}; re-approval is required",
+                code=REFUSAL_STALE_IDENTITY,
             )
         if script_type_for_path(relative_path) != entry.script_type:
             raise TrustVerificationError(
-                f"script type changed for {relative_path!r}; re-approval is required"
+                f"script type changed for {relative_path!r}; re-approval is required",
+                code=REFUSAL_UNTRUSTED_TYPE,
             )
     except BaseException:
         os.close(file_fd)
@@ -499,12 +549,29 @@ def verify_script(root: Path, path: str | Path) -> VerifiedScript:
     return VerifiedScript(entry=entry, fd=file_fd)
 
 
-def verify_trust_manifest(root: Path) -> tuple[TrustCheck, ...]:
+def verify_trust_manifest(
+    root: Path, *, wrapper_paths: frozenset[str] | set[str] = frozenset()
+) -> tuple[TrustCheck, ...]:
+    """Verify every entry; wrapper-covered paths are marked ``inert``.
+
+    A wrapper-registered path is authorized as ``wrapper:<path>`` before the
+    manifest is consulted, so a stale manifest entry for it grants nothing.
+    """
     checks: list[TrustCheck] = []
     for entry in _read_entries(root):
         try:
             with verify_script(root, entry.path):
                 pass
+        except TrustVerificationError as exc:
+            checks.append(
+                TrustCheck(
+                    entry=entry,
+                    ok=False,
+                    error=str(exc),
+                    code=exc.code,
+                    inert=entry.path in wrapper_paths,
+                )
+            )
         except TrustError as exc:
             checks.append(TrustCheck(entry=entry, ok=False, error=str(exc)))
         else:
@@ -516,10 +583,23 @@ def _fd_execution_supported() -> bool:
     return os.name == "posix" and Path("/dev/fd").is_dir()
 
 
+def _trusted_runner_path() -> Path:
+    return Path(__file__).resolve().with_name("_trusted_runner.py")
+
+
 def bind_verified_argv(
     verified: VerifiedScript, argv: tuple[str, ...]
 ) -> tuple[list[str], tuple[int, ...]]:
-    """Bind execution to the verified descriptor where the platform supports it."""
+    """Bind execution to the verified descriptor where the platform supports it.
+
+    Python scripts run through ``_trusted_runner.py``: the runner reads the
+    script bytes from the inherited verified fd (no path re-open, so the
+    approved bytes are what execute) and installs the import context that
+    ``python <script>`` would have had — ``sys.argv[0]``/``__file__`` point at
+    the real script path and its directory leads ``sys.path``, so sibling
+    imports keep working.  Shell scripts keep direct ``/dev/fd/N`` shebang
+    execution.
+    """
     bound = list(argv)
     if not _fd_execution_supported():
         return bound, ()
@@ -527,7 +607,7 @@ def bind_verified_argv(
     if verified.entry.script_type == "python":
         if len(bound) < 2:
             raise TrustVerificationError("verified Python invocation has no script argv")
-        bound[1] = descriptor_path
+        bound = [bound[0], str(_trusted_runner_path()), str(verified.fd), *bound[1:]]
     else:
         if not bound:
             raise TrustVerificationError("verified shell invocation has empty argv")

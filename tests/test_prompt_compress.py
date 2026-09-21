@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import allure
 import pytest
+import yaml
 
 from greedy_token.prompt_compress import compress_heuristic, compress_prompt_detail, format_dual
 from tests.allure_reporting import attach_text
@@ -99,4 +102,35 @@ def test_compress_prompt_ollama_fallback(monkeypatch: pytest.MonkeyPatch) -> Non
     assert "Ollama failed" in short
     assert tokens is None
     assert compress_prompt("Do X.", use_ollama=True).startswith("# Ollama failed")
+
+
+@allure.story("Ollama")
+@allure.title("compress_ollama_detail goes through the spend guard — metered denial makes no provider call")
+def test_compress_ollama_metered_denied_no_http(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from greedy_token import llm_invoke
+    from greedy_token.prompt_compress import compress_prompt_detail
+
+    (tmp_path / ".greedy-token.yaml").write_text(
+        yaml.safe_dump({
+            "llm": {
+                "cheap": {
+                    "models": [{
+                        "id": "bulk", "enabled": True, "model": "bulk-m",
+                        "profiles": ["compress"], "billing": "metered",
+                        "cost_per_1m_usd": 0.1,
+                    }]
+                },
+                "escalation": {"enabled": False},
+            }
+        }),
+        encoding="utf-8",
+    )
+    calls: list = []
+    monkeypatch.setattr(llm_invoke, "llm_chat", lambda *a, **k: calls.append(a) or ("x", 1))
+    short, tokens = compress_prompt_detail("Do X.\nWhy: because.", use_ollama=True, root=tmp_path)
+    assert "Ollama failed" in short
+    assert tokens is None
+    assert calls == []
 

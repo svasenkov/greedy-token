@@ -535,7 +535,15 @@ def test_bind_verified_argv_branches(
         argv, pass_fds = bind_verified_argv(
             verified, ("python", py_rel, "--flag")
         )
-        assert argv == ["python", f"/dev/fd/{verified.fd}", "--flag"]
+        # Python runs via the trusted runner: it reads the verified fd and
+        # restores the script's import context (sys.argv[0], __file__, sys.path).
+        assert argv == [
+            "python",
+            str(trust_mod._trusted_runner_path()),
+            str(verified.fd),
+            py_rel,
+            "--flag",
+        ]
         assert pass_fds == (verified.fd,)
 
     with verify_script(minimal_workspace, sh_rel) as verified:
@@ -1266,3 +1274,295 @@ def test_toctou_threat_model_is_documented() -> None:
     assert "Windows" in text
     assert "same-user" in text
     assert "trusted_script_paths" in text
+
+
+@allure.story("Descriptor binding")
+@allure.title("_trusted_runner executes fd bytes with restored sys.argv/__file__/sys.path context")
+def test_trusted_runner_in_process(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from greedy_token import _trusted_runner
+
+    script_dir = tmp_path / "runner-scripts"
+    script_dir.mkdir()
+    script = script_dir / "prog.py"
+    script.write_text(
+        "import sys\n"
+        "from pathlib import Path\n"
+        "print('argv0=' + sys.argv[0])\n"
+        "print('args=' + ','.join(sys.argv[1:]))\n"
+        "print('file=' + Path(__file__).name)\n"
+        "print('path0=' + sys.path[0])\n",
+        encoding="utf-8",
+    )
+    fd = os.open(script, os.O_RDONLY)
+    monkeypatch.setattr(
+        sys, "argv", ["_trusted_runner.py", str(fd), "runner-scripts/prog.py", "a", "b"]
+    )
+    saved_path = list(sys.path)
+    cwd = os.getcwd()
+    try:
+        # The runner resolves the script dir relative to cwd — like
+        # `python scripts/prog.py` run from the workspace root.
+        os.chdir(tmp_path)
+        _trusted_runner.main()
+    finally:
+        os.chdir(cwd)
+        sys.path[:] = saved_path
+    out = capsys.readouterr().out
+    assert "argv0=runner-scripts/prog.py" in out
+    assert "args=a,b" in out
+    assert "file=prog.py" in out
+    assert f"path0={script_dir}" in out
+
+
+@allure.story("Descriptor binding")
+@allure.title("Approved Python script keeps sibling imports, __file__, and argv[0] under fd binding")
+def test_fd_bound_python_preserves_import_context(minimal_workspace: Path) -> None:
+    _script(minimal_workspace, "scripts/_sibling_mod.py", "MARKER = 'sibling-ok'\n")
+    relative = "scripts/needs-sibling.py"
+    _script(
+        minimal_workspace,
+        relative,
+        (
+            "import sys\n"
+            "from pathlib import Path\n"
+            "from _sibling_mod import MARKER\n"
+            "print(MARKER)\n"
+            "print(Path(__file__).resolve().name)\n"
+            "print(Path(sys.argv[0]).name)\n"
+        ),
+    )
+    _route(minimal_workspace, relative, task="run sibling import check")
+    approve_script(minimal_workspace, relative)
+
+    decision = route_task("run sibling import check", minimal_workspace)
+    plan = plan_run(decision, "run sibling import check", minimal_workspace)
+    assert plan.executable is True
+    assert plan.authorization == f"manifest:{relative}"
+
+    result = execute_plan(plan)
+    assert result.exit_code == 0, result.output
+    assert "sibling-ok" in result.output
+    # __file__ resolves to the real script, not the descriptor path.
+    assert "needs-sibling.py" in result.output
+    assert "/dev/fd" not in result.output
+
+
+@allure.story("Descriptor binding")
+@allure.title("fd binding executes the approved bytes, not a later same-path replacement")
+def test_fd_binding_executes_approved_bytes(minimal_workspace: Path) -> None:
+    relative = "scripts/snapshot.py"
+    script = _script(minimal_workspace, relative, "print('approved-bytes')\n")
+    _route(minimal_workspace, relative, task="run approved bytes check")
+    approve_script(minimal_workspace, relative)
+    decision = route_task("run approved bytes check", minimal_workspace)
+    plan = plan_run(decision, "run approved bytes check", minimal_workspace)
+
+    # Mutate the same inode between approval and launch: POSIX fd binding ties
+    # execution to the opened file description, so the new bytes are observed
+    # as a hash mismatch, never silently executed.
+    script.write_text("print('swapped-bytes')\n", encoding="utf-8")
+    result = execute_plan(plan)
+    assert result.exit_code == 1
+    assert "SHA-256 mismatch" in result.output
+    assert "swapped-bytes" not in result.output
+
+
+@allure.story("Refusal classes")
+@allure.title("verify_script failures carry distinct actionable refusal codes")
+def test_verify_script_refusal_codes(minimal_workspace: Path, tmp_path: Path) -> None:
+    _script(minimal_workspace, "scripts/never-approved.py")
+    with pytest.raises(TrustVerificationError) as raised:
+        verify_script(minimal_workspace, "scripts/never-approved.py")
+    assert raised.value.code == "not_approved"
+
+    gone_rel = "scripts/gone.py"
+    _script(minimal_workspace, gone_rel)
+    approve_script(minimal_workspace, gone_rel)
+    (minimal_workspace / gone_rel).unlink()
+    with pytest.raises(TrustVerificationError) as raised:
+        verify_script(minimal_workspace, gone_rel)
+    assert raised.value.code == "missing_file"
+
+    link_rel = "scripts/link-swap.py"
+    link = _script(minimal_workspace, link_rel)
+    approve_script(minimal_workspace, link_rel)
+    outside = tmp_path / "outside.py"
+    outside.write_text("print('x')\n", encoding="utf-8")
+    link.unlink()
+    link.symlink_to(outside)
+    with pytest.raises(TrustVerificationError) as raised:
+        verify_script(minimal_workspace, link_rel)
+    assert raised.value.code == "symlink"
+
+    mutated_rel = "scripts/mutated.py"
+    mutated = _script(minimal_workspace, mutated_rel)
+    approve_script(minimal_workspace, mutated_rel)
+    mutated.write_text("print('mutated')\n", encoding="utf-8")
+    with pytest.raises(TrustVerificationError) as raised:
+        verify_script(minimal_workspace, mutated_rel)
+    assert raised.value.code == "stale_bytes"
+
+    recreated_rel = "scripts/recreated.py"
+    recreated = _script(minimal_workspace, recreated_rel)
+    approve_script(minimal_workspace, recreated_rel)
+    recreated.unlink()
+    recreated.write_text("print('approved-ok')\n", encoding="utf-8")
+    with pytest.raises(TrustVerificationError) as raised:
+        verify_script(minimal_workspace, recreated_rel)
+    assert raised.value.code == "stale_identity"
+
+    dirswap_rel = "scripts/dirswap.py"
+    dirswap = _script(minimal_workspace, dirswap_rel)
+    approve_script(minimal_workspace, dirswap_rel)
+    dirswap.unlink()
+    dirswap.mkdir()
+    with pytest.raises(TrustVerificationError) as raised:
+        verify_script(minimal_workspace, dirswap_rel)
+    assert raised.value.code == "untrusted_type"
+
+
+@allure.story("Refusal classes")
+@allure.title("trust verify surfaces refusal codes and marks wrapper-covered stale entries inert")
+def test_verify_manifest_codes_and_inert(minimal_workspace: Path) -> None:
+    stale_rel = "scripts/stale.py"
+    stale = _script(minimal_workspace, stale_rel)
+    approve_script(minimal_workspace, stale_rel)
+    stale.write_text("print('changed')\n", encoding="utf-8")
+
+    inert_rel = "scripts/meta-sync-check.py"  # registered wrapper path
+    _script(minimal_workspace, inert_rel)
+    approve_script(minimal_workspace, inert_rel)
+    (minimal_workspace / inert_rel).write_text("print('mutated')\n", encoding="utf-8")
+
+    from greedy_token.wrappers import WRAPPERS
+
+    wrapper_paths = {wrapper.path for wrapper in WRAPPERS.values()}
+    checks = verify_trust_manifest(minimal_workspace, wrapper_paths=wrapper_paths)
+    by_path = {check.entry.path: check for check in checks}
+    assert by_path[stale_rel].ok is False
+    assert by_path[stale_rel].code == "stale_bytes"
+    assert by_path[stale_rel].inert is False
+    assert by_path[inert_rel].ok is False
+    assert by_path[inert_rel].code == "stale_bytes"
+    assert by_path[inert_rel].inert is True
+
+
+@allure.story("Refusal classes")
+@allure.title("CLI trust verify prints refusal codes and does not fail on inert stale entries")
+def test_cmd_trust_verify_codes_and_inert(
+    minimal_workspace: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    inert_rel = "scripts/meta-sync-check.py"
+    _script(minimal_workspace, inert_rel)
+    approve_script(minimal_workspace, inert_rel)
+    (minimal_workspace / inert_rel).write_text("print('mutated')\n", encoding="utf-8")
+
+    assert cmd_trust(Namespace(trust_action="verify")) == 0
+    captured = capsys.readouterr()
+    assert f"INERT {inert_rel}" in captured.out
+    assert "stale_bytes" in captured.out
+
+    stale_rel = "scripts/stale.py"
+    stale = _script(minimal_workspace, stale_rel)
+    approve_script(minimal_workspace, stale_rel)
+    stale.write_text("print('changed')\n", encoding="utf-8")
+
+    assert cmd_trust(Namespace(trust_action="verify")) == 1
+    captured = capsys.readouterr()
+    assert f"FAIL {stale_rel} [stale_bytes]" in captured.err
+
+
+@allure.story("Refusal classes")
+@allure.title("execute_plan refusals carry the refusal code and never reach subprocess")
+def test_execute_plan_refusal_codes(minimal_workspace: Path) -> None:
+    relative = "scripts/not-approved.py"
+    _script(minimal_workspace, relative)
+    _route(minimal_workspace, relative, task="run unapproved check")
+    decision = route_task("run unapproved check", minimal_workspace)
+    plan = plan_run(decision, "run unapproved check", minimal_workspace)
+    assert plan.executable is False
+    assert plan.refusal_code == "not_approved"
+
+    with patch("greedy_token.executors.subprocess.run") as run:
+        code, output = execute_plan(plan)
+    assert code == 1
+    assert "not_approved" in output
+    run.assert_not_called()
+
+    stale_rel = "scripts/stale-run.py"
+    stale = _script(minimal_workspace, stale_rel)
+    _route(minimal_workspace, stale_rel, task="run stale bytes check")
+    approve_script(minimal_workspace, stale_rel)
+    stale.write_text("print('changed')\n", encoding="utf-8")
+    decision = route_task("run stale bytes check", minimal_workspace)
+    plan = plan_run(decision, "run stale bytes check", minimal_workspace)
+    with patch("greedy_token.executors.subprocess.run") as run:
+        result = execute_plan(plan)
+    assert result.exit_code == 1
+    assert "stale_bytes" in result.output
+    run.assert_not_called()
+
+
+@allure.story("Result contract")
+@allure.title("canon JSON stdout is checked against the declared contract; prose is not evaluated")
+def test_script_result_contract_statuses(minimal_workspace: Path) -> None:
+    cases = {
+        "canon-ok": (
+            "import json\nprint(json.dumps({'ok': True, 'result': 42}))\n",
+            "produced",
+            0,
+        ),
+        "canon-fail": (
+            "import json, sys\nprint(json.dumps({'ok': False, 'error': 'no access'}))\nsys.exit(1)\n",
+            "produced",
+            1,
+        ),
+        "canon-inconsistent": (
+            "import json\nprint(json.dumps({'ok': False, 'error': 'claimed failure'}))\n",
+            "invalid",
+            0,
+        ),
+        "canon-ok-bad-exit": (
+            "import json, sys\nprint(json.dumps({'ok': True}))\nsys.exit(2)\n",
+            "invalid",
+            2,
+        ),
+        "plain-prose": ("print('diagnostic text, no contract')\n", "not_evaluated", 0),
+    }
+    for name, (body, expected, expected_exit) in cases.items():
+        relative = f"scripts/{name}.py"
+        _script(minimal_workspace, relative, body)
+        approve_script(minimal_workspace, relative)
+        decision = RouteDecision(
+            target="python",
+            route_id=f"contract-{name}",
+            confidence=1.0,
+            matched=[],
+            command=f"python {relative}",
+            note="",
+            domains=[],
+            read_only=True,
+        )
+        plan = plan_run(decision, f"task {name}", minimal_workspace)
+        result = execute_plan(plan)
+        assert result.exit_code == expected_exit, (name, result.output)
+        assert result.result_status == expected, (name, result.output)
+
+
+@allure.story("Result contract")
+@allure.title("invalid contract output reaches TaskRunResult without losing the real exit code")
+def test_execute_task_invalid_contract_result(minimal_workspace: Path) -> None:
+    relative = "scripts/invalid-canon.py"
+    _script(
+        minimal_workspace,
+        relative,
+        "import json\nprint(json.dumps({'ok': False, 'error': 'buggy script'}))\n",
+    )
+    _route(minimal_workspace, relative, task="run invalid canon check")
+    approve_script(minimal_workspace, relative)
+    result = execute_task("run invalid canon check", minimal_workspace)
+    assert result.started is True
+    assert result.exit_code == 0  # observed process exit, kept honest
+    assert result.result_status == "invalid"

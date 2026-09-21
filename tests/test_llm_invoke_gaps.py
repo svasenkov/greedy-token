@@ -162,3 +162,85 @@ def test_invoke_expensive_allowed(cheap_root: Path, monkeypatch: pytest.MonkeyPa
     )
     assert result.text == "expensive strong answer"
     assert result.tier_billing == "expensive"
+
+
+@allure.title("metered cheap model denied without opt-in — provider is never called")
+def test_invoke_metered_denied_no_http(cheap_root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _write_cfg(cheap_root, {
+        "llm": {
+            "cheap": {
+                "models": [{
+                    "id": "bulk", "enabled": True, "model": "bulk-m",
+                    "profiles": ["p"], "billing": "metered", "cost_per_1m_usd": 0.1,
+                }]
+            },
+            "escalation": {"enabled": False},
+        }
+    })
+    calls: list = []
+    monkeypatch.setattr(llm_invoke, "llm_chat", lambda *a, **k: calls.append(a) or ("x", 1))
+    with pytest.raises(RuntimeError, match="metered LLM opt-in required"):
+        invoke_profile("p", system="s", user="u", root=cheap_root, log=False, allow_escalate=False)
+    assert calls == []
+
+
+@allure.title("metered escalation counts spend for every completed attempt, not only the last")
+def test_invoke_metered_attempts_accounted(cheap_root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Costs stay at/below the cheap-tier threshold ($0.2/1M) so both models
+    # derive "cheap" and only the metered opt-in applies.
+    _write_cfg(cheap_root, {
+        "llm": {
+            "metered": {"opt_in": True},
+            "cheap": {
+                "models": [
+                    {"id": "fast", "enabled": True, "model": "m7", "profiles": ["p"],
+                     "billing": "metered", "cost_per_1m_usd": 0.1},
+                    {"id": "big", "enabled": True, "model": "m70", "profiles": ["p"],
+                     "billing": "metered", "cost_per_1m_usd": 0.2},
+                ]
+            },
+            "escalation": {"enabled": True, "chain": ["fast", "big"],
+                           "triggers": ["empty_output"], "max_steps": 2},
+        }
+    })
+    seq = iter([("x", 100), ("a full strong answer here", 200)])
+    monkeypatch.setattr(llm_invoke, "llm_chat", lambda *a, **k: next(seq))
+    result = invoke_profile("p", system="s", user="u", root=cheap_root, log=False, allow_escalate=True)
+    assert result.model_id == "big"
+    assert result.attempts == ["fast", "big"]
+    # 100 tokens @ $0.1/1M + 200 tokens @ $0.2/1M — spend accrues per
+    # completed call, not just for the model that served.
+    assert result.cost_usd == pytest.approx(0.00001 + 0.00004)
+
+
+@allure.title("logged invoke event carries the attempt list and per-attempt spend")
+def test_invoke_event_records_attempts(cheap_root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import json
+
+    _write_cfg(cheap_root, {
+        "llm": {
+            "metered": {"opt_in": True},
+            "cheap": {
+                "models": [
+                    {"id": "fast", "enabled": True, "model": "m7", "profiles": ["p"],
+                     "billing": "metered", "cost_per_1m_usd": 0.1},
+                    {"id": "big", "enabled": True, "model": "m70", "profiles": ["p"],
+                     "billing": "metered", "cost_per_1m_usd": 0.2},
+                ]
+            },
+            "escalation": {"enabled": True, "chain": ["fast", "big"],
+                           "triggers": ["empty_output"], "max_steps": 2},
+        }
+    })
+    seq = iter([("x", 100), ("a full strong answer here", 200)])
+    monkeypatch.setattr(llm_invoke, "llm_chat", lambda *a, **k: next(seq))
+    invoke_profile("p", system="s", user="u", root=cheap_root, log=True, allow_escalate=True)
+    rows = [
+        json.loads(line)
+        for line in (cheap_root / "usage.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    event = next(row for row in rows if row.get("cmd") == "llm")
+    assert event["llm_attempts"] == ["fast", "big"]
+    assert event["escalated_from"] == "fast"
+    assert event["cost_usd"] == pytest.approx(0.00005)

@@ -397,7 +397,13 @@ def cmd_compress(args: argparse.Namespace) -> int:
     if not text.strip():
         print("Read prompt from stdin.", file=sys.stderr)
         return 1
-    short, eval_tokens = compress_prompt_detail(text, use_ollama=args.ollama)
+    try:
+        root: Path | None = find_workspace_root()
+    except SystemExit:
+        # compress is usable outside a workspace — the registry then falls
+        # back to the user-level llm config.
+        root = None
+    short, eval_tokens = compress_prompt_detail(text, use_ollama=args.ollama, root=root)
     duration_ms = int((time.perf_counter() - t0) * 1000)
     if args.raw:
         print(short)
@@ -646,7 +652,11 @@ def cmd_trust(args: argparse.Namespace) -> int:
             return 0
 
         if args.trust_action == "verify":
-            checks = verify_trust_manifest(root)
+            from greedy_token.wrappers import WRAPPERS
+
+            checks = verify_trust_manifest(
+                root, wrapper_paths={w.path for w in WRAPPERS.values()}
+            )
             if not checks:
                 print("Trust manifest is empty.")
                 return 0
@@ -654,9 +664,17 @@ def cmd_trust(args: argparse.Namespace) -> int:
             for check in checks:
                 if check.ok:
                     print(f"OK   {check.entry.path}")
+                elif check.inert:
+                    print(
+                        f"INERT {check.entry.path} [{check.code}]: {check.error} "
+                        "(wrapper-registered; manifest entry grants nothing)"
+                    )
                 else:
                     ok = False
-                    print(f"FAIL {check.entry.path}: {check.error}", file=sys.stderr)
+                    print(
+                        f"FAIL {check.entry.path} [{check.code}]: {check.error}",
+                        file=sys.stderr,
+                    )
             return 0 if ok else 1
 
         removed = revoke_script(root, args.path)
@@ -1304,11 +1322,6 @@ def build_parser() -> argparse.ArgumentParser:
         "--profile",
         default="",
         help="LLM profile for ollama steps (e.g. tms-classify, tms-generate)",
-    )
-    pipe.add_argument(
-        "--escalate",
-        action="store_true",
-        help="Allow model escalation on weak ollama output (requires expensive opt-in for paid)",
     )
     pipe.set_defaults(func=cmd_pipeline)
 

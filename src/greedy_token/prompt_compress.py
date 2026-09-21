@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
-from greedy_token.cheap_llm import cheap_llm_chat
-from greedy_token.settings import get_cheap_llm_settings
+from greedy_token.llm_invoke import invoke_profile
 
 
 DUAL_VERSION_RULE = """
@@ -54,30 +54,42 @@ def compress_heuristic(text: str) -> str:
     return short
 
 
-def compress_ollama_detail(text: str) -> tuple[str, int | None]:
-    settings = get_cheap_llm_settings()
+def compress_ollama_detail(text: str, *, root: Path | None = None) -> tuple[str, int | None]:
+    """Compress via the ``compress`` profile — guarded by the spend guard."""
     system = (
         "Сожми промпт для Cursor-агента. "
         + DUAL_VERSION_RULE
         + " Ответ — только короткий промпт, без пояснений."
     )
-    return cheap_llm_chat(settings, system=system, user=text.strip())
+    result = invoke_profile(
+        "compress",
+        system=system,
+        user=text.strip(),
+        root=root,
+        allow_escalate=False,
+        log=False,
+    )
+    return result.text, result.eval_tokens
 
 
-def compress_ollama(text: str) -> str:
-    content, _ = compress_ollama_detail(text)
+def compress_ollama(text: str, *, root: Path | None = None) -> str:
+    content, _ = compress_ollama_detail(text, root=root)
     return content
 
 
-def compress_prompt(text: str, *, use_ollama: bool = False) -> str:
-    short, _ = compress_prompt_detail(text, use_ollama=use_ollama)
+def compress_prompt(
+    text: str, *, use_ollama: bool = False, root: Path | None = None
+) -> str:
+    short, _ = compress_prompt_detail(text, use_ollama=use_ollama, root=root)
     return short
 
 
-def compress_prompt_detail(text: str, *, use_ollama: bool = False) -> tuple[str, int | None]:
+def compress_prompt_detail(
+    text: str, *, use_ollama: bool = False, root: Path | None = None
+) -> tuple[str, int | None]:
     if use_ollama:
         try:
-            return compress_ollama_detail(text)
+            return compress_ollama_detail(text, root=root)
         except Exception as exc:
             fallback = compress_heuristic(text)
             return f"# Ollama failed ({exc}); heuristic fallback:\n\n{fallback}", None
