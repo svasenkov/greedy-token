@@ -43,6 +43,7 @@ from greedy_token.usage import (
     load_events,
     log_path,
     maybe_append_event,
+    new_operation_id,
     parse_since,
 )
 from greedy_token.wrappers import (
@@ -83,6 +84,9 @@ def cmd_route(args: argparse.Namespace) -> int:
             decision=decision,
             tier_scan=tier_scan,
             duration_ms=duration_ms,
+            # Advice: nothing was executed, so nothing was saved yet.
+            executed=False,
+            operation_id=new_operation_id(),
         ),
     )
     return 0
@@ -104,6 +108,8 @@ def cmd_estimate(args: argparse.Namespace) -> int:
             decision=estimate.decision,
             tier_scan=tier_scan,
             duration_ms=duration_ms,
+            executed=False,
+            operation_id=new_operation_id(),
         ),
     )
     return 0
@@ -128,7 +134,8 @@ def cmd_run(args: argparse.Namespace) -> int:
             print("\n(fallback: rg → RAG)")
             used_rag_fallback = True
         code = result.exit_code
-        executed = True
+        # --execute is a request; only the run result proves a start.
+        executed = result.started
     else:
         print(plan.dry_run_output)
         if plan.command:
@@ -137,6 +144,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             else:
                 print("\n(not read-only — dry-run only)")
     duration_ms = int((time.perf_counter() - t0) * 1000)
+    operation_id = new_operation_id()
     maybe_append_event(
         args,
         build_route_event(
@@ -146,20 +154,29 @@ def cmd_run(args: argparse.Namespace) -> int:
             decision=decision,
             duration_ms=duration_ms,
             executed=executed,
+            execution_requested=args.execute,
+            # plan_run already ruled on this route; no second trust check.
+            authorized=plan.executable if args.execute else None,
             outcome_success=(code == 0) if executed else None,
+            operation_id=operation_id,
         ),
     )
-    if executed:
-        outcome = (
-            "escalated"
-            if decision.target == "cursor"
-            else ("success" if code == 0 else "failure")
-        )
+    if args.execute:
         layer = (
             "escalation"
             if decision.target == "cursor"
             else ("retrieval" if used_rag_fallback or decision.target == "rag" else "executor")
         )
+        if decision.target == "cursor":
+            outcome = "escalated"
+        elif executed:
+            outcome = "success" if code == 0 else "failure"
+        elif code == 0:
+            # Requested, never launched, nothing reported a failure: no
+            # observation to turn into success.
+            outcome = "unknown"
+        else:
+            outcome = "failure"  # refused before the executor started
         maybe_append_event(
             args,
             build_outcome_event(
@@ -173,6 +190,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                 retries=0,
                 escalations=["tool->rag"] if used_rag_fallback else [],
                 exit_code=code,
+                operation_id=operation_id,
             ),
         )
     return code
@@ -332,6 +350,7 @@ def cmd_rag(args: argparse.Namespace) -> int:
         est_tokens=est_tokens,
         rationale="RAG lookup via greedy-token rag",
     )
+    operation_id = new_operation_id()
     maybe_append_event(
         args,
         build_route_event(
@@ -343,7 +362,10 @@ def cmd_rag(args: argparse.Namespace) -> int:
             duration_ms=duration_ms,
             rag_hits=len(hits),
             est_tokens_override=est_tokens,
+            # The retrieval itself ran; hits decide whether it delivered.
+            executed=True,
             outcome_success=bool(hits),
+            operation_id=operation_id,
         ),
     )
     maybe_append_event(
@@ -356,6 +378,7 @@ def cmd_rag(args: argparse.Namespace) -> int:
             layer="retrieval",
             duration_ms=duration_ms,
             exit_code=0,
+            operation_id=operation_id,
         ),
     )
     return 0
@@ -386,6 +409,7 @@ def cmd_compress(args: argparse.Namespace) -> int:
         use_ollama=args.ollama,
         duration_ms=duration_ms,
         eval_tokens=eval_tokens,
+        operation_id=new_operation_id(),
     )
     maybe_append_event(args, event)
     return 0
@@ -479,6 +503,7 @@ def cmd_scripts(args: argparse.Namespace) -> int:
             else:
                 print("\n(not read-only — dry-run only)")
         duration_ms = int((time.perf_counter() - t0) * 1000)
+        operation_id = new_operation_id()
         maybe_append_event(
             args,
             build_script_event(
@@ -487,6 +512,7 @@ def cmd_scripts(args: argparse.Namespace) -> int:
                 duration_ms=duration_ms,
                 executed=executed,
                 outcome_success=(code == 0) if executed else None,
+                operation_id=operation_id,
             ),
         )
         if executed:
@@ -512,6 +538,7 @@ def cmd_scripts(args: argparse.Namespace) -> int:
                     layer="executor",
                     duration_ms=duration_ms,
                     exit_code=code,
+                    operation_id=operation_id,
                 ),
             )
         return code
@@ -654,6 +681,8 @@ def cmd_pipeline(args: argparse.Namespace) -> int:
         execute=args.execute,
         stop_on_error=not args.continue_on_error,
         profile=getattr(args, "profile", "") or "",
+        # --no-log must reach the nested per-step emitters too.
+        log=not getattr(args, "no_log", False),
     )
     print(format_pipeline_response(result, root))
     return 0 if result.all_ok else 1
@@ -996,6 +1025,7 @@ def cmd_override(args: argparse.Namespace) -> int:
         prior_usage_ts=args.prior_usage_ts,
         window_sec=args.window_sec,
         tags=_parse_tags(args.tags),
+        operation_id=new_operation_id(),
     )
     maybe_append_event(args, event)
     if args.json:

@@ -105,6 +105,9 @@ def greedy_token_route(task: str) -> str:
         root=root,
         duration_ms=duration_ms,
         executor_sub=estimate.decision.target if estimate.decision.target != "tool" else "rg",
+        # Advice only: this tool never runs the tier it recommends.
+        executed=False,
+        decision=estimate.decision,
     )
 
 

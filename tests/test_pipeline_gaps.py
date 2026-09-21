@@ -811,11 +811,12 @@ def test_log_pipeline_exact(minimal_workspace: Path, monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(pl, "build_route_event", fake_build)
     monkeypatch.setattr(pl, "append_event", lambda ev: events.append(ev))
 
-    pl._log_pipeline(result, minimal_workspace)
+    pl._log_pipeline(result, minimal_workspace, parent_operation_id="op-parent")
 
     with allure.step("only the executed step is logged (kills continue→break and filter flip)"):
         assert len(calls) == 1
-        assert len(events) == 1
+        # request + outcome records for one step operation
+        assert len(events) == 2
     c = calls[0]
     with allure.step("build_route_event top-level kwargs are exact"):
         assert c["cmd"] == "pipeline"
@@ -825,6 +826,9 @@ def test_log_pipeline_exact(minimal_workspace: Path, monkeypatch: pytest.MonkeyP
         assert c["executed"] is True
         assert c["est_tokens_override"] == 13
         assert c["tier_scan"] == []
+        assert c["outcome_success"] is True
+        assert c["operation_id"]
+        assert c["parent_operation_id"] == "op-parent"
     with allure.step("the RouteDecision carries the exact per-step fields"):
         d = c["decision"]
         assert d.target == "python"
@@ -947,7 +951,11 @@ def test_run_pipeline_wiring(minimal_workspace: Path, monkeypatch: pytest.Monkey
     monkeypatch.setattr(pl, "parse_pipeline", fake_parse)
     monkeypatch.setattr(pl, "find_workspace_root", lambda: Path("/should/not/be/used"))
     log: dict = {}
-    monkeypatch.setattr(pl, "_log_pipeline", lambda result, root: log.update(root=root))
+
+    def fake_log(result, root, *, parent_operation_id):
+        log.update(root=root, parent_operation_id=parent_operation_id)
+
+    monkeypatch.setattr(pl, "_log_pipeline", fake_log)
     rs: list = []
 
     def fake_run_step(step, root, *, execute, prior_search_output=None):
@@ -1181,3 +1189,75 @@ def test_resolve_under_root_hint(minimal_workspace: Path) -> None:
         with pytest.raises(ValueError) as e2:
             pl._resolve_under_root("../../../../etc/passwd", minimal_workspace)
         assert "../../../../etc/passwd" in str(e2.value)
+
+
+@allure.title("result_status: empty rag/search results are observed as empty, not produced")
+def test_step_result_status_empty(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    with allure.step("rag with no hits → result_status='empty'"):
+        monkeypatch.setattr(pl, "search_rag", lambda q, r, limit: [])
+        monkeypatch.setattr(pl, "format_hits", lambda q, h: f"No RAG hits for: {q}")
+        monkeypatch.setattr(pl, "_estimate_step_tokens", lambda s, o, r: 5)
+        sr = pl._run_step(_step("rag", tier="rag", args="nope"), minimal_workspace, execute=True)
+        assert sr.executed is True
+        assert sr.ok is True
+        assert sr.result_status == pl.RESULT_EMPTY
+        assert pl.step_delivered(sr) is False
+
+    with allure.step("search with no hits → result_status='empty'"):
+        monkeypatch.setattr(
+            pl, "search_code",
+            lambda *a, **k: SearchResult(text="No matches", engine="rg", hit_count=0),
+        )
+        sr2 = pl._run_step(_step("search", tier="tool", args="nope\t"), minimal_workspace, execute=True)
+        assert sr2.result_status == pl.RESULT_EMPTY
+        assert pl.step_delivered(sr2) is False
+
+    with allure.step("search with hits → produced; dry-run → not evaluated"):
+        monkeypatch.setattr(
+            pl, "search_code",
+            lambda *a, **k: SearchResult(text="hit", engine="rg", hit_count=2),
+        )
+        sr3 = pl._run_step(_step("search", tier="tool", args="q\t"), minimal_workspace, execute=True)
+        assert sr3.result_status == pl.RESULT_PRODUCED
+        assert pl.step_delivered(sr3) is True
+        dry = pl._run_step(_step("search", tier="tool", args="q\t"), minimal_workspace, execute=False)
+        assert dry.result_status == pl.RESULT_NOT_EVALUATED
+        assert pl.step_delivered(dry) is False
+
+
+@allure.title("run_pipeline(log=False) suppresses telemetry even with logging enabled")
+def test_run_pipeline_log_false(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    import json
+
+    log = tmp_path / "usage.jsonl"
+    monkeypatch.setenv("GREEDY_TOKEN_LOG", str(log))
+    monkeypatch.setattr(pl, "search_rag", lambda q, r, limit: [])
+    monkeypatch.setattr(pl, "format_hits", lambda q, h: "none")
+
+    result = pl.run_pipeline("rag nope", minimal_workspace, execute=True, log=False)
+    assert result.steps[0].executed is True
+    assert not log.exists()
+
+    with allure.step("log=True writes correlated request/outcome with failure outcome"):
+        result2 = pl.run_pipeline("rag nope", minimal_workspace, execute=True, log=True)
+        events = [json.loads(l) for l in log.read_text(encoding="utf-8").splitlines()]
+        assert len(events) == 2
+        assert events[0]["operation_id"] == events[1]["operation_id"]
+        assert events[0]["parent_operation_id"]
+        assert events[0]["cursor_saved"] == 0
+        assert events[1]["outcome"] == "failure"
+        assert events[1]["outcome_layer"] == "pipeline"
+
+
+@allure.title("compute_step_savings: empty-result step claims no savings")
+def test_step_savings_empty_result(minimal_workspace: Path) -> None:
+    sr = _footer_sr("rag", "rag", result_status=pl.RESULT_EMPTY)
+    rows = pl.compute_step_savings(PipelineResult(task="t", steps=[sr]), minimal_workspace)
+    assert rows[0].saved == 0
+    assert rows[0].billing == "empty result — no savings claimed"
+    # Displayed status is honest too: the step ran but delivered nothing.
+    assert "EMPTY" in pl.format_pipeline_body(PipelineResult(task="t", steps=[sr]))
+    footer = pl.format_pipeline_footer(
+        PipelineResult(task="t", steps=[sr]), minimal_workspace
+    )
+    assert "EMPTY" in footer

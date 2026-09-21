@@ -24,7 +24,12 @@ from greedy_token.rag_search import RagHit
 from greedy_token.router import RouteDecision, route_task_all_tiers
 from greedy_token.settings import FooterStyle, get_cheap_llm_settings, get_footer_settings
 from greedy_token.tokens import count_tokens
-from greedy_token.usage import append_event, build_outcome_event, build_route_event
+from greedy_token.usage import (
+    append_event,
+    build_outcome_event,
+    build_route_event,
+    new_operation_id,
+)
 from greedy_token.wrappers import ollama_available
 
 FooterStyleArg = Literal["compact", "markdown", "full"] | None
@@ -203,6 +208,9 @@ class ToolFooterContext:
     time_saved: int | None
     time_source: str
     task_success: bool | None = None
+    # Non-empty only when this call did not execute the tier it describes; the
+    # renderers print it next to a zero "saved" instead of branching.
+    saved_note: str = ""
 
 
 def _cheap_billing_note(root: Path | None = None) -> str:
@@ -248,15 +256,21 @@ def _build_tool_footer_context(
     rag_hits: int | None = None,
     ollama_eval_tokens: int | None = None,
     task_success: bool | None = None,
+    executed: bool = True,
 ) -> ToolFooterContext:
     breakdown = cursor_baseline_breakdown(root, task)
     baseline = breakdown.total
     saved = cursor_saved_for(root, task, est_tokens, tier)
-    if task_success is False:
-        saved = 0
     baseline_ms = naive_agent_ms(baseline)
     saved_ms = time_saved_ms(baseline, duration_ms, tier)
-    if task_success is False:
+    saved_note = ""
+    if not executed:
+        # A recommendation earns nothing: keep the figure as a potential.
+        saved_note = f"  (not executed — potential ~{saved:,} if run)"
+        saved = 0
+        saved_ms = None
+    elif task_success is False:
+        saved = 0
         saved_ms = None
     time_source = get_time_baseline_settings().source
     sub = executor_sub or tier
@@ -285,6 +299,7 @@ def _build_tool_footer_context(
         time_saved=saved_ms,
         time_source=time_source,
         task_success=task_success,
+        saved_note=saved_note,
     )
 
 
@@ -307,7 +322,7 @@ def _format_tool_footer_compact(ctx: ToolFooterContext) -> str:
         "",
         "---",
         f"> **Greedy token** · `{ctx.executor_sub}`{duration} · saved **~{ctx.saved:,}**"
-        f"{time_saved} (baseline: {ctx.breakdown.source})",
+        f"{ctx.saved_note}{time_saved} (baseline: {ctx.breakdown.source})",
         f"> spent ~{ctx.est_tokens:,} · naive ~{ctx.baseline:,} · {ctx.billing_short}{route}",
     ]
     lines.extend(extras)
@@ -342,8 +357,8 @@ def _format_tool_footer_markdown(ctx: ToolFooterContext) -> str:
             f"| spent | ~{ctx.est_tokens:,} | {spent_time} |",
             f"| naive agent chat ({ctx.breakdown.source}) | ~{ctx.baseline:,} | "
             f"~{format_duration_short(ctx.baseline_ms)} ({ctx.time_source}) |",
-            f"| **saved** (baseline: {ctx.breakdown.source}) | **~{ctx.saved:,}** | "
-            f"**~{time_saved}** |",
+            f"| **saved** (baseline: {ctx.breakdown.source}){ctx.saved_note} | "
+            f"**~{ctx.saved:,}** | **~{time_saved}** |",
             "",
             f"{ctx.billing_short}{route}",
             "---",
@@ -420,6 +435,8 @@ def _format_tool_footer_full(ctx: ToolFooterContext) -> str:
             source=ctx.breakdown.source,
         )
     )
+    if ctx.saved_note:
+        lines.append(f"  Saved note:      {ctx.saved_note.strip()}")
     if ctx.time_saved is not None:
         lines.append(
             f"  Time saved:      ~{format_duration_short(ctx.time_saved)}"
@@ -451,6 +468,7 @@ def format_tool_footer(
     rag_hits: int | None = None,
     ollama_eval_tokens: int | None = None,
     task_success: bool | None = None,
+    executed: bool = True,
     style: FooterStyleArg = None,
 ) -> str:
     ctx = _build_tool_footer_context(
@@ -464,6 +482,7 @@ def format_tool_footer(
         rag_hits=rag_hits,
         ollama_eval_tokens=ollama_eval_tokens,
         task_success=task_success,
+        executed=executed,
     )
     resolved = _resolve_footer_style(root, style)
     if resolved == "full":
@@ -479,12 +498,15 @@ def log_tool_usage(
     task: str,
     root: Path,
     decision: RouteDecision,
+    executed: bool,
     est_tokens_override: int | None = None,
     rag_hits: int | None = None,
     duration_ms: int | None = None,
     tier_scan: list[dict] | None = None,
     outcome_success: bool | None = None,
+    operation_id: str | None = None,
 ) -> None:
+    """Log one tool call. ``executed`` is the caller's observed fact, never a default."""
     append_event(
         build_route_event(
             cmd=cmd,
@@ -494,9 +516,10 @@ def log_tool_usage(
             est_tokens_override=est_tokens_override,
             rag_hits=rag_hits,
             duration_ms=duration_ms,
-            executed=True,
+            executed=executed,
             tier_scan=tier_scan,
             outcome_success=outcome_success,
+            operation_id=operation_id,
         )
     )
 
@@ -519,7 +542,16 @@ def wrap_mcp_response(
     attempts: int = 1,
     retries: int = 0,
     escalations: list[str] | None = None,
+    executed: bool = True,
+    decision: RouteDecision | None = None,
 ) -> str:
+    """Append the footer and log the call.
+
+    ``executed`` must be False for tools that only recommend an executor — the
+    tool answering successfully says nothing about the recommended work. Pass the
+    real ``decision`` when one exists so its score, matched patterns, and
+    calibration survive into telemetry instead of a fixed-confidence stand-in.
+    """
     root = root or find_workspace_root()
     task_success = None if outcome is None else outcome == "success"
     footer = format_tool_footer(
@@ -533,9 +565,11 @@ def wrap_mcp_response(
         rag_hits=rag_hits,
         ollama_eval_tokens=ollama_eval_tokens,
         task_success=task_success,
+        executed=executed,
     )
     if log:
-        decision = RouteDecision(
+        logged_decision = decision or RouteDecision(
+            # Direct tool invocation: the tier was given, not scored.
             target=tier,
             route_id=route_id or f"mcp-{tier}",
             confidence=1.0,
@@ -546,23 +580,26 @@ def wrap_mcp_response(
             domains=[],
             est_tokens=est_tokens,
         )
+        operation_id = new_operation_id()
         log_tool_usage(
             cmd="mcp",
             task=task,
             root=root,
-            decision=decision,
+            decision=logged_decision,
+            executed=executed,
             est_tokens_override=est_tokens,
             rag_hits=rag_hits,
             duration_ms=duration_ms,
             tier_scan=[],
             outcome_success=task_success,
+            operation_id=operation_id,
         )
         if outcome is not None:
             append_event(
                 build_outcome_event(
                     task=task,
                     root=root,
-                    decision=decision,
+                    decision=logged_decision,
                     outcome=outcome,
                     layer=outcome_layer,
                     duration_ms=duration_ms,
@@ -570,6 +607,7 @@ def wrap_mcp_response(
                     retries=retries,
                     escalations=escalations,
                     exit_code=0 if outcome == "success" else 1,
+                    operation_id=operation_id,
                 )
             )
     return body.rstrip() + footer

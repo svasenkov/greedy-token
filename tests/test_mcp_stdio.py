@@ -225,3 +225,99 @@ def test_mcp_stdio_crystallize_l3_flow(
     with allure.step("Verify reject output"):
         assert "Rejected" in reject_text
         assert "route removed=True" in reject_text
+
+
+@allure.story("Telemetry contract")
+@allure.title("MCP stdio route logs a recommendation, not an execution")
+def test_mcp_stdio_route_telemetry_is_recommendation(
+    minimal_workspace: Path, tmp_path: Path
+) -> None:
+    import json
+
+    log = tmp_path / "usage.jsonl"
+
+    async def _call(session):
+        return await session.call_tool("greedy_token_route", {"task": "git log"})
+
+    result = run_mcp(minimal_workspace, _call, log_path=log)
+    text = tool_text(result)
+    attach_text("route response", text)
+
+    assert log.is_file(), "expected a telemetry record"
+    events = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+    assert len(events) == 1
+    event = events[0]
+    attach_text("route event", json.dumps(event, indent=2))
+    with allure.step("recommendation: no execution, no credited savings"):
+        assert event["phase"] == "recommended"
+        assert event["executor"]["executed"] is False
+        assert event["cursor_saved"] == 0
+        assert event["savings_eligible"] is False
+        assert event["savings_exclusion"] == "not_executed"
+        assert event["operation_id"]
+        assert "time_saved_ms" not in event
+        assert "outcome" not in event
+    with allure.step("routing evidence is the real decision's, not a synthetic one"):
+        assert event["route_id"] == "python-git-recent"
+        assert event["confidence"] < 1.0
+        assert event["confidence_source"] == "formula"
+        assert event["matched"]
+        # Potential estimate kept separate, never as earned savings.
+        assert event["cursor_saved_potential"] > 0
+    with allure.step("footer does not claim the saved estimate"):
+        assert "not executed" in text
+
+
+@allure.story("Telemetry contract")
+@allure.title("MCP stdio with GREEDY_TOKEN_LOG=0 writes no usage records")
+def test_mcp_stdio_log_zero_writes_nothing(
+    minimal_workspace: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    monkeypatch.setenv("HOME", str(fake_home))
+    monkeypatch.delenv("GREEDY_TOKEN_HOME", raising=False)
+    default_log = fake_home / ".greedy-token" / "usage.jsonl"
+
+    async def _call(session):
+        await session.call_tool("greedy_token_route", {"task": "git log"})
+        await session.call_tool("greedy_token_search", {"query": "baseUrl"})
+        return await session.call_tool(
+            "greedy_token_pipeline", {"task": "check-meta-sync", "execute": True}
+        )
+
+    # log_path=None → helper exports GREEDY_TOKEN_LOG=0 to the subprocess.
+    run_mcp(minimal_workspace, _call)
+    assert not default_log.exists()
+
+
+@allure.story("Telemetry contract")
+@allure.title("MCP stdio pipeline emits correlated request/outcome per executed step")
+def test_mcp_stdio_pipeline_operation_correlation(
+    minimal_workspace: Path, tmp_path: Path
+) -> None:
+    import json
+
+    log = tmp_path / "usage.jsonl"
+
+    async def _call(session):
+        return await session.call_tool(
+            "greedy_token_pipeline",
+            {"task": "rag zzzz-no-such-term", "execute": True},
+        )
+
+    run_mcp(minimal_workspace, _call, log_path=log)
+    events = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+    attach_text("pipeline events", json.dumps(events, indent=2))
+    assert len(events) == 2
+    request, outcome = events
+    with allure.step("one operation_id correlates request and outcome"):
+        assert request["operation_id"] == outcome["operation_id"]
+        assert request["operation_id"]
+        assert request["parent_operation_id"] == outcome["parent_operation_id"]
+        assert request["parent_operation_id"]
+    with allure.step("empty rag result is not a success and earns nothing"):
+        assert request["cursor_saved"] == 0
+        assert outcome["event"] == "route_outcome"
+        assert outcome["outcome"] == "failure"
+        assert outcome["outcome_layer"] == "pipeline"

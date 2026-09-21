@@ -24,6 +24,7 @@ def _run_cli(
     workspace: Path,
     extra_env: dict[str, str] | None = None,
     input_text: str | None = None,
+    no_log: bool = True,
 ) -> subprocess.CompletedProcess[str]:
     env = {
         **os.environ,
@@ -32,8 +33,9 @@ def _run_cli(
     }
     if extra_env:
         env.update(extra_env)
+    flag = ["--no-log"] if no_log else []
     return subprocess.run(
-        [sys.executable, "-m", "greedy_token", "--no-log", *args],
+        [sys.executable, "-m", "greedy_token", *flag, *args],
         capture_output=True,
         encoding="utf-8",
         env=env,
@@ -254,3 +256,129 @@ def test_cli_compress_stdin(minimal_workspace: Path) -> None:
     with allure.step("Verify compressed prompt retains baseUrl"):
         assert proc.returncode == 0
         assert "baseUrl" in proc.stdout
+
+
+@allure.story("Telemetry contract")
+@allure.title("CLI route advice logs a recommendation, not an execution")
+def test_cli_route_recommendation_telemetry(
+    tmp_path: Path, minimal_workspace: Path
+) -> None:
+    log_file = tmp_path / "usage.jsonl"
+    proc = _run_cli(
+        "route",
+        "git log",
+        workspace=minimal_workspace,
+        extra_env={"GREEDY_TOKEN_LOG": str(log_file)},
+        no_log=False,
+    )
+    attach_text("stdout", proc.stdout)
+    assert proc.returncode == 0
+    events = [
+        json.loads(line) for line in log_file.read_text(encoding="utf-8").splitlines()
+    ]
+    assert len(events) == 1
+    event = events[0]
+    attach_json("route event", event)
+    with allure.step("recommendation is not execution"):
+        assert event["cmd"] == "route"
+        assert event["phase"] == "recommended"
+        assert event["executor"]["executed"] is False
+        assert event["cursor_saved"] == 0
+        assert event["savings_exclusion"] == "not_executed"
+        assert event["operation_id"]
+
+
+@allure.story("Telemetry contract")
+@allure.title("CLI run --execute refusal: phase=planned, authorized=false, failure outcome")
+def test_cli_run_refusal_telemetry(
+    tmp_path: Path, minimal_workspace: Path
+) -> None:
+    log_file = tmp_path / "usage.jsonl"
+    # 'git log' routes to python-git-recent; the script is absent in the
+    # minimal workspace, so the trust boundary refuses before start.
+    proc = _run_cli(
+        "run",
+        "git log",
+        "--execute",
+        workspace=minimal_workspace,
+        extra_env={"GREEDY_TOKEN_LOG": str(log_file)},
+        no_log=False,
+    )
+    attach_text("stdout", proc.stdout)
+    assert "Refusing --execute" in proc.stdout
+    events = [
+        json.loads(line) for line in log_file.read_text(encoding="utf-8").splitlines()
+    ]
+    attach_json("refusal events", events)
+    assert len(events) == 2
+    request, outcome = events
+    with allure.step("refusal is not a start"):
+        assert request["phase"] == "planned"
+        assert request["executor"]["executed"] is False
+        assert request["authorized"] is False
+        assert request["cursor_saved"] == 0
+        assert "time_saved_ms" not in request
+    with allure.step("outcome correlates by operation_id"):
+        assert outcome["event"] == "route_outcome"
+        assert outcome["outcome"] == "failure"
+        assert outcome["operation_id"] == request["operation_id"]
+
+
+@allure.story("Telemetry contract")
+@allure.title("CLI --no-log pipeline writes nothing; LOG=0 writes nothing")
+def test_cli_pipeline_no_log(
+    tmp_path: Path, minimal_workspace: Path
+) -> None:
+    log_file = tmp_path / "usage.jsonl"
+    with allure.step("pipeline --execute under --no-log with explicit log path"):
+        proc = _run_cli(
+            "pipeline",
+            "check-meta-sync",
+            "--execute",
+            workspace=minimal_workspace,
+            extra_env={"GREEDY_TOKEN_LOG": str(log_file)},
+            no_log=True,
+        )
+        attach_text("stdout", proc.stdout)
+        assert proc.returncode == 0
+        assert not log_file.exists()
+    with allure.step("pipeline --execute under GREEDY_TOKEN_LOG=0"):
+        proc = _run_cli(
+            "pipeline",
+            "check-meta-sync",
+            "--execute",
+            workspace=minimal_workspace,
+            extra_env={"GREEDY_TOKEN_LOG": "0"},
+            no_log=False,
+        )
+        assert proc.returncode == 0
+        assert not log_file.exists()
+
+
+@allure.story("Telemetry contract")
+@allure.title("CLI pipeline empty rag result: failure outcome, zero savings, correlated ids")
+def test_cli_pipeline_empty_rag_telemetry(
+    tmp_path: Path, minimal_workspace: Path
+) -> None:
+    log_file = tmp_path / "usage.jsonl"
+    proc = _run_cli(
+        "pipeline",
+        "rag zzzz-no-such-term",
+        "--execute",
+        workspace=minimal_workspace,
+        extra_env={"GREEDY_TOKEN_LOG": str(log_file)},
+        no_log=False,
+    )
+    attach_text("stdout", proc.stdout)
+    events = [
+        json.loads(line) for line in log_file.read_text(encoding="utf-8").splitlines()
+    ]
+    attach_json("pipeline events", events)
+    assert len(events) == 2
+    request, outcome = events
+    assert request["operation_id"] == outcome["operation_id"]
+    assert request["parent_operation_id"]
+    assert request["cursor_saved"] == 0
+    assert outcome["outcome"] == "failure"
+    assert outcome["outcome_layer"] == "pipeline"
+    assert "no savings claimed" in proc.stdout

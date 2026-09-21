@@ -4,6 +4,7 @@ import json
 import os
 import re
 import sys
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -55,6 +56,16 @@ VALID_OUTCOMES = frozenset({"success", "failure", "escalated", "unknown"})
 VALID_OUTCOME_LAYERS = frozenset(
     {"executor", "retrieval", "escalation", "agent", "pipeline"}
 )
+# How far one operation was observed to get. A recommendation is not an
+# execution, and a requested execution is not a started one; later phases are
+# claimed only from facts the emitting boundary actually saw.
+PHASE_RECOMMENDED = "recommended"  # advice computed; recommended executor not run
+PHASE_PLANNED = "planned"  # execution requested/planned, never started
+PHASE_EXECUTED = "executed"  # executor really ran (success is a separate fact)
+VALID_PHASES = frozenset({PHASE_RECOMMENDED, PHASE_PLANNED, PHASE_EXECUTED})
+# Why estimated savings were not credited to an operation.
+EXCLUSION_NOT_EXECUTED = "not_executed"
+EXCLUSION_TASK_FAILED = "task_failed"
 # usage-override.md: override_rate >= 0.3 over 7d -> disable / re-shadow.
 OVERRIDE_DISABLE_THRESHOLD = 0.3
 
@@ -66,6 +77,16 @@ def log_path() -> Path:
     if raw and raw not in ("0", "false", "off", "no"):
         return Path(raw).expanduser()
     return DEFAULT_LOG
+
+
+def new_operation_id() -> str:
+    """Opaque id correlating the request and the outcome records of ONE operation.
+
+    Created once by the caller that owns the operation and passed to every
+    builder for it; builders never mint their own, so a request/outcome pair can
+    never drift into looking like two operations.
+    """
+    return uuid.uuid4().hex
 
 
 def logging_enabled(*, no_log: bool = False) -> bool:
@@ -184,12 +205,30 @@ def build_route_event(
     cost_usd: float | None = None,
     model_billing: str | None = None,
     outcome_success: bool | None = None,
+    execution_requested: bool = False,
+    authorized: bool | None = None,
+    operation_id: str | None = None,
+    parent_operation_id: str | None = None,
 ) -> dict:
     baseline = cursor_baseline(root, task)
     est_tokens = est_tokens_override if est_tokens_override is not None else decision.est_tokens
-    saved = cursor_saved_for(root, task, est_tokens, decision.target)
-    if outcome_success is False:
-        saved = 0
+    # executed is a fact reported by the execution boundary: None means "never
+    # observed", which is not the same as "ran".
+    executed_fact = executed is True
+    if executed_fact:
+        phase = PHASE_EXECUTED
+    elif execution_requested:
+        phase = PHASE_PLANNED
+    else:
+        phase = PHASE_RECOMMENDED
+    potential_saved = cursor_saved_for(root, task, est_tokens, decision.target)
+    exclusion = ""
+    if not executed_fact:
+        # Advice, a plan, and a refused run have not saved anything yet.
+        exclusion = EXCLUSION_NOT_EXECUTED
+    elif outcome_success is False:
+        exclusion = EXCLUSION_TASK_FAILED
+    saved = 0 if exclusion else potential_saved
     counter = count_tokens(task)
     executor = executor_from_decision(decision, root)
     if rag_hits is not None:
@@ -215,7 +254,15 @@ def build_route_event(
         "token_counter_method": counter.method,
         "tier_scan": tier_scan if tier_scan is not None else build_tier_scan(task, root),
         "executor": executor,
+        "phase": phase,
     }
+    if operation_id:
+        event["operation_id"] = operation_id
+    if parent_operation_id:
+        event["parent_operation_id"] = parent_operation_id
+    if authorized is not None:
+        # Only when the execution boundary actually ruled on this operation.
+        event["authorized"] = authorized
     if decision.raw_score > 0 or decision.confidence_source != SOURCE_FORMULA:
         # Fallback ("none") and hardcoded ("fixed") decisions declare their
         # source too; a formula default on an unscored decision says nothing.
@@ -238,7 +285,7 @@ def build_route_event(
     if duration_ms is not None:
         event["duration_ms"] = duration_ms
         saved_ms = time_saved_ms(baseline, duration_ms, decision.target)
-        if saved_ms is not None:
+        if saved_ms is not None and not exclusion:
             event["time_saved_ms"] = saved_ms
     if profile:
         event["profile"] = profile
@@ -248,9 +295,13 @@ def build_route_event(
         event["billing_tier"] = billing_tier
     if cost_usd is not None:
         event["cost_usd"] = round(cost_usd, 6)
-    if outcome_success is False:
+    if exclusion:
         event["savings_eligible"] = False
-        event["savings_exclusion"] = "task_failed"
+        event["savings_exclusion"] = exclusion
+        if potential_saved:
+            # Kept visible as an estimate of what running it could save — never
+            # summed as earned savings.
+            event["cursor_saved_potential"] = potential_saved
     if llm_tags:
         event["tags"] = dict(llm_tags)
 
@@ -287,6 +338,8 @@ def build_outcome_event(
     retries: int = 0,
     escalations: list[str] | None = None,
     exit_code: int | None = None,
+    operation_id: str | None = None,
+    parent_operation_id: str | None = None,
 ) -> dict:
     """Build an explicit observed outcome; absence of this event means unknown."""
     if outcome not in VALID_OUTCOMES:
@@ -325,6 +378,11 @@ def build_outcome_event(
         "cursor_saved": 0,
         "savings_eligible": outcome == "success",
     }
+    if operation_id:
+        # Same id as the request record: two records, one operation.
+        event["operation_id"] = operation_id
+    if parent_operation_id:
+        event["parent_operation_id"] = parent_operation_id
     calibration_segment = getattr(decision, "calibration_segment", "")
     if calibration_segment:
         event["calibration_segment"] = calibration_segment
@@ -342,10 +400,18 @@ def build_script_event(
     duration_ms: int | None = None,
     executed: bool | None = None,
     outcome_success: bool | None = None,
+    operation_id: str | None = None,
 ) -> dict:
     task = f"scripts --run {script_id}"
     baseline = cursor_baseline(root, task)
     rid = wrapper_route_id(script_id)
+    executed_fact = executed is True
+    exclusion = ""
+    if not executed_fact:
+        # A printed command (dry-run) has run nothing.
+        exclusion = EXCLUSION_NOT_EXECUTED
+    elif outcome_success is False:
+        exclusion = EXCLUSION_TASK_FAILED
     event: dict = {
         "v": SCHEMA_VERSION,
         "ts": _utc_now_iso(),
@@ -358,22 +424,28 @@ def build_script_event(
         "confidence_source": SOURCE_FIXED,
         "est_tokens": 0,
         "cursor_baseline": baseline,
-        "cursor_saved": 0 if outcome_success is False else baseline,
+        "cursor_saved": 0 if exclusion else baseline,
         "token_counter_method": count_tokens(task).method,
         "tier_scan": [],
         "executor": {"kind": "script", "script_id": script_id},
+        # `scripts --run` always names a script, so the floor is "planned".
+        "phase": PHASE_EXECUTED if executed_fact else PHASE_PLANNED,
     }
+    if operation_id:
+        event["operation_id"] = operation_id
     if executed is not None:
         event["executor"]["executed"] = executed
-    if outcome_success is False:
+    if exclusion:
         event["savings_eligible"] = False
-        event["savings_exclusion"] = "task_failed"
+        event["savings_exclusion"] = exclusion
+        if baseline:
+            event["cursor_saved_potential"] = baseline
     baseline_ms = naive_agent_ms(baseline)
     event["cursor_baseline_ms"] = baseline_ms
     if duration_ms is not None:
         event["duration_ms"] = duration_ms
         saved_ms = time_saved_ms(baseline, duration_ms, "python")
-        if saved_ms is not None:
+        if saved_ms is not None and not exclusion:
             event["time_saved_ms"] = saved_ms
     return event
 
@@ -389,6 +461,7 @@ def build_script_override_event(
     prior_usage_ts: str | None = None,
     window_sec: int | None = None,
     tags: dict[str, str] | None = None,
+    operation_id: str | None = None,
 ) -> dict:
     event: dict = {
         "v": SCHEMA_VERSION,
@@ -410,6 +483,8 @@ def build_script_override_event(
         },
         "meta": {"reason": reason},
     }
+    if operation_id:
+        event["operation_id"] = operation_id
     if crystal_id:
         event["crystal_id"] = crystal_id
         event["route_id"] = crystal_id
@@ -500,6 +575,7 @@ def maybe_emit_auto_script_override(event: dict, *, path: Path) -> None:
         prior_usage_ts=prior.get("ts"),
         window_sec=OVERRIDE_WINDOW_SEC,
         tags=tags,
+        operation_id=new_operation_id(),
     )
     append_event(override, path=path, emit_auto_override=False)
 
@@ -511,6 +587,7 @@ def build_compress_event(
     use_ollama: bool,
     duration_ms: int | None = None,
     eval_tokens: int | None = None,
+    operation_id: str | None = None,
 ) -> dict:
     before = count_tokens(text)
     after = count_tokens(short)
@@ -537,7 +614,11 @@ def build_compress_event(
         "tokens_before": before.tokens,
         "tokens_after": after.tokens,
         "compressor": compressor,
+        # The compressor itself is the executor, and it has already run.
+        "phase": PHASE_EXECUTED,
     }
+    if operation_id:
+        event["operation_id"] = operation_id
     tier = event["selected_tier"]
     baseline_ms = naive_agent_ms(before.tokens)
     event["cursor_baseline_ms"] = baseline_ms
@@ -619,6 +700,10 @@ def append_event(
     path: Path | None = None,
     emit_auto_override: bool = True,
 ) -> None:
+    # The opt-out outranks any single emitter: direct callers and explicit paths
+    # included. Checked before any directory, rotation, or file work.
+    if not logging_enabled():
+        return
     target = path or log_path()
     tag = env_tag()
     if tag and "tag" not in event:
@@ -733,6 +818,8 @@ class TierStats:
 @dataclass
 class ReportSummary:
     events: int = 0
+    operations: int = 0
+    outcome_records: int = 0
     skipped_lines: int = 0
     since: str | None = None
     by_tier: dict[str, TierStats] = field(default_factory=dict)
@@ -747,6 +834,8 @@ class ReportSummary:
         time_settings = get_time_baseline_settings()
         return {
             "events": self.events,
+            "operations": self.operations,
+            "outcome_records": self.outcome_records,
             "skipped_lines": self.skipped_lines,
             "since": self.since,
             "baseline": {
@@ -889,8 +978,34 @@ def quality_metrics(events: list[dict], *, since_label: str | None = None) -> di
     }
 
 
+def count_operations(events: list[dict]) -> int:
+    """Distinct operations behind the records — a request/outcome pair is one.
+
+    Counted from request records only: an outcome shares its operation_id with
+    its request, so counting both would inflate nothing but also cannot be used
+    to recover correlation that legacy rows never carried. Records without an
+    operation_id (pre-contract logs) count as one operation each, because their
+    correlation was never recorded and must not be invented.
+    """
+    ids: set[str] = set()
+    unlabelled = 0
+    for event in events:
+        if event.get("event") in (OUTCOME_EVENT, OVERRIDE_EVENT):
+            continue
+        operation_id = event.get("operation_id")
+        if isinstance(operation_id, str) and operation_id:
+            ids.add(operation_id)
+            continue
+        unlabelled += 1
+    return len(ids) + unlabelled
+
+
 def aggregate_events(events: list[dict], *, since_label: str | None = None) -> ReportSummary:
     summary = ReportSummary(events=len(events), since=since_label)
+    summary.operations = count_operations(events)
+    summary.outcome_records = sum(
+        1 for event in events if event.get("event") == OUTCOME_EVENT
+    )
     summary.quality = quality_metrics(events, since_label=since_label)
     summary.quality["override_hold_calibration"] = calibration_report(events)
     summary.quality["outcome_calibration"] = outcome_calibration_report(events)
@@ -943,7 +1058,8 @@ def format_report(summary: ReportSummary) -> str:
     window = f" (since {summary.since})" if summary.since else ""
     lines = [
         f"== greedy-token usage{window} ==",
-        f"Events: {summary.events}",
+        f"Events: {summary.events}"
+        f"  (operations {summary.operations} · outcome records {summary.outcome_records})",
         "",
         "By tier:",
         f"  {'tier':<10} {'count':>6} {'est_tokens':>12} {'saved_vs_cursor':>16} {'time_saved':>12}",

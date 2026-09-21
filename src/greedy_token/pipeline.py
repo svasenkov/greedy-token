@@ -38,7 +38,12 @@ from greedy_token.settings import (
 from greedy_token.model_select import resolve_model, apply_model_env
 from greedy_token.tokens import count_tokens
 from greedy_token.tool_paths import SCRIPT_TIMEOUT
-from greedy_token.usage import append_event, build_route_event
+from greedy_token.usage import (
+    append_event,
+    build_outcome_event,
+    build_route_event,
+    new_operation_id,
+)
 from greedy_token.subprocess_safe import (
     UnsafeCommandError,
     format_invocation,
@@ -47,6 +52,11 @@ from greedy_token.subprocess_safe import (
 from greedy_token.wrappers import WRAPPERS, ollama_available, resolve_wrapper_invocation
 
 PIPELINE_SPLIT = re.compile(r"\s+then\s+|\s*→\s*|\s*->\s*|\s*;\s*", re.IGNORECASE)
+
+# Observed result of a step, for steps whose result contract we can check.
+RESULT_NOT_EVALUATED = ""
+RESULT_PRODUCED = "produced"
+RESULT_EMPTY = "empty"
 
 # Safe to auto-run from MCP (read-only or stdout-only).
 PIPELINE_AUTO_RUN = frozenset(
@@ -85,6 +95,10 @@ class StepResult:
     est_tokens: int
     executed: bool
     engine: str = ""  # search: rg | python (from SearchResult.engine)
+    # Did the step deliver a usable result? Steps with a known result contract
+    # (search / rag / read-hits) say produced or empty; the rest stay
+    # RESULT_NOT_EVALUATED, because exit 0 alone is not a quality verdict.
+    result_status: str = ""
 
 
 @dataclass
@@ -126,6 +140,15 @@ def _executor_sub_for_step(sr: StepResult) -> str:
     return sr.step.tier
 
 
+def step_delivered(sr: StepResult) -> bool:
+    """Did the step run, succeed, and return something usable?
+
+    A search or RAG step that ran cleanly but matched nothing has delivered no
+    work, so it earns no savings and reports no successful outcome.
+    """
+    return sr.executed and sr.ok and sr.result_status != RESULT_EMPTY
+
+
 def compute_step_savings(result: PipelineResult, root: Path) -> list[StepSavingsRow]:
     rows: list[StepSavingsRow] = []
     for i, sr in enumerate(result.steps, 1):
@@ -139,6 +162,9 @@ def compute_step_savings(result: PipelineResult, root: Path) -> list[StepSavings
         elif not sr.ok:
             saved = 0
             billing = "failed — no savings claimed"
+        elif sr.result_status == RESULT_EMPTY:
+            saved = 0
+            billing = "empty result — no savings claimed"
         else:
             saved = max(0, baseline - spent)
             billing = spent_hint(sr.step.tier, spent, _executor_sub_for_step(sr))
@@ -538,6 +564,7 @@ def _run_read_hits(
             est_tokens=0,
             executed=True,
             engine="read-hits",
+            result_status=RESULT_EMPTY,
         )
     hits = parse_hit_lines(prior_search_output)
     if not hits:
@@ -550,6 +577,7 @@ def _run_read_hits(
             est_tokens=0,
             executed=True,
             engine="read-hits",
+            result_status=RESULT_EMPTY,
         )
     settings = get_search_settings(root)
     # "snippet" is the default, so it is not listed among the explicit overrides
@@ -580,6 +608,7 @@ def _run_read_hits(
         est_tokens=ctx_tokens,
         executed=True,
         engine="read-hits",
+        result_status=RESULT_PRODUCED,
     )
 
 
@@ -597,12 +626,14 @@ def _run_step(
         query, _, path = (step.args + "\t").partition("\t")
         path = path.strip() or None
         engine = ""
+        result_status = RESULT_NOT_EVALUATED
         if execute:
             # Raw hits only — enrichment is the dedicated read-hits step (or MCP context=).
             result = search_code(query, root, path=path, context="none")
             output = result.text
             engine = result.engine
             executed = True
+            result_status = RESULT_PRODUCED if result.hit_count else RESULT_EMPTY
         else:
             output = f"(dry-run) search {query!r}" + (f" in {path}" if path else "")
         duration_ms = int((time.perf_counter() - t0) * 1000)
@@ -616,6 +647,7 @@ def _run_step(
             est_tokens=est,
             executed=executed,
             engine=engine,
+            result_status=result_status,
         )
 
     if step.step_id == "read-hits":
@@ -624,10 +656,12 @@ def _run_step(
         )
 
     if step.step_id == "rag":
+        result_status = RESULT_NOT_EVALUATED
         if execute:
             # Prefer domain hints from prior search file paths when present
             hits = search_rag(step.args, root, limit=5)
             output = format_hits(step.args, hits)
+            result_status = RESULT_PRODUCED if hits else RESULT_EMPTY
             if prior_search_output:
                 from greedy_token.code_search import unique_hit_paths
 
@@ -650,6 +684,7 @@ def _run_step(
             duration_ms=duration_ms,
             est_tokens=est,
             executed=executed,
+            result_status=result_status,
         )
 
     if not step.command:
@@ -803,6 +838,7 @@ def run_pipeline(
     stop_on_error: bool = True,
     max_output_per_step: int = 4000,
     profile: str = "",
+    log: bool = True,
 ) -> PipelineResult:
     root = root or find_workspace_root()
     steps = parse_pipeline(task, profile=profile)
@@ -827,35 +863,65 @@ def run_pipeline(
             result.stopped_early = True
             break
 
-    if execute:
-        _log_pipeline(result, root)
+    if execute and log:
+        _log_pipeline(result, root, parent_operation_id=new_operation_id())
     return result
 
 
-def _log_pipeline(result: PipelineResult, root: Path) -> None:
+def _log_pipeline(
+    result: PipelineResult, root: Path, *, parent_operation_id: str
+) -> None:
+    """One request + one outcome record per executed step.
+
+    Every step gets its own operation_id correlated to the pipeline invocation
+    via parent_operation_id — steps are separate operations, the invocation is
+    not an extra billable record.
+    """
     for step_result in result.steps:
         if not step_result.executed:
             continue
+        step_operation_id = new_operation_id()
+        decision = RouteDecision(
+            target=step_result.step.tier,
+            route_id=f"pipeline-{step_result.step.step_id}",
+            confidence=1.0,
+            confidence_source=SOURCE_FIXED,
+            matched=[],
+            command=step_result.step.command,
+            note="",
+            domains=[],
+            est_tokens=step_result.est_tokens,
+        )
+        # ok=False is a failure; a contract-checked empty result is too. Steps
+        # without a result contract keep the exit-code verdict they had.
+        outcome_success = step_delivered(step_result)
+        task = f"{result.task} :: {step_result.step.label}"
         append_event(
             build_route_event(
                 cmd="pipeline",
-                task=f"{result.task} :: {step_result.step.label}",
+                task=task,
                 root=root,
-                decision=RouteDecision(
-                    target=step_result.step.tier,
-                    route_id=f"pipeline-{step_result.step.step_id}",
-                    confidence=1.0,
-                    confidence_source=SOURCE_FIXED,
-                    matched=[],
-                    command=step_result.step.command,
-                    note="",
-                    domains=[],
-                    est_tokens=step_result.est_tokens,
-                ),
+                decision=decision,
                 duration_ms=step_result.duration_ms,
                 executed=True,
                 est_tokens_override=step_result.est_tokens,
                 tier_scan=[],
+                outcome_success=outcome_success,
+                operation_id=step_operation_id,
+                parent_operation_id=parent_operation_id,
+            )
+        )
+        append_event(
+            build_outcome_event(
+                task=task,
+                root=root,
+                decision=decision,
+                outcome="success" if outcome_success else "failure",
+                layer="pipeline",
+                duration_ms=step_result.duration_ms,
+                exit_code=step_result.exit_code,
+                operation_id=step_operation_id,
+                parent_operation_id=parent_operation_id,
             )
         )
 
@@ -868,7 +934,10 @@ def format_pipeline_body(result: PipelineResult) -> str:
         "",
     ]
     for i, sr in enumerate(result.steps, 1):
-        status = "OK" if sr.ok else f"FAIL({sr.exit_code})"
+        if sr.ok and sr.executed and sr.result_status == RESULT_EMPTY:
+            status = "EMPTY"
+        else:
+            status = "OK" if sr.ok else f"FAIL({sr.exit_code})"
         mode = "ran" if sr.executed else "dry-run"
         lines.append(
             f"── Step {i}/{len(result.steps)}: {sr.step.label} "
@@ -895,7 +964,7 @@ def format_pipeline_footer(result: PipelineResult, root: Path) -> str:
     baseline = breakdown.total
     source = breakdown.source
     total_spent = result.total_est_tokens
-    any_success = any(sr.executed and sr.ok for sr in result.steps)
+    any_success = any(step_delivered(sr) for sr in result.steps)
     saved = max(0, baseline - total_spent) if any_success else 0
     llm = get_cheap_llm_settings(root)
     step_rows = compute_step_savings(result, root)
@@ -915,7 +984,10 @@ def format_pipeline_footer(result: PipelineResult, root: Path) -> str:
         f"  {'step':<28} {'tier':<8} {'ms':>6} {'tokens':>8}  status"
     )
     for sr in result.steps:
-        status = "OK" if sr.ok else "FAIL"
+        if sr.ok and sr.executed and sr.result_status == RESULT_EMPTY:
+            status = "EMPTY"
+        else:
+            status = "OK" if sr.ok else "FAIL"
         mode = "" if sr.executed else " (dry)"
         label = sr.step.step_id[:28]
         lines.append(

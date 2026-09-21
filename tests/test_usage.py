@@ -355,6 +355,7 @@ def test_failed_route_event_does_not_claim_savings(minimal_workspace: Path) -> N
         root=minimal_workspace,
         decision=decision,
         tier_scan=[],
+        executed=True,
         outcome_success=False,
     )
     assert event["cursor_saved"] == 0
@@ -1197,3 +1198,220 @@ def test_quality_metrics_empty_and_summary() -> None:
     text = format_report(summary)
     assert "Route quality" in text
 
+
+
+# ---------------------------------------------------------------------------
+# Telemetry contract (Step 1): phases, operation correlation, opt-out gate
+# ---------------------------------------------------------------------------
+
+
+@allure.story("Telemetry contract")
+@allure.title("Recommendation event: phase=recommended, no executed, no credited savings")
+def test_recommendation_event_contract(minimal_workspace: Path) -> None:
+    decision = RouteDecision(
+        target="python",
+        route_id="python-git-recent",
+        confidence=0.61,
+        confidence_source="formula",
+        raw_score=1.35,
+        matched=["git log"],
+        command=None,
+        note="",
+        domains=[],
+        est_tokens=100,
+    )
+    event = build_route_event(
+        cmd="route",
+        task="git log",
+        root=minimal_workspace,
+        decision=decision,
+        tier_scan=[],
+        executed=False,
+        operation_id="op-1",
+    )
+    assert event["phase"] == "recommended"
+    assert event["executor"]["executed"] is False
+    assert event["cursor_saved"] == 0
+    assert event["cursor_saved_potential"] > 0
+    assert event["savings_eligible"] is False
+    assert event["savings_exclusion"] == "not_executed"
+    assert "time_saved_ms" not in event
+    assert event["operation_id"] == "op-1"
+    # Routing evidence survives untouched.
+    assert event["confidence"] == 0.61
+    assert event["confidence_source"] == "formula"
+    assert event["raw_score"] == 1.35
+    assert event["matched"] == ["git log"]
+
+
+@allure.story("Telemetry contract")
+@allure.title("Executed event defaults to succeeded phase; outcome_success=False marks failed")
+def test_executed_event_phases(minimal_workspace: Path) -> None:
+    decision = RouteDecision(
+        target="tool", route_id="tool-rg", confidence=0.9,
+        matched=[], command=None, note="", domains=[],
+    )
+    ok = build_route_event(
+        cmd="run", task="t", root=minimal_workspace, decision=decision,
+        tier_scan=[], executed=True,
+    )
+    # The request record reports the furthest observed stage; the verdict lives
+    # in the route_outcome record and in savings eligibility.
+    assert ok["phase"] == "executed"
+    assert ok["cursor_saved"] > 0
+    # Eligible is the default; only exclusions are stamped.
+    assert "savings_exclusion" not in ok
+
+    failed = build_route_event(
+        cmd="run", task="t", root=minimal_workspace, decision=decision,
+        tier_scan=[], executed=True, outcome_success=False,
+    )
+    assert failed["phase"] == "executed"
+    assert failed["cursor_saved"] == 0
+    assert failed["cursor_saved_potential"] > 0
+    assert failed["savings_exclusion"] == "task_failed"
+    assert "time_saved_ms" not in failed
+
+
+@allure.story("Telemetry contract")
+@allure.title("Refused execution (planned, not started) claims no execution or savings")
+def test_refused_event_contract(minimal_workspace: Path) -> None:
+    decision = RouteDecision(
+        target="python", route_id="python-x", confidence=0.5,
+        matched=[], command="python x.py", note="", domains=[],
+    )
+    event = build_route_event(
+        cmd="run", task="t", root=minimal_workspace, decision=decision,
+        tier_scan=[], executed=False, authorized=False, execution_requested=True,
+    )
+    assert event["phase"] == "planned"
+    assert event["executor"]["executed"] is False
+    assert event["authorized"] is False
+    assert event["cursor_saved"] == 0
+    assert event["savings_eligible"] is False
+    assert "time_saved_ms" not in event
+
+
+@allure.story("Telemetry contract")
+@allure.title("Outcome event carries operation_id/parent and zero usage fields")
+def test_outcome_event_correlation(minimal_workspace: Path) -> None:
+    decision = RouteDecision(
+        target="tool", route_id="tool-rg", confidence=0.9,
+        matched=[], command=None, note="", domains=[],
+    )
+    event = build_outcome_event(
+        task="t", root=minimal_workspace, decision=decision,
+        outcome="success", layer="executor", exit_code=0,
+        operation_id="op-42", parent_operation_id="op-parent",
+    )
+    assert event["event"] == "route_outcome"
+    assert event["operation_id"] == "op-42"
+    assert event["parent_operation_id"] == "op-parent"
+    # Never double-counts spend or savings.
+    assert event["est_tokens"] == 0
+    assert event["cursor_saved"] == 0
+
+
+@allure.story("Telemetry contract")
+@allure.title("append_event honours GREEDY_TOKEN_LOG=0 even with an explicit path")
+def test_append_event_respects_env_optout(
+    log_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("GREEDY_TOKEN_LOG", "0")
+    append_event({"v": SCHEMA_VERSION, "cmd": "route"}, path=log_file)
+    assert not log_file.exists()
+
+
+@allure.story("Telemetry contract")
+@allure.title("append_event honours GREEDY_TOKEN_LOG=0 at the default path")
+def test_append_event_respects_env_optout_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    monkeypatch.setenv("HOME", str(fake_home))
+    monkeypatch.delenv("GREEDY_TOKEN_HOME", raising=False)
+    monkeypatch.setenv("GREEDY_TOKEN_LOG", "0")
+    append_event({"v": SCHEMA_VERSION, "cmd": "route"})
+    assert not (fake_home / ".greedy-token" / "usage.jsonl").exists()
+
+
+@allure.story("Telemetry contract")
+@allure.title("append_event writes when logging is enabled")
+def test_append_event_writes_when_enabled(
+    log_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("GREEDY_TOKEN_LOG", str(log_file))
+    append_event({"v": SCHEMA_VERSION, "cmd": "route"})
+    assert log_file.exists()
+    assert len(log_file.read_text(encoding="utf-8").splitlines()) == 1
+
+
+@allure.story("Telemetry contract")
+@allure.title("Request + outcome pair count as one operation; two calls stay separate")
+def test_aggregate_operations_dedup() -> None:
+    events = [
+        {"event": None, "operation_id": "op-A", "cursor_saved": 10, "est_tokens": 5},
+        {"event": "route_outcome", "operation_id": "op-A",
+         "cursor_saved": 0, "est_tokens": 0, "outcome": "success"},
+        {"event": None, "operation_id": "op-B", "cursor_saved": 10, "est_tokens": 5},
+        {"event": "route_outcome", "operation_id": "op-B",
+         "cursor_saved": 0, "est_tokens": 0, "outcome": "failure"},
+    ]
+    summary = aggregate_events(events, since_label="7d")
+    assert summary.operations == 2
+    assert summary.outcome_records == 2
+    assert summary.events == 4
+    d = summary.to_dict()
+    assert d["operations"] == 2
+    assert d["outcome_records"] == 2
+    # Savings only counted once — from the request record.
+    assert d["totals"]["saved_vs_cursor"] == 20
+
+
+@allure.story("Telemetry contract")
+@allure.title("Legacy records without operation_id still load and count")
+def test_aggregate_operations_legacy(log_file: Path) -> None:
+    events = [
+        {"v": SCHEMA_VERSION, "cmd": "route", "cursor_saved": 3, "est_tokens": 1},
+        {"v": SCHEMA_VERSION, "event": "route_outcome", "outcome": "success",
+         "cursor_saved": 0, "est_tokens": 0},
+    ]
+    for e in events:
+        append_event(e, path=log_file)
+    loaded, skipped = load_events(log_file)
+    assert skipped == 0
+    assert len(loaded) == 2
+    summary = aggregate_events(loaded, since_label="7d")
+    # Legacy request = 1 operation; legacy outcome is a terminal record, not a new op.
+    assert summary.operations == 1
+    assert summary.outcome_records == 1
+
+
+@allure.story("Telemetry contract")
+@allure.title("Outcome durations are not double-counted in aggregates")
+def test_outcome_durations_not_double_counted() -> None:
+    events = [
+        {"event": None, "operation_id": "op-A", "duration_ms": 100},
+        {"event": "route_outcome", "operation_id": "op-A",
+         "duration_ms": 100, "outcome": "success"},
+    ]
+    totals = aggregate_events(events, since_label="7d").to_dict()["totals"]
+    assert totals["duration_samples"] == 1
+    assert totals["duration_ms"] == 100
+
+
+@allure.story("Telemetry contract")
+@allure.title("Script event with zero baseline omits the potential-savings field")
+def test_script_event_zero_baseline_potential(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("greedy_token.usage.cursor_baseline", lambda *a, **k: 0)
+    event = build_script_event(
+        script_id="check-meta-sync",
+        root=minimal_workspace,
+        executed=False,
+    )
+    assert event["cursor_saved"] == 0
+    assert event["savings_eligible"] is False
+    assert "cursor_saved_potential" not in event

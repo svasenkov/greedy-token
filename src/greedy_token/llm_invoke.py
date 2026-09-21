@@ -20,7 +20,7 @@ from greedy_token.model_select import (
 )
 from greedy_token.spend_guard import check_metered_allowed, estimate_cost_usd
 from greedy_token.tokens import count_tokens
-from greedy_token.usage import append_event, build_route_event
+from greedy_token.usage import append_event, build_route_event, new_operation_id
 from greedy_token.router import RouteDecision
 
 
@@ -194,6 +194,7 @@ def invoke_profile(
                 billing_tier=result.tier_billing,
                 cost_usd=result.cost_usd,
                 model_billing=used.spec.billing,
+                operation_id=new_operation_id(),
             )
         )
     return result

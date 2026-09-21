@@ -144,9 +144,13 @@ def _operational_metrics(
     durations = [
         int(e["duration_ms"])
         for e in events
-        if isinstance(e.get("duration_ms"), (int, float)) and e.get("event") != "script_override"
+        if isinstance(e.get("duration_ms"), (int, float))
+        # An outcome repeats its request's duration; overrides have none.
+        and e.get("event") not in ("script_override", "route_outcome")
     ]
-    calls = max(1, summary.events)
+    # Per-task figures divide by operations, not records — a request and its
+    # outcome are one operation.
+    calls = max(1, summary.operations)
     totals = summary.to_dict()["totals"]
     saved_tokens = int(totals["saved_vs_cursor"])
     latency = {

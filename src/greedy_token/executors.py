@@ -41,12 +41,32 @@ class RunPlan:
     refusal_reason: str = ""
 
 
+@dataclass(frozen=True)
+class PlanRunResult:
+    """execute_plan result plus whether the executor was actually started.
+
+    Unpacks as the historical ``(exit_code, output)`` tuple, so callers that only
+    need those two keep working; ``started`` exists because a refusal, a missing
+    executable, and a real failing command all share exit codes.
+    """
+
+    exit_code: int
+    output: str
+    started: bool = False
+
+    def __iter__(self):
+        return iter((self.exit_code, self.output))
+
+
 @dataclass
 class TaskRunResult:
     decision: RouteDecision
     output: str
     used_rag_fallback: bool = False
     exit_code: int = 0
+    # Observed fact: the executor process really started. False also covers
+    # "never observed" — it is never inferred from a request to execute.
+    started: bool = False
 
 
 def plan_run(decision: RouteDecision, task: str, root: Path | None = None) -> RunPlan:
@@ -171,24 +191,30 @@ def plan_run(decision: RouteDecision, task: str, root: Path | None = None) -> Ru
     )
 
 
-def execute_plan(plan: RunPlan) -> tuple[int, str]:
+def execute_plan(plan: RunPlan) -> PlanRunResult:
     if not plan.command and not plan.argv:
-        return 0, plan.dry_run_output
+        return PlanRunResult(0, plan.dry_run_output)
     if not plan.executable:
         reason = (
             f" Trust boundary: {plan.refusal_reason}."
             if plan.refusal_reason
             else ""
         )
-        return 1, (
-            f"Refusing --execute: route is not authorised for execution.{reason}\n"
-            f"Dry-run:\n{plan.dry_run_output}\n\n"
-            "read_only is metadata, not execution authority."
+        return PlanRunResult(
+            1,
+            (
+                f"Refusing --execute: route is not authorised for execution.{reason}\n"
+                f"Dry-run:\n{plan.dry_run_output}\n\n"
+                "read_only is metadata, not execution authority."
+            ),
         )
     if plan.argv is None or plan.cwd is None or not plan.authorization:
-        return 1, (
-            "Refusing --execute: structured trusted argv is missing.\n"
-            f"Dry-run:\n{plan.dry_run_output}"
+        return PlanRunResult(
+            1,
+            (
+                "Refusing --execute: structured trusted argv is missing.\n"
+                f"Dry-run:\n{plan.dry_run_output}"
+            ),
         )
     timeout = RG_TIMEOUT if plan.decision.target == "tool" else SCRIPT_TIMEOUT
     verified: VerifiedScript | None = None
@@ -227,22 +253,30 @@ def execute_plan(plan: RunPlan) -> tuple[int, str]:
             **run_kwargs,
         )
     except TrustError as exc:
-        return 1, f"Refusing --execute: trust verification failed: {exc}"
+        return PlanRunResult(1, f"Refusing --execute: trust verification failed: {exc}")
     except FileNotFoundError as exc:
-        return 127, f"Executable not found: {exc}"
+        return PlanRunResult(127, f"Executable not found: {exc}")
     except OSError as exc:
-        return 126, f"Cannot execute command: {exc}"
+        return PlanRunResult(126, f"Cannot execute command: {exc}")
     except subprocess.TimeoutExpired:
-        return 124, f"Command timed out after {timeout}s: {plan.command}"
+        # It did start — it was killed for running too long.
+        return PlanRunResult(
+            124, f"Command timed out after {timeout}s: {plan.command}", started=True
+        )
     finally:
         if verified is not None:
             verified.close()
     out = (proc.stdout or "") + (proc.stderr or "")
-    return proc.returncode, out or plan.dry_run_output
+    return PlanRunResult(proc.returncode, out or plan.dry_run_output, started=True)
 
 
 def _filter_tool_output(output: str) -> str:
     return filter_tool_output(output)
+
+
+def _plan_started(run: PlanRunResult | tuple[int, str]) -> bool:
+    """Whether the executor started; a plain tuple never observed it."""
+    return getattr(run, "started", False)
 
 
 def _tool_output_weak(output: str, exit_code: int) -> bool:
@@ -331,7 +365,9 @@ def execute_task(task: str, root: Path | None = None) -> TaskRunResult:
         )
 
     if plan.executable and plan.command:
-        code, out = execute_plan(plan)
+        run = execute_plan(plan)
+        code, out = run
+        started = _plan_started(run)
         if decision.target == "tool":
             filtered = _filter_tool_output(out)
             if _tool_output_weak(out, code):
@@ -345,12 +381,14 @@ def execute_task(task: str, root: Path | None = None) -> TaskRunResult:
                         decision=decision,
                         output=note + rag_out,
                         used_rag_fallback=True,
+                        started=started,
                         # exit_code stays at the dataclass default 0.
                     )
                 return TaskRunResult(
                     decision=decision,
                     output=out.strip() or plan.dry_run_output,
                     exit_code=code,
+                    started=started,
                 )
             if filtered != out.strip():
                 note = f"rg (without .cursor/hooks):\n{filtered}\n"
@@ -361,15 +399,25 @@ def execute_task(task: str, root: Path | None = None) -> TaskRunResult:
                         decision=decision,
                         output=note,
                         used_rag_fallback=True,
+                        started=started,
                         # exit_code stays at the dataclass default 0.
                     )
-                return TaskRunResult(decision=decision, output=note, exit_code=code)
-            return TaskRunResult(decision=decision, output=filtered, exit_code=code)
+                return TaskRunResult(
+                    decision=decision, output=note, exit_code=code, started=started
+                )
+            return TaskRunResult(
+                decision=decision, output=filtered, exit_code=code, started=started
+            )
 
-        return TaskRunResult(decision=decision, output=out, exit_code=code)
+        return TaskRunResult(
+            decision=decision, output=out, exit_code=code, started=started
+        )
 
-    code, out = execute_plan(plan)
-    return TaskRunResult(decision=decision, output=out, exit_code=code)
+    run = execute_plan(plan)
+    code, out = run
+    return TaskRunResult(
+        decision=decision, output=out, exit_code=code, started=_plan_started(run)
+    )
 
 
 def _extract_query_note(task: str) -> str:

@@ -188,6 +188,7 @@ def test_route_event_time_fields(tmp_path: Path, monkeypatch, minimal_workspace:
         root=minimal_workspace,
         decision=decision,
         duration_ms=100,
+        executed=True,
     )
     assert event["cursor_baseline_ms"] == naive_agent_ms(event["cursor_baseline"])
     if decision.target != "cursor":
@@ -244,6 +245,7 @@ def test_hub_summary_time_saved(tmp_path: Path, monkeypatch, minimal_workspace: 
             root=minimal_workspace,
             decision=decision,
             duration_ms=1,
+            executed=True,
         ),
         path=log,
     )

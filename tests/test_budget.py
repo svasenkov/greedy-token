@@ -276,3 +276,99 @@ def test_footer_style_config(minimal_workspace: Path, monkeypatch: pytest.Monkey
 
     monkeypatch.setenv("GREEDY_TOKEN_FOOTER_STYLE", "full")
     assert get_footer_settings(minimal_workspace).style == "full"
+
+
+@allure.story("Telemetry contract")
+@allure.title("wrap_mcp_response recommendation: logged event never claims execution")
+def test_wrap_mcp_response_recommendation_event(
+    minimal_workspace: Path, tmp_path: Path, monkeypatch
+) -> None:
+    import json
+
+    from greedy_token.router import RouteDecision
+
+    log = tmp_path / "usage.jsonl"
+    monkeypatch.setenv("GREEDY_TOKEN_LOG", str(log))
+    decision = RouteDecision(
+        target="python",
+        route_id="python-git-recent",
+        confidence=0.61,
+        confidence_source="formula",
+        raw_score=1.35,
+        matched=["git log"],
+        command=None,
+        note="",
+        domains=[],
+        est_tokens=100,
+    )
+    out = wrap_mcp_response(
+        "Route: PYTHON",
+        task="git log",
+        tier="python",
+        est_tokens=100,
+        route_id="python-git-recent",
+        root=minimal_workspace,
+        executed=False,
+        decision=decision,
+    )
+    attach_text("wrapped", out)
+    events = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+    assert len(events) == 1
+    event = events[0]
+    with allure.step("recommendation telemetry keeps real evidence, no execution"):
+        assert event["phase"] == "recommended"
+        assert event["executor"]["executed"] is False
+        assert event["cursor_saved"] == 0
+        assert event["savings_exclusion"] == "not_executed"
+        assert event["confidence"] == 0.61
+        assert event["confidence_source"] == "formula"
+        assert event["raw_score"] == 1.35
+        assert event["matched"] == ["git log"]
+        assert event["operation_id"]
+    with allure.step("footer does not claim savings"):
+        assert "not executed" in out
+
+
+@allure.story("Telemetry contract")
+@allure.title("wrap_mcp_response outcome: request and outcome share one operation_id")
+def test_wrap_mcp_response_outcome_correlation(
+    minimal_workspace: Path, tmp_path: Path, monkeypatch
+) -> None:
+    import json
+
+    log = tmp_path / "usage.jsonl"
+    monkeypatch.setenv("GREEDY_TOKEN_LOG", str(log))
+    wrap_mcp_response(
+        "ok",
+        task="search: baseUrl",
+        tier="tool",
+        est_tokens=0,
+        route_id="mcp-search",
+        root=minimal_workspace,
+        outcome="success",
+        outcome_layer="executor",
+    )
+    events = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+    assert len(events) == 2
+    request, outcome_ev = events
+    assert request["operation_id"] == outcome_ev["operation_id"]
+    assert outcome_ev["event"] == "route_outcome"
+    assert outcome_ev["est_tokens"] == 0
+    assert outcome_ev["cursor_saved"] == 0
+
+
+@allure.story("Telemetry contract")
+@allure.title("Full-style footer surfaces the not-executed savings note")
+def test_full_footer_not_executed_note(minimal_workspace: Path) -> None:
+    footer = format_tool_footer(
+        "git log",
+        minimal_workspace,
+        tier="python",
+        est_tokens=100,
+        route_id="python-git-recent",
+        executed=False,
+        style="full",
+    )
+    attach_text("footer", footer)
+    assert "not executed" in footer
+    assert "Saved note:" in footer

@@ -911,3 +911,48 @@ def test_main_tolerates_missing_root(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(cli, "find_workspace_root", lambda: (_ for _ in ()).throw(SystemExit("no root")))
     with pytest.raises(SystemExit):
         cli.main(["route", "find x"])
+
+
+@allure.story("Run")
+@allure.title("cmd_run --execute refusal logs planned event and failure outcome")
+def test_cmd_run_refusal_telemetry(
+    minimal_workspace: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    import json
+
+    log_file = tmp_path / "usage.jsonl"
+    monkeypatch.setenv("GREEDY_TOKEN_LOG", str(log_file))
+    # 'git log' routes to python-git-recent; the script is absent here, so the
+    # trust boundary refuses before the executor ever starts.
+    code = cli.cmd_run(_ns(task="git log", execute=True, no_log=False))
+    out = capsys.readouterr().out
+    attach_text("stdout", out)
+    assert code != 0
+    assert "Refusing --execute" in out
+    events = [
+        json.loads(line) for line in log_file.read_text(encoding="utf-8").splitlines()
+    ]
+    assert len(events) == 2
+    request, outcome = events
+    assert request["phase"] == "planned"
+    assert request["executor"]["executed"] is False
+    assert request["authorized"] is False
+    assert request["cursor_saved"] == 0
+    assert outcome["event"] == "route_outcome"
+    assert outcome["outcome"] == "failure"
+    assert outcome["operation_id"] == request["operation_id"]
+
+
+@allure.story("Init")
+@allure.title("cmd_init skips install hints when ripgrep is present")
+def test_cmd_init_detect_ripgrep_present(
+    monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    monkeypatch.setattr("shutil.which", lambda name: "/usr/bin/rg" if name == "rg" else None)
+    monkeypatch.setattr("greedy_token.wrappers.ollama_available", lambda *a, **k: True)
+    monkeypatch.setattr("greedy_token.settings.user_config_path", lambda: Path("/nope/config.yaml"))
+    code = cli.cmd_init(_ns(profile="solo", apply=False, force=False, json=False))
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "ripgrep:  OK" in out
+    assert "install ripgrep" not in out
