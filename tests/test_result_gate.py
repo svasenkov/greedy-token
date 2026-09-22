@@ -339,6 +339,32 @@ def test_run_pipeline_continues_on_unverified(
     assert len(result.steps) == 2
 
 
+@allure.story("Pipeline continuation")
+@allure.title("all_ok follows the gate: invalid fails even on clean exit")
+def test_pipeline_all_ok_gate_semantics() -> None:
+    """s.ok is only the process verdict — a clean-exit step with an invalid
+    contract stopped the chain and must fail the pipeline result."""
+    with allure.step("invalid contract on exit 0 → pipeline failed"):
+        assert (
+            PipelineResult(task="t", steps=[_step(result_status=RESULT_INVALID)]).all_ok
+            is False
+        )
+    with allure.step("process failure → pipeline failed (unchanged)"):
+        assert (
+            PipelineResult(task="t", steps=[_step(ok=False, exit_code=1)]).all_ok is False
+        )
+    with allure.step("produced / empty / dry-run → pipeline stays ok"):
+        assert (
+            PipelineResult(task="t", steps=[_step(result_status=RESULT_PRODUCED)]).all_ok
+            is True
+        )
+        assert (
+            PipelineResult(task="t", steps=[_step(result_status=RESULT_EMPTY)]).all_ok
+            is True
+        )
+        assert PipelineResult(task="t", steps=[_step(executed=False)]).all_ok is True
+
+
 @allure.story("Savings gate")
 @allure.title("compute_step_savings: invalid/unverified steps claim nothing")
 def test_step_savings_gate_labels(minimal_workspace: Path) -> None:

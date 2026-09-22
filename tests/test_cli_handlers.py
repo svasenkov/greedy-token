@@ -868,6 +868,36 @@ def test_cmd_pipeline_dry_run(minimal_workspace: Path, capsys) -> None:
     assert "Per-step" in out or "dry-run" in out.lower() or "check-meta-sync" in out
 
 
+@allure.story("Pipeline")
+@allure.title("cmd_pipeline returns non-zero when an executed step is gate-invalid")
+def test_cmd_pipeline_invalid_contract_exit_code(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    """{"ok": false} + exit 0 is an invalid contract claim: the chain stops
+    early and the CLI must not report success on the clean exit code alone."""
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        "greedy_token.pipeline.subprocess.run",
+        lambda *a, **k: SimpleNamespace(
+            returncode=0, stdout='{"ok": false}\n', stderr=""
+        ),
+    )
+    code = cli.cmd_pipeline(
+        _ns(
+            list=False,
+            task="check-meta-sync then rag baseUrl",
+            execute=True,
+            continue_on_error=False,
+        )
+    )
+    out = capsys.readouterr().out
+    attach_text("stdout", out)
+    assert code == 1
+    assert "INVALID" in out
+    assert "stopped early" in out
+
+
 @allure.story("Main")
 @allure.title("main raises SystemExit with handler return code")
 def test_main_raises_system_exit(minimal_workspace: Path) -> None:

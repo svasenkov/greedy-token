@@ -131,7 +131,13 @@ class PipelineResult:
 
     @property
     def all_ok(self) -> bool:
-        return bool(self.steps) and all(s.ok for s in self.steps)
+        # ``s.ok`` is only the process verdict; the gate adds the contract
+        # ruling — a clean-exit step that lied (invalid) stops the chain,
+        # so it must fail the pipeline too.  Soft verdicts (unverified,
+        # empty, dry-run) still let the chain walk and stay ok.
+        return bool(self.steps) and all(
+            s.ok and _step_gate(s).continue_chain for s in self.steps
+        )
 
 
 @dataclass
