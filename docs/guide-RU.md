@@ -465,7 +465,7 @@ Outcome confidence calibration (explicit success/failure; min n=20):
 
 Каждое событие: tier, `est_tokens`, `cursor_baseline`, `cursor_saved`, `duration_ms`, `cursor_baseline_ms`, `time_saved_ms`.
 
-Pipeline пишет **одну строку на каждый шаг**. При превышении `GREEDY_TOKEN_LOG_MAX_BYTES` (default 5 MiB) лог ротируется в `usage.jsonl.1`, `.2`, …; `report` читает активный файл и архивы.
+Pipeline пишет **одну строку на каждый шаг**. `llm invoke` пишет **одно request-событие на каждый завершённый provider-вызов** (model, `billing`-блок, `cost_usd` и verdict гейта — на вызов) плюс одну запись `route_outcome` на invoke — упавшая цепочка эскалации всё равно логирует spend каждого завершённого вызова, а внутренние вызовы (`compress --ollama`, `crystallize draft`) пишут те же записи под своим profile. При превышении `GREEDY_TOKEN_LOG_MAX_BYTES` (default 5 MiB) лог ротируется в `usage.jsonl.1`, `.2`, …; `report` читает активный файл и архивы.
 
 ## Конфигурация
 
@@ -597,9 +597,9 @@ L3 замыкает цикл кристаллизации — кандидат �
 ```
 
 - **`crystallize draft ID`** генерирует draft Python-скрипт в `.greedy-token/drafts/ID.py`. Тело пишет **cheap LLM** (провайдер `cheap_llm`), а если он недоступен — детерминированный шаблон-скелет (docstring с pattern/hits, argparse CLI, TODO-тело). Draft проходит существующий `scripts lint` (blocklist паттернов + проверка существования скрипта). Вместе с draft регистрируется **shadow-роут** в workspace-конфиге (`$GREEDY_TOKEN_ROOT/.greedy-token.yaml`, **не** пакетный `routes.yaml`): `target: python`, `shadow_until` +7 дней, `enabled: false`. Shadow-роут **не влияет на `route_task`** — потенциальный матч только логируется (`Shadow match (log-only): …`).
-- **`crystallize approve ID`** фиксирует решение человека в lifecycle-логе — `actor` (`--by`, default `$USER`), `reason` (`--reason`) и `approved_sha256` байтов драфта, которые ревьюились.
-- **`crystallize promote ID`** — apply-шаг, требует состояния `approved`: проверяет, что драфт всё ещё совпадает с `approved_sha256` (иначе refuse «changed since approval»), прогоняет драфт через **Step-2 trust** (`approve_script` биндит одобренные байты в user-local manifest, `approval_source: crystallize-promote`), затем снимает `shadow_until`/`enabled: false` — роут становится активным. Lifecycle не обходит trust — applied-кристалл показывает `readiness: ready` + `lifecycle_state: applied` в `greedy-token capabilities`.
-- **`crystallize reject ID`** — удаляет draft-скрипт, роут и trust-запись, если она есть.
+- **`crystallize approve ID`** фиксирует решение человека в lifecycle-логе — `actor` (`--by`, default `$USER`), `reason` (`--reason`), `approved_sha256` байтов драфта, которые ревьюились, и `workspace_id`, привязывающий одобрение к этому workspace (тот же хэш, что в `~/.greedy-token/trust/<id>/`).
+- **`crystallize promote ID`** — apply-шаг, требует состояния `approved`: refuse при одобрении без пина или записанном для другого workspace; проверяет, что драфт всё ещё совпадает с `approved_sha256` (иначе refuse «changed since approval»), прогоняет драфт через **Step-2 trust** (`approve_script` биндит одобренные байты в user-local manifest, `approval_source: crystallize-promote`) и перепроверяет привязанные байты — драфт, изменённый между проверкой и записью, отзывается, а не становится trusted. Затем снимает `shadow_until`/`enabled: false` — роут становится активным. Lifecycle не обходит trust — applied-кристалл показывает `readiness: ready` + `lifecycle_state: applied` в `greedy-token capabilities`.
+- **`crystallize reject ID`** — удаляет draft-скрипт, роут и отзывает все trust-записи, которые кандидат привязывал (путь драфта и любые скрипты, на которые указывал его роут).
 
 Каждый переход пишет lifecycle-событие (`draft` → `shadow` → `approved` → `promoted` / `rejected`) с полями `actor`/`reason`/`transition` в `~/.greedy-token/crystallize-lifecycle.jsonl`; `crystallize status ID` показывает derived-состояние + таймлайн, hub (`hub serve` → Crystals) — те же стадии на таймлайне кристалла. Lifecycle-глаголы видны и в `greedy-token capabilities` как `lifecycle`-операции (`crystallize-approve` и т.д. — `write_not_invocable`: видимы, но не вызываемы через read-only invoke).
 

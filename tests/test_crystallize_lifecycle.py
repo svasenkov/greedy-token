@@ -25,7 +25,7 @@ from greedy_token.hub.crystallize import (
     list_crystals,
     load_lifecycle_events,
 )
-from greedy_token.paths import workspace_config_routes
+from greedy_token.paths import upsert_workspace_routes, workspace_config_routes
 from greedy_token.trust import trusted_manifest_paths, verify_trust_manifest
 from tests.allure_reporting import attach_text
 
@@ -245,6 +245,87 @@ def test_promote_stale_pin_refuses(
 
 
 @allure.story("Promote")
+@allure.title("promote refuses an approval that carries no sha256 pin")
+def test_promote_requires_sha_pin(
+    minimal_workspace: Path, crystal_home: Path, no_cheap_llm: None
+) -> None:
+    l3.draft_crystal(CRYSTAL_ID, root=minimal_workspace)
+    append_lifecycle_event(stage="approved", crystal_id=CRYSTAL_ID, actor="legacy")
+    with pytest.raises(ValueError, match="approved_sha256"):
+        l3.promote_crystal(CRYSTAL_ID, root=minimal_workspace)
+    assert not trusted_manifest_paths(minimal_workspace)
+
+
+@allure.story("Promote")
+@allure.title("promote under a compare/apply race never binds bytes the approval did not pin")
+def test_promote_race_binds_only_pinned_bytes(
+    minimal_workspace: Path,
+    crystal_home: Path,
+    no_cheap_llm: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    l3.draft_crystal(CRYSTAL_ID, root=minimal_workspace)
+    l3.approve_crystal(CRYSTAL_ID, root=minimal_workspace)
+    draft = l3.draft_path(minimal_workspace, CRYSTAL_ID)
+    real_approve_script = l3.approve_script
+
+    def concurrent_edit(root: Path, path: str, **kwargs: object) -> object:
+        draft.write_text(draft.read_text(encoding="utf-8") + "\n# raced\n")
+        return real_approve_script(root, path, **kwargs)
+
+    monkeypatch.setattr(l3, "approve_script", concurrent_edit)
+    with pytest.raises(ValueError, match="changed while it was being applied"):
+        l3.promote_crystal(CRYSTAL_ID, root=minimal_workspace)
+    # The raced bytes are revoked, the route stays shadow, state stays approved.
+    assert not trusted_manifest_paths(minimal_workspace)
+    assert derive_crystal_state(CRYSTAL_ID)["state"] == "approved"
+    route = next(
+        r for r in workspace_config_routes(minimal_workspace) if r["id"] == CRYSTAL_ID
+    )
+    assert "shadow_until" in route
+
+    # Re-approving the raced bytes unblocks apply (undo() would also roll back
+    # the env fixtures — restore the patched attr instead).
+    monkeypatch.setattr(l3, "approve_script", real_approve_script)
+    l3.approve_crystal(CRYSTAL_ID, root=minimal_workspace)
+    assert l3.promote_crystal(CRYSTAL_ID, root=minimal_workspace)["state"] == "applied"
+
+
+@allure.story("Promote")
+@allure.title("approval is workspace-bound: an approval from workspace A cannot apply in B")
+def test_promote_refuses_foreign_workspace_approval(
+    minimal_workspace: Path, crystal_home: Path, no_cheap_llm: None
+) -> None:
+    l3.draft_crystal(CRYSTAL_ID, root=minimal_workspace)
+    l3.approve_crystal(CRYSTAL_ID, root=minimal_workspace, actor="reviewer-a")
+
+    # A second workspace with the identical draft bytes + shadow route: only the
+    # workspace binding differs, so promote must still refuse.
+    second = minimal_workspace / "workspace-b"
+    draft_b = l3.draft_path(second, CRYSTAL_ID)
+    draft_b.parent.mkdir(parents=True, exist_ok=True)
+    draft_b.write_text(
+        l3.draft_path(minimal_workspace, CRYSTAL_ID).read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    upsert_workspace_routes(
+        second, {"routes": [l3._shadow_route(CRYSTAL_ID, TASK, l3._shadow_until_iso())]}
+    )
+    with pytest.raises(ValueError, match="different workspace"):
+        l3.promote_crystal(CRYSTAL_ID, root=second)
+    assert not trusted_manifest_paths(second)
+    foreign = l3.crystal_status(CRYSTAL_ID, root=second)
+    assert foreign["state"] == "approved"  # shared lifecycle log still shows it
+    assert foreign["approved"]["workspace_match"] is False
+
+    # Re-approving inside the target workspace is the supported recovery.
+    l3.approve_crystal(CRYSTAL_ID, root=second)
+    result = l3.promote_crystal(CRYSTAL_ID, root=second)
+    assert result["state"] == "applied"
+    assert trusted_manifest_paths(second)
+
+
+@allure.story("Promote")
 @allure.title("applied crystal is executable: capability ready + invoke runs the trusted draft")
 def test_applied_crystal_is_invocable(
     minimal_workspace: Path, crystal_home: Path, no_cheap_llm: None
@@ -296,6 +377,68 @@ def test_reject_revokes_trust(
     assert event["reason"] == "overrides"
     assert event["transition"] == "applied->rejected"
     assert derive_crystal_state(CRYSTAL_ID)["state"] == "rejected"
+
+
+@allure.story("Reject")
+@allure.title("reject revokes every trust path the candidate bound — incl. a repointed route")
+def test_reject_revokes_all_candidate_trust_paths(
+    minimal_workspace: Path, crystal_home: Path, no_cheap_llm: None
+) -> None:
+    l3.draft_crystal(CRYSTAL_ID, root=minimal_workspace)
+    # Route command repointed at another script (same bytes) before promote.
+    draft = l3.draft_path(minimal_workspace, CRYSTAL_ID)
+    alternate = minimal_workspace / "scripts" / "alternate-check.py"
+    alternate.write_text(draft.read_text(encoding="utf-8"), encoding="utf-8")
+    route = next(
+        r for r in workspace_config_routes(minimal_workspace) if r["id"] == CRYSTAL_ID
+    )
+    route["command"] = "python scripts/alternate-check.py"
+    upsert_workspace_routes(minimal_workspace, {"routes": [route]})
+
+    l3.approve_crystal(CRYSTAL_ID, root=minimal_workspace)
+    l3.promote_crystal(CRYSTAL_ID, root=minimal_workspace)
+    assert "scripts/alternate-check.py" in trusted_manifest_paths(minimal_workspace)
+
+    append_lifecycle_event(stage="watch", crystal_id="python-other-one")
+    rejected = l3.reject_crystal(CRYSTAL_ID, root=minimal_workspace)
+    attach_text("reject", json.dumps(rejected))
+    assert rejected["revoked_trust"] is True
+    assert rejected["revoked_paths"] == ["scripts/alternate-check.py"]
+    assert not trusted_manifest_paths(minimal_workspace)
+
+
+@allure.story("Reject")
+@allure.title("reject tolerates junk paths in lifecycle events and routes without a script")
+def test_reject_tolerates_junk_paths(
+    minimal_workspace: Path, crystal_home: Path, no_cheap_llm: None
+) -> None:
+    l3.draft_crystal(CRYSTAL_ID, root=minimal_workspace)
+    append_lifecycle_event(
+        stage="promoted",
+        crystal_id=CRYSTAL_ID,
+        extra={"script_path": "../outside.py", "trusted": "manifest:/abs/x.py"},
+    )
+    route = next(
+        r for r in workspace_config_routes(minimal_workspace) if r["id"] == CRYSTAL_ID
+    )
+    route["command"] = "echo no-script-here"
+    upsert_workspace_routes(minimal_workspace, {"routes": [route]})
+
+    rejected = l3.reject_crystal(CRYSTAL_ID, root=minimal_workspace)
+    assert rejected["ok"] is True
+    assert rejected["revoked_paths"] == []
+
+
+@allure.story("Reject")
+@allure.title("reject validates the id before touching the filesystem (no path traversal)")
+def test_reject_validates_crystal_id(
+    minimal_workspace: Path, crystal_home: Path
+) -> None:
+    victim = minimal_workspace / "audit-created-fixture.py"
+    victim.write_text("AUDIT_FIXTURE = True\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="invalid crystal id"):
+        l3.reject_crystal("../../audit-created-fixture", root=minimal_workspace)
+    assert victim.exists()
 
 
 # ---------------------------------------------------------------- draft guards

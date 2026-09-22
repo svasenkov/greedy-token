@@ -18,10 +18,17 @@ from greedy_token.model_select import (
     get_llm_registry,
     resolve_model,
 )
+from greedy_token.result_contract import RESULT_NOT_EVALUATED
+from greedy_token.result_gate import evaluate_result_gate
+from greedy_token.router import RouteDecision
 from greedy_token.spend_guard import check_metered_allowed, estimate_cost_usd
 from greedy_token.tokens import count_tokens
-from greedy_token.usage import append_event, build_route_event, new_operation_id
-from greedy_token.router import RouteDecision
+from greedy_token.usage import (
+    append_event,
+    build_outcome_event,
+    build_route_event,
+    new_operation_id,
+)
 
 
 @dataclass
@@ -35,6 +42,16 @@ class InvokeResult:
     cost_usd: float = 0.0
     duration_ms: int = 0
     attempts: list[str] = field(default_factory=list)
+
+
+@dataclass
+class _ProviderCall:
+    """One provider call that returned a response inside an invoke chain."""
+    model: ResolvedModel
+    eval_tokens: int | None
+    cost_usd: float
+    duration_ms: int
+    served: bool = False
 
 
 def _output_weak(text: str, *, min_len: int = 8) -> bool:
@@ -75,6 +92,136 @@ def _should_escalate(
     return False
 
 
+def _invoke_tier(resolved: ResolvedModel) -> str:
+    return "ollama" if resolved.billing_tier == "cheap" else "cursor"
+
+
+def _invoke_decision(profile: str, tier: str, est_tokens: int) -> RouteDecision:
+    return RouteDecision(
+        target=tier,
+        route_id=f"llm-{profile}",
+        confidence=1.0,
+        confidence_source=SOURCE_FIXED,
+        matched=[profile],
+        command=None,
+        note="",
+        domains=[],
+        est_tokens=est_tokens,
+    )
+
+
+def _log_invoke_events(
+    *,
+    profile: str,
+    system: str,
+    user: str,
+    root: Path | None,
+    tags: dict[str, str],
+    operation_id: str,
+    parent_operation_id: str | None,
+    first: ResolvedModel,
+    attempts: list[str],
+    calls: list[_ProviderCall],
+    duration_ms: int,
+    succeeded: bool,
+) -> None:
+    """Usage records for one invoke operation.
+
+    Spend is a fact of each completed provider call, not of the chain's
+    outcome: every call that returned a response gets its own request event
+    (own model, billing block, cost, gate verdict), and the operation closes
+    with one outcome record under the same operation_id. A chain that dies
+    after a paid attempt still owes that cost to the log.
+    """
+    task = f"llm invoke {profile}"
+    effective_root = root or Path(".")
+    prompt_tokens = count_tokens(system + user).tokens
+    if not calls:
+        # Spend denial or provider errors before any response: the operation
+        # never started — record the refusal with zero spend.
+        tier = _invoke_tier(first)
+        gate = evaluate_result_gate(
+            started=False,
+            result_status=RESULT_NOT_EVALUATED,
+            tier=tier,
+            ok=False,
+        )
+        append_event(
+            build_route_event(
+                cmd="llm",
+                task=task,
+                root=effective_root,
+                decision=_invoke_decision(profile, tier, prompt_tokens),
+                est_tokens_override=prompt_tokens,
+                executed=False,
+                execution_requested=True,
+                llm_tags=tags,
+                profile=profile,
+                billing_tier=first.billing_tier,
+                cost_usd=0.0,
+                model_billing=first.spec.billing,
+                llm_attempts=attempts,
+                operation_id=operation_id,
+                parent_operation_id=parent_operation_id,
+                gate=gate,
+            )
+        )
+    else:
+        for call in calls:
+            cand = call.model
+            tier = _invoke_tier(cand)
+            est = (call.eval_tokens or 0) + prompt_tokens
+            gate = evaluate_result_gate(
+                started=True,
+                result_status=RESULT_NOT_EVALUATED,
+                tier=tier,
+                ok=True,
+                output_useful=call.served,
+            )
+            append_event(
+                build_route_event(
+                    cmd="llm",
+                    task=task,
+                    root=effective_root,
+                    decision=_invoke_decision(profile, tier, est),
+                    est_tokens_override=est,
+                    duration_ms=call.duration_ms,
+                    executed=True,
+                    execution_requested=True,
+                    llm_tags=tags,
+                    model_id=cand.model_id,
+                    profile=profile,
+                    escalated_from=(
+                        first.model_id if cand.model_id != first.model_id else None
+                    ),
+                    billing_tier=cand.billing_tier,
+                    cost_usd=call.cost_usd,
+                    model_billing=cand.spec.billing,
+                    llm_attempts=attempts,
+                    operation_id=operation_id,
+                    parent_operation_id=parent_operation_id,
+                    gate=gate,
+                )
+            )
+    outcome_tier = _invoke_tier(calls[-1].model if calls else first)
+    append_event(
+        build_outcome_event(
+            task=task,
+            root=effective_root,
+            decision=_invoke_decision(profile, outcome_tier, 0),
+            outcome="success" if succeeded else "failure",
+            layer="executor",
+            duration_ms=duration_ms,
+            attempts=len(attempts),
+            retries=len(attempts) - 1,
+            escalations=list(attempts[1:]),
+            operation_id=operation_id,
+            parent_operation_id=parent_operation_id,
+            gate=gate,
+        )
+    )
+
+
 def invoke_profile(
     profile: str,
     *,
@@ -86,6 +233,7 @@ def invoke_profile(
     allow_expensive: bool = False,
     timeout: float = 120.0,
     log: bool = True,
+    parent_operation_id: str | None = None,
 ) -> InvokeResult:
     """Run LLM for *profile* with optional escalation chain."""
     t0 = time.perf_counter()
@@ -94,6 +242,7 @@ def invoke_profile(
     attempts: list[str] = []
     escalated_from = ""
     last_error = ""
+    operation_id = new_operation_id()
 
     candidates: list[ResolvedModel] = [current]
     if allow_escalate:
@@ -105,6 +254,7 @@ def invoke_profile(
     # Spend accrues for every completed provider call, not only the model that
     # served — an escalated-away attempt still consumed tokens.
     cost = 0.0
+    calls: list[_ProviderCall] = []
 
     for candidate in candidates:
         attempts.append(candidate.model_id)
@@ -112,7 +262,10 @@ def invoke_profile(
             # ADR-0002: every metered call is spend-guarded — expensive tier
             # keeps the expensive opt-in path, metered cheap needs the
             # metered opt-in; both share the daily/monthly caps.
-            est = estimate_cost_usd(candidate.spec, count_tokens(user).tokens + count_tokens(system).tokens)
+            est = estimate_cost_usd(
+                candidate.spec,
+                count_tokens(user).tokens + count_tokens(system).tokens,
+            )
             decision = check_metered_allowed(
                 candidate.spec,
                 root=root,
@@ -124,6 +277,7 @@ def invoke_profile(
                 continue
 
         apply_model_env(candidate)
+        call_t0 = time.perf_counter()
         try:
             text, eval_tokens = llm_chat(
                 candidate,
@@ -134,7 +288,17 @@ def invoke_profile(
         except (OSError, RuntimeError, ValueError, TimeoutError) as exc:
             last_error = str(exc)
             continue
-        cost += estimate_cost_usd(candidate.spec, eval_tokens)
+        call_ms = int((time.perf_counter() - call_t0) * 1000)
+        call_cost = estimate_cost_usd(candidate.spec, eval_tokens)
+        cost += call_cost
+        calls.append(
+            _ProviderCall(
+                model=candidate,
+                eval_tokens=eval_tokens,
+                cost_usd=call_cost,
+                duration_ms=call_ms,
+            )
+        )
 
         used = candidate
         if candidate.model_id != current.model_id:
@@ -147,14 +311,29 @@ def invoke_profile(
             triggers=registry.escalation.triggers,
         ):
             continue
+        calls[-1].served = True
         break
     else:
+        duration_ms = int((time.perf_counter() - t0) * 1000)
         msg = last_error or "all models in escalation chain failed"
+        if log:
+            _log_invoke_events(
+                profile=profile,
+                system=system,
+                user=user,
+                root=root,
+                tags=tags,
+                operation_id=operation_id,
+                parent_operation_id=parent_operation_id,
+                first=current,
+                attempts=attempts,
+                calls=calls,
+                duration_ms=duration_ms,
+                succeeded=False,
+            )
         raise RuntimeError(f"LLM invoke failed for profile {profile!r}: {msg}")
 
-
     duration_ms = int((time.perf_counter() - t0) * 1000)
-    est_tokens = (eval_tokens or 0) + count_tokens(system + user).tokens
 
     result = InvokeResult(
         text=text,
@@ -169,38 +348,19 @@ def invoke_profile(
     )
 
     if log:
-        task = f"llm invoke {profile}"
-        tier = "ollama" if result.tier_billing == "cheap" else "cursor"
-        decision = RouteDecision(
-            target=tier,
-            route_id=f"llm-{profile}",
-            confidence=1.0,
-            confidence_source=SOURCE_FIXED,
-            matched=[profile],
-            command=None,
-            note="",
-            domains=[],
-            est_tokens=est_tokens,
-        )
-        append_event(
-            build_route_event(
-                cmd="llm",
-                task=task,
-                root=root or Path("."),
-                decision=decision,
-                est_tokens_override=est_tokens,
-                duration_ms=result.duration_ms,
-                executed=True,
-                llm_tags=tags,
-                model_id=result.model_id,
-                profile=profile,
-                escalated_from=result.escalated_from or None,
-                billing_tier=result.tier_billing,
-                cost_usd=result.cost_usd,
-                model_billing=used.spec.billing,
-                llm_attempts=result.attempts,
-                operation_id=new_operation_id(),
-            )
+        _log_invoke_events(
+            profile=profile,
+            system=system,
+            user=user,
+            root=root,
+            tags=tags,
+            operation_id=operation_id,
+            parent_operation_id=parent_operation_id,
+            first=current,
+            attempts=attempts,
+            calls=calls,
+            duration_ms=duration_ms,
+            succeeded=True,
         )
     return result
 

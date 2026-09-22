@@ -156,6 +156,7 @@ def rank_candidates(
     llm_tasks: Counter[str] = Counter()
     fixture_tasks: set[str] = set()
     task_roots: dict[str, Counter[str]] = defaultdict(Counter)
+    seen_llm_ops: set[str] = set()
     for row in events:
         tier = row.get("selected_tier", "")
         if tier not in LLM_TIERS:
@@ -166,6 +167,13 @@ def rank_candidates(
         if is_fixture_task(task):
             fixture_tasks.add(task)
             continue
+        op_id = str(row.get("operation_id") or "")
+        if op_id:
+            # One invoke operation = one task hit, however many provider
+            # calls its escalation chain logged.
+            if op_id in seen_llm_ops:
+                continue
+            seen_llm_ops.add(op_id)
         llm_tasks[task] += 1
         root = str(row.get("root") or "")
         if root:

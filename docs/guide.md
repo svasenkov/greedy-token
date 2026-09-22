@@ -469,7 +469,7 @@ Log file: `~/.greedy-token/usage.jsonl` (disable: `GREEDY_TOKEN_LOG=0`).
 
 Each event: tier, `est_tokens`, `cursor_baseline`, `cursor_saved`, `duration_ms`, `cursor_baseline_ms`, `time_saved_ms`.
 
-Pipeline logs **one event per step**. When the log exceeds `GREEDY_TOKEN_LOG_MAX_BYTES` (default 5 MiB), it rotates to `usage.jsonl.1`, `.2`, …; `report` reads the active log and archives.
+Pipeline logs **one event per step**. `llm invoke` logs **one request event per completed provider call** (per-call model, `billing` block, `cost_usd`, gate verdict) plus one `route_outcome` record per invoke — a failed escalation still logs every completed call's spend, and internal callers (`compress --ollama`, `crystallize draft`) emit the same records under their own profile. When the log exceeds `GREEDY_TOKEN_LOG_MAX_BYTES` (default 5 MiB), it rotates to `usage.jsonl.1`, `.2`, …; `report` reads the active log and archives.
 
 ## Configuration
 
@@ -595,9 +595,9 @@ candidate (repeated LLM task)          greedy-token crystallize candidates
 ```
 
 - **`crystallize draft ID`** generates a draft Python script in `.greedy-token/drafts/ID.py`. The body comes from the **cheap LLM** (`cheap_llm` provider) when available; otherwise a deterministic template skeleton (docstring with pattern/hits, argparse CLI, TODO body). The draft passes the existing `scripts lint` (pattern blocklist + script-exists check). Alongside the draft a **shadow route** is registered in the workspace config (`$GREEDY_TOKEN_ROOT/.greedy-token.yaml`, never the bundled `routes.yaml`): `target: python`, `shadow_until` +7 days, `enabled: false`. A shadow route **never affects `route_task`** — a potential match is only logged (`Shadow match (log-only): …`).
-- **`crystallize approve ID`** records the human decision in the lifecycle log — `actor` (`--by`, default `$USER`), `reason` (`--reason`), and `approved_sha256` of the draft bytes that were reviewed.
-- **`crystallize promote ID`** is the apply step and requires an `approved` state: it verifies the draft still matches `approved_sha256` (refuses with "changed since approval" otherwise), passes the draft through **Step-2 trust** (`approve_script` binds the approved bytes in the user-local manifest, `approval_source: crystallize-promote`), then drops `shadow_until`/`enabled: false` so the route goes active. The lifecycle never bypasses trust — an applied crystal shows `readiness: ready` + `lifecycle_state: applied` in `greedy-token capabilities`.
-- **`crystallize reject ID`** — deletes the draft script, removes the route, and revokes the trust entry if one exists.
+- **`crystallize approve ID`** records the human decision in the lifecycle log — `actor` (`--by`, default `$USER`), `reason` (`--reason`), `approved_sha256` of the draft bytes that were reviewed, and the `workspace_id` binding the approval to this workspace (the same hash that keys `~/.greedy-token/trust/<id>/`).
+- **`crystallize promote ID`** is the apply step and requires an `approved` state: it refuses approvals without a pin or recorded for another workspace, verifies the draft still matches `approved_sha256` (refuses with "changed since approval" otherwise), passes the draft through **Step-2 trust** (`approve_script` binds the approved bytes in the user-local manifest, `approval_source: crystallize-promote`), and re-verifies the bound bytes — a draft raced between check and bind is revoked, never trusted. Then it drops `shadow_until`/`enabled: false` so the route goes active. The lifecycle never bypasses trust — an applied crystal shows `readiness: ready` + `lifecycle_state: applied` in `greedy-token capabilities`.
+- **`crystallize reject ID`** — deletes the draft script, removes the route, and revokes every trust entry the candidate bound (the draft path plus any script its route ever pointed at).
 
 Every transition appends a lifecycle event (`draft` → `shadow` → `approved` → `promoted` / `rejected`) with `actor`/`reason`/`transition` fields to `~/.greedy-token/crystallize-lifecycle.jsonl`; `crystallize status ID` shows the derived state + timeline, and the hub (`hub serve` → Crystals) shows the same stages on the crystal timeline. Lifecycle verbs also appear in `greedy-token capabilities` as `lifecycle` ops (`crystallize-approve` etc. — `write_not_invocable`: visible, never invocable through the read-only invoke surface).
 

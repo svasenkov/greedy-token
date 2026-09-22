@@ -5,11 +5,13 @@ script in ``.greedy-token/drafts/`` (cheap LLM when available, deterministic
 template otherwise) and registers a *shadow* route in the workspace config
 (``shadow_until`` +7d, ``enabled: false``). A shadow route never changes
 ``route_task`` — it is log-only. ``crystallize approve`` records the human
-decision (who/why + sha256 pin of the reviewed draft); ``crystallize promote``
-then applies — the draft passes through Step-2 trust (``approve_script`` binds
-the approved bytes in the user-local manifest) and the route goes active.
-``reject`` removes the draft, the route, and any trust entry. Every
-transition appends a lifecycle event that the hub shows.
+decision (who/why + sha256 pin of the reviewed draft, bound to the
+workspace); ``crystallize promote`` then applies — the draft passes through
+Step-2 trust (``approve_script`` binds the approved bytes in the user-local
+manifest, re-verified against the pin at apply time) and the route goes
+active. ``reject`` removes the draft, the route, and every trust entry the
+candidate ever bound. Every transition appends a lifecycle event that the
+hub shows.
 """
 
 from __future__ import annotations
@@ -48,6 +50,7 @@ from greedy_token.scripts_lint import (
 )
 from greedy_token.trust import (
     TrustError,
+    _workspace_id,
     approve_script,
     revoke_script,
     trusted_manifest_paths,
@@ -184,6 +187,7 @@ def generate_draft_code(
     hits: int,
     *,
     root: Path | None = None,
+    log: bool = True,
 ) -> tuple[str, str]:
     """Draft script text + source ("cheap_llm" | "template").
 
@@ -208,7 +212,7 @@ def generate_draft_code(
                 user=user,
                 root=root,
                 allow_escalate=False,
-                log=False,
+                log=log,
             )
             text = result.text
         except (OSError, ValueError, KeyError, TimeoutError, RuntimeError):
@@ -243,6 +247,7 @@ def draft_crystal(
     since: str | None = "30d",
     actor: str = "",
     reason: str = "",
+    log: bool = True,
 ) -> DraftResult:
     """Generate a draft script + register a shadow route. Raises ValueError."""
     err = validate_route_id(crystal_id)
@@ -270,7 +275,7 @@ def draft_crystal(
             f"pattern for {crystal_id!r} fails scripts lint: {'; '.join(reasons)}"
         )
 
-    code, source = generate_draft_code(crystal_id, pattern, hits, root=root)
+    code, source = generate_draft_code(crystal_id, pattern, hits, root=root, log=log)
     path = draft_path(root, crystal_id)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(code, encoding="utf-8")
@@ -332,9 +337,10 @@ def approve_crystal(
 ) -> dict:
     """proposed → approved: human decision, pinned to the reviewed draft bytes.
 
-    Records who/why plus ``approved_sha256`` — promote refuses to apply when
-    the draft changed after approval (the approved bytes are what was
-    reviewed, not whatever sits on disk later).
+    Records who/why plus ``approved_sha256`` and the ``workspace_id`` (the
+    same hash that keys ``~/.greedy-token/trust/<id>/``) — promote refuses
+    to apply when the draft changed after approval or the approval was
+    recorded for another workspace.
     """
     err = validate_route_id(crystal_id)
     if err:
@@ -358,6 +364,7 @@ def approve_crystal(
             "run 'greedy-token crystallize draft' first"
         )
     sha = sha256_file(path)
+    workspace_id = _workspace_id(root)
     route = _workspace_route(root, crystal_id)
     pattern, hits = _proposal_meta(crystal_id, route)
     event = append_lifecycle_event(
@@ -371,6 +378,7 @@ def approve_crystal(
         extra={
             "transition": f"{state}->{STATE_APPROVED}",
             "approved_sha256": sha,
+            "workspace_id": workspace_id,
             "draft_path": str(path),
         },
     )
@@ -379,6 +387,7 @@ def approve_crystal(
         "crystal_id": crystal_id,
         "state": STATE_APPROVED,
         "approved_sha256": sha,
+        "workspace_id": workspace_id,
         "actor": event.get("actor", ""),
         "reason": reason,
     }
@@ -396,7 +405,9 @@ def promote_crystal(
     Apply never grants execution authority by itself — the draft passes
     through Step-2 trust (``approve_script`` binds the reviewed bytes in the
     user-local manifest) before ``shadow_until``/``enabled: false`` are
-    dropped. Refuses when the draft changed since approval (stale pin).
+    dropped. Requires the recorded sha256 pin from ``approve`` (made for
+    this workspace) and re-verifies the bound bytes after the trust write,
+    so a draft changed between the check and the bind is never trusted.
     """
     info = derive_crystal_state(crystal_id)
     state = str(info["state"])
@@ -430,10 +441,20 @@ def promote_crystal(
     script = root / script_rel
     if not script.is_file():
         raise ValueError(f"draft script missing: {script}")
-    sha = sha256_file(script)
     approved = info.get("approved") or {}
     pinned = str(approved.get("approved_sha256") or "")
-    if pinned and pinned != sha:
+    if not pinned:
+        raise ValueError(
+            f"approval for {crystal_id!r} carries no approved_sha256 pin; "
+            "run 'greedy-token crystallize approve' to pin the reviewed bytes"
+        )
+    if str(approved.get("workspace_id") or "") != _workspace_id(root):
+        raise ValueError(
+            f"approval for {crystal_id!r} was recorded for a different workspace; "
+            "run 'greedy-token crystallize approve' in this workspace"
+        )
+    sha = sha256_file(script)
+    if pinned != sha:
         raise ValueError(
             f"draft for {crystal_id!r} changed since approval "
             f"(approved {pinned[:12]}…, current {sha[:12]}…); "
@@ -448,6 +469,15 @@ def promote_crystal(
             f" by {approved.get('actor', '')}"
         ).strip(),
     )
+    if entry.sha256 != pinned:
+        # The draft raced the pin check → trust write; never leave bytes the
+        # reviewer did not approve bound in the manifest.
+        revoke_script(root, entry.path)
+        raise ValueError(
+            f"draft for {crystal_id!r} changed while it was being applied "
+            f"(approved {pinned[:12]}…, bound {entry.sha256[:12]}…); "
+            "review the new bytes and run 'crystallize approve' again"
+        )
     route.pop("shadow_until", None)
     route.pop("enabled", None)
     route["note"] = "L3 crystal — promoted after human review"
@@ -463,6 +493,7 @@ def promote_crystal(
         extra={
             "transition": f"{STATE_APPROVED}->{STATE_APPLIED}",
             "route_id": crystal_id,
+            "script_path": entry.path,
             "trusted": f"manifest:{entry.path}",
             "sha256": entry.sha256,
         },
@@ -478,6 +509,30 @@ def promote_crystal(
     }
 
 
+def _candidate_trust_paths(
+    crystal_id: str, route: dict | None
+) -> set[str]:
+    """Every workspace-relative script path this crystal may have bound in trust:
+    the canonical draft, the script its route command points at, and every path
+    recorded by past promotes (``script_path`` / ``trusted: manifest:<path>``).
+    """
+    paths = {(DRAFTS_DIR / f"{crystal_id}.py").as_posix()}
+    if route:
+        rel = extract_script_path(str(route.get("command") or ""))
+        if rel:
+            paths.add(rel)
+    for event in load_lifecycle_events():
+        if event.get("crystal_id") != crystal_id:
+            continue
+        script_path = event.get("script_path")
+        if isinstance(script_path, str) and script_path:
+            paths.add(script_path)
+        trusted = str(event.get("trusted") or "")
+        if trusted.startswith("manifest:"):
+            paths.add(trusted.removeprefix("manifest:"))
+    return paths
+
+
 def reject_crystal(
     crystal_id: str,
     *,
@@ -485,7 +540,15 @@ def reject_crystal(
     actor: str = "",
     reason: str = "",
 ) -> dict:
-    """Any state → rejected: drop the draft, its route, and its trust entry."""
+    """Any state → rejected: drop the draft, its route, and its trust entries."""
+    if (
+        not crystal_id.strip()
+        or "/" in crystal_id
+        or "\\" in crystal_id
+        or "\x00" in crystal_id
+        or crystal_id in (".", "..")
+    ):
+        raise ValueError(f"invalid crystal id for reject: {crystal_id!r}")
     route = _workspace_route(root, crystal_id)
     pattern = str((route.get("patterns") or [""])[0]) if route else ""
     previous = str(derive_crystal_state(crystal_id)["state"])
@@ -494,7 +557,13 @@ def reject_crystal(
     removed_draft = path.is_file()
     if removed_draft:
         path.unlink()
-    revoked_trust = revoke_script(root, (DRAFTS_DIR / f"{crystal_id}.py").as_posix())
+    revoked: list[str] = []
+    for candidate in sorted(_candidate_trust_paths(crystal_id, route)):
+        try:
+            if revoke_script(root, candidate):
+                revoked.append(candidate)
+        except TrustError:
+            continue  # lifecycle junk (e.g. "../x.py") must not brick cleanup
     append_lifecycle_event(
         stage="rejected",
         crystal_id=crystal_id,
@@ -506,7 +575,8 @@ def reject_crystal(
             "transition": f"{previous}->{STATE_REJECTED}",
             "removed_route": removed_route,
             "removed_draft": removed_draft,
-            "revoked_trust": revoked_trust,
+            "revoked_trust": bool(revoked),
+            "revoked_paths": revoked,
         },
     )
     return {
@@ -514,7 +584,8 @@ def reject_crystal(
         "crystal_id": crystal_id,
         "removed_route": removed_route,
         "removed_draft": removed_draft,
-        "revoked_trust": revoked_trust,
+        "revoked_trust": bool(revoked),
+        "revoked_paths": revoked,
     }
 
 
@@ -585,6 +656,9 @@ def crystal_status(crystal_id: str, *, root: Path) -> dict:
             "reason": approved.get("reason", ""),
             "ts": approved.get("ts", ""),
             "approved_sha256": approved.get("approved_sha256", ""),
+            "workspace_id": approved.get("workspace_id", ""),
+            "workspace_match": bool(approved.get("workspace_id"))
+            and approved["workspace_id"] == _workspace_id(root),
         },
         "timeline": [
             {

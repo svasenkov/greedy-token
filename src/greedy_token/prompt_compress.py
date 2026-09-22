@@ -54,7 +54,13 @@ def compress_heuristic(text: str) -> str:
     return short
 
 
-def compress_ollama_detail(text: str, *, root: Path | None = None) -> tuple[str, int | None]:
+def compress_ollama_detail(
+    text: str,
+    *,
+    root: Path | None = None,
+    log: bool = True,
+    parent_operation_id: str | None = None,
+) -> tuple[str, int | None]:
     """Compress via the ``compress`` profile — guarded by the spend guard."""
     system = (
         "Сожми промпт для Cursor-агента. "
@@ -67,29 +73,56 @@ def compress_ollama_detail(text: str, *, root: Path | None = None) -> tuple[str,
         user=text.strip(),
         root=root,
         allow_escalate=False,
-        log=False,
+        log=log,
+        parent_operation_id=parent_operation_id,
     )
     return result.text, result.eval_tokens
 
 
-def compress_ollama(text: str, *, root: Path | None = None) -> str:
-    content, _ = compress_ollama_detail(text, root=root)
+def compress_ollama(
+    text: str,
+    *,
+    root: Path | None = None,
+    log: bool = True,
+    parent_operation_id: str | None = None,
+) -> str:
+    content, _ = compress_ollama_detail(
+        text, root=root, log=log, parent_operation_id=parent_operation_id
+    )
     return content
 
 
 def compress_prompt(
-    text: str, *, use_ollama: bool = False, root: Path | None = None
+    text: str,
+    *,
+    use_ollama: bool = False,
+    root: Path | None = None,
+    log: bool = True,
+    parent_operation_id: str | None = None,
 ) -> str:
-    short, _ = compress_prompt_detail(text, use_ollama=use_ollama, root=root)
+    short, _ = compress_prompt_detail(
+        text,
+        use_ollama=use_ollama,
+        root=root,
+        log=log,
+        parent_operation_id=parent_operation_id,
+    )
     return short
 
 
 def compress_prompt_detail(
-    text: str, *, use_ollama: bool = False, root: Path | None = None
+    text: str,
+    *,
+    use_ollama: bool = False,
+    root: Path | None = None,
+    log: bool = True,
+    parent_operation_id: str | None = None,
 ) -> tuple[str, int | None]:
     if use_ollama:
         try:
-            return compress_ollama_detail(text, root=root)
+            return compress_ollama_detail(
+                text, root=root, log=log, parent_operation_id=parent_operation_id
+            )
         except Exception as exc:
             fallback = compress_heuristic(text)
             return f"# Ollama failed ({exc}); heuristic fallback:\n\n{fallback}", None

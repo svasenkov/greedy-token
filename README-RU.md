@@ -185,9 +185,9 @@ find baseUrl in configurator-option-presets.html
 | `greedy-token crystallize status ID` | Состояние + draft/route/trust факты + аудит-таймлайн |
 | `greedy-token crystallize draft ID [--since 30d]` | Propose: draft-скрипт (`.greedy-token/drafts/`) + shadow-роут (+7d, log-only) |
 | `greedy-token crystallize propose ID [--since 30d]` | Алиас `draft` — тот же шаг propose |
-| `greedy-token crystallize approve ID [--by X] [--reason R]` | Одобрение человеком: пин sha256 проверенного драфта, who/why в лог |
-| `greedy-token crystallize promote ID [--by X] [--reason R]` | Apply: trust пинного драфта + shadow → active |
-| `greedy-token crystallize reject ID [--reason R]` | Удалить draft + роут + trust-запись; стадия `rejected` |
+| `greedy-token crystallize approve ID [--by X] [--reason R]` | Одобрение человеком: пин sha256 проверенного драфта к этому workspace, who/why в лог |
+| `greedy-token crystallize promote ID [--by X] [--reason R]` | Apply: перепроверка пинных байтов → trust + shadow → active |
+| `greedy-token crystallize reject ID [--reason R]` | Удалить draft + роут + все его trust-записи; стадия `rejected` |
 | `greedy-token llm invoke --profile P` | Headless multi-model LLM invoke (`--system/-user[-file]`, stdin, `--json`) |
 | `greedy-token llm list` | Список сконфигурированных LLM-моделей |
 | `greedy-token doctor` | Проба железа + Ollama-моделей; рекомендация локальной модели |

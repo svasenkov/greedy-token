@@ -228,6 +228,7 @@ def test_reject_unknown_crystal(minimal_workspace: Path, crystal_home: Path) -> 
         "removed_route": False,
         "removed_draft": False,
         "revoked_trust": False,
+        "revoked_paths": [],
     }
 
 
@@ -370,6 +371,51 @@ def test_generate_draft_code_metered_denied_no_http(
     assert "TODO" in code
 
 
+@allure.story("Codegen")
+@allure.title("draft generation logs the metered call — spend visible in usage")
+def test_generate_draft_code_metered_logged(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cfg = {
+        "llm": {
+            "metered": {"opt_in": True},
+            "cheap": {
+                "models": [{
+                    "id": "bulk", "enabled": True, "model": "bulk-m",
+                    "profiles": ["*"], "billing": "metered", "cost_per_1m_usd": 0.1,
+                }]
+            },
+            "escalation": {"enabled": False},
+        }
+    }
+    (minimal_workspace / ".greedy-token.yaml").write_text(
+        yaml.safe_dump(cfg), encoding="utf-8"
+    )
+    monkeypatch.setattr("greedy_token.cheap_llm.cheap_llm_available", lambda settings: True)
+
+    from greedy_token import llm_invoke
+
+    monkeypatch.setattr(
+        llm_invoke, "llm_chat", lambda *a, **k: ("print('draft ok')", 100)
+    )
+    code, source = l3.generate_draft_code("script-x", "pattern text", 3, root=minimal_workspace)
+    assert source == "cheap_llm"
+    assert "print('draft ok')" in code
+    rows = [
+        json.loads(line)
+        for line in (minimal_workspace / "usage.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    req = next(row for row in rows if row.get("cmd") == "llm")
+    assert req["profile"] == "crystallize"
+    assert req["billing"]["tier"] == "metered"
+    assert req["cost_usd"] == pytest.approx(0.00001)
+    assert req["phase"] == "executed"
+    outcome = next(row for row in rows if row.get("event") == "route_outcome")
+    assert outcome["outcome"] == "success"
+    assert outcome["operation_id"] == req["operation_id"]
+
+
 # ---------------------------------------------------------------- workspace route helpers
 
 
@@ -433,7 +479,7 @@ def test_cmd_crystallize_draft_lint_failed(
     )
     monkeypatch.setattr(
         "greedy_token.crystallize_l3.draft_crystal",
-        lambda cid, *, root, since, actor="", reason="": result,
+        lambda cid, *, root, since, actor="", reason="", log=True: result,
     )
     code = cli.cmd_crystallize_draft(_ns(crystal_id=CRYSTAL_ID))
     out = capsys.readouterr().out

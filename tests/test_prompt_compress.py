@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import allure
@@ -133,4 +134,50 @@ def test_compress_ollama_metered_denied_no_http(
     assert "Ollama failed" in short
     assert tokens is None
     assert calls == []
+
+
+@allure.story("Ollama")
+@allure.title("compress_ollama_detail logs the metered call — spend visible in usage")
+def test_compress_ollama_metered_logged(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from greedy_token import llm_invoke
+    from greedy_token.prompt_compress import compress_ollama_detail
+
+    (tmp_path / ".greedy-token.yaml").write_text(
+        yaml.safe_dump({
+            "llm": {
+                "metered": {"opt_in": True},
+                "cheap": {
+                    "models": [{
+                        "id": "bulk", "enabled": True, "model": "bulk-m",
+                        "profiles": ["compress"], "billing": "metered",
+                        "cost_per_1m_usd": 0.1,
+                    }]
+                },
+                "escalation": {"enabled": False},
+            }
+        }),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(llm_invoke, "llm_chat", lambda *a, **k: ("short prompt", 100))
+    short, tokens = compress_ollama_detail(
+        "Do X.\nWhy: because.", root=tmp_path, parent_operation_id="parent-op"
+    )
+    assert short == "short prompt"
+    assert tokens == 100
+    rows = [
+        json.loads(line)
+        for line in (tmp_path / "usage.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    req = next(row for row in rows if row.get("cmd") == "llm")
+    assert req["profile"] == "compress"
+    assert req["billing"]["tier"] == "metered"
+    assert req["cost_usd"] == pytest.approx(0.00001)
+    assert req["phase"] == "executed"
+    assert req["parent_operation_id"] == "parent-op"
+    outcome = next(row for row in rows if row.get("event") == "route_outcome")
+    assert outcome["outcome"] == "success"
+    assert outcome["operation_id"] == req["operation_id"]
 

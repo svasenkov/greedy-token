@@ -474,7 +474,12 @@ def test_invoke_metered_cheap_telemetry(
     assert result.eval_tokens == 12
     assert result.cost_usd == pytest.approx(12 / 1_000_000 * 0.05)
 
-    event = json.loads(log.read_text(encoding="utf-8").splitlines()[-1])
+    rows = [
+        json.loads(line)
+        for line in log.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    event = next(row for row in rows if row.get("cmd") == "llm")
     attach_text("event", json.dumps(event, indent=2))
     assert event["billing_tier"] == "cheap"  # legacy field: derived tier (compat)
     assert event["billing"]["tier"] == "metered"  # ADR-0002 block

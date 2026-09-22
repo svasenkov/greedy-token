@@ -427,7 +427,14 @@ def cmd_compress(args: argparse.Namespace) -> int:
         # compress is usable outside a workspace — the registry then falls
         # back to the user-level llm config.
         root = None
-    short, eval_tokens = compress_prompt_detail(text, use_ollama=args.ollama, root=root)
+    operation_id = new_operation_id()
+    short, eval_tokens = compress_prompt_detail(
+        text,
+        use_ollama=args.ollama,
+        root=root,
+        log=not getattr(args, "no_log", False),
+        parent_operation_id=operation_id,
+    )
     duration_ms = int((time.perf_counter() - t0) * 1000)
     if args.raw:
         print(short)
@@ -439,7 +446,7 @@ def cmd_compress(args: argparse.Namespace) -> int:
         use_ollama=args.ollama,
         duration_ms=duration_ms,
         eval_tokens=eval_tokens,
-        operation_id=new_operation_id(),
+        operation_id=operation_id,
     )
     maybe_append_event(args, event)
     return 0
@@ -1242,6 +1249,7 @@ def cmd_crystallize_draft(args: argparse.Namespace) -> int:
             since=args.since,
             actor=args.by,
             reason=args.reason,
+            log=not getattr(args, "no_log", False),
         )
     except ValueError as exc:
         print(f"crystallize draft: {exc}", file=sys.stderr)

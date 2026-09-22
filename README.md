@@ -185,9 +185,9 @@ Expected after setup: **8 MCP tools** (including `greedy_token_pipeline` and `gr
 | `greedy-token crystallize status ID` | State + draft/route/trust facts + audit timeline |
 | `greedy-token crystallize draft ID [--since 30d]` | Propose: draft script (`.greedy-token/drafts/`) + shadow route (+7d, log-only) |
 | `greedy-token crystallize propose ID [--since 30d]` | Alias of `draft` — same propose step |
-| `greedy-token crystallize approve ID [--by X] [--reason R]` | Human approval: pins reviewed draft sha256, logs who/why |
-| `greedy-token crystallize promote ID [--by X] [--reason R]` | Apply: trust the pinned draft + shadow → active |
-| `greedy-token crystallize reject ID [--reason R]` | Delete the draft + route + trust entry; log `rejected` stage |
+| `greedy-token crystallize approve ID [--by X] [--reason R]` | Human approval: pins reviewed draft sha256 to this workspace, logs who/why |
+| `greedy-token crystallize promote ID [--by X] [--reason R]` | Apply: re-verify the pinned draft bytes → trust + shadow → active |
+| `greedy-token crystallize reject ID [--reason R]` | Delete the draft + route + all its trust entries; log `rejected` stage |
 | `greedy-token llm invoke --profile P` | Headless multi-model LLM invoke (`--system/-user[-file]`, stdin, `--json`) |
 | `greedy-token llm list` | List configured LLM models |
 | `greedy-token doctor` | Probe hardware + Ollama models; recommend local model |

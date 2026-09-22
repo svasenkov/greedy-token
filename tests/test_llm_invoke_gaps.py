@@ -213,7 +213,7 @@ def test_invoke_metered_attempts_accounted(cheap_root: Path, monkeypatch: pytest
     assert result.cost_usd == pytest.approx(0.00001 + 0.00004)
 
 
-@allure.title("logged invoke event carries the attempt list and per-attempt spend")
+@allure.title("logged invoke writes one event per completed call plus the operation outcome")
 def test_invoke_event_records_attempts(cheap_root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     import json
 
@@ -240,7 +240,111 @@ def test_invoke_event_records_attempts(cheap_root: Path, monkeypatch: pytest.Mon
         for line in (cheap_root / "usage.jsonl").read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
-    event = next(row for row in rows if row.get("cmd") == "llm")
-    assert event["llm_attempts"] == ["fast", "big"]
-    assert event["escalated_from"] == "fast"
-    assert event["cost_usd"] == pytest.approx(0.00005)
+    req = [row for row in rows if row.get("cmd") == "llm"]
+    # One request event per completed provider call, each with its own spend.
+    assert [row["billing"]["model_id"] for row in req] == ["fast", "big"]
+    assert req[0]["cost_usd"] == pytest.approx(0.00001)
+    assert req[1]["cost_usd"] == pytest.approx(0.00004)
+    assert all(row["llm_attempts"] == ["fast", "big"] for row in req)
+    assert all(row["phase"] == "executed" for row in req)
+    assert all(row["billing"]["tier"] == "metered" for row in req)
+    assert len({row["operation_id"] for row in req}) == 1
+    # Only the escalated call carries the escalation marker.
+    assert "escalated_from" not in req[0]
+    assert req[1]["escalated_from"] == "fast"
+    # The weak first answer earned no savings; the serving call did.
+    assert req[0]["savings_exclusion"] == "empty_result"
+    assert req[0]["cursor_saved"] == 0
+    assert req[1]["cursor_saved"] > 0
+    outcome = next(row for row in rows if row.get("event") == "route_outcome")
+    assert outcome["outcome"] == "success"
+    assert outcome["operation_id"] == req[0]["operation_id"]
+    assert outcome["attempts"] == 2
+    assert outcome["retries"] == 1
+
+
+@allure.title("failed escalation still logs the completed call's spend")
+def test_invoke_failed_chain_logs_cost(cheap_root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import json
+
+    _write_cfg(cheap_root, {
+        "llm": {
+            "metered": {"opt_in": True},
+            "cheap": {
+                "models": [
+                    {"id": "fast", "enabled": True, "model": "m7", "profiles": ["p"],
+                     "billing": "metered", "cost_per_1m_usd": 0.1},
+                    {"id": "big", "enabled": True, "model": "m70", "profiles": ["p"],
+                     "billing": "metered", "cost_per_1m_usd": 0.2},
+                ]
+            },
+            "escalation": {"enabled": True, "chain": ["fast", "big"],
+                           "triggers": ["empty_output"], "max_steps": 2},
+        }
+    })
+
+    seq = iter([("x", 100)])
+
+    def flaky(*a, **k):
+        try:
+            return next(seq)
+        except StopIteration:
+            raise RuntimeError("chat down") from None
+
+    monkeypatch.setattr(llm_invoke, "llm_chat", flaky)
+    with pytest.raises(RuntimeError, match="chat down"):
+        invoke_profile("p", system="s", user="u", root=cheap_root, log=True, allow_escalate=True)
+    rows = [
+        json.loads(line)
+        for line in (cheap_root / "usage.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    req = [row for row in rows if row.get("cmd") == "llm"]
+    # The completed metered call is logged even though the chain failed.
+    assert len(req) == 1
+    assert req[0]["billing"]["model_id"] == "fast"
+    assert req[0]["cost_usd"] == pytest.approx(0.00001)
+    assert req[0]["phase"] == "executed"
+    assert req[0]["billing"]["tier"] == "metered"
+    assert req[0]["operation_id"]
+    outcome = next(row for row in rows if row.get("event") == "route_outcome")
+    assert outcome["outcome"] == "failure"
+    assert outcome["operation_id"] == req[0]["operation_id"]
+
+
+@allure.title("invoke with no completed call logs a planned refusal, not silence")
+def test_invoke_no_completed_call_logged(
+    cheap_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import json
+
+    _write_cfg(cheap_root, {
+        "llm": {
+            "cheap": {"models": [{
+                "id": "fast", "enabled": True, "model": "m7", "profiles": ["p"],
+            }]},
+            "escalation": {"enabled": False},
+        }
+    })
+
+    def boom(*a, **k):
+        raise RuntimeError("chat down")
+
+    monkeypatch.setattr(llm_invoke, "llm_chat", boom)
+    with pytest.raises(RuntimeError, match="LLM invoke failed"):
+        invoke_profile("p", system="s", user="u", root=cheap_root, log=True, allow_escalate=False)
+    rows = [
+        json.loads(line)
+        for line in (cheap_root / "usage.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    req = [row for row in rows if row.get("cmd") == "llm"]
+    assert len(req) == 1
+    assert req[0]["phase"] == "planned"
+    assert req[0]["executor"]["executed"] is False
+    assert req[0]["savings_exclusion"] == "not_executed"
+    assert req[0]["cost_usd"] == 0.0
+    assert req[0]["llm_attempts"] == ["fast"]
+    outcome = next(row for row in rows if row.get("event") == "route_outcome")
+    assert outcome["outcome"] == "failure"
+    assert outcome["operation_id"] == req[0]["operation_id"]
