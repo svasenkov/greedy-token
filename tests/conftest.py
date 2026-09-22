@@ -39,8 +39,8 @@ def _discover_workspace_root() -> Path | None:
     here = Path(__file__).resolve()
     for parent in here.parents:
         if (parent / "docs" / "phase-manifest.json").is_file() and (
-            parent / "stacks" / "java-spring"
-        ).is_dir():
+            parent / "scripts" / "meta-sync-check.py"
+        ).is_file():
             return parent
     return None
 

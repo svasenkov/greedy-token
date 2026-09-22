@@ -92,7 +92,7 @@ WRAPPERS: dict[str, ScriptWrapper] = {
     ),
     "gen-env-configs": ScriptWrapper(
         id="gen-env-configs",
-        path="stacks/java-spring/scripts/gen-env-configs.py",
+        path="projects/autotests-ai-multistack-home/autotests-ai-multistack-app/tests/_tests-meta/scripts/_ethalon/gen-env-configs.py",
         category="python",
         read_only=False,
         note="Deterministic config generation",
