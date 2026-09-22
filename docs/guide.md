@@ -198,7 +198,7 @@ Telemetry stays compatible: the `cursor_baseline` field and the `cursor` tier id
 | `greedy_token_route` | Recommend tier + token footer |
 | `greedy_token_pipeline` | Multi-step chain (search/tool → python → ollama → rag) |
 | `greedy_token_usage` | Aggregate savings from `~/.greedy-token/usage.jsonl` |
-| `greedy_token_crystallize` | L3 safe mode: `action=draft|promote|reject` + `crystal_id` (no auto-apply) |
+| `greedy_token_crystallize` | Auditable lifecycle: `action=candidates|status|draft|approve|promote|reject` + `crystal_id` (no auto-apply; `approve` records actor `mcp`) |
 | `greedy_token_capabilities` | Derived op inventory + readiness (JSON, no execution) |
 | `greedy_token_invoke` | Invoke a ready read-only op by stable id |
 
@@ -268,9 +268,13 @@ Saved by executor (sum of per-step savings):
 | `greedy-token compress` | Short prompt (stdin; `--ollama`) |
 | `greedy-token report [--since 7d]` | Usage telemetry + route quality (override_rate / cheap_hold_rate) + confidence calibration |
 | `greedy-token override …` | Log a `script_override` telemetry event |
-| `greedy-token crystallize draft ID [--since 30d]` | L3 safe mode: draft script (`.greedy-token/drafts/`) + shadow route (+7d, log-only) |
-| `greedy-token crystallize promote ID` | After human review: shadow → active (drop `shadow_until`) |
-| `greedy-token crystallize reject ID` | Delete the draft script + its route; log `rejected` stage |
+| `greedy-token crystallize candidates [--since 30d]` | Candidates + derived lifecycle state |
+| `greedy-token crystallize status ID` | State + draft/route/trust facts + audit timeline |
+| `greedy-token crystallize draft ID [--since 30d]` | Propose: draft script (`.greedy-token/drafts/`) + shadow route (+7d, log-only) |
+| `greedy-token crystallize propose ID [--since 30d]` | Alias of `draft` — same propose step |
+| `greedy-token crystallize approve ID [--by X] [--reason R]` | Human approval: pins reviewed draft sha256, logs who/why |
+| `greedy-token crystallize promote ID [--by X] [--reason R]` | Apply: trust the pinned draft (`trust` manifest) + shadow → active |
+| `greedy-token crystallize reject ID [--reason R]` | Delete the draft + route + trust entry; log `rejected` stage |
 | `greedy-token llm invoke --profile P` | Headless multi-model LLM invoke (`--system/-user[-file]`, stdin, `--json`) |
 | `greedy-token llm list` | List configured LLM models |
 | `greedy-token doctor` | Probe hardware + Ollama models; recommend local model |
@@ -582,17 +586,20 @@ greedy-token does **not** fine-tune models and never ships your code or usage da
 L3 closes the crystallization loop — telemetry candidate → draft script → human review → active route — with **no silent auto-apply** at any step:
 
 ```text
-candidate (repeated LLM task)          greedy-token hub / crystallize report
-   → crystallize draft <crystal_id>    draft script + shadow route (+7d, log-only)
+candidate (repeated LLM task)          greedy-token crystallize candidates
+   → crystallize draft <crystal_id>    proposed: draft script + shadow route (+7d, log-only)
    → human review of the draft         .greedy-token/drafts/<crystal_id>.py
-   → crystallize promote <crystal_id>  shadow → active   (or: reject — delete draft + route)
+   → crystallize approve <crystal_id>  approved: who/why + sha256 pin of the reviewed bytes
+   → crystallize promote <crystal_id>  applied: trust the pinned draft + shadow → active
+      (or: reject — delete draft + route + trust entry)
 ```
 
 - **`crystallize draft ID`** generates a draft Python script in `.greedy-token/drafts/ID.py`. The body comes from the **cheap LLM** (`cheap_llm` provider) when available; otherwise a deterministic template skeleton (docstring with pattern/hits, argparse CLI, TODO body). The draft passes the existing `scripts lint` (pattern blocklist + script-exists check). Alongside the draft a **shadow route** is registered in the workspace config (`$GREEDY_TOKEN_ROOT/.greedy-token.yaml`, never the bundled `routes.yaml`): `target: python`, `shadow_until` +7 days, `enabled: false`. A shadow route **never affects `route_task`** — a potential match is only logged (`Shadow match (log-only): …`).
-- **`crystallize promote ID`** — after human review: removes `shadow_until`/`enabled: false`, the route goes active and starts winning the python tier.
-- **`crystallize reject ID`** — deletes the draft script and removes the route.
+- **`crystallize approve ID`** records the human decision in the lifecycle log — `actor` (`--by`, default `$USER`), `reason` (`--reason`), and `approved_sha256` of the draft bytes that were reviewed.
+- **`crystallize promote ID`** is the apply step and requires an `approved` state: it verifies the draft still matches `approved_sha256` (refuses with "changed since approval" otherwise), passes the draft through **Step-2 trust** (`approve_script` binds the approved bytes in the user-local manifest, `approval_source: crystallize-promote`), then drops `shadow_until`/`enabled: false` so the route goes active. The lifecycle never bypasses trust — an applied crystal shows `readiness: ready` + `lifecycle_state: applied` in `greedy-token capabilities`.
+- **`crystallize reject ID`** — deletes the draft script, removes the route, and revokes the trust entry if one exists.
 
-Every transition appends a lifecycle event (`draft` → `shadow` → `promoted` / `rejected`) to `~/.greedy-token/crystallize-lifecycle.jsonl`; the hub (`hub serve` → Crystals) shows the new stages on the crystal timeline.
+Every transition appends a lifecycle event (`draft` → `shadow` → `approved` → `promoted` / `rejected`) with `actor`/`reason`/`transition` fields to `~/.greedy-token/crystallize-lifecycle.jsonl`; `crystallize status ID` shows the derived state + timeline, and the hub (`hub serve` → Crystals) shows the same stages on the crystal timeline. Lifecycle verbs also appear in `greedy-token capabilities` as `lifecycle` ops (`crystallize-approve` etc. — `write_not_invocable`: visible, never invocable through the read-only invoke surface).
 
 ## `--execute` safety
 
@@ -609,7 +616,7 @@ Today the happy path is **any MCP agent host + Ollama + workspace** (Cursor by d
 | Area | ✅ today (v0.13.0) | 🔜 next |
 |------|-------------------|---------|
 | Executors | `tool`, `python`, `ollama` (via `cheap_llm`), `rag`; **metered bulk APIs** (spend-guarded, [ADR-0002](docs/adr/0002-metered-bulk-cheap-tier.md)) | Crystal IR store |
-| Crystallization | L2 telemetry + **L3 safe mode** (`crystallize draft` → shadow → `promote` / `reject`) | — (silent auto-apply intentionally not planned) |
+| Crystallization | L2 telemetry + **audited lifecycle** (`draft` → `approve` → `promote` / `reject`, trust-gated apply) | — (silent auto-apply intentionally not planned) |
 | Agent host | Cursor (default) + **Claude Desktop, Continue** via `agent_host` config ([Agent hosts](#agent-hosts)) | more host conventions on request |
 | Config | `cheap_llm.provider` + `OLLAMA_*` / `ollama:` aliases; **team route presets** (`init --preset name|url|path`) | — |
 

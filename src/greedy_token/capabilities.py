@@ -30,6 +30,7 @@ from greedy_token.executors import (
     plan_run,
     task_result_gate,
 )
+from greedy_token.hub.crystallize import STATE_UNKNOWN, crystal_states
 from greedy_token.paths import (
     find_workspace_root,
     load_routes_config,
@@ -98,6 +99,42 @@ TRUST_OK = "ok"
 REFUSAL_UNKNOWN_OPERATION = "unknown_operation"
 REFUSAL_INVALID_PARAMS = "invalid_params"
 
+# Crystallize lifecycle verbs are CLI commands, not argv ops — listed here so
+# the derived inventory is complete; they are never invocable through the
+# read-only invoke surface (mutations stay explicit CLI commands).
+LIFECYCLE_OPS: tuple[tuple[str, bool, str], ...] = (
+    (
+        "crystallize-candidates",
+        True,
+        "list candidates + derived lifecycle state — CLI: greedy-token crystallize candidates",
+    ),
+    (
+        "crystallize-status",
+        True,
+        "per-crystal state + audit timeline — CLI: greedy-token crystallize status <id>",
+    ),
+    (
+        "crystallize-draft",
+        False,
+        "propose: draft script + shadow route — CLI: greedy-token crystallize draft <id>",
+    ),
+    (
+        "crystallize-approve",
+        False,
+        "human approval — who/why + sha256 pin — CLI: greedy-token crystallize approve <id>",
+    ),
+    (
+        "crystallize-promote",
+        False,
+        "apply: trust pinned draft + activate route — CLI: greedy-token crystallize promote",
+    ),
+    (
+        "crystallize-reject",
+        False,
+        "remove draft + route + trust entry — CLI: greedy-token crystallize reject <id>",
+    ),
+)
+
 _INVOCABLE_TIERS = frozenset({"tool", "python", "ollama"})
 _TRUST_REFUSAL_CODES = frozenset(
     {
@@ -136,6 +173,9 @@ class Capability:
     domains: tuple[str, ...] = ()
     note: str = ""
     requires_ollama: bool = False
+    # Derived crystallize lifecycle state when the op id is a crystal
+    # (candidate/proposed/approved/applied/rejected) — audit-trail fact.
+    lifecycle_state: str = ""
     # Declared rg search_paths that do not exist under root — skipped at run
     # time instead of dying on rg exit 2; listed here so the stale config is
     # visible rather than silently absorbed.
@@ -173,6 +213,8 @@ class Capability:
             value["domains"] = list(self.domains)
         if self.note:
             value["note"] = self.note
+        if self.lifecycle_state:
+            value["lifecycle_state"] = self.lifecycle_state
         if self.requires_ollama:
             value["requires_ollama"] = True
         if self.missing_paths:
@@ -313,6 +355,7 @@ def _capability_for_route(
     *,
     overlay_ids: set[str],
     checks_by_path: dict[str, object],
+    lifecycle_states: dict[str, dict] | None = None,
 ) -> Capability:
     rid = str(route["id"])
     target = str(route.get("target") or "")
@@ -335,7 +378,12 @@ def _capability_for_route(
         "requires_ollama": bool(
             (w := wrapper_for_command(command)) and w.requires_ollama
         ),
+        "lifecycle_state": (
+            str((lifecycle_states or {}).get(rid, {}).get("state") or "")
+        ),
     }
+    if base["lifecycle_state"] == STATE_UNKNOWN:
+        base["lifecycle_state"] = ""
 
     def cap(readiness: str, reason: str, **kw: object) -> Capability:
         invocable = readiness == READY and read_only and target in _INVOCABLE_TIERS
@@ -523,8 +571,15 @@ def collect_capabilities(root: Path | None = None) -> CapabilityView:
     except TrustError as exc:
         manifest_error = str(exc)
 
+    lifecycle_states = crystal_states()
     ops: list[Capability] = [
-        _capability_for_route(route, root, overlay_ids=overlay_ids, checks_by_path=checks_by_path)
+        _capability_for_route(
+            route,
+            root,
+            overlay_ids=overlay_ids,
+            checks_by_path=checks_by_path,
+            lifecycle_states=lifecycle_states,
+        )
         for route in routes
     ]
 
@@ -537,6 +592,20 @@ def collect_capabilities(root: Path | None = None) -> CapabilityView:
         _capability_for_wrapper(wrapper, root, checks_by_path)
         for wrapper_id, wrapper in sorted(WRAPPERS.items())
         if wrapper_id not in covered
+    )
+    ops.extend(
+        Capability(
+            id=op_id,
+            source="lifecycle",
+            origin="builtin",
+            tier="lifecycle",
+            read_only=read_only,
+            status="active",
+            readiness=(ADVISORY_ONLY if read_only else WRITE_NOT_INVOCABLE),
+            reason=note,
+            invocable=False,
+        )
+        for op_id, read_only, note in LIFECYCLE_OPS
     )
     return CapabilityView(root=str(root), ops=tuple(ops), manifest_error=manifest_error)
 
@@ -921,6 +990,8 @@ def format_capability_detail(cap: Capability) -> str:
         lines.append(f"  trust:     {cap.trust_entry}")
     if cap.contract:
         lines.append(f"  contract:  {cap.contract}")
+    if cap.lifecycle_state:
+        lines.append(f"  lifecycle: {cap.lifecycle_state}")
     if cap.domains:
         lines.append(f"  domains:   {', '.join(cap.domains)}")
     if cap.patterns:

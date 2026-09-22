@@ -75,6 +75,7 @@ LAYER_BY_MODULE: dict[str, str] = {
     "test_hub": "component",
     "test_hub_gaps": "component",
     "test_crystallize_l3": "component",
+    "test_crystallize_lifecycle": "component",
     "test_resource_probe_gaps": "component",
     "test_cli_gaps": "component",
     "test_pipeline_gaps": "component",

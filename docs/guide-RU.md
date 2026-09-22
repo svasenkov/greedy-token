@@ -198,7 +198,7 @@ Cursor — хост по умолчанию, но stdio MCP-сервер и ау
 | `greedy_token_route` | Куда нести задачу + token footer |
 | `greedy_token_pipeline` | Цепочка search/tool → python → ollama → rag |
 | `greedy_token_usage` | Сводка экономии из `~/.greedy-token/usage.jsonl` |
-| `greedy_token_crystallize` | L3 safe mode: `action=draft|promote|reject` + `crystal_id` (без auto-apply) |
+| `greedy_token_crystallize` | Аудируемый lifecycle: `action=candidates|status|draft|approve|promote|reject` + `crystal_id` (без auto-apply; `approve` пишет actor `mcp`) |
 | `greedy_token_capabilities` | Derived инвентарь операций + readiness (JSON, без выполнения) |
 | `greedy_token_invoke` | Invoke готовой read-only операции по stable id |
 
@@ -268,9 +268,13 @@ Saved by executor (sum of per-step savings):
 | `greedy-token compress` | Short prompt (stdin; `--ollama`) |
 | `greedy-token report [--since 7d]` | Usage telemetry + качество маршрутов (override_rate / cheap_hold_rate) + калибровка confidence |
 | `greedy-token override …` | Записать telemetry-событие `script_override` |
-| `greedy-token crystallize draft ID [--since 30d]` | L3 safe mode: draft-скрипт (`.greedy-token/drafts/`) + shadow-роут (+7d, log-only) |
-| `greedy-token crystallize promote ID` | После ревью человеком: shadow → active (снять `shadow_until`) |
-| `greedy-token crystallize reject ID` | Удалить draft-скрипт и его роут; записать стадию `rejected` |
+| `greedy-token crystallize candidates [--since 30d]` | Кандидаты + derived lifecycle-состояние |
+| `greedy-token crystallize status ID` | Состояние + draft/route/trust факты + аудит-таймлайн |
+| `greedy-token crystallize draft ID [--since 30d]` | Propose: draft-скрипт (`.greedy-token/drafts/`) + shadow-роут (+7d, log-only) |
+| `greedy-token crystallize propose ID [--since 30d]` | Алиас `draft` — тот же шаг propose |
+| `greedy-token crystallize approve ID [--by X] [--reason R]` | Одобрение человеком: пин sha256 проверенного драфта, who/why в лог |
+| `greedy-token crystallize promote ID [--by X] [--reason R]` | Apply: trust пинного драфта (`trust` manifest) + shadow → active |
+| `greedy-token crystallize reject ID [--reason R]` | Удалить draft + роут + trust-запись; стадия `rejected` |
 | `greedy-token llm invoke --profile P` | Headless multi-model LLM invoke (`--system/-user[-file]`, stdin, `--json`) |
 | `greedy-token llm list` | Список сконфигурированных LLM-моделей |
 | `greedy-token doctor` | Проба железа + Ollama-моделей; рекомендация локальной модели |
@@ -584,17 +588,20 @@ greedy-token **не** дообучает (fine-tune) модели и не отп
 L3 замыкает цикл кристаллизации — кандидат из телеметрии → draft-скрипт → ревью человеком → активный роут — **без silent auto-apply** на любом шаге:
 
 ```text
-кандидат (повторяющаяся LLM-задача)     greedy-token hub / crystallize report
-   → crystallize draft <crystal_id>     draft-скрипт + shadow-роут (+7d, log-only)
+кандидат (повторяющаяся LLM-задача)     greedy-token crystallize candidates
+   → crystallize draft <crystal_id>     proposed: draft-скрипт + shadow-роут (+7d, log-only)
    → ревью draft человеком              .greedy-token/drafts/<crystal_id>.py
-   → crystallize promote <crystal_id>   shadow → active   (или: reject — удалить draft + роут)
+   → crystallize approve <crystal_id>   approved: who/why + sha256-пин проверенных байт
+   → crystallize promote <crystal_id>   applied: trust пинного драфта + shadow → active
+      (или: reject — удалить draft + роут + trust-запись)
 ```
 
 - **`crystallize draft ID`** генерирует draft Python-скрипт в `.greedy-token/drafts/ID.py`. Тело пишет **cheap LLM** (провайдер `cheap_llm`), а если он недоступен — детерминированный шаблон-скелет (docstring с pattern/hits, argparse CLI, TODO-тело). Draft проходит существующий `scripts lint` (blocklist паттернов + проверка существования скрипта). Вместе с draft регистрируется **shadow-роут** в workspace-конфиге (`$GREEDY_TOKEN_ROOT/.greedy-token.yaml`, **не** пакетный `routes.yaml`): `target: python`, `shadow_until` +7 дней, `enabled: false`. Shadow-роут **не влияет на `route_task`** — потенциальный матч только логируется (`Shadow match (log-only): …`).
-- **`crystallize promote ID`** — после ревью человеком: снимает `shadow_until`/`enabled: false`, роут становится активным и начинает выигрывать python-tier.
-- **`crystallize reject ID`** — удаляет draft-скрипт и роут.
+- **`crystallize approve ID`** фиксирует решение человека в lifecycle-логе — `actor` (`--by`, default `$USER`), `reason` (`--reason`) и `approved_sha256` байтов драфта, которые ревьюились.
+- **`crystallize promote ID`** — apply-шаг, требует состояния `approved`: проверяет, что драфт всё ещё совпадает с `approved_sha256` (иначе refuse «changed since approval»), прогоняет драфт через **Step-2 trust** (`approve_script` биндит одобренные байты в user-local manifest, `approval_source: crystallize-promote`), затем снимает `shadow_until`/`enabled: false` — роут становится активным. Lifecycle не обходит trust — applied-кристалл показывает `readiness: ready` + `lifecycle_state: applied` в `greedy-token capabilities`.
+- **`crystallize reject ID`** — удаляет draft-скрипт, роут и trust-запись, если она есть.
 
-Каждый переход пишет lifecycle-событие (`draft` → `shadow` → `promoted` / `rejected`) в `~/.greedy-token/crystallize-lifecycle.jsonl`; hub (`hub serve` → Crystals) показывает новые стадии на таймлайне кристалла.
+Каждый переход пишет lifecycle-событие (`draft` → `shadow` → `approved` → `promoted` / `rejected`) с полями `actor`/`reason`/`transition` в `~/.greedy-token/crystallize-lifecycle.jsonl`; `crystallize status ID` показывает derived-состояние + таймлайн, hub (`hub serve` → Crystals) — те же стадии на таймлайне кристалла. Lifecycle-глаголы видны и в `greedy-token capabilities` как `lifecycle`-операции (`crystallize-approve` и т.д. — `write_not_invocable`: видимы, но не вызываемы через read-only invoke).
 
 ## Безопасность `--execute`
 
@@ -611,7 +618,7 @@ L3 замыкает цикл кристаллизации — кандидат �
 | Зона | ✅ сейчас (v0.13.0) | 🔜 дальше |
 |------|-------------------|-----------|
 | Executors | `tool`, `python`, `ollama` (через `cheap_llm`), `rag`; **metered bulk APIs** (spend-guarded, [ADR-0002](docs/adr/0002-metered-bulk-cheap-tier.md)) | Crystal IR store |
-| Кристаллизация | L2 telemetry + **L3 safe mode** (`crystallize draft` → shadow → `promote` / `reject`) | — (silent auto-apply сознательно не планируется) |
+| Кристаллизация | L2 telemetry + **audited lifecycle** (`draft` → `approve` → `promote` / `reject`, trust-gated apply) | — (silent auto-apply сознательно не планируется) |
 | Agent host | Cursor (по умолчанию) + **Claude Desktop, Continue** через конфиг `agent_host` ([Agent hosts](#agent-hosts)) | другие хост-конвенции по запросу |
 | Конфиг | `cheap_llm.provider` + алиасы `OLLAMA_*` / `ollama:`; **team route presets** (`init --preset name|url|path`) | — |
 

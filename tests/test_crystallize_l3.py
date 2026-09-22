@@ -33,7 +33,7 @@ CRYSTAL_ID = crystal_id_for_pattern(TASK)
 
 
 def _ns(**kwargs) -> Namespace:
-    defaults = {"no_log": True, "json": False, "since": "30d"}
+    defaults = {"no_log": True, "json": False, "since": "30d", "by": "", "reason": ""}
     defaults.update(kwargs)
     return Namespace(**defaults)
 
@@ -167,11 +167,12 @@ def test_shadow_route_does_not_affect_route_task(
 
 
 @allure.story("Promote")
-@allure.title("promote flips shadow → active and route_task selects the crystal")
+@allure.title("promote flips approved → applied and route_task selects the crystal")
 def test_promote_activates_route(
     minimal_workspace: Path, crystal_home: Path, no_cheap_llm: None
 ) -> None:
     l3.draft_crystal(CRYSTAL_ID, root=minimal_workspace)
+    l3.approve_crystal(CRYSTAL_ID, root=minimal_workspace)
     result = l3.promote_crystal(CRYSTAL_ID, root=minimal_workspace)
     attach_text("promote", json.dumps(result))
 
@@ -187,15 +188,18 @@ def test_promote_activates_route(
 
 
 @allure.story("Promote")
-@allure.title("promote: missing route and non-shadow route raise ValueError")
+@allure.title("promote: no proposal → unapproved → already applied errors")
 def test_promote_errors(
     minimal_workspace: Path, crystal_home: Path, no_cheap_llm: None
 ) -> None:
-    with pytest.raises(ValueError, match="not found"):
+    with pytest.raises(ValueError, match="no proposal"):
         l3.promote_crystal(CRYSTAL_ID, root=minimal_workspace)
     l3.draft_crystal(CRYSTAL_ID, root=minimal_workspace)
+    with pytest.raises(ValueError, match="not approved"):
+        l3.promote_crystal(CRYSTAL_ID, root=minimal_workspace)
+    l3.approve_crystal(CRYSTAL_ID, root=minimal_workspace)
     l3.promote_crystal(CRYSTAL_ID, root=minimal_workspace)
-    with pytest.raises(ValueError, match="not in shadow"):
+    with pytest.raises(ValueError, match="already applied"):
         l3.promote_crystal(CRYSTAL_ID, root=minimal_workspace)
 
 
@@ -223,6 +227,7 @@ def test_reject_unknown_crystal(minimal_workspace: Path, crystal_home: Path) -> 
         "crystal_id": "script-no-such-crystal",
         "removed_route": False,
         "removed_draft": False,
+        "revoked_trust": False,
     }
 
 
@@ -247,24 +252,27 @@ def test_reject_skips_unrelated_routes(
 
 
 @allure.story("Lifecycle")
-@allure.title("draft → shadow → promoted lifecycle events land in the log and hub")
+@allure.title("draft → shadow → approved → promoted events land in the log and hub")
 def test_lifecycle_events_promote_path(
     minimal_workspace: Path, crystal_home: Path, no_cheap_llm: None
 ) -> None:
     l3.draft_crystal(CRYSTAL_ID, root=minimal_workspace)
+    l3.approve_crystal(CRYSTAL_ID, root=minimal_workspace)
     l3.promote_crystal(CRYSTAL_ID, root=minimal_workspace)
 
     stages = [e["stage"] for e in load_lifecycle_events() if e["crystal_id"] == CRYSTAL_ID]
-    assert stages == ["draft", "shadow", "promoted"]
+    assert stages == ["draft", "shadow", "approved", "promoted"]
 
     timeline = crystal_timeline(CRYSTAL_ID)
     assert timeline["latest_stage"] == "promoted"
-    assert set(timeline["stages"]) == {"draft", "shadow", "promoted"}
+    assert timeline["state"] == "applied"
+    assert set(timeline["stages"]) == {"draft", "shadow", "approved", "promoted"}
 
     listing = list_crystals(since="30d")
     entry = next(c for c in listing["crystals"] if c["crystal_id"] == CRYSTAL_ID)
     assert entry["latest_stage"] == "promoted"
     assert entry["status"] == "active"
+    assert entry["state"] == "applied"
 
 
 @allure.story("Lifecycle")
@@ -424,7 +432,8 @@ def test_cmd_crystallize_draft_lint_failed(
         lint_violations=[{"id": CRYSTAL_ID, "kind": "script_missing", "detail": "boom"}],
     )
     monkeypatch.setattr(
-        "greedy_token.crystallize_l3.draft_crystal", lambda cid, *, root, since: result
+        "greedy_token.crystallize_l3.draft_crystal",
+        lambda cid, *, root, since, actor="", reason="": result,
     )
     code = cli.cmd_crystallize_draft(_ns(crystal_id=CRYSTAL_ID))
     out = capsys.readouterr().out
@@ -449,14 +458,16 @@ def test_cmd_crystallize_promote(
     assert "crystallize promote:" in err
 
     l3.draft_crystal(CRYSTAL_ID, root=minimal_workspace)
+    l3.approve_crystal(CRYSTAL_ID, root=minimal_workspace)
     code = cli.cmd_crystallize_promote(_ns(crystal_id=CRYSTAL_ID))
     out = capsys.readouterr().out
     attach_text("stdout", out)
     assert code == 0
-    assert "shadow → active" in out
+    assert "approved → applied" in out
 
     l3.reject_crystal(CRYSTAL_ID, root=minimal_workspace)
     l3.draft_crystal(CRYSTAL_ID, root=minimal_workspace)
+    l3.approve_crystal(CRYSTAL_ID, root=minimal_workspace)
     code = cli.cmd_crystallize_promote(_ns(crystal_id=CRYSTAL_ID, json=True))
     payload = json.loads(capsys.readouterr().out)
     assert code == 0

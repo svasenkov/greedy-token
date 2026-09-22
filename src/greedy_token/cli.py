@@ -1151,12 +1151,98 @@ def cmd_override(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_crystallize_candidates(args: argparse.Namespace) -> int:
+    from greedy_token.hub.crystallize import list_crystals
+
+    data = list_crystals(since=args.since)
+    if args.json:
+        print(json.dumps(data, indent=2, ensure_ascii=False))
+        return 0
+    rows = list(data.get("crystals") or [])
+    lesson = list(data.get("lesson") or [])
+    lines = [
+        f"Crystallize — {len(rows)} workspace crystals "
+        f"(+{len(lesson)} lesson, since {data.get('since')})",
+        "",
+    ]
+    width = max((len(str(c.get("crystal_id"))) for c in rows), default=10)
+    for c in rows:
+        state = str(c.get("state") or "candidate")
+        lines.append(
+            f"  {str(c.get('crystal_id')):<{width}}  {state:<9} "
+            f"hits={int(c.get('hits') or 0):<3}  {c.get('pattern')}"
+        )
+    if not rows:
+        lines.append("  (no candidates — see 'greedy-token hub' / crystallize report)")
+    lines.extend(
+        [
+            "",
+            "Next:   greedy-token crystallize status <id>  ·  draft <id>",
+            "Gate:   approve <id> --reason … → promote <id>  (no auto-apply)",
+        ]
+    )
+    print("\n".join(lines))
+    return 0
+
+
+def cmd_crystallize_status(args: argparse.Namespace) -> int:
+    from greedy_token.crystallize_l3 import crystal_status
+
+    root = find_workspace_root()
+    result = crystal_status(args.crystal_id, root=root)
+    if args.json:
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        return 0
+    draft = result["draft"]
+    route = result["route"]
+    trust = result["trust"]
+    lines = [
+        f"{result['crystal_id']}  state: {result['state']}",
+    ]
+    if result.get("pattern"):
+        lines.append(
+            f"  pattern: {result['pattern']}  (hits: {result.get('hits', 0)})"
+        )
+    sha = draft.get("sha256") or ""
+    lines.append(
+        f"  draft:   {draft['path']}  "
+        + (f"exists · sha256:{sha[:12]}…" if draft.get("exists") else "missing")
+    )
+    lines.append(
+        f"  route:   {route['status']}"
+        + (f" (until {route['shadow_until']})" if route.get("shadow_until") else "")
+    )
+    lines.append(
+        f"  trust:   {'manifest:' + trust['check'] if trust['approved'] else 'not approved'}"
+    )
+    approved = result.get("approved") or {}
+    if approved.get("ts"):
+        lines.append(
+            f"  approved: {approved['ts']} by {approved.get('actor') or '?'}"
+            + (f" — {approved['reason']}" if approved.get("reason") else "")
+        )
+    if result.get("timeline"):
+        lines.append(
+            "  stages:  "
+            + " → ".join(str(e.get("stage")) for e in result["timeline"])
+        )
+    lines.append(f"  next:    {result['next']}")
+    print("\n".join(lines))
+    return 0
+
+
 def cmd_crystallize_draft(args: argparse.Namespace) -> int:
     from greedy_token.crystallize_l3 import draft_crystal
 
     root = find_workspace_root()
     try:
-        result = draft_crystal(args.crystal_id, root=root, since=args.since)
+        result = draft_crystal(
+            args.crystal_id,
+            root=root,
+            since=args.since,
+            actor=args.by,
+            reason=args.reason,
+        )
     except ValueError as exc:
         print(f"crystallize draft: {exc}", file=sys.stderr)
         return 1
@@ -1192,10 +1278,33 @@ def cmd_crystallize_draft(args: argparse.Namespace) -> int:
         lines.append("  Lint:    FAILED")
         lines.extend(f"    {v['id']}: {v['detail']}" for v in result.lint_violations)
     lines.append(
-        f"Review the script, then: greedy-token crystallize promote {result.crystal_id}"
+        f"Review the script, then: greedy-token crystallize approve {result.crystal_id}"
     )
     print("\n".join(lines))
     return 0 if result.lint_ok else 1
+
+
+def cmd_crystallize_approve(args: argparse.Namespace) -> int:
+    from greedy_token.crystallize_l3 import approve_crystal
+
+    root = find_workspace_root()
+    try:
+        result = approve_crystal(
+            args.crystal_id, root=root, actor=args.by, reason=args.reason
+        )
+    except ValueError as exc:
+        print(f"crystallize approve: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        return 0
+    print(
+        f"Approved {result['crystal_id']} by {result['actor']}"
+        + (f" — {result['reason']}" if result.get("reason") else "")
+        + f"\n  pinned draft sha256: {result['approved_sha256'][:12]}…"
+        f"\n  Next: greedy-token crystallize promote {result['crystal_id']}"
+    )
+    return 0
 
 
 def cmd_crystallize_promote(args: argparse.Namespace) -> int:
@@ -1203,7 +1312,9 @@ def cmd_crystallize_promote(args: argparse.Namespace) -> int:
 
     root = find_workspace_root()
     try:
-        result = promote_crystal(args.crystal_id, root=root)
+        result = promote_crystal(
+            args.crystal_id, root=root, actor=args.by, reason=args.reason
+        )
     except ValueError as exc:
         print(f"crystallize promote: {exc}", file=sys.stderr)
         return 1
@@ -1211,7 +1322,8 @@ def cmd_crystallize_promote(args: argparse.Namespace) -> int:
         print(json.dumps(result, indent=2, ensure_ascii=False))
         return 0
     print(
-        f"Promoted {args.crystal_id}: shadow → active in {result['config']}\n"
+        f"Promoted {args.crystal_id}: approved → applied in {result['config']}\n"
+        f"  Trust: {result['trusted']} (sha256 {result['sha256'][:12]}…)\n"
         f"Verify: greedy-token route \"{(result['route'].get('patterns') or [''])[0]}\""
     )
     return 0
@@ -1221,13 +1333,16 @@ def cmd_crystallize_reject(args: argparse.Namespace) -> int:
     from greedy_token.crystallize_l3 import reject_crystal
 
     root = find_workspace_root()
-    result = reject_crystal(args.crystal_id, root=root)
+    result = reject_crystal(
+        args.crystal_id, root=root, actor=args.by, reason=args.reason
+    )
     if args.json:
         print(json.dumps(result, indent=2, ensure_ascii=False))
         return 0
     print(
         f"Rejected {args.crystal_id}: "
-        f"route removed={result['removed_route']}, draft removed={result['removed_draft']}"
+        f"route removed={result['removed_route']}, draft removed={result['removed_draft']}, "
+        f"trust revoked={result['revoked_trust']}"
     )
     return 0
 
@@ -1538,36 +1653,87 @@ def build_parser() -> argparse.ArgumentParser:
 
     cry = sub.add_parser(
         "crystallize",
-        help="L3 safe mode: draft script + shadow route → human review → promote/reject",
+        help="Auditable lifecycle: candidate → proposed → approved → applied (no auto-apply)",
     )
     cry_sub = cry.add_subparsers(dest="crystallize_command", required=True)
+
+    cry_candidates = cry_sub.add_parser(
+        "candidates",
+        help="List crystallize candidates + derived lifecycle state",
+    )
+    cry_candidates.add_argument(
+        "--since",
+        default="30d",
+        help="Candidate lookup window (default: 30d)",
+    )
+    cry_candidates.add_argument("--json", action="store_true", help="JSON output")
+    cry_candidates.set_defaults(func=cmd_crystallize_candidates)
+
+    cry_status = cry_sub.add_parser(
+        "status",
+        help="Derived state + draft/route/trust facts + audit timeline for one crystal",
+    )
+    cry_status.add_argument("crystal_id", help="Crystal id (python-{stem})")
+    cry_status.add_argument("--json", action="store_true", help="JSON output")
+    cry_status.set_defaults(func=cmd_crystallize_status)
 
     cry_draft = cry_sub.add_parser(
         "draft",
         help="Generate a draft script (.greedy-token/drafts/) + shadow route (+7d, log-only)",
     )
-    cry_draft.add_argument("crystal_id", help="Candidate id (see hub crystals / crystallize report)")
+    cry_draft.add_argument("crystal_id", help="Candidate id (see crystallize candidates)")
     cry_draft.add_argument(
         "--since",
         default="30d",
         help="Candidate lookup window (default: 30d)",
     )
+    cry_draft.add_argument("--by", default="", help="Actor recorded in the lifecycle log")
+    cry_draft.add_argument("--reason", default="", help="Why this crystal is proposed")
     cry_draft.add_argument("--json", action="store_true", help="JSON output")
     cry_draft.set_defaults(func=cmd_crystallize_draft)
 
+    cry_propose = cry_sub.add_parser(
+        "propose",
+        help="Alias of 'draft' — candidate → proposed (draft script + shadow route)",
+    )
+    cry_propose.add_argument("crystal_id", help="Candidate id (see crystallize candidates)")
+    cry_propose.add_argument(
+        "--since",
+        default="30d",
+        help="Candidate lookup window (default: 30d)",
+    )
+    cry_propose.add_argument("--by", default="", help="Actor recorded in the lifecycle log")
+    cry_propose.add_argument("--reason", default="", help="Why this crystal is proposed")
+    cry_propose.add_argument("--json", action="store_true", help="JSON output")
+    cry_propose.set_defaults(func=cmd_crystallize_draft)
+
+    cry_approve = cry_sub.add_parser(
+        "approve",
+        help="Human approval: proposed → approved (pins reviewed draft sha256, logs who/why)",
+    )
+    cry_approve.add_argument("crystal_id", help="Draft crystal id")
+    cry_approve.add_argument("--by", default="", help="Approver recorded in the lifecycle log")
+    cry_approve.add_argument("--reason", default="", help="Why this crystal is approved")
+    cry_approve.add_argument("--json", action="store_true", help="JSON output")
+    cry_approve.set_defaults(func=cmd_crystallize_approve)
+
     cry_promote = cry_sub.add_parser(
         "promote",
-        help="After human review: shadow → active (drop shadow_until)",
+        help="Apply: approved → applied — trust the pinned draft + activate the route",
     )
-    cry_promote.add_argument("crystal_id", help="Draft crystal id")
+    cry_promote.add_argument("crystal_id", help="Approved crystal id")
+    cry_promote.add_argument("--by", default="", help="Actor recorded in the lifecycle log")
+    cry_promote.add_argument("--reason", default="", help="Why this crystal is applied")
     cry_promote.add_argument("--json", action="store_true", help="JSON output")
     cry_promote.set_defaults(func=cmd_crystallize_promote)
 
     cry_reject = cry_sub.add_parser(
         "reject",
-        help="Remove the draft script + its route; log rejected stage",
+        help="Remove the draft + its route + trust entry; log rejected stage",
     )
     cry_reject.add_argument("crystal_id", help="Draft crystal id")
+    cry_reject.add_argument("--by", default="", help="Actor recorded in the lifecycle log")
+    cry_reject.add_argument("--reason", default="", help="Why this crystal is rejected")
     cry_reject.add_argument("--json", action="store_true", help="JSON output")
     cry_reject.set_defaults(func=cmd_crystallize_reject)
 

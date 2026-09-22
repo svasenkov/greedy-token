@@ -19,7 +19,14 @@ from greedy_token.settings import apply_ollama_env
 from greedy_token.pipeline import format_pipeline_response, list_pipelines, run_pipeline
 from greedy_token.rag_search import format_hits, search_rag
 from greedy_token.result_contract import RESULT_EMPTY, RESULT_PRODUCED
-from greedy_token.crystallize_l3 import DraftResult, draft_crystal, promote_crystal, reject_crystal
+from greedy_token.crystallize_l3 import (
+    DraftResult,
+    approve_crystal,
+    crystal_status,
+    draft_crystal,
+    promote_crystal,
+    reject_crystal,
+)
 from greedy_token.router import format_decision, route_task
 from greedy_token.tokens import count_tokens
 from greedy_token.usage import aggregate_events, format_report, load_events, log_path, parse_since
@@ -306,7 +313,7 @@ def _format_draft_result(result: DraftResult) -> str:
         lines.append("  Lint:    FAILED")
         lines.extend(f"    {v['id']}: {v['detail']}" for v in result.lint_violations)
     lines.append(
-        f"Review the script, then: greedy-token crystallize promote {result.crystal_id}"
+        f"Review the script, then: greedy-token crystallize approve {result.crystal_id}"
     )
     return "\n".join(lines)
 
@@ -314,7 +321,8 @@ def _format_draft_result(result: DraftResult) -> str:
 def _format_promote_result(result: dict, crystal_id: str) -> str:
     pattern = (result["route"].get("patterns") or [""])[0]
     return (
-        f"Promoted {crystal_id}: shadow → active in {result['config']}\n"
+        f"Promoted {crystal_id}: approved → applied in {result['config']}\n"
+        f"  Trust: {result['trusted']} (sha256 {str(result['sha256'])[:12]}…)\n"
         f'Verify: greedy-token route "{pattern}"'
     )
 
@@ -322,31 +330,76 @@ def _format_promote_result(result: dict, crystal_id: str) -> str:
 def _format_reject_result(result: dict, crystal_id: str) -> str:
     return (
         f"Rejected {crystal_id}: "
-        f"route removed={result['removed_route']}, draft removed={result['removed_draft']}"
+        f"route removed={result['removed_route']}, draft removed={result['removed_draft']}, "
+        f"trust revoked={result['revoked_trust']}"
     )
 
 
 @mcp.tool()
-def greedy_token_crystallize(action: str, crystal_id: str, since: str = "30d") -> str:
-    """L3 safe-mode crystallization: draft | promote | reject. No auto-apply — same semantics as ``greedy-token crystallize`` CLI."""
+def greedy_token_crystallize(
+    action: str,
+    crystal_id: str = "",
+    since: str = "30d",
+    reason: str = "",
+    by: str = "",
+) -> str:
+    """Auditable crystallization lifecycle: candidates | status | draft/propose | approve | promote | reject.
+
+    No auto-apply — promote requires a prior ``approve`` and passes the draft
+    through the local trust manifest. ``by``/``reason`` land in the lifecycle
+    audit log (default actor: mcp).
+    """
     root = find_workspace_root()
     act = action.strip().lower()
-    if act == "draft":
+    actor = by.strip() or "mcp"
+    if act == "candidates":
+        from greedy_token.hub.crystallize import list_crystals
+
+        return json.dumps(list_crystals(since=since), indent=2, ensure_ascii=False)
+    if act == "status":
+        if not crystal_id.strip():
+            raise ValueError("crystallize status requires crystal_id")
+        return json.dumps(
+            crystal_status(crystal_id, root=root), indent=2, ensure_ascii=False
+        )
+    if not crystal_id.strip():
+        raise ValueError(f"crystallize {act or '?'} requires crystal_id")
+    if act in ("draft", "propose"):
         try:
-            result = draft_crystal(crystal_id, root=root, since=since)
+            result = draft_crystal(
+                crystal_id, root=root, since=since, actor=actor, reason=reason
+            )
         except ValueError as exc:
             raise ValueError(f"crystallize draft: {exc}") from exc
         return _format_draft_result(result)
+    if act == "approve":
+        try:
+            result = approve_crystal(
+                crystal_id, root=root, actor=actor, reason=reason
+            )
+        except ValueError as exc:
+            raise ValueError(f"crystallize approve: {exc}") from exc
+        return (
+            f"Approved {result['crystal_id']} by {result['actor']}"
+            + (f" — {result['reason']}" if result.get("reason") else "")
+            + f"\n  pinned draft sha256: {result['approved_sha256'][:12]}…"
+            f"\n  Next: greedy-token crystallize promote {result['crystal_id']}"
+        )
     if act == "promote":
         try:
-            result = promote_crystal(crystal_id, root=root)
+            result = promote_crystal(
+                crystal_id, root=root, actor=actor, reason=reason
+            )
         except ValueError as exc:
             raise ValueError(f"crystallize promote: {exc}") from exc
         return _format_promote_result(result, crystal_id)
     if act == "reject":
-        result = reject_crystal(crystal_id, root=root)
+        result = reject_crystal(crystal_id, root=root, actor=actor, reason=reason)
         return _format_reject_result(result, crystal_id)
-    raise ValueError(f"crystallize: unknown action {action!r} (expected draft, promote, or reject)")
+    raise ValueError(
+        f"crystallize: unknown action {action!r} "
+        "(expected candidates, status, draft/propose, approve, promote, or reject)"
+    )
 
 
 def main() -> None:

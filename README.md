@@ -152,7 +152,7 @@ Expected after setup: **8 MCP tools** (including `greedy_token_pipeline` and `gr
 | `greedy_token_route` | Recommend **one** tier + token footer (no auto-chain) |
 | `greedy_token_pipeline` | Explicit multi-step chain (search/tool → python → ollama → rag) |
 | `greedy_token_usage` | Aggregate savings from `~/.greedy-token/usage.jsonl` |
-| `greedy_token_crystallize` | L3 safe mode: `action=draft|promote|reject` + `crystal_id` (no auto-apply) |
+| `greedy_token_crystallize` | Audited lifecycle: `action=candidates|status|draft|approve|promote|reject` + `crystal_id` (no auto-apply) |
 | `greedy_token_capabilities` | Derived capability view: ops + readiness (no execution) |
 | `greedy_token_invoke` | Invoke a ready read-only op by stable id (refusals carry the readiness class) |
 
@@ -181,9 +181,13 @@ Expected after setup: **8 MCP tools** (including `greedy_token_pipeline` and `gr
 | `greedy-token compress` | Short prompt (stdin; `--ollama`) |
 | `greedy-token report [--since 7d]` | Usage telemetry: override/hold signal, explicit task outcomes, and outcome calibration |
 | `greedy-token override …` | Log a `script_override` telemetry event |
-| `greedy-token crystallize draft ID [--since 30d]` | L3 safe mode: draft script (`.greedy-token/drafts/`) + shadow route (+7d, log-only) |
-| `greedy-token crystallize promote ID` | After human review: shadow → active (drop `shadow_until`) |
-| `greedy-token crystallize reject ID` | Delete the draft script + its route; log `rejected` stage |
+| `greedy-token crystallize candidates [--since 30d]` | Candidates + derived lifecycle state |
+| `greedy-token crystallize status ID` | State + draft/route/trust facts + audit timeline |
+| `greedy-token crystallize draft ID [--since 30d]` | Propose: draft script (`.greedy-token/drafts/`) + shadow route (+7d, log-only) |
+| `greedy-token crystallize propose ID [--since 30d]` | Alias of `draft` — same propose step |
+| `greedy-token crystallize approve ID [--by X] [--reason R]` | Human approval: pins reviewed draft sha256, logs who/why |
+| `greedy-token crystallize promote ID [--by X] [--reason R]` | Apply: trust the pinned draft + shadow → active |
+| `greedy-token crystallize reject ID [--reason R]` | Delete the draft + route + trust entry; log `rejected` stage |
 | `greedy-token llm invoke --profile P` | Headless multi-model LLM invoke (`--system/-user[-file]`, stdin, `--json`) |
 | `greedy-token llm list` | List configured LLM models |
 | `greedy-token doctor` | Probe hardware + Ollama models; recommend local model |

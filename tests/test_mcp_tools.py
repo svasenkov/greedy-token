@@ -15,6 +15,7 @@ from greedy_token.mcp import (
     greedy_token_usage,
 )
 from greedy_token.crystal_ids import crystal_id_for_pattern
+from greedy_token.hub.crystallize import load_lifecycle_events
 from greedy_token.usage import SCHEMA_VERSION
 from tests.allure_reporting import attach_text
 
@@ -194,25 +195,66 @@ def test_mcp_crystallize_draft(
 
 
 @allure.story("Crystallize tool")
-@allure.title("MCP crystallize promote and reject follow draft")
+@allure.title("MCP crystallize draft→approve→promote→reject follows the audited flow")
 def test_mcp_crystallize_promote_reject(
     minimal_workspace: Path,
     crystal_home: Path,
     no_cheap_llm: None,
 ) -> None:
     greedy_token_crystallize("draft", CRYSTAL_ID)
+    with allure.step("Call greedy_token_crystallize approve"):
+        out = greedy_token_crystallize("approve", CRYSTAL_ID, reason="ok")
+        attach_text("approve response", out)
+        assert "Approved" in out
     with allure.step("Call greedy_token_crystallize promote"):
         out = greedy_token_crystallize("promote", CRYSTAL_ID)
         attach_text("promote response", out)
     with allure.step("Verify promote text"):
-        assert "shadow → active" in out
+        assert "approved → applied" in out
+        assert "manifest:" in out
 
-    greedy_token_crystallize("draft", CRYSTAL_ID)
     with allure.step("Call greedy_token_crystallize reject"):
         out = greedy_token_crystallize("reject", CRYSTAL_ID)
         attach_text("reject response", out)
     with allure.step("Verify reject text"):
         assert "route removed=True" in out
+        assert "trust revoked=True" in out
+
+    # Rejected → draft re-proposes; reject again is a clean no-op removal.
+    greedy_token_crystallize("draft", CRYSTAL_ID)
+    with allure.step("Call greedy_token_crystallize reject after re-draft"):
+        out = greedy_token_crystallize("reject", CRYSTAL_ID)
+    assert "route removed=True" in out
+
+
+@allure.story("Crystallize tool")
+@allure.title("MCP crystallize status/candidates expose the derived lifecycle view")
+def test_mcp_crystallize_status_candidates(
+    minimal_workspace: Path,
+    crystal_home: Path,
+    no_cheap_llm: None,
+) -> None:
+    out = greedy_token_crystallize("candidates")
+    payload = json.loads(out)
+    entry = next(c for c in payload["crystals"] if c["crystal_id"] == CRYSTAL_ID)
+    assert entry["state"] == "candidate"
+
+    out = greedy_token_crystallize("status", CRYSTAL_ID)
+    payload = json.loads(out)
+    assert payload["state"] == "candidate"
+
+    greedy_token_crystallize("draft", CRYSTAL_ID)
+    out = greedy_token_crystallize("status", CRYSTAL_ID)
+    payload = json.loads(out)
+    assert payload["state"] == "proposed"
+
+    # MCP approvals are audited as actor=mcp — not a human CLI approval.
+    greedy_token_crystallize("approve", CRYSTAL_ID)
+    events = [
+        e for e in load_lifecycle_events() if e.get("crystal_id") == CRYSTAL_ID
+    ]
+    assert events[-1]["stage"] == "approved"
+    assert events[-1]["actor"] == "mcp"
 
 
 @allure.story("Crystallize tool")
@@ -237,7 +279,7 @@ def test_mcp_crystallize_draft_lint_failed(
     )
     monkeypatch.setattr(
         "greedy_token.mcp.draft_crystal",
-        lambda cid, *, root, since: result,
+        lambda cid, *, root, since, actor="", reason="": result,
     )
     with allure.step("Call greedy_token_crystallize draft with lint failure"):
         out = greedy_token_crystallize("draft", CRYSTAL_ID)

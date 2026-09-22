@@ -179,7 +179,7 @@ CRYSTAL_ID = crystal_id_for_pattern("summarize weekly spend report table")
 
 
 @allure.story("Crystallize tool")
-@allure.title("MCP stdio crystallize draft→promote→reject matches CLI safe-mode flow")
+@allure.title("MCP stdio crystallize draft→approve→promote→reject matches CLI audited flow")
 def test_mcp_stdio_crystallize_l3_flow(
     minimal_workspace: Path,
     crystal_home: Path,
@@ -189,6 +189,12 @@ def test_mcp_stdio_crystallize_l3_flow(
         return await session.call_tool(
             "greedy_token_crystallize",
             {"action": "draft", "crystal_id": CRYSTAL_ID},
+        )
+
+    async def _approve(session):
+        return await session.call_tool(
+            "greedy_token_crystallize",
+            {"action": "approve", "crystal_id": CRYSTAL_ID, "reason": "stdio e2e"},
         )
 
     async def _promote(session):
@@ -213,12 +219,20 @@ def test_mcp_stdio_crystallize_l3_flow(
         assert "shadow until" in draft_text
         assert "scripts lint OK" in draft_text
 
+    with allure.step("Call greedy_token_crystallize approve via MCP stdio"):
+        approve = run_mcp(minimal_workspace, _approve, log_path=log_path)
+        approve_text = tool_text(approve)
+        attach_text("approve response", approve_text)
+    with allure.step("Verify approve output"):
+        assert "Approved" in approve_text
+        assert "pinned draft sha256" in approve_text
+
     with allure.step("Call greedy_token_crystallize promote via MCP stdio"):
         promote = run_mcp(minimal_workspace, _promote, log_path=log_path)
         promote_text = tool_text(promote)
         attach_text("promote response", promote_text)
     with allure.step("Verify promote output"):
-        assert "shadow → active" in promote_text
+        assert "approved → applied" in promote_text
 
     with allure.step("Call greedy_token_crystallize reject via MCP stdio"):
         reject = run_mcp(minimal_workspace, _reject, log_path=log_path)

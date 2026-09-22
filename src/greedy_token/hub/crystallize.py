@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import getpass
 import json
+import os
 import re
 import uuid
 from collections import Counter, defaultdict
@@ -29,6 +31,36 @@ LESSON_TASK_STEMS = (
     "l6 cloud ollama",
 )
 _ID_EMAIL = re.compile(r"id.{0,12}[еe]mail", re.IGNORECASE)
+
+# Derived lifecycle states (auditable funnel — never auto-applied):
+#   unknown → candidate → proposed → approved → applied
+#   rejected is terminal for a proposal; a fresh draft re-proposes it.
+STATE_UNKNOWN = "unknown"
+STATE_CANDIDATE = "candidate"
+STATE_PROPOSED = "proposed"
+STATE_APPROVED = "approved"
+STATE_APPLIED = "applied"
+STATE_REJECTED = "rejected"
+# Observational stages — they mark candidacy but never move the state back.
+_CANDIDATE_STAGES = frozenset({"watch", "report"})
+_PROPOSAL_STAGES = frozenset({"draft", "shadow"})
+_APPLIED_STAGES = frozenset({"promoted", "applied"})
+_APPROVAL_SOURCE_PROMOTE = "crystallize-promote"
+
+
+def default_actor() -> str:
+    """Who performed a lifecycle transition: explicit env, else local user."""
+    actor = os.environ.get("GREEDY_TOKEN_ACTOR", "").strip()
+    if actor:
+        return actor
+    for var in ("USER", "LOGNAME", "USERNAME"):
+        value = os.environ.get(var, "").strip()
+        if value:
+            return value
+    try:
+        return getpass.getuser()
+    except (KeyError, OSError):
+        return "local-cli"
 
 
 def is_fixture_task(pattern: str) -> bool:
@@ -205,9 +237,15 @@ def append_lifecycle_event(
     pattern: str = "",
     hits: int = 0,
     status: str = "pending",
+    actor: str = "",
+    reason: str = "",
     extra: dict | None = None,
 ) -> dict:
-    """Append a lifecycle stage event (draft/shadow/promoted/rejected/…) to the log."""
+    """Append a lifecycle stage event (draft/shadow/approved/promoted/rejected/…).
+
+    ``actor``/``reason`` are the audit who/why of the transition; ``ts`` is
+    the when. They land as top-level fields so the jsonl stays greppable.
+    """
     event: dict = {
         "v": 1,
         "event_id": str(uuid.uuid4()),
@@ -218,6 +256,10 @@ def append_lifecycle_event(
         "hits": hits,
         "status": status,
     }
+    if actor:
+        event["actor"] = actor
+    if reason:
+        event["reason"] = reason
     if extra:
         event.update(extra)
     path = lifecycle_path()
@@ -241,6 +283,64 @@ def load_lifecycle_events() -> list[dict]:
         except json.JSONDecodeError:
             continue
     return rows
+
+
+def crystal_states(events: list[dict] | None = None) -> dict[str, dict]:
+    """Latest derived state per crystal_id — one pass over the lifecycle log.
+
+    The log is append-only audit truth; state is *derived*, never stored:
+    watch/report mark candidacy, draft/shadow propose, ``approved`` records a
+    human decision (actor/reason/sha pin), promoted/applied is the apply
+    transition, rejected is terminal until a fresh draft re-proposes.
+    """
+    by_id: dict[str, list[dict]] = defaultdict(list)
+    rows = load_lifecycle_events() if events is None else events
+    for event in rows:
+        cid = str(event.get("crystal_id") or "")
+        if cid:
+            by_id[cid].append(event)
+    states: dict[str, dict] = {}
+    for cid, evs in by_id.items():
+        evs.sort(key=lambda e: str(e.get("ts") or ""))
+        state = STATE_UNKNOWN
+        approved: dict | None = None
+        for event in evs:
+            stage = str(event.get("stage") or "")
+            if stage in _CANDIDATE_STAGES:
+                if state in (STATE_UNKNOWN, STATE_CANDIDATE):
+                    state = STATE_CANDIDATE
+            elif stage in _PROPOSAL_STAGES:
+                state = STATE_PROPOSED
+                approved = None  # a fresh draft invalidates the old pin
+            elif stage == "approved":
+                state = STATE_APPROVED
+                approved = event
+            elif stage in _APPLIED_STAGES:
+                state = STATE_APPLIED
+            elif stage == "rejected":
+                state = STATE_REJECTED
+                approved = None
+            # other stages (extract/register/route/smoke) — audit only.
+        states[cid] = {
+            "state": state,
+            "latest_stage": evs[-1].get("stage"),
+            "latest_ts": evs[-1].get("ts"),
+            "approved": approved,
+        }
+    return states
+
+
+def derive_crystal_state(crystal_id: str, events: list[dict] | None = None) -> dict:
+    """Derived state for one crystal: {state, latest_stage, latest_ts, approved}."""
+    return crystal_states(events).get(
+        crystal_id,
+        {
+            "state": STATE_UNKNOWN,
+            "latest_stage": None,
+            "latest_ts": None,
+            "approved": None,
+        },
+    )
 
 
 def savings_by_route(*, since: str | None = "7d") -> list[dict]:
@@ -268,6 +368,7 @@ def crystal_timeline(crystal_id: str) -> dict:
         "events": events,
         "stages": stages,
         "latest_stage": events[-1].get("stage") if events else None,
+        "state": derive_crystal_state(crystal_id, events)["state"],
     }
 
 
@@ -350,11 +451,16 @@ def list_crystals(*, since: str | None = "7d", include_hidden: bool = False) -> 
         visible.append(entry)
 
     notified = watch.get("notified") or {}
+    states = crystal_states(lifecycle)
     shown = list(crystals.values()) if include_hidden else visible
     workspace: list[dict] = []
     lesson: list[dict] = []
     for entry in shown:
         entry["stem"] = entry.get("stem") or stem_of(entry["crystal_id"])
+        # Derived lifecycle state; report/inbox-only rows are bare candidates.
+        entry["state"] = states.get(entry["crystal_id"], {}).get(
+            "state"
+        ) or STATE_CANDIDATE
         contour = crystal_contour(entry)
         entry["contour"] = contour
         if contour == "lesson":
