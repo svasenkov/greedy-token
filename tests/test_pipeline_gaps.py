@@ -920,7 +920,7 @@ def test_parse_segment_fields(minimal_workspace: Path, monkeypatch: pytest.Monke
             pl._parse_segment("nope-nope")
         assert str(ei.value) == (
             f"Unknown step 'nope-nope'. Known: {', '.join(sorted(WRAPPERS))}, "
-            f"search, read-hits, rag"
+            f"search, read-hits, rag, or a route id from 'greedy-token capabilities'"
         )
 
 

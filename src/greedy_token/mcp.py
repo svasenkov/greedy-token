@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import json
 import time
 from importlib import resources
 from pathlib import Path
@@ -27,7 +28,9 @@ from greedy_token.usage import aggregate_events, format_report, load_events, log
 MCP_INSTRUCTIONS = (
     "Code search (find/найди/search): greedy_token_search only — one call, no route/usage/rag in the same turn. "
     "greedy_token_usage only when the user explicitly asks for stats/billing. "
-    "Multi-step chains: greedy_token_pipeline (e.g. pipeline: meta-audit configurator-boolean)."
+    "Multi-step chains: greedy_token_pipeline (e.g. pipeline: meta-audit configurator-boolean). "
+    "Deterministic ops: greedy_token_capabilities lists readiness per operation id; "
+    "greedy_token_invoke runs a ready read-only op by id (refused ops explain why)."
 )
 
 
@@ -228,6 +231,65 @@ def greedy_token_pipeline(task: str, execute: bool = False, profile: str = "") -
         profile=profile.strip(),
     )
     return format_pipeline_response(result, root)
+
+
+@mcp.tool()
+def greedy_token_capabilities() -> str:
+    """Derived capability view: every deterministic op (routes + wrappers) with readiness — ready / not_approved / stale_* / missing_file / consumer_only / disabled_or_shadow / write_not_invocable / tool_unavailable / advisory_only. Read-only probe, no execution."""
+    from greedy_token.capabilities import collect_capabilities
+
+    root = find_workspace_root()
+    view = collect_capabilities(root)
+    return json.dumps(view.to_dict(), ensure_ascii=False)
+
+
+@mcp.tool()
+def greedy_token_invoke(op_id: str, args: str = "", query: str = "") -> str:
+    """Invoke a ready read-only operation by stable id (see greedy_token_capabilities).
+
+    Fixed argv for route ops; query= is the rg tool parameter; args= only for
+    wrapper ops. Refusals report the readiness class and execute nothing.
+    """
+    from greedy_token.capabilities import invoke_capability
+
+    t0 = time.perf_counter()
+    root = find_workspace_root()
+    result = invoke_capability(root, op_id, args=args, query=query)
+    duration_ms = int((time.perf_counter() - t0) * 1000)
+    if not result.invocable:
+        body = (
+            f"Refused: {result.op_id} [{result.refusal_code}] — {result.refusal_reason}\n"
+            "Nothing executed (gate: bypassed/not_started, no savings)."
+        )
+    else:
+        lines = [result.output.rstrip()] if result.output else []
+        lines.extend(
+            [
+                "---",
+                (
+                    f"invoke {result.op_id}: exit={result.exit_code} "
+                    f"executed={result.executed} result={result.result_status or 'n/a'} "
+                    f"gate={result.gate_action}/{result.gate_reason} "
+                    f"outcome={result.outcome} op={result.operation_id or '-'}"
+                ),
+            ]
+        )
+        body = "\n".join(lines)
+    return wrap_mcp_response(
+        body,
+        task=f"invoke {op_id}",
+        tier=result.tier,
+        est_tokens=0,
+        route_id=op_id,
+        root=root,
+        # invoke_capability already emitted the cmd="invoke" request/outcome
+        # pair; wrapping must not log a second, mcp-attributed operation.
+        log=False,
+        duration_ms=duration_ms,
+        executor_sub=result.tier,
+        outcome=result.outcome or None,
+        executed=result.executed,
+    )
 
 
 def _format_draft_result(result: DraftResult) -> str:

@@ -143,7 +143,7 @@ Full setup: [Cursor](docs/cursor-setup.md) · [Claude](docs/claude-setup.md) · 
 
 ## MCP tools
 
-Expected after setup: **6 MCP tools** (including `greedy_token_pipeline` and `greedy_token_crystallize`).
+Expected after setup: **8 MCP tools** (including `greedy_token_pipeline` and `greedy_token_crystallize`).
 
 | Tool | Purpose |
 |------|---------|
@@ -153,6 +153,8 @@ Expected after setup: **6 MCP tools** (including `greedy_token_pipeline` and `gr
 | `greedy_token_pipeline` | Explicit multi-step chain (search/tool → python → ollama → rag) |
 | `greedy_token_usage` | Aggregate savings from `~/.greedy-token/usage.jsonl` |
 | `greedy_token_crystallize` | L3 safe mode: `action=draft|promote|reject` + `crystal_id` (no auto-apply) |
+| `greedy_token_capabilities` | Derived capability view: ops + readiness (no execution) |
+| `greedy_token_invoke` | Invoke a ready read-only op by stable id (refusals carry the readiness class) |
 
 ## CLI commands
 
@@ -166,6 +168,9 @@ Expected after setup: **6 MCP tools** (including `greedy_token_pipeline` and `gr
 | `greedy-token rag QUERY` | Search `docs/rag/` |
 | `greedy-token scripts --list` | Workspace script wrappers |
 | `greedy-token scripts --run ID [--execute]` | Run wrapper |
+| `greedy-token capabilities list` | Derived op inventory + readiness (`--json`) |
+| `greedy-token capabilities show ID` | Inspect one operation (argv, trust, contract) |
+| `greedy-token capabilities invoke ID` | Invoke a ready read-only op by id |
 | `greedy-token trust add PATH` | Approve the current SHA-256 and identity of a workspace script |
 | `greedy-token trust list` | List local workspace script approvals |
 | `greedy-token trust verify` | Verify every approval against disk |

@@ -175,7 +175,7 @@ cp examples/cursor/rules/greedy-token.mdc .cursor/rules/greedy-token.mdc
 
 Далее: **Settings → MCP → greedy-token → Enable → Refresh** → **новый** Agent chat.
 
-Должно быть **6 MCP tools**, включая `greedy_token_pipeline` и `greedy_token_crystallize`.
+Должно быть **8 MCP tools**, включая `greedy_token_pipeline` и `greedy_token_crystallize`.
 
 ## Agent hosts
 
@@ -199,8 +199,10 @@ Cursor — хост по умолчанию, но stdio MCP-сервер и ау
 | `greedy_token_pipeline` | Цепочка search/tool → python → ollama → rag |
 | `greedy_token_usage` | Сводка экономии из `~/.greedy-token/usage.jsonl` |
 | `greedy_token_crystallize` | L3 safe mode: `action=draft|promote|reject` + `crystal_id` (без auto-apply) |
+| `greedy_token_capabilities` | Derived инвентарь операций + readiness (JSON, без выполнения) |
+| `greedy_token_invoke` | Invoke готовой read-only операции по stable id |
 
-**Footers:** `route` / `search` / `rag` / `pipeline` — полный блок **Greedy token** (This call → Tier alternatives → Saved). `usage` — **Session totals** (не полный single-tool footer). `pipeline: list` и `greedy_token_crystallize` — только plain text, без economy footer.
+**Footers:** `route` / `search` / `rag` / `pipeline` / `invoke` — полный блок **Greedy token** (This call → Tier alternatives → Saved). `usage` — **Session totals** (не полный single-tool footer). `pipeline: list`, `greedy_token_crystallize` и `greedy_token_capabilities` — только plain text/JSON, без economy footer.
 
 ### Pipeline (несколько шагов)
 

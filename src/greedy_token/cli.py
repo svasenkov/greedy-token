@@ -599,6 +599,56 @@ def cmd_scripts(args: argparse.Namespace) -> int:
     return 1
 
 
+def cmd_capabilities(args: argparse.Namespace) -> int:
+    from greedy_token.capabilities import (
+        collect_capabilities,
+        format_capabilities,
+        format_capability_detail,
+        format_invocation_result,
+        invoke_capability,
+    )
+
+    root = find_workspace_root()
+    action = getattr(args, "cap_action", None) or "list"
+
+    if action == "invoke":
+        result = invoke_capability(
+            root,
+            args.op_id,
+            args=getattr(args, "args", "") or "",
+            query=getattr(args, "query", "") or "",
+            log=not getattr(args, "no_log", False),
+        )
+        if args.json:
+            print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
+        elif result.invocable:
+            print(format_invocation_result(result))
+        else:
+            print(format_invocation_result(result), file=sys.stderr)
+        return result.exit_code
+
+    view = collect_capabilities(root)
+    if action == "show":
+        cap = view.get(args.op_id)
+        if cap is None:
+            print(
+                f"Unknown capability {args.op_id!r} — see 'greedy-token capabilities'",
+                file=sys.stderr,
+            )
+            return 2
+        if args.json:
+            print(json.dumps(cap.to_dict(), ensure_ascii=False, indent=2))
+        else:
+            print(format_capability_detail(cap))
+        return 0
+
+    if args.json:
+        print(json.dumps(view.to_dict(), ensure_ascii=False, indent=2))
+    else:
+        print(format_capabilities(view))
+    return 0
+
+
 def cmd_report(args: argparse.Namespace) -> int:
     path = log_path()
     since_dt = parse_since(args.since) if args.since else None
@@ -1271,6 +1321,38 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run read-only wrapper only",
     )
     scr.set_defaults(func=cmd_scripts)
+
+    cap = sub.add_parser(
+        "capabilities",
+        help="Derived view of deterministic ops: readiness + invoke by stable id",
+    )
+    cap.add_argument("--json", action="store_true", help="JSON output")
+    cap_sub = cap.add_subparsers(dest="cap_action")
+    cap_list = cap_sub.add_parser("list", help="List all operations with readiness")
+    cap_list.add_argument("--json", action="store_true", help="JSON output")
+    cap_list.set_defaults(func=cmd_capabilities)
+    cap_show = cap_sub.add_parser("show", help="Inspect one operation by stable id")
+    cap_show.add_argument("op_id")
+    cap_show.add_argument("--json", action="store_true", help="JSON output")
+    cap_show.set_defaults(func=cmd_capabilities)
+    cap_inv = cap_sub.add_parser(
+        "invoke",
+        help="Invoke a ready read-only op by stable id (guarded trust path)",
+    )
+    cap_inv.add_argument("op_id")
+    cap_inv.add_argument(
+        "--query",
+        default="",
+        help="Search query for rg tool ops (the parameterized part)",
+    )
+    cap_inv.add_argument(
+        "--args",
+        default="",
+        help="Extra args for wrapper ops (validated, workspace-confined)",
+    )
+    cap_inv.add_argument("--json", action="store_true", help="JSON output")
+    cap_inv.set_defaults(func=cmd_capabilities)
+    cap.set_defaults(func=cmd_capabilities)
 
     rep = sub.add_parser("report", help="Aggregate usage telemetry")
     rep.add_argument(

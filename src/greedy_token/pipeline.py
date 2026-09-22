@@ -456,9 +456,22 @@ def _parse_segment(segment: str, *, profile: str = "") -> PipelineStep:
     step_id = parts[0]
     args = parts[1] if len(parts) > 1 else ""
     if step_id not in WRAPPERS:
+        # A registered route id parses into a step so _run_step can refuse it
+        # with a reason ("not in pipeline auto-run allowlist") instead of
+        # crashing here — only allowlisted wrappers ever execute.
+        route = _route_for_step_id(step_id)
+        if route is not None:
+            return PipelineStep(
+                step_id=step_id,
+                tier=str(route.get("target") or "python"),
+                label=f"{step_id} {args}".strip(),
+                command=route.get("command"),
+                args=args,
+                profile=profile,
+            )
         raise ValueError(
             f"Unknown step {step_id!r}. Known: {', '.join(sorted(WRAPPERS))}, "
-            f"search, read-hits, rag"
+            f"search, read-hits, rag, or a route id from 'greedy-token capabilities'"
         )
     wrapper = WRAPPERS[step_id]
     tier = "ollama" if wrapper.requires_ollama else "python"
@@ -480,6 +493,21 @@ def _parse_segment(segment: str, *, profile: str = "") -> PipelineStep:
         argv=invocation.argv,
         cwd=invocation.cwd,
         authorization=invocation.authorization,
+    )
+
+
+def _route_for_step_id(step_id: str, root: Path | None = None) -> dict | None:
+    """Resolve a pipeline step id to a registered route, if one exists."""
+    from greedy_token.paths import load_routes_config
+
+    root = root or find_workspace_root()
+    return next(
+        (
+            r
+            for r in load_routes_config(root).get("routes", [])
+            if isinstance(r, dict) and r.get("id") == step_id
+        ),
+        None,
     )
 
 
@@ -732,21 +760,41 @@ def _run_step(
             result_status=result_status,
         )
 
-    if not step.command:
+    if not step.command and _route_for_step_id(step.step_id, root) is None:
         raise ValueError(f"No command for step {step.step_id}")
 
     can_run = execute and step.step_id in PIPELINE_AUTO_RUN
     if execute and step.step_id not in PIPELINE_AUTO_RUN:
-        output = (
-            f"(skipped) {step.step_id} not in pipeline auto-run allowlist.\n"
-            f"Command: {step.command}"
-        )
+        if step.step_id in WRAPPERS:
+            output = (
+                f"(skipped) {step.step_id} not in pipeline auto-run allowlist.\n"
+                f"Command: {step.command}"
+            )
+        else:
+            output = _route_skip_output(step, root)
         duration_ms = int((time.perf_counter() - t0) * 1000)
         return StepResult(
             step=step,
             ok=False,
             exit_code=1,
             output=output,
+            duration_ms=duration_ms,
+            est_tokens=0,
+            executed=False,
+        )
+
+    if not step.command:
+        # A parsed route step may legitimately have no command (advisory
+        # rag/cursor route) — refuse it cleanly instead of raising.
+        duration_ms = int((time.perf_counter() - t0) * 1000)
+        return StepResult(
+            step=step,
+            ok=False,
+            exit_code=1,
+            output=(
+                f"(skipped) {step.step_id}: route has no deterministic command "
+                f"(tier {step.tier})"
+            ),
             duration_ms=duration_ms,
             est_tokens=0,
             executed=False,
@@ -880,6 +928,25 @@ def _run_step(
             else RESULT_NOT_EVALUATED
         ),
     )
+
+
+def _route_skip_output(step: PipelineStep, root: Path) -> str:
+    """Refusal text for a route-id step: parsed fine, but only allowlisted
+    wrappers execute — the derived readiness keeps the reason honest."""
+    from greedy_token.capabilities import capability_by_id
+
+    cap = capability_by_id(root, step.step_id)
+    readiness = cap.readiness if cap is not None else "unknown"
+    lines = [
+        f"(skipped) {step.step_id} not in pipeline auto-run allowlist "
+        f"(route readiness: {readiness}).",
+        f"Command: {step.command or '(no deterministic command)'}",
+    ]
+    if cap is not None and cap.invocable:
+        lines.append(
+            f"Invoke directly: greedy-token capabilities invoke {step.step_id}"
+        )
+    return "\n".join(lines)
 
 
 def run_pipeline(

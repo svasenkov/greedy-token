@@ -69,13 +69,15 @@ Merge rule: if `.cursor/mcp.json` already exists, add only the `"greedy-token"` 
 
 1. **Settings → MCP**
 2. Find **greedy-token** → **Enable** → **Refresh**
-3. You should see **6 tools**:
+3. You should see **8 tools**:
    - `greedy_token_search`
    - `greedy_token_rag`
    - `greedy_token_route`
    - `greedy_token_pipeline`
    - `greedy_token_usage`
    - `greedy_token_crystallize`
+   - `greedy_token_capabilities`
+   - `greedy_token_invoke`
 4. Start a **new** Agent chat (old chats keep previous tool set)
 
 ## 4. Smoke test

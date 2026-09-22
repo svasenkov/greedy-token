@@ -69,13 +69,15 @@ cp examples/cursor/rules/greedy-token.mdc .cursor/rules/greedy-token.mdc
 
 1. **Settings → MCP**
 2. **greedy-token** → **Enable** → **Refresh**
-3. Должно быть **6 tools**:
+3. Должно быть **8 tools**:
    - `greedy_token_search`
    - `greedy_token_rag`
    - `greedy_token_route`
    - `greedy_token_pipeline`
    - `greedy_token_usage`
    - `greedy_token_crystallize`
+   - `greedy_token_capabilities`
+   - `greedy_token_invoke`
 4. Откройте **новый** Agent chat (старые чаты не подхватят новые tools)
 
 ## 4. Smoke

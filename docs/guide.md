@@ -175,7 +175,7 @@ cp examples/cursor/rules/greedy-token.mdc .cursor/rules/greedy-token.mdc
 
 Then: **Settings → MCP → greedy-token → Enable → Refresh** → **new** Agent chat.
 
-Expected: **6 MCP tools** (including `greedy_token_pipeline` and `greedy_token_crystallize`).
+Expected: **8 MCP tools** (including `greedy_token_pipeline` and `greedy_token_crystallize`).
 
 ## Agent hosts
 
@@ -199,8 +199,10 @@ Telemetry stays compatible: the `cursor_baseline` field and the `cursor` tier id
 | `greedy_token_pipeline` | Multi-step chain (search/tool → python → ollama → rag) |
 | `greedy_token_usage` | Aggregate savings from `~/.greedy-token/usage.jsonl` |
 | `greedy_token_crystallize` | L3 safe mode: `action=draft|promote|reject` + `crystal_id` (no auto-apply) |
+| `greedy_token_capabilities` | Derived op inventory + readiness (JSON, no execution) |
+| `greedy_token_invoke` | Invoke a ready read-only op by stable id |
 
-**Footers:** `route` / `search` / `rag` / `pipeline` append the full **Greedy token** block (This call → Tier alternatives → Saved). `usage` appends **Session totals** (not the full single-tool footer). `pipeline: list` and `greedy_token_crystallize` return plain text only — no economy footer.
+**Footers:** `route` / `search` / `rag` / `pipeline` / `invoke` append the full **Greedy token** block (This call → Tier alternatives → Saved). `usage` appends **Session totals** (not the full single-tool footer). `pipeline: list`, `greedy_token_crystallize` and `greedy_token_capabilities` return plain text/JSON only — no economy footer.
 
 ### Pipeline (multi-step)
 

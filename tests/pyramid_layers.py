@@ -83,6 +83,7 @@ LAYER_BY_MODULE: dict[str, str] = {
     "test_coverage_gaps_v2": "component",
     "test_metered_bulk": "component",
     "test_agent_host": "component",
+    "test_capabilities": "component",
     # integration — subprocess CLI, real rg, workspace checkout
     "test_cli": "integration",
     "test_cli_commands": "integration",

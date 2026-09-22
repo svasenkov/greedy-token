@@ -37,8 +37,8 @@ def _assert_search_backend_billing(text: str) -> None:
 
 
 @allure.story("Server handshake")
-@allure.title("MCP stdio server advertises six greedy-token tools")
-def test_mcp_stdio_lists_six_tools(minimal_workspace: Path) -> None:
+@allure.title("MCP stdio server advertises eight greedy-token tools")
+def test_mcp_stdio_lists_eight_tools(minimal_workspace: Path) -> None:
     async def _list(session):
         tools = await session.list_tools()
         return [t.name for t in tools.tools]
@@ -46,13 +46,15 @@ def test_mcp_stdio_lists_six_tools(minimal_workspace: Path) -> None:
     with allure.step("List MCP stdio tools"):
         names = run_mcp(minimal_workspace, _list)
         attach_text("tool names", "\n".join(names))
-    with allure.step("Verify six greedy-token tools are advertised"):
+    with allure.step("Verify eight greedy-token tools are advertised"):
         assert names == [
             "greedy_token_route",
             "greedy_token_rag",
             "greedy_token_search",
             "greedy_token_usage",
             "greedy_token_pipeline",
+            "greedy_token_capabilities",
+            "greedy_token_invoke",
             "greedy_token_crystallize",
         ]
 
@@ -225,6 +227,108 @@ def test_mcp_stdio_crystallize_l3_flow(
     with allure.step("Verify reject output"):
         assert "Rejected" in reject_text
         assert "route removed=True" in reject_text
+
+
+@allure.story("Capabilities tool")
+@allure.title("MCP stdio capabilities returns the derived op view as JSON")
+def test_mcp_stdio_capabilities_lists_ops(minimal_workspace: Path) -> None:
+    import json
+
+    async def _call(session):
+        return await session.call_tool("greedy_token_capabilities", {})
+
+    with allure.step("Call greedy_token_capabilities via MCP stdio"):
+        result = run_mcp(minimal_workspace, _call)
+        text = tool_text(result)
+        attach_text("capabilities response", text[:4000])
+    with allure.step("Verify derived view structure and readiness classes"):
+        payload = json.loads(text)
+        assert payload["summary"]["ops"] == len(payload["ops"])
+        assert payload["summary"]["invocable"] >= 1
+        by_id = {op["id"]: op for op in payload["ops"]}
+        assert by_id["python-meta-sync-check"]["readiness"] == "ready"
+        assert by_id["python-meta-sync-check"]["invocable"] is True
+        assert by_id["python-google-sheets"]["readiness"] == "write_not_invocable"
+        assert by_id["python-auth-storage-probe"]["readiness"] == "disabled_or_shadow"
+        assert by_id["python-resolve-testops-project"]["readiness"] == "consumer_only"
+
+
+@allure.story("Invoke tool")
+@allure.title("MCP stdio invoke runs a ready op and logs the operation")
+def test_mcp_stdio_invoke_ready_op(
+    minimal_workspace: Path, tmp_path: Path
+) -> None:
+    import json
+
+    log = tmp_path / "usage.jsonl"
+
+    async def _call(session):
+        return await session.call_tool(
+            "greedy_token_invoke", {"op_id": "python-meta-sync-check"}
+        )
+
+    with allure.step("Call greedy_token_invoke for a ready op via MCP stdio"):
+        result = run_mcp(minimal_workspace, _call, log_path=log)
+        text = tool_text(result)
+        attach_text("invoke response", text)
+    with allure.step("Verify execution status line + footer"):
+        assert "meta-sync-check-ok" in text
+        assert "invoke python-meta-sync-check" in text
+        assert "result=produced" in text
+        assert "gate=accepted" in text
+        assert "op=" in text
+        assert "Greedy token" in text
+    with allure.step("Verify cmd=invoke telemetry pair shares one operation_id"):
+        events = [
+            json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()
+        ]
+        request = next(e for e in events if e.get("cmd") == "invoke")
+        outcome = next(e for e in events if e.get("event") == "route_outcome")
+        attach_text("invoke events", json.dumps(events, indent=2))
+        assert request["phase"] == "executed"
+        assert request["authorized"] is True
+        assert request["route_id"] == "python-meta-sync-check"
+        assert request["operation_id"] == outcome["operation_id"]
+        assert outcome["outcome"] == "success"
+
+
+@allure.story("Invoke tool")
+@allure.title("MCP stdio invoke refuses an unready op without executing")
+def test_mcp_stdio_invoke_refused(
+    minimal_workspace: Path, tmp_path: Path
+) -> None:
+    import json
+
+    marker = minimal_workspace / "mcp-marker.txt"
+    script = minimal_workspace / "scripts" / "git-recent.py"
+    script.write_text(f"open({str(marker)!r}, 'w').write('ran')\n", encoding="utf-8")
+    log = tmp_path / "usage.jsonl"
+
+    async def _call(session):
+        return await session.call_tool(
+            "greedy_token_invoke", {"op_id": "python-git-recent"}
+        )
+
+    with allure.step("Call greedy_token_invoke for an unapproved op"):
+        result = run_mcp(minimal_workspace, _call, log_path=log)
+        text = tool_text(result)
+        attach_text("invoke refusal", text)
+    with allure.step("Verify refusal reason and no execution"):
+        assert "Refused: python-git-recent" in text
+        assert "not_approved" in text
+        assert not marker.exists()
+        assert "not executed" in text
+    with allure.step("Verify refusal telemetry: planned, authorized=false, saved=0"):
+        events = [
+            json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()
+        ]
+        request = next(e for e in events if e.get("cmd") == "invoke")
+        attach_text("refusal events", json.dumps(events, indent=2))
+        assert request["phase"] == "planned"
+        assert request["authorized"] is False
+        assert request["executor"]["executed"] is False
+        assert request["cursor_saved"] == 0
+        assert request["savings_exclusion"] == "not_executed"
 
 
 @allure.story("Telemetry contract")

@@ -143,7 +143,7 @@ find baseUrl in configurator-option-presets.html
 
 ## MCP tools
 
-После setup ожидайте **6 MCP tools** (включая `greedy_token_pipeline` и `greedy_token_crystallize`).
+После setup ожидайте **8 MCP tools** (включая `greedy_token_pipeline` и `greedy_token_crystallize`).
 
 | Tool | Зачем |
 |------|--------|
@@ -153,6 +153,8 @@ find baseUrl in configurator-option-presets.html
 | `greedy_token_pipeline` | Явная multi-step цепочка (search/tool → python → ollama → rag) |
 | `greedy_token_usage` | Агрегация savings из `~/.greedy-token/usage.jsonl` |
 | `greedy_token_crystallize` | L3 safe mode: `action=draft|promote|reject` + `crystal_id` (без auto-apply) |
+| `greedy_token_capabilities` | Derived view операций + readiness (без выполнения) |
+| `greedy_token_invoke` | Invoke готовой read-only операции по stable id (refusal несёт класс readiness) |
 
 ## CLI
 
@@ -166,6 +168,9 @@ find baseUrl in configurator-option-presets.html
 | `greedy-token rag QUERY` | RAG lookup |
 | `greedy-token scripts --list` | Workspace script wrappers |
 | `greedy-token scripts --run ID [--execute]` | Run wrapper |
+| `greedy-token capabilities list` | Derived инвентарь операций + readiness (`--json`) |
+| `greedy-token capabilities show ID` | Инспекция одной операции (argv, trust, contract) |
+| `greedy-token capabilities invoke ID` | Invoke готовой read-only операции по id |
 | `greedy-token trust add PATH` | Одобрить текущие SHA-256 и identity workspace-скрипта |
 | `greedy-token trust list` | Показать локальные approval workspace-скриптов |
 | `greedy-token trust verify` | Проверить все approval по файлам на диске |
