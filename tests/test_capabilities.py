@@ -332,6 +332,40 @@ def test_invoke_ready_op(minimal_workspace: Path) -> None:
 
 
 @allure.story("Invoke")
+@allure.title("Silent shell wrapper invoke: bypassed/output_empty — saved=0, honest output")
+def test_invoke_empty_wrapper_output_claims_nothing(
+    minimal_workspace: Path,
+) -> None:
+    """A shell wrapper exiting 0 with empty stdout used to report
+    outcome=success and claim savings — usefulness was judged on the
+    invocation description, not the observed output."""
+    script = minimal_workspace / "scripts" / "ollama" / "classify-file.sh"
+    script.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    script.chmod(0o755)
+    result = invoke_capability(
+        minimal_workspace, "classify-file", args="input.txt"
+    )
+    with allure.step("gate ruling: empty observed output → no answer, no savings"):
+        assert result.executed is True
+        assert result.exit_code == 0
+        assert result.output == ""  # the invocation text is not a result
+        assert result.gate_action == "bypassed"
+        assert result.gate_reason == "output_empty"
+        assert result.result_status == "not_evaluated"
+        assert result.outcome == "failure"
+    with allure.step("telemetry: zero savings with the empty_result exclusion"):
+        events = _events()
+        request = next(e for e in events if e.get("cmd") == "invoke")
+        assert request["phase"] == "executed"
+        assert request["cursor_saved"] == 0
+        assert request["savings_eligible"] is False
+        assert request["savings_exclusion"] == "empty_result"
+        outcome = next(e for e in events if e.get("event") == "route_outcome")
+        assert outcome["outcome"] == "failure"
+        assert outcome["cursor_saved"] == 0
+
+
+@allure.story("Invoke")
 @allure.title("Invoke of an unapproved op refuses: nothing starts, saved=0")
 def test_invoke_not_approved_refuses(minimal_workspace: Path) -> None:
     marker = minimal_workspace / "marker-ran.txt"

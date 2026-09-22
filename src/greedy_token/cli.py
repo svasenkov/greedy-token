@@ -553,6 +553,9 @@ def cmd_scripts(args: argparse.Namespace) -> int:
                 ),
                 tier="ollama" if wrapper.requires_ollama else "python",
                 ok=code == 0,
+                # Usefulness is judged on the observed output — a silent run
+                # delivered nothing and must not claim savings.
+                output_useful=bool((script_stdout + script_stderr).strip()),
             )
         else:
             print(cmd)

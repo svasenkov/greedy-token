@@ -254,7 +254,7 @@ def test_execute_task_weak_no_rag(minimal_workspace: Path, monkeypatch: pytest.M
     _wire(monkeypatch, decision=dec, plan=plan, exec_ret=(2, ""), rag_ret=None)
     res = ex.execute_task("find baseUrl", minimal_workspace)
     assert res.used_rag_fallback is False
-    assert res.output == "rg x"  # out.strip() empty → dry_run_output
+    assert res.output == ""  # observed output only — never the invocation text
     assert res.exit_code == 2
     assert res.decision is dec  # kills decision=None
 

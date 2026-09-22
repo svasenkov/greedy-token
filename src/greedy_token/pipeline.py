@@ -166,6 +166,7 @@ def _step_gate(sr: StepResult) -> GateDecision:
         result_status=sr.result_status,
         tier=sr.step.tier,
         ok=sr.ok,
+        output_useful=bool(sr.output.strip()),
     )
 
 
@@ -1071,6 +1072,10 @@ def _step_status_label(sr: StepResult) -> str:
         # A contract-tier script that ran clean but declared no canon contract:
         # output is not "OK", it is merely unverified.
         return "UNVERIFIED"
+    if not sr.output.strip():
+        # Ran clean on a non-contract tier but produced nothing — the gate
+        # rules it output_empty; the label should not claim "OK".
+        return "EMPTY"
     return "OK"
 
 

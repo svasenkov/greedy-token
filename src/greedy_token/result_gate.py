@@ -20,7 +20,9 @@ The gate is conservative:
 * ``produced`` is contract conformance, not correctness — it may answer and
   earn savings; a produced *failure* (``{"ok": false}`` claim + non-zero exit)
   is still an answer worth surfacing but claims no savings;
-* a run that never started is pass-through, exactly like before.
+* a run that never started is pass-through, exactly like before;
+* a ``result_status`` outside the known vocabulary is *invalid* — an
+  unrecognized verdict can never launder itself into savings.
 """
 
 from __future__ import annotations
@@ -64,6 +66,13 @@ OUTCOME_UNKNOWN = "unknown"
 # the exit code plus the caller's usefulness check, not a canon claim.
 CONTRACT_TIERS = frozenset({"python", "script"})
 
+# The closed ``result_status`` vocabulary.  Anything outside it is an
+# unrecognized verdict — treated as ``invalid`` (fail closed) rather than
+# silently read as ``not_evaluated``.
+RESULT_STATUSES = frozenset(
+    {RESULT_PRODUCED, RESULT_INVALID, RESULT_EMPTY, RESULT_NOT_EVALUATED}
+)
+
 
 @dataclass(frozen=True)
 class GateDecision:
@@ -102,12 +111,17 @@ def evaluate_result_gate(
 
     ``started``/``ok`` are observed facts (the executor started; the process
     verdict was clean).  ``result_status`` is the Step 2 contract verdict;
-    ``""``/unknown values normalize to ``not_evaluated``.  ``output_useful`` is
-    the caller's tier-native usefulness check (hook ``cheap_output_empty``,
-    tool ``_tool_output_weak``); ``None`` means the caller has no separate
-    usefulness evaluator and a clean run counts as useful.
+    ``""`` normalizes to ``not_evaluated`` and any value outside the known
+    vocabulary fails closed as ``invalid``.  ``output_useful`` is the caller's
+    tier-native usefulness check on the *observed* output (hook
+    ``cheap_output_empty``, tool ``_tool_output_weak``, or the honest
+    non-empty-stdout floor); ``None`` means the caller attested nothing —
+    which still answers an unverified contract-tier result but never makes a
+    non-contract result useful.
     """
     status = result_status or RESULT_NOT_EVALUATED
+    if status not in RESULT_STATUSES:
+        status = RESULT_INVALID
     useful = True if output_useful is None else output_useful
 
     if not started:
@@ -225,7 +239,12 @@ def evaluate_result_gate(
             savings_exclusion=EXCLUSION_UNVERIFIED_RESULT,
             outcome=OUTCOME_UNKNOWN,
         )
-    if not useful:
+    # Non-contract tier: ``output_useful`` is the *only* usefulness evidence —
+    # the canon contract does not apply.  ``None`` means the caller attested
+    # nothing about the observed output, so the result cannot claim to be
+    # useful: savings are earned by non-empty actual output, never by the
+    # absence of a check.
+    if not output_useful:
         return GateDecision(
             action=GATE_BYPASSED,
             reason=REASON_OUTPUT_EMPTY,

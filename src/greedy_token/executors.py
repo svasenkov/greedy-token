@@ -293,7 +293,10 @@ def execute_plan(plan: RunPlan) -> PlanRunResult:
     )
     return PlanRunResult(
         proc.returncode,
-        out or plan.dry_run_output,
+        # The observed output only — never padded with the invocation
+        # description: an empty run result must stay empty so the evaluator
+        # gate sees what the process actually produced.
+        out,
         started=True,
         result_status=result_status,
     )
@@ -420,7 +423,7 @@ def execute_task(task: str, root: Path | None = None) -> TaskRunResult:
                     )
                 return TaskRunResult(
                     decision=decision,
-                    output=out.strip() or plan.dry_run_output,
+                    output=out.strip(),
                     exit_code=code,
                     started=started,
                 )
@@ -476,11 +479,15 @@ def task_result_gate(result: TaskRunResult, decision: RouteDecision) -> GateDeci
     re-reading ``started``/``exit_code``/``result_status`` locally.  The tool
     tier keeps its own usefulness evaluator — filtered output plus the rg
     exit-code vocabulary — which the gate honours via ``output_useful``;
-    script tiers rely on the canon contract verdict alone.
+    every other tier's native evaluator is the observed output itself:
+    nothing on stdout/stderr means nothing was delivered.
     """
     useful = None
-    if decision.target == "tool" and result.started:
-        useful = not _tool_output_weak(result.output, result.exit_code)
+    if result.started:
+        if decision.target == "tool":
+            useful = not _tool_output_weak(result.output, result.exit_code)
+        else:
+            useful = bool(result.output.strip())
     return evaluate_result_gate(
         started=result.started,
         result_status=result.result_status,

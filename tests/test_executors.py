@@ -598,8 +598,8 @@ def test_execute_plan_stdout_stderr_concat(tmp_path: Path) -> None:
 
 
 @allure.story("Execute safety")
-@allure.title("execute_plan falls back to dry-run output when command prints nothing")
-def test_execute_plan_empty_output_uses_dry_run(tmp_path: Path) -> None:
+@allure.title("execute_plan reports the observed output — empty stays empty")
+def test_execute_plan_empty_output_stays_empty(tmp_path: Path) -> None:
     from greedy_token.executors import RunPlan, execute_plan
     from greedy_token.router import RouteDecision
 
@@ -623,7 +623,10 @@ def test_execute_plan_empty_output_uses_dry_run(tmp_path: Path) -> None:
 
     with patch("greedy_token.executors.subprocess.run", lambda cmd, **kw: _Proc()):
         code, out = execute_plan(plan)
-    assert out == "DRY-RUN-FALLBACK"
+    # The invocation description is not the run's output — padding empty
+    # stdout with it would feed the evaluator a result that never happened.
+    assert out == ""
+    assert code == 0
 
 
 @allure.story("Execute safety")

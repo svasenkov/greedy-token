@@ -135,12 +135,21 @@ GATE_MATRIX = [
          EXCLUSION_EMPTY_RESULT, "failure"),
     ),
     (
-        dict(started=True, result_status=RESULT_NOT_EVALUATED, tier="ollama", ok=True),
+        dict(started=True, result_status=RESULT_NOT_EVALUATED, tier="ollama",
+             ok=True, output_useful=True),
         (GATE_ACCEPTED, REASON_ACCEPTED, True, True, True, True, "", "success"),
     ),
     (
-        dict(started=True, result_status=RESULT_NOT_EVALUATED, tier="rag", ok=True),
+        dict(started=True, result_status=RESULT_NOT_EVALUATED, tier="rag",
+             ok=True, output_useful=True),
         (GATE_ACCEPTED, REASON_ACCEPTED, True, True, True, True, "", "success"),
+    ),
+    (
+        # Non-contract tier with no usefulness evidence (output_useful=None):
+        # fail closed — savings are earned by observed output, not assumed.
+        dict(started=True, result_status=RESULT_NOT_EVALUATED, tier="ollama", ok=True),
+        (GATE_BYPASSED, REASON_OUTPUT_EMPTY, False, True, False, False,
+         EXCLUSION_EMPTY_RESULT, "failure"),
     ),
     (
         # A plain failed run (no contract claim): never an answer.
@@ -153,11 +162,18 @@ GATE_MATRIX = [
         (GATE_BYPASSED, REASON_TASK_FAILED, False, False, False, False,
          EXCLUSION_TASK_FAILED, "failure"),
     ),
-    # Unknown/empty status string normalizes to not_evaluated.
+    # Empty status string normalizes to not_evaluated; a status outside the
+    # known vocabulary is an unrecognized verdict — invalid, never savings.
     (
         dict(started=True, result_status="", tier="python", ok=True, output_useful=True),
         (GATE_ACCEPTED, REASON_UNVERIFIED_RESULT, True, True, False, False,
          EXCLUSION_UNVERIFIED_RESULT, "unknown"),
+    ),
+    (
+        dict(started=True, result_status="not-a-status", tier="tool",
+             ok=True, output_useful=True),
+        (GATE_BYPASSED, REASON_INVALID_CONTRACT, False, False, False, False,
+         EXCLUSION_INVALID_RESULT, "failure"),
     ),
 ]
 
@@ -182,9 +198,11 @@ GATE_MATRIX = [
         "tool-evaluator-empty",
         "ollama-evaluator-pass",
         "rag-evaluator-pass",
+        "ollama-no-evidence-fail-closed",
         "python-failed",
         "tool-failed",
         "empty-status-normalizes",
+        "unknown-status-fail-closed",
     ],
 )
 def test_gate_matrix(kwargs: dict, expected: tuple) -> None:
@@ -255,8 +273,10 @@ def test_step_delivered_gate_semantics() -> None:
     assert pl.step_delivered(_step(result_status=RESULT_INVALID)) is False
     assert pl.step_delivered(_step(result_status=RESULT_EMPTY)) is False
     assert pl.step_delivered(_step(result_status=RESULT_NOT_EVALUATED)) is False
-    # Non-contract tiers still deliver on a clean evaluator pass.
+    # Non-contract tiers still deliver on a clean evaluator pass — but only
+    # with observed output; a silent run delivered nothing.
     assert pl.step_delivered(_step(tier="ollama")) is True
+    assert pl.step_delivered(_step(tier="ollama", output="")) is False
     # Refused / dry-run never delivers.
     assert pl.step_delivered(_step(executed=False, ok=True)) is False
     assert pl.step_delivered(_step(executed=False, ok=False)) is False
@@ -536,7 +556,114 @@ def test_step_status_labels() -> None:
     assert pl._step_status_label(_step(result_status=RESULT_EMPTY)) == "EMPTY"
     assert pl._step_status_label(_step(result_status=RESULT_NOT_EVALUATED)) == "UNVERIFIED"
     assert pl._step_status_label(_step()) == "UNVERIFIED"  # "" normalizes
-    # Non-contract tiers and non-executed steps keep plain OK.
+    # Non-contract tiers and non-executed steps keep plain OK — but an
+    # executed non-contract step that produced nothing labels EMPTY, matching
+    # the gate's output_empty ruling.
     assert pl._step_status_label(_step(tier="ollama")) == "OK"
+    assert pl._step_status_label(_step(tier="ollama", output="")) == "EMPTY"
     assert pl._step_status_label(_step(executed=False)) == "OK"
     assert pl._step_status_label(_step(ok=False, exit_code=2)) == "FAIL"
+
+
+@allure.story("Gate matrix")
+@allure.title("Unknown result_status fails closed: normalized to invalid, never savings")
+def test_unknown_result_status_fails_closed() -> None:
+    """A verdict outside the vocabulary cannot launder itself into savings."""
+    gate = evaluate_result_gate(
+        started=True,
+        result_status="invented-verdict",
+        tier="tool",
+        ok=True,
+        output_useful=True,
+    )
+    assert gate.result_status == RESULT_INVALID
+    assert gate.action == GATE_BYPASSED
+    assert gate.reason == REASON_INVALID_CONTRACT
+    assert gate.savings_eligible is False
+    assert gate.savings_exclusion == EXCLUSION_INVALID_RESULT
+    assert gate.outcome == "failure"
+
+
+@allure.story("Gate matrix")
+@allure.title("task_result_gate: a silent non-tool run is output_empty, not a success")
+def test_task_result_gate_silent_run() -> None:
+    """An executed op that printed nothing delivered nothing — the observed
+    output is the evidence, never the invocation description."""
+    from greedy_token.executors import TaskRunResult, task_result_gate
+    from greedy_token.router import RouteDecision
+
+    decision = RouteDecision(
+        target="ollama", route_id="classify-file", confidence=1.0,
+        matched=[], command="./scripts/ollama/classify-file.sh", note="",
+        domains=[], read_only=True,
+    )
+    gate = task_result_gate(
+        TaskRunResult(decision=decision, output="", exit_code=0, started=True),
+        decision,
+    )
+    assert gate.action == GATE_BYPASSED
+    assert gate.reason == REASON_OUTPUT_EMPTY
+    assert gate.may_answer is False
+    assert gate.savings_eligible is False
+    assert gate.savings_exclusion == EXCLUSION_EMPTY_RESULT
+    assert gate.outcome == "failure"
+
+
+@allure.story("Outward scripts")
+@allure.title("scripts --run silent python script: unverified — no savings")
+def test_cmd_scripts_gate_silent_python(
+    minimal_workspace: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Exit 0 with no stdout declares nothing: unverified, and with no
+    observed output there is nothing to answer with either."""
+    from argparse import Namespace
+
+    from greedy_token import cli
+
+    log = tmp_path / "usage.jsonl"
+    monkeypatch.setenv("GREEDY_TOKEN_LOG", str(log))
+    script = minimal_workspace / "scripts" / "meta-sync-check.py"
+    script.write_text("#!/usr/bin/env python\nimport sys\nsys.exit(0)\n")
+    ns = Namespace(
+        list=False, run="check-meta-sync", args="", execute=True, no_log=False
+    )
+    assert cli.cmd_scripts(ns) == 0
+    events = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+    script_ev, outcome_ev = events[0], events[1]
+    assert script_ev["result_status"] == RESULT_NOT_EVALUATED
+    assert script_ev["gate_action"] == GATE_BYPASSED
+    assert script_ev["gate_reason"] == REASON_UNVERIFIED_RESULT
+    assert script_ev["savings_exclusion"] == EXCLUSION_UNVERIFIED_RESULT
+    assert outcome_ev["outcome"] == "unknown"
+    assert outcome_ev["savings_eligible"] is False
+
+
+@allure.story("Outward scripts")
+@allure.title("scripts --run silent ollama wrapper: output_empty — no savings")
+def test_cmd_scripts_gate_silent_ollama(
+    minimal_workspace: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The audit reproduction: a shell wrapper exiting 0 with empty stdout
+    claimed savings via the invocation description.  Now it claims nothing."""
+    from argparse import Namespace
+
+    from greedy_token import cli
+
+    log = tmp_path / "usage.jsonl"
+    monkeypatch.setenv("GREEDY_TOKEN_LOG", str(log))
+    script = minimal_workspace / "scripts" / "ollama" / "classify-file.sh"
+    script.write_text("#!/bin/sh\nexit 0\n")
+    script.chmod(0o755)
+    ns = Namespace(
+        list=False, run="classify-file", args="", execute=True, no_log=False
+    )
+    assert cli.cmd_scripts(ns) == 0
+    events = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+    script_ev, outcome_ev = events[0], events[1]
+    assert script_ev["result_status"] == RESULT_NOT_EVALUATED
+    assert script_ev["gate_action"] == GATE_BYPASSED
+    assert script_ev["gate_reason"] == REASON_OUTPUT_EMPTY
+    assert script_ev["savings_exclusion"] == EXCLUSION_EMPTY_RESULT
+    assert script_ev["cursor_saved"] == 0
+    assert outcome_ev["outcome"] == "failure"
+    assert outcome_ev["savings_eligible"] is False

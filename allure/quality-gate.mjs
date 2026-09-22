@@ -1,5 +1,5 @@
 /** Quality gate rules (ethalon-aligned). */
 export const qualityGateRules = [
   { maxFailures: 0 },
-  { minTestsCount: 1399 },
+  { minTestsCount: 1406 },
 ];

@@ -588,12 +588,14 @@ def test_compute_step_savings_math(minimal_workspace: Path) -> None:
     steps = [
         StepResult(
             step=PipelineStep("check-meta-sync", "python", "meta-label", command="c"),
-            ok=True, exit_code=0, output="", duration_ms=1, est_tokens=100, executed=True,
+            ok=True, exit_code=0, output='{"ok": true}\n', duration_ms=1,
+            est_tokens=100, executed=True,
             result_status="produced",  # contract-declared step → savings-eligible
         ),
         StepResult(
             step=PipelineStep("audit-skill", "ollama", "audit-label", command="c"),
-            ok=True, exit_code=0, output="", duration_ms=1, est_tokens=50, executed=True,
+            ok=True, exit_code=0, output="audit report\n", duration_ms=1,
+            est_tokens=50, executed=True,
         ),
         StepResult(
             step=PipelineStep("rag", "rag", "rag-label", command=None),
