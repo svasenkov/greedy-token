@@ -180,22 +180,32 @@ def rank_candidates(
             task_roots[task][root] += 1
     fixture_skipped = len(fixture_tasks)
 
-    candidates = []
-    for task, hits in llm_tasks.most_common(top):
+    # One candidate per canonical id — spellings that derive the same stem
+    # merge (hits and roots) instead of duplicating rows in the listing.
+    merged: dict[str, dict] = {}
+    for task, hits in llm_tasks.most_common():
         cid = crystal_id_for_pattern(task)
         if validate_route_id(cid) is not None:
             continue
-        candidates.append(
-            {
+        row = merged.get(cid)
+        if row is None:
+            row = merged[cid] = {
                 "pattern": task,
-                "hits": hits,
+                "hits": 0,
                 "suggested_script": cid,
                 "crystal_id": cid,
                 "stem": stem_of(cid),
                 "tier_seen": "cursor/ollama",
-                "roots": dict(task_roots[task]),
+                "roots": Counter(),
             }
-        )
+        row["hits"] += hits
+        row["roots"].update(task_roots[task])
+
+    candidates = sorted(
+        merged.values(), key=lambda c: (-c["hits"], c["crystal_id"])
+    )[:top]
+    for row in candidates:
+        row["roots"] = dict(row["roots"])
 
     return {
         "ok": True,

@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
-import allure
+import importlib.util
+from pathlib import Path
+
 import pytest
 
+import allure
+import greedy_token.crystal_ids as crystal_ids
 from greedy_token.crystal_ids import (
     choose_stem,
     crystal_id_for_pattern,
@@ -110,3 +114,26 @@ def test_route_id_from_run_arg() -> None:
 @allure.title("crystal_id_for_pattern keeps a valid python-{stem} unchanged")
 def test_crystal_id_for_pattern_identity() -> None:
     assert crystal_id_for_pattern("python-meta-sync-check") == "python-meta-sync-check"
+
+
+@allure.title("scripts/_crystallize_lib derives the same canonical crystal id")
+def test_scripts_lib_crystal_id_parity(workspace_root: Path) -> None:
+    """Package canon is the single id source — the workspace scripts ranker
+    must emit identical ids, otherwise one candidate lists twice."""
+    lib_path = workspace_root / "scripts" / "_crystallize_lib.py"
+    spec = importlib.util.spec_from_file_location("_crystallize_lib", lib_path)
+    assert spec is not None and spec.loader is not None
+    lib = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(lib)
+
+    task = "summarize the weekly spend report table"
+    row = {
+        "ts": "2026-09-22T04:23:42Z",
+        "selected_tier": "cursor",
+        "task": task,
+        "task_normalized": task,
+    }
+    cluster = lib.cluster_llm_rows([row])[0]
+    cid = crystal_id_for_pattern(task)
+    assert cluster["suggested_script"] == cluster["crystal_id"] == cid
+    assert lib.slugify is crystal_ids.slugify

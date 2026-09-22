@@ -257,6 +257,34 @@ def test_rank_candidates_strips_python_prefix(tmp_path, monkeypatch):
 
 
 @pytest.mark.unit
+def test_rank_candidates_dedups_by_canonical_id(tmp_path, monkeypatch):
+    """Spellings that derive the same stem merge into one candidate row."""
+    log = tmp_path / "usage.jsonl"
+    monkeypatch.setenv("GREEDY_TOKEN_LOG", str(log))
+    rows = [
+        {
+            "selected_tier": "cursor",
+            "task": "summarize weekly spend report",
+            "root": "ws-a",
+        }
+    ] * 3 + [
+        {
+            "selected_tier": "cursor",
+            "task": "summarize weekly spend report extra detail",
+            "root": "ws-b",
+        }
+    ] * 2
+    log.write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
+    report = rank_candidates(since=None)
+    cids = [c["crystal_id"] for c in report["candidates"]]
+    assert cids == ["python-summarize-weekly-spend-report"]
+    top_row = report["candidates"][0]
+    assert top_row["hits"] == 5
+    assert top_row["pattern"] == "summarize weekly spend report"
+    assert top_row["roots"] == {"ws-a": 3, "ws-b": 2}
+
+
+@pytest.mark.unit
 def test_list_crystals_from_lifecycle(tmp_path, monkeypatch):
     home = tmp_path / "greedy-home"
     home.mkdir()
