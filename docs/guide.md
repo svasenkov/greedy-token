@@ -478,7 +478,8 @@ Precedence (low → high): built-in defaults → `~/.greedy-token/config.yaml` (
 | `GREEDY_TOKEN_ROOT` | auto-detect or required |
 | `CHEAP_LLM_PROVIDER` | from config or `ollama` (`ollama` \| `openai_compat`) |
 | `CHEAP_LLM_URL` / `OLLAMA_URL` | from config or `http://localhost:11434` |
-| `CHEAP_LLM_MODEL` / `OLLAMA_MODEL` | from config or `qwen2.5-coder:7b-instruct-q4_K_M` |
+| `CHEAP_LLM_MODEL` / `OLLAMA_MODEL` | **deprecated** — still read for compat, warns once; use `llm.models[]` profiles or `GREEDY_LLM_MODEL_ID` |
+| `GREEDY_LLM_MODEL_ID` | unset — pin one `id` from `llm.models[]` |
 | `GREEDY_TOKEN_LOG` | `~/.greedy-token/usage.jsonl` |
 | `GREEDY_TOKEN_LOG_MAX_BYTES` | `5242880` (5 MiB) |
 | `GREEDY_TOKEN_LOG_MAX_FILES` | `5` rotated archives |

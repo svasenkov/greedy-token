@@ -40,7 +40,6 @@ routes:
     search_paths:
       - projects
       - docs
-      - stacks
       - scripts
       - generators
 

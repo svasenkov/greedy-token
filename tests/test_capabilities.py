@@ -171,6 +171,82 @@ def test_tool_readiness(
     assert not cap.invocable
 
 
+def _set_rg_search_paths(workspace: Path, paths: list[str]) -> None:
+    overlay = workspace / "workspace-routes.yaml"
+    data = yaml.safe_load(overlay.read_text(encoding="utf-8"))
+    route = next(r for r in data["routes"] if r["id"] == "tool-rg-search")
+    route["search_paths"] = paths
+    overlay.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+
+
+@allure.story("Readiness taxonomy")
+@allure.title("Stale rg search_paths stay visible: ready + missing_paths detail")
+def test_rg_missing_search_paths_visible(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _fake_rg(minimal_workspace, monkeypatch, "#!/bin/sh\nexit 0\n")
+    _set_rg_search_paths(minimal_workspace, ["docs", "gone-dir"])
+
+    cap = _ops(collect_capabilities(minimal_workspace))["tool-rg-search"]
+    with allure.step("ready+invocable, but the stale dir is reported"):
+        assert cap.readiness == READY
+        assert cap.invocable
+        assert cap.missing_paths == ("gone-dir",)
+        assert "gone-dir" in cap.reason
+        assert cap.to_dict()["missing_paths"] == ["gone-dir"]
+
+
+@allure.story("Readiness taxonomy")
+@allure.title("Every search_path missing — '.' fallback is stated in reason")
+def test_rg_all_search_paths_missing(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _fake_rg(minimal_workspace, monkeypatch, "#!/bin/sh\nexit 0\n")
+    _set_rg_search_paths(minimal_workspace, ["gone-a", "gone-b"])
+
+    cap = _ops(collect_capabilities(minimal_workspace))["tool-rg-search"]
+    assert cap.readiness == READY
+    assert cap.invocable
+    assert cap.missing_paths == ("gone-a", "gone-b")
+    assert "falls back to '.'" in cap.reason
+
+
+@allure.story("Readiness taxonomy")
+@allure.title("jq route with a missing json_path is missing_file, not invocable")
+def test_jq_missing_json_path(minimal_workspace: Path) -> None:
+    overlay = minimal_workspace / "workspace-routes.yaml"
+    data = yaml.safe_load(overlay.read_text(encoding="utf-8"))
+    route = next(r for r in data["routes"] if r["id"] == "tool-jq-manifest")
+    route["json_path"] = "gone/x.json"
+    overlay.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+
+    cap = _ops(collect_capabilities(minimal_workspace))["tool-jq-manifest"]
+    assert cap.readiness == MISSING_FILE
+    assert not cap.invocable
+    assert "gone/x.json" in cap.reason
+
+
+@allure.story("Invoke")
+@allure.title("Invoke rg with a stale search_path skips it instead of rg exit 2")
+def test_invoke_tool_op_skips_missing_paths(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _fake_rg(
+        minimal_workspace,
+        monkeypatch,
+        "#!/bin/sh\nprintf '%s\\n' \"$@\"\n",
+    )
+    _set_rg_search_paths(minimal_workspace, ["docs", "gone-dir"])
+
+    result = invoke_capability(minimal_workspace, "tool-rg-search", query="x")
+    assert result.executed is True
+    assert result.exit_code == 0
+    assert result.missing_paths == ("gone-dir",)
+    with allure.step("fake rg echoes argv — the missing dir never reaches it"):
+        assert "gone-dir" not in result.output
+        assert "docs" in result.output
+
+
 @allure.story("Readiness taxonomy")
 @allure.title("Manifest states: approved→ready, modified→stale_bytes, wrapper→inert")
 def test_view_manifest_states(minimal_workspace: Path) -> None:

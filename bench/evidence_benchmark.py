@@ -158,6 +158,20 @@ def _load_corpus(path: Path, lock_path: Path) -> tuple[dict, dict]:
     return data, lock
 
 
+def _bench_model(default: str) -> str:
+    """Model name for the benchmark run.
+
+    BENCH_MODEL wins; OLLAMA_MODEL stays a read-only legacy alias for manual
+    runs (never written back into os.environ — that would trip greedy-token's
+    deprecation warning inside this process).
+    """
+    return (
+        os.environ.get("BENCH_MODEL", "").strip()
+        or os.environ.get("OLLAMA_MODEL", "").strip()
+        or default
+    )
+
+
 def _write_fixture(corpus: dict, root: Path) -> None:
     fixture = corpus["fixture"]
     for rel in fixture.get("directories") or []:
@@ -177,7 +191,7 @@ def _write_fixture(corpus: dict, root: Path) -> None:
         "cheap_llm:\n"
         "  provider: ollama\n"
         f"  url: {os.environ.get('OLLAMA_URL', 'http://127.0.0.1:11434')}\n"
-        f"  model: {os.environ.get('OLLAMA_MODEL', 'evidence-stub')}\n",
+        f"  model: {_bench_model('evidence-stub')}\n",
         encoding="utf-8",
     )
     invalidate_rag_index(root)
@@ -1358,9 +1372,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.mode == "deterministic":
             with _ollama_stub() as stub_url:
                 old_url = os.environ.get("OLLAMA_URL")
-                old_model = os.environ.get("OLLAMA_MODEL")
+                old_bench = os.environ.get("BENCH_MODEL")
+                old_model = os.environ.pop("OLLAMA_MODEL", None)
                 os.environ["OLLAMA_URL"] = stub_url
-                os.environ["OLLAMA_MODEL"] = "evidence-stub"
+                os.environ["BENCH_MODEL"] = "evidence-stub"
                 try:
                     _write_fixture(corpus, root)
                     route_rows = _classify_routes(cases, root)
@@ -1376,9 +1391,11 @@ def main(argv: list[str] | None = None) -> int:
                         os.environ.pop("OLLAMA_URL", None)
                     else:
                         os.environ["OLLAMA_URL"] = old_url
-                    if old_model is None:
-                        os.environ.pop("OLLAMA_MODEL", None)
+                    if old_bench is None:
+                        os.environ.pop("BENCH_MODEL", None)
                     else:
+                        os.environ["BENCH_MODEL"] = old_bench
+                    if old_model is not None:
                         os.environ["OLLAMA_MODEL"] = old_model
         else:
             _write_fixture(corpus, root)
@@ -1392,7 +1409,7 @@ def main(argv: list[str] | None = None) -> int:
             )
             live_probes["ollama"] = _live_ollama_probe(
                 os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434"),
-                os.environ.get("OLLAMA_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M"),
+                _bench_model("qwen2.5-coder:7b-instruct-q4_K_M"),
             )
             live_probes["mcp_stdio"] = _live_mcp_probe(root)
             live_probes["agent_host"] = {

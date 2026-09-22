@@ -106,17 +106,21 @@ def test_build_tool_command_quotes_root(tmp_path: Path) -> None:
 def test_build_tool_command_quotes_search_paths(tmp_path: Path) -> None:
     root = tmp_path / "repo"
     root.mkdir()
+    # Injection-shaped dirs must exist on disk — missing search_paths are
+    # filtered out of argv before rg runs.
+    (root / "docs; rm -rf ~").mkdir()
+    (root / "src && id").mkdir()
     route = {
         "tool": "rg",
         "globs": ["!node_modules/**"],
-        "search_paths": ["docs; rm -rf /", "src && id"],
+        "search_paths": ["docs; rm -rf ~", "src && id"],
     }
     cmd = _build_tool_command(route, "find baseUrl", root)
     attach_text("tool command", cmd)
     argv = list(_build_tool_argv(route, "find baseUrl", root))
     assert f'cwd="{root}"' in cmd
     # Injection strings must be single inert argv tokens, not shell syntax.
-    assert "docs; rm -rf /" in argv
+    assert "docs; rm -rf ~" in argv
     assert "src && id" in argv
     assert ";" not in argv
     assert "&&" not in argv

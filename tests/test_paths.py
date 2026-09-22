@@ -131,7 +131,7 @@ def test_load_routes_config_auto_root_merges_overlay(minimal_workspace: Path) ->
         assert "rag-lookup" in ids  # bundled generic survives the merge
     with allure.step("Same-id override: workspace tool-rg-search search_paths win"):
         tool = next(r for r in cfg["routes"] if r["id"] == "tool-rg-search")
-        assert tool["search_paths"] == ["projects", "docs", "stacks", "scripts", "generators"]
+        assert tool["search_paths"] == ["projects", "docs", "scripts", "generators"]
     with allure.step("Workspace cursor_fallback replaces the bundled message"):
         assert "Нет точного match" in cfg["cursor_fallback"]["message"]
 

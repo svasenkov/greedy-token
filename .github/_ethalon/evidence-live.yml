@@ -40,7 +40,7 @@ jobs:
     env:
       GREEDY_TOKEN_LOG: "0"
       OLLAMA_URL: ${{ vars.OLLAMA_URL || 'http://127.0.0.1:11434' }}
-      OLLAMA_MODEL: ${{ vars.OLLAMA_MODEL || 'qwen2.5-coder:7b-instruct-q4_K_M' }}
+      BENCH_MODEL: ${{ vars.OLLAMA_MODEL || 'qwen2.5-coder:7b-instruct-q4_K_M' }}
       BENCH_HOST_COMMAND: ${{ inputs.host_command }}
       BENCH_HOST_BILLING: ${{ inputs.host_billing }}
       BENCH_ALLOW_METERED: ${{ inputs.allow_metered_api }}

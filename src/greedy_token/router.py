@@ -341,6 +341,25 @@ def _confined_route_path(value: object, root: Path, *, field: str) -> str:
     return text
 
 
+def _split_search_paths(route: dict, root: Path) -> tuple[list[str], list[str]]:
+    """Confined ``search_paths`` split into (on disk, missing).
+
+    Missing directories are dropped from the rg argv instead of failing the
+    whole search with rg's exit 2 — a stale directory name degrades scope, it
+    must not break the tool.  Callers that surface state (capabilities) report
+    the missing names so the config rot stays visible.
+    """
+    raw_paths = route.get("search_paths") or ["."]
+    if not isinstance(raw_paths, list):
+        raise ValueError("search_paths must be a list")
+    existing: list[str] = []
+    missing: list[str] = []
+    for path in raw_paths:
+        text = _confined_route_path(path, root, field="search_paths")
+        (existing if (root / text).exists() else missing).append(text)
+    return existing, missing
+
+
 def _build_tool_argv(route: dict, task: str, root: Path) -> tuple[str, ...]:
     # equivalent: the "rg" default is only compared against "jq" below, so any
     # non-"jq" default routes to the same ripgrep branch.
@@ -352,6 +371,8 @@ def _build_tool_argv(route: dict, task: str, root: Path) -> tuple[str, ...]:
             root,
             field="json_path",
         )
+        if not (root / path_hint).is_file():
+            raise ValueError(f"json_path does not exist: {path_hint}")
         jq = resolve_jq()
         return (
             str(jq) if jq is not None else "jq",
@@ -366,13 +387,10 @@ def _build_tool_argv(route: dict, task: str, root: Path) -> tuple[str, ...]:
         "!.venv/**",
         "!.cursor/hooks/**",
     ]
-    raw_paths = route.get("search_paths") or ["."]
-    if not isinstance(raw_paths, list):
-        raise ValueError("search_paths must be a list")
-    search_paths = tuple(
-        _confined_route_path(path, root, field="search_paths")
-        for path in raw_paths
-    )
+    existing_paths, _missing_paths = _split_search_paths(route, root)
+    # Every declared path missing → degrade to the bundled default scope "."
+    # rather than hand rg operands it will exit 2 on.
+    search_paths = tuple(existing_paths or ["."])
     try:
         max_count = int(route.get("max_count", 50))
     except (TypeError, ValueError) as exc:

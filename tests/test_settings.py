@@ -107,7 +107,7 @@ def test_init_user_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
 
 
 @allure.story("Shell export")
-@allure.title("Shell export emits OLLAMA_URL and OLLAMA_MODEL")
+@allure.title("Shell export emits URL/provider; deprecated model envs are not exported")
 def test_format_shell_export() -> None:
     from greedy_token.settings import OllamaSettings
 
@@ -118,8 +118,10 @@ def test_format_shell_export() -> None:
         attach_text("shell export", out)
     with allure.step("Verify OLLAMA env exports"):
         assert 'export OLLAMA_URL="http://localhost:11434"' in out
-        assert 'export OLLAMA_MODEL="llama3"' in out
         assert 'export CHEAP_LLM_PROVIDER="ollama"' in out
+    with allure.step("Deprecated model override names stay out of the export"):
+        assert "OLLAMA_MODEL" not in out
+        assert "CHEAP_LLM_MODEL" not in out
 
 
 @allure.story("Shell export")
@@ -212,7 +214,7 @@ def test_format_config(minimal_workspace: Path) -> None:
 
 
 @allure.story("Env export")
-@allure.title("apply_ollama_env sets OLLAMA_* when unset")
+@allure.title("apply_ollama_env sets OLLAMA_URL, never the deprecated model names")
 def test_apply_ollama_env(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from greedy_token.settings import apply_ollama_env
 
@@ -220,7 +222,10 @@ def test_apply_ollama_env(minimal_workspace: Path, monkeypatch: pytest.MonkeyPat
     monkeypatch.delenv("OLLAMA_MODEL", raising=False)
     settings = apply_ollama_env(minimal_workspace)
     assert os.environ.get("OLLAMA_URL") == settings.url
-    assert os.environ.get("OLLAMA_MODEL") == settings.model
+    # Deprecated names must not be written back — they re-trigger
+    # _warn_env_model_override in every later resolve_model call.
+    assert os.environ.get("OLLAMA_MODEL") is None
+    assert os.environ.get("CHEAP_LLM_MODEL") is None
 
 
 @allure.story("Discovery")

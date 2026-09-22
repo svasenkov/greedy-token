@@ -219,6 +219,7 @@ def test_build_tool_command_rg_exact(minimal_workspace: Path) -> None:
         )
 
     with allure.step("Custom route keys override defaults (kills key-name/or-default mutants)"):
+        (minimal_workspace / "myproj").mkdir()
         route = {"globs": ["!only/**"], "search_paths": ["myproj"], "max_count": 7}
         expected2 = (
             executable, "-n", "--max-columns", "200", "-F", "baseUrl",
@@ -247,6 +248,8 @@ def test_build_tool_command_jq_exact(minimal_workspace: Path) -> None:
         )
 
     with allure.step("Custom jq route → custom filter and json_path"):
+        (minimal_workspace / "data").mkdir(exist_ok=True)
+        (minimal_workspace / "data" / "x.json").write_text("{}")
         route = {"tool": "jq", "jq_filter": ".items[]", "json_path": "data/x.json"}
         expected2 = (executable, "-r", ".items[]", "data/x.json")
         assert _build_tool_argv(route, "task", minimal_workspace) == expected2
@@ -275,6 +278,29 @@ def test_build_tool_argv_rejects_untrusted_route_fields(
 
     with pytest.raises(ValueError, match=message):
         _build_tool_argv(route, "find baseUrl", minimal_workspace)
+
+
+@allure.title("_build_tool_argv drops missing search_paths; all-missing falls back to '.'")
+def test_build_tool_argv_filters_missing_search_paths(minimal_workspace: Path) -> None:
+    from greedy_token.router import _build_tool_argv
+
+    with allure.step("mixed existing/missing — only on-disk dirs reach rg argv"):
+        route = {"search_paths": ["docs", "gone-dir", "scripts"]}
+        argv = _build_tool_argv(route, "find baseUrl", minimal_workspace)
+        assert argv[-2:] == ("docs", "scripts")
+        assert "gone-dir" not in argv
+
+    with allure.step("every declared path missing — degrade to '.' instead of rg exit 2"):
+        argv = _build_tool_argv(
+            {"search_paths": ["gone-a", "gone-b"]}, "find baseUrl", minimal_workspace
+        )
+        assert argv[-1:] == (".",)
+
+    with allure.step("missing jq json_path refuses instead of jq exit 2"):
+        with pytest.raises(ValueError, match="does not exist"):
+            _build_tool_argv(
+                {"tool": "jq", "json_path": "gone/x.json"}, "task", minimal_workspace
+            )
 
 
 @allure.title("_best_in_tier skips malformed workspace tool routes")

@@ -474,7 +474,8 @@ Pipeline пишет **одну строку на каждый шаг**. При �
 | `GREEDY_TOKEN_ROOT` | auto-detect |
 | `CHEAP_LLM_PROVIDER` | из config или `ollama` (`ollama` \| `openai_compat`) |
 | `CHEAP_LLM_URL` / `OLLAMA_URL` | из config или `http://localhost:11434` |
-| `CHEAP_LLM_MODEL` / `OLLAMA_MODEL` | из config или `qwen2.5-coder:7b-instruct-q4_K_M` |
+| `CHEAP_LLM_MODEL` / `OLLAMA_MODEL` | **deprecated** — читаются для совместимости, warning один раз; используй `llm.models[]` profiles или `GREEDY_LLM_MODEL_ID` |
+| `GREEDY_LLM_MODEL_ID` | не задан — pin одного `id` из `llm.models[]` |
 | `GREEDY_TOKEN_LOG` | `~/.greedy-token/usage.jsonl` |
 | `GREEDY_TOKEN_LOG_MAX_BYTES` | `5242880` (5 MiB) |
 | `GREEDY_TOKEN_LOG_MAX_FILES` | `5` rotated archives |

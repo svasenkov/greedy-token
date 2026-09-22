@@ -451,11 +451,11 @@ def apply_cheap_llm_env(root: Path | None = None, *, profile: str = "") -> Cheap
     settings = get_cheap_llm_settings(resolved_root)
     os.environ.setdefault("CHEAP_LLM_PROVIDER", settings.provider)
     os.environ.setdefault("CHEAP_LLM_URL", settings.url)
-    os.environ.setdefault("CHEAP_LLM_MODEL", settings.model)
     if settings.api_key:
         os.environ.setdefault("CHEAP_LLM_API_KEY", settings.api_key)
     os.environ.setdefault("OLLAMA_URL", settings.url)
-    os.environ.setdefault("OLLAMA_MODEL", settings.model)
+    # CHEAP_LLM_MODEL / OLLAMA_MODEL intentionally not exported — deprecated
+    # names; writing them re-triggers _warn_env_model_override downstream.
     return settings
 
 
@@ -502,7 +502,8 @@ def format_config(settings: CheapLlmSettings | OllamaSettings | None = None, *, 
         lines.append(f"  3. {workspace_path}")
     lines.extend(
         [
-            "  4. CHEAP_LLM_* / OLLAMA_* env (OLLAMA_* = url/model aliases;",
+            "  4. CHEAP_LLM_* / OLLAMA_URL env (CHEAP_LLM_MODEL / OLLAMA_MODEL",
+            "     deprecated → llm.models[] / GREEDY_LLM_MODEL_ID;",
             "     CHEAP_LLM_API_KEY optional for openai_compat)",
             "",
             "Create user config:",
@@ -531,6 +532,11 @@ def format_shell_export(
     ``CHEAP_LLM_API_KEY`` is masked as ``***`` by default so piping into a
     terminal (and shell history) never leaks the secret. Pass ``reveal=True``
     to print the real key value.
+
+    Model env vars are deliberately not emitted: CHEAP_LLM_MODEL / OLLAMA_MODEL
+    are deprecated override names, and eval'ing them would trip the deprecation
+    warning in every greedy-token call in that shell. Pin a model via
+    ``GREEDY_LLM_MODEL_ID=<id from llm.models[]>`` instead.
     """
     if settings is None:
         settings = get_cheap_llm_settings(root)
@@ -544,9 +550,7 @@ def format_shell_export(
     lines = [
         f'export CHEAP_LLM_PROVIDER="{settings.provider}"',
         f'export CHEAP_LLM_URL="{settings.url}"',
-        f'export CHEAP_LLM_MODEL="{settings.model}"',
         f'export OLLAMA_URL="{settings.url}"',
-        f'export OLLAMA_MODEL="{settings.model}"',
     ]
     if settings.api_key:
         value = settings.api_key if reveal else MASKED_SECRET

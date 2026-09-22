@@ -37,7 +37,13 @@ from greedy_token.paths import (
 )
 from greedy_token.result_contract import RESULT_NOT_EVALUATED
 from greedy_token.result_gate import evaluate_result_gate
-from greedy_token.router import RouteDecision, _decision_from_route, _route_status
+from greedy_token.router import (
+    RouteDecision,
+    _confined_route_path,
+    _decision_from_route,
+    _route_status,
+    _split_search_paths,
+)
 from greedy_token.scripts_lint import _is_consumer_script, extract_script_path
 from greedy_token.subprocess_safe import (
     UnsafeCommandError,
@@ -130,6 +136,10 @@ class Capability:
     domains: tuple[str, ...] = ()
     note: str = ""
     requires_ollama: bool = False
+    # Declared rg search_paths that do not exist under root — skipped at run
+    # time instead of dying on rg exit 2; listed here so the stale config is
+    # visible rather than silently absorbed.
+    missing_paths: tuple[str, ...] = ()
 
     def to_dict(self) -> dict:
         value: dict = {
@@ -165,6 +175,8 @@ class Capability:
             value["note"] = self.note
         if self.requires_ollama:
             value["requires_ollama"] = True
+        if self.missing_paths:
+            value["missing_paths"] = list(self.missing_paths)
         return value
 
 
@@ -359,6 +371,35 @@ def _capability_for_route(
                 TOOL_UNAVAILABLE,
                 f"{tool} binary not found on this host (override: GREEDY_TOKEN_{tool.upper()})",
             )
+        missing_paths: tuple[str, ...] = ()
+        if tool == "rg":
+            try:
+                existing, missing = _split_search_paths(route, root)
+            except (OSError, ValueError) as exc:
+                return cap(UNKNOWN, f"invalid search_paths config: {exc}")
+            missing_paths = tuple(missing)
+            path_state = ""
+            if missing_paths:
+                dropped = ", ".join(missing_paths)
+                path_state = (
+                    "; all configured search_paths missing — rg falls back to '.'"
+                    if not existing
+                    else f"; search_paths missing on disk (skipped): {dropped}"
+                )
+        elif tool == "jq":
+            try:
+                json_path = _confined_route_path(
+                    route.get("json_path") or "docs/phase-manifest.json",
+                    root,
+                    field="json_path",
+                )
+            except (OSError, ValueError) as exc:
+                return cap(UNKNOWN, f"invalid json_path config: {exc}")
+            if not (root / json_path).is_file():
+                return cap(MISSING_FILE, f"json_path not on disk: {json_path}")
+            path_state = ""
+        else:
+            path_state = ""
         return cap(
             READY,
             (
@@ -368,9 +409,11 @@ def _capability_for_route(
                     if tool == "rg"
                     else "fixed argv — no parameters"
                 )
+                + path_state
             ),
             authorization=f"internal-tool:{tool}",
             params=("query",) if tool == "rg" else (),
+            missing_paths=missing_paths,
         )
 
     if target == "rag":
@@ -520,9 +563,10 @@ class InvocationResult:
     result_status: str = ""
     outcome: str = ""
     operation_id: str = ""
+    missing_paths: tuple[str, ...] = ()
 
     def to_dict(self) -> dict:
-        return {
+        value: dict = {
             "op_id": self.op_id,
             "tier": self.tier,
             "invocable": self.invocable,
@@ -538,6 +582,9 @@ class InvocationResult:
             "operation_id": self.operation_id,
             "output": self.output,
         }
+        if self.missing_paths:
+            value["missing_paths"] = list(self.missing_paths)
+        return value
 
 
 def _log_invocation(
@@ -682,6 +729,7 @@ def invoke_capability(
             result_status=gate.result_status,
             outcome=gate.outcome,
             operation_id=operation_id,
+            missing_paths=cap.missing_paths if cap else (),
         )
 
     if cap is None:
@@ -813,6 +861,7 @@ def invoke_capability(
         result_status=gate.result_status,
         outcome=gate.outcome,
         operation_id=operation_id,
+        missing_paths=cap.missing_paths,
     )
 
 
@@ -860,6 +909,10 @@ def format_capability_detail(cap: Capability) -> str:
         lines.append(f"  params:    {', '.join(cap.params)}")
     else:
         lines.append("  params:    none — fixed argv")
+    if cap.missing_paths:
+        lines.append(
+            f"  missing_paths: {', '.join(cap.missing_paths)} — declared but not on disk"
+        )
     if cap.script_path:
         lines.append(f"  script:    {cap.script_path} ({cap.script_type or 'unknown'})")
     if cap.authorization:
@@ -884,6 +937,11 @@ def format_invocation_result(result: InvocationResult) -> str:
         )
         return head
     lines = [result.output.rstrip()] if result.output else []
+    if result.missing_paths:
+        lines.append(
+            "note: search_paths skipped (not on disk): "
+            + ", ".join(result.missing_paths)
+        )
     lines.extend(
         [
             "---",

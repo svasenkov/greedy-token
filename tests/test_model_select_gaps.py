@@ -425,3 +425,21 @@ def test_apply_model_env(monkeypatch: pytest.MonkeyPatch) -> None:
     assert os.environ["GREEDY_LLM_MODEL_ID"] == "fast"
     assert os.environ["CHEAP_LLM_API_KEY"] == "sk-1"
     assert os.environ["OLLAMA_URL"] == "http://o:11434"
+    # Deprecated override names are not exported — exporting them would
+    # self-trigger _warn_env_model_override in every later resolve_model.
+    assert os.environ.get("OLLAMA_MODEL") is None
+    assert os.environ.get("CHEAP_LLM_MODEL") is None
+
+
+@allure.title("apply_model_env leaves _warn_env_model_override silent")
+def test_apply_model_env_no_self_warning(
+    monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    resolved = ResolvedModel(
+        spec=_spec("fast"),
+        settings=CheapLlmSettings("ollama", "http://o:11434", "m-fast", "s"),
+    )
+    apply_model_env(resolved)
+    monkeypatch.setattr(ms, "_env_model_warned", False)
+    _warn_env_model_override()
+    assert capsys.readouterr().err == ""

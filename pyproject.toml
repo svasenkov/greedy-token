@@ -48,6 +48,16 @@ select = ["E", "F", "W", "I", "UP", "B"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 minversion = "8.0"
+filterwarnings = [
+    # Upstream: mcp 1.28.x FastMCP `Settings.lifespan` is annotated with the
+    # FastMCP class defined *below* it in mcp.server.fastmcp.server, so
+    # pydantic leaves the model incomplete and pydantic-settings warns on the
+    # first Settings() build (first FastMCP() in our MCP tests).
+    # Fixed upstream via modelcontextprotocol/python-sdk#3352
+    # (Settings.model_rebuild() at import). Drop this filter once the pinned
+    # mcp ships that fix. Scoped to the exact field warning — not global.
+    "ignore:Field 'lifespan' has an incomplete definition:pydantic_settings.exceptions.IncompleteFieldDefinitionWarning",
+]
 markers = [
     "unit: pure logic, no subprocess or external IO",
     "component: module wiring, mocks, minimal_workspace fixtures",

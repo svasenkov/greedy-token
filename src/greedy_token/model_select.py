@@ -133,7 +133,7 @@ def _warn_env_model_override() -> None:
     if os.environ.get("CHEAP_LLM_MODEL", "").strip() or os.environ.get("OLLAMA_MODEL", "").strip():
         print(
             "greedy-token: CHEAP_LLM_MODEL / OLLAMA_MODEL env override is deprecated; "
-            "use llm.cheap.models[] profiles or GREEDY_LLM_MODEL_ID",
+            "use llm.models[] profiles or GREEDY_LLM_MODEL_ID",
             file=sys.stderr,
         )
         _env_model_warned = True
@@ -646,15 +646,19 @@ def escalation_chain_from(
 
 
 def apply_model_env(resolved: ResolvedModel) -> None:
-    """Export resolved model into os.environ for shell wrappers."""
+    """Export resolved model into os.environ for shell wrappers.
+
+    Model identity travels as GREEDY_LLM_MODEL_ID — the deprecated
+    CHEAP_LLM_MODEL / OLLAMA_MODEL names are deliberately not exported:
+    writing them here would trip _warn_env_model_override in every
+    child/later resolve_model call (self-poisoning).
+    """
     s = resolved.settings
     os.environ["GREEDY_LLM_MODEL_ID"] = resolved.model_id
     os.environ["GREEDY_LLM_PROFILE"] = resolved.profile
     os.environ["GREEDY_LLM_TIER"] = resolved.billing_tier
     os.environ.setdefault("CHEAP_LLM_PROVIDER", s.provider)
     os.environ.setdefault("CHEAP_LLM_URL", s.url)
-    os.environ.setdefault("CHEAP_LLM_MODEL", s.model)
     if s.api_key:
         os.environ.setdefault("CHEAP_LLM_API_KEY", s.api_key)
     os.environ.setdefault("OLLAMA_URL", s.url)
-    os.environ.setdefault("OLLAMA_MODEL", s.model)
