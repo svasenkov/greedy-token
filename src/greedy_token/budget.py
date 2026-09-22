@@ -21,6 +21,7 @@ from greedy_token.context_audit import audit_context
 from greedy_token.estimator import cursor_baseline, cursor_saved_for
 from greedy_token.paths import find_workspace_root
 from greedy_token.rag_search import RagHit
+from greedy_token.result_gate import GateDecision, evaluate_result_gate
 from greedy_token.router import RouteDecision, route_task_all_tiers
 from greedy_token.settings import FooterStyle, get_cheap_llm_settings, get_footer_settings
 from greedy_token.tokens import count_tokens
@@ -505,6 +506,7 @@ def log_tool_usage(
     tier_scan: list[dict] | None = None,
     outcome_success: bool | None = None,
     operation_id: str | None = None,
+    gate: GateDecision | None = None,
 ) -> None:
     """Log one tool call. ``executed`` is the caller's observed fact, never a default."""
     append_event(
@@ -520,6 +522,7 @@ def log_tool_usage(
             tier_scan=tier_scan,
             outcome_success=outcome_success,
             operation_id=operation_id,
+            gate=gate,
         )
     )
 
@@ -544,6 +547,7 @@ def wrap_mcp_response(
     escalations: list[str] | None = None,
     executed: bool = True,
     decision: RouteDecision | None = None,
+    result_status: str | None = None,
 ) -> str:
     """Append the footer and log the call.
 
@@ -551,6 +555,9 @@ def wrap_mcp_response(
     tool answering successfully says nothing about the recommended work. Pass the
     real ``decision`` when one exists so its score, matched patterns, and
     calibration survive into telemetry instead of a fixed-confidence stand-in.
+    ``result_status`` carries the Step 2 contract verdict (produced / empty /
+    invalid / not_evaluated) so telemetry records the evaluator-gate ruling
+    instead of crediting bare exit codes.
     """
     root = root or find_workspace_root()
     task_success = None if outcome is None else outcome == "success"
@@ -581,6 +588,18 @@ def wrap_mcp_response(
             est_tokens=est_tokens,
         )
         operation_id = new_operation_id()
+        gate = (
+            evaluate_result_gate(
+                started=executed,
+                result_status=result_status,
+                tier=logged_decision.target,
+                # For the gate ``ok`` is the caller's outcome verdict; a tool
+                # reporting no outcome means the call itself did not fail.
+                ok=task_success is not False,
+            )
+            if result_status is not None
+            else None
+        )
         log_tool_usage(
             cmd="mcp",
             task=task,
@@ -593,6 +612,7 @@ def wrap_mcp_response(
             tier_scan=[],
             outcome_success=task_success,
             operation_id=operation_id,
+            gate=gate,
         )
         if outcome is not None:
             append_event(
@@ -608,6 +628,7 @@ def wrap_mcp_response(
                     escalations=escalations,
                     exit_code=0 if outcome == "success" else 1,
                     operation_id=operation_id,
+                    gate=gate,
                 )
             )
     return body.rstrip() + footer

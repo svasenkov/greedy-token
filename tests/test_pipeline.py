@@ -589,6 +589,7 @@ def test_compute_step_savings_math(minimal_workspace: Path) -> None:
         StepResult(
             step=PipelineStep("check-meta-sync", "python", "meta-label", command="c"),
             ok=True, exit_code=0, output="", duration_ms=1, est_tokens=100, executed=True,
+            result_status="produced",  # contract-declared step → savings-eligible
         ),
         StepResult(
             step=PipelineStep("audit-skill", "ollama", "audit-label", command="c"),
@@ -667,11 +668,13 @@ def test_format_pipeline_footer_all_failed_execute_saved_zero(
 
 def _sr(step_id: str, tier: str, *, engine: str = "", executed: bool = True,
         ok: bool = True, exit_code: int = 0, output: str = "", duration_ms: int = 1,
-        est_tokens: int = 0, label: str = "l", args: str = "") -> StepResult:
+        est_tokens: int = 0, label: str = "l", args: str = "",
+        result_status: str = "") -> StepResult:
     return StepResult(
         step=PipelineStep(step_id, tier, label, args=args),
         ok=ok, exit_code=exit_code, output=output, duration_ms=duration_ms,
         est_tokens=est_tokens, executed=executed, engine=engine,
+        result_status=result_status,
     )
 
 
@@ -757,7 +760,7 @@ def test_format_pipeline_body_exact() -> None:
     from greedy_token.pipeline import format_pipeline_body
 
     steps = [
-        _sr("check-meta-sync", "python", label="meta", output="line-out", duration_ms=5, est_tokens=1234, executed=True, ok=True),
+        _sr("check-meta-sync", "python", label="meta", output="line-out", duration_ms=5, est_tokens=1234, executed=True, ok=True, result_status="produced"),
         _sr("audit-skill", "ollama", label="aud", output="", duration_ms=7, est_tokens=0, executed=False, ok=False, exit_code=2),
     ]
     result = PipelineResult(task="t1", steps=steps, stopped_early=True)

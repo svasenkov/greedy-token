@@ -17,6 +17,7 @@ from greedy_token.paths import find_workspace_root
 from greedy_token.settings import apply_ollama_env
 from greedy_token.pipeline import format_pipeline_response, list_pipelines, run_pipeline
 from greedy_token.rag_search import format_hits, search_rag
+from greedy_token.result_contract import RESULT_EMPTY, RESULT_PRODUCED
 from greedy_token.crystallize_l3 import DraftResult, draft_crystal, promote_crystal, reject_crystal
 from greedy_token.router import format_decision, route_task
 from greedy_token.tokens import count_tokens
@@ -134,6 +135,7 @@ def greedy_token_rag(query: str, domain: str = "") -> str:
         executor_sub="rag",
         outcome="success" if hits else "failure",
         outcome_layer="retrieval",
+        result_status=RESULT_PRODUCED if hits else RESULT_EMPTY,
     )
 
 
@@ -168,6 +170,7 @@ def greedy_token_search(query: str, path: str = "", context: str = "") -> str:
         executor_sub=result.engine,
         outcome="success" if result.hit_count else "failure",
         outcome_layer="executor",
+        result_status=RESULT_PRODUCED if result.hit_count else RESULT_EMPTY,
     )
 
 

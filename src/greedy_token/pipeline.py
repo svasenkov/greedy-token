@@ -53,9 +53,21 @@ from greedy_token.wrappers import WRAPPERS, ollama_available, resolve_wrapper_in
 
 from greedy_token.result_contract import (
     RESULT_EMPTY,
+    RESULT_INVALID,
     RESULT_NOT_EVALUATED,
     RESULT_PRODUCED,
     evaluate_script_result,
+)
+from greedy_token.result_gate import (
+    CONTRACT_TIERS,
+    GateDecision,
+    REASON_EMPTY_RESULT,
+    REASON_INVALID_CONTRACT,
+    REASON_NOT_STARTED,
+    REASON_OUTPUT_EMPTY,
+    REASON_TASK_FAILED,
+    REASON_UNVERIFIED_RESULT,
+    evaluate_result_gate,
 )
 
 PIPELINE_SPLIT = re.compile(r"\s+then\s+|\s*→\s*|\s*->\s*|\s*;\s*", re.IGNORECASE)
@@ -142,13 +154,43 @@ def _executor_sub_for_step(sr: StepResult) -> str:
     return sr.step.tier
 
 
+def _step_gate(sr: StepResult) -> GateDecision:
+    """Route the step through the evaluator gate.
+
+    ``sr.ok``/``sr.executed`` are observed facts; ``sr.result_status`` is the
+    contract verdict.  The gate owns the answer/continue/savings ruling so the
+    pipeline never re-derives it per call site.
+    """
+    return evaluate_result_gate(
+        started=sr.executed,
+        result_status=sr.result_status,
+        tier=sr.step.tier,
+        ok=sr.ok,
+    )
+
+
 def step_delivered(sr: StepResult) -> bool:
-    """Did the step run, succeed, and return something usable?
+    """Did the step run, succeed, and return a verified usable result?
 
     A search or RAG step that ran cleanly but matched nothing has delivered no
-    work, so it earns no savings and reports no successful outcome.
+    work, so it earns no savings and reports no successful outcome.  A script
+    step that ran cleanly but never declared the canon contract is unverified:
+    its output may continue a chain, but it did not *deliver* a validated
+    result, so it earns no savings either.
     """
-    return sr.executed and sr.ok and sr.result_status != RESULT_EMPTY
+    return _step_gate(sr).succeeded
+
+
+# Gate reason → per-step billing label when savings are not claimed.  Reasons
+# not listed fall through to the generic exclusion label.
+_GATE_BILLING_LABELS = {
+    REASON_NOT_STARTED: "dry-run — not executed",
+    REASON_TASK_FAILED: "failed — no savings claimed",
+    REASON_EMPTY_RESULT: "empty result — no savings claimed",
+    REASON_OUTPUT_EMPTY: "empty result — no savings claimed",
+    REASON_INVALID_CONTRACT: "invalid result — no savings claimed",
+    REASON_UNVERIFIED_RESULT: "unverified result — no savings claimed",
+}
 
 
 def compute_step_savings(result: PipelineResult, root: Path) -> list[StepSavingsRow]:
@@ -156,17 +198,18 @@ def compute_step_savings(result: PipelineResult, root: Path) -> list[StepSavings
     for i, sr in enumerate(result.steps, 1):
         baseline = cursor_baseline(root, sr.step.label)
         spent = sr.est_tokens
-        # Dry-runs and failed outcomes have not delivered useful work, so they
-        # cannot count as saved.
-        if not sr.executed:
+        # Dry-runs, failed outcomes, and results the gate rejected have not
+        # delivered verified useful work, so they cannot count as saved.
+        gate = _step_gate(sr)
+        if not gate.savings_eligible:
             saved = 0
-            billing = "dry-run — not executed"
-        elif not sr.ok:
-            saved = 0
-            billing = "failed — no savings claimed"
-        elif sr.result_status == RESULT_EMPTY:
-            saved = 0
-            billing = "empty result — no savings claimed"
+            if gate.reason == REASON_NOT_STARTED and not sr.ok:
+                # A refused step is "not executed", not a dry-run plan.
+                billing = "not executed — no savings claimed"
+            else:
+                billing = _GATE_BILLING_LABELS.get(
+                    gate.reason, "not savings-eligible — no savings claimed"
+                )
         else:
             saved = max(0, baseline - spent)
             billing = spent_hint(sr.step.tier, spent, _executor_sub_for_step(sr))
@@ -868,7 +911,10 @@ def run_pipeline(
                 step_result.output[: max_output_per_step - 40] + "\n… (truncated)"
             )
         result.steps.append(step_result)
-        if stop_on_error and not step_result.ok:
+        # The gate decides whether the chain may continue: a failed step stops
+        # it, and so does an invalid (self-contradictory) contract claim — a
+        # step that lied about its own exit must not feed the next one.
+        if stop_on_error and not _step_gate(step_result).continue_chain:
             result.stopped_early = True
             break
 
@@ -901,9 +947,11 @@ def _log_pipeline(
             domains=[],
             est_tokens=step_result.est_tokens,
         )
-        # ok=False is a failure; a contract-checked empty result is too. Steps
-        # without a result contract keep the exit-code verdict they had.
-        outcome_success = step_delivered(step_result)
+        # The evaluator gate owns the outcome/savings verdict: ok=False is a
+        # failure, an invalid contract claim is a failure, an empty result
+        # earns nothing, and a contract-tier step that never declared its
+        # contract reports "unknown" rather than "success".
+        gate = _step_gate(step_result)
         task = f"{result.task} :: {step_result.step.label}"
         append_event(
             build_route_event(
@@ -915,9 +963,10 @@ def _log_pipeline(
                 executed=True,
                 est_tokens_override=step_result.est_tokens,
                 tier_scan=[],
-                outcome_success=outcome_success,
+                outcome_success=gate.succeeded,
                 operation_id=step_operation_id,
                 parent_operation_id=parent_operation_id,
+                gate=gate,
             )
         )
         append_event(
@@ -925,14 +974,37 @@ def _log_pipeline(
                 task=task,
                 root=root,
                 decision=decision,
-                outcome="success" if outcome_success else "failure",
+                outcome=gate.outcome,
                 layer="pipeline",
                 duration_ms=step_result.duration_ms,
                 exit_code=step_result.exit_code,
                 operation_id=step_operation_id,
                 parent_operation_id=parent_operation_id,
+                gate=gate,
             )
         )
+
+
+def _step_status_label(sr: StepResult) -> str:
+    """The gate verdict label for humans: OK / FAIL / EMPTY / INVALID /
+    UNVERIFIED — richer than a bare exit-code reading."""
+    if not sr.ok:
+        return "FAIL"
+    if not sr.executed:
+        # Dry-run / skipped: nothing to verify, the plain OK stands.
+        return "OK"
+    if sr.result_status == RESULT_INVALID:
+        return "INVALID"
+    if sr.result_status == RESULT_EMPTY:
+        return "EMPTY"
+    if (
+        sr.step.tier in CONTRACT_TIERS
+        and (sr.result_status or RESULT_NOT_EVALUATED) == RESULT_NOT_EVALUATED
+    ):
+        # A contract-tier script that ran clean but declared no canon contract:
+        # output is not "OK", it is merely unverified.
+        return "UNVERIFIED"
+    return "OK"
 
 
 def format_pipeline_body(result: PipelineResult) -> str:
@@ -943,10 +1015,9 @@ def format_pipeline_body(result: PipelineResult) -> str:
         "",
     ]
     for i, sr in enumerate(result.steps, 1):
-        if sr.ok and sr.executed and sr.result_status == RESULT_EMPTY:
-            status = "EMPTY"
-        else:
-            status = "OK" if sr.ok else f"FAIL({sr.exit_code})"
+        status = _step_status_label(sr)
+        if status == "FAIL":
+            status = f"FAIL({sr.exit_code})"
         mode = "ran" if sr.executed else "dry-run"
         lines.append(
             f"── Step {i}/{len(result.steps)}: {sr.step.label} "
@@ -993,10 +1064,7 @@ def format_pipeline_footer(result: PipelineResult, root: Path) -> str:
         f"  {'step':<28} {'tier':<8} {'ms':>6} {'tokens':>8}  status"
     )
     for sr in result.steps:
-        if sr.ok and sr.executed and sr.result_status == RESULT_EMPTY:
-            status = "EMPTY"
-        else:
-            status = "OK" if sr.ok else "FAIL"
+        status = _step_status_label(sr)
         mode = "" if sr.executed else " (dry)"
         label = sr.step.step_id[:28]
         lines.append(

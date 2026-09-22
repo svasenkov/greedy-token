@@ -95,7 +95,14 @@ def minimal_workspace(tmp_path: Path) -> Path:
     (tmp_path / "docs" / "phase-manifest.json").write_text("{}", encoding="utf-8")
     (tmp_path / "scripts").mkdir()
     meta_sync = tmp_path / "scripts" / "meta-sync-check.py"
-    meta_sync.write_text("#!/usr/bin/env python\nprint('meta-sync-check-ok')\n", encoding="utf-8")
+    # The real meta-sync-check declares the canon contract via _script_emit;
+    # the stub must too, otherwise executed steps come back "unverified".
+    meta_sync.write_text(
+        "#!/usr/bin/env python\n"
+        "print('meta-sync-check-ok')\n"
+        "print('{\"ok\": true}')\n",
+        encoding="utf-8",
+    )
     meta_sync.chmod(0o755)
     bool_audit = tmp_path / "scripts" / "configurator-boolean-audit.py"
     bool_audit.write_text('#!/usr/bin/env python\nprint(\'{"ok": true}\')\n', encoding="utf-8")

@@ -8,7 +8,14 @@ from pathlib import Path
 
 from greedy_token.context_audit import audit_context, render_audit
 from greedy_token.estimator import estimate_task, format_estimate
-from greedy_token.executors import execute_task, plan_run
+from greedy_token.executors import execute_task, plan_run, task_result_gate
+from greedy_token.result_contract import (
+    RESULT_EMPTY,
+    RESULT_NOT_EVALUATED,
+    RESULT_PRODUCED,
+    evaluate_script_result,
+)
+from greedy_token.result_gate import evaluate_result_gate
 from greedy_token.paths import find_workspace_root
 from greedy_token.pipeline import format_pipeline_response, list_pipelines, run_pipeline
 from greedy_token.prompt_compress import compress_prompt_detail, format_dual
@@ -126,6 +133,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     code = 0
     executed = False
     used_rag_fallback = False
+    gate = None
     if args.execute:
         result = execute_task(args.task, root)
         if result.output:
@@ -136,6 +144,9 @@ def cmd_run(args: argparse.Namespace) -> int:
         code = result.exit_code
         # --execute is a request; only the run result proves a start.
         executed = result.started
+        # The evaluator gate rules on outcome/savings, not the bare exit code:
+        # an invalid or unverified contract result is never a "success".
+        gate = task_result_gate(result, decision)
     else:
         print(plan.dry_run_output)
         if plan.command:
@@ -157,8 +168,9 @@ def cmd_run(args: argparse.Namespace) -> int:
             execution_requested=args.execute,
             # plan_run already ruled on this route; no second trust check.
             authorized=plan.executable if args.execute else None,
-            outcome_success=(code == 0) if executed else None,
+            outcome_success=gate.succeeded if executed else None,
             operation_id=operation_id,
+            gate=gate,
         ),
     )
     if args.execute:
@@ -170,7 +182,9 @@ def cmd_run(args: argparse.Namespace) -> int:
         if decision.target == "cursor":
             outcome = "escalated"
         elif executed:
-            outcome = "success" if code == 0 else "failure"
+            # success / failure / unknown — the gate's verdict, where an
+            # unverified contract result reports "unknown", not "success".
+            outcome = gate.outcome
         elif code == 0:
             # Requested, never launched, nothing reported a failure: no
             # observation to turn into success.
@@ -191,6 +205,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                 escalations=["tool->rag"] if used_rag_fallback else [],
                 exit_code=code,
                 operation_id=operation_id,
+                gate=gate,
             ),
         )
     return code
@@ -351,6 +366,13 @@ def cmd_rag(args: argparse.Namespace) -> int:
         rationale="RAG lookup via greedy-token rag",
     )
     operation_id = new_operation_id()
+    # RAG is a non-contract tier; the gate verdict rides on produced/empty.
+    gate = evaluate_result_gate(
+        started=True,
+        result_status=RESULT_PRODUCED if hits else RESULT_EMPTY,
+        tier="rag",
+        ok=True,
+    )
     maybe_append_event(
         args,
         build_route_event(
@@ -366,6 +388,7 @@ def cmd_rag(args: argparse.Namespace) -> int:
             executed=True,
             outcome_success=bool(hits),
             operation_id=operation_id,
+            gate=gate,
         ),
     )
     maybe_append_event(
@@ -374,11 +397,12 @@ def cmd_rag(args: argparse.Namespace) -> int:
             task=args.query,
             root=root,
             decision=decision,
-            outcome="success" if hits else "failure",
+            outcome=gate.outcome,
             layer="retrieval",
             duration_ms=duration_ms,
             exit_code=0,
             operation_id=operation_id,
+            gate=gate,
         ),
     )
     return 0
@@ -470,6 +494,7 @@ def cmd_scripts(args: argparse.Namespace) -> int:
         wrapper = WRAPPERS[args.run]
         code = 0
         executed = False
+        gate = None
         if args.execute:
             if not wrapper.read_only:
                 print(
@@ -485,6 +510,8 @@ def cmd_scripts(args: argparse.Namespace) -> int:
                 proc = subprocess.run(
                     list(invocation.argv),
                     shell=False,
+                    capture_output=True,
+                    text=True,
                     cwd=invocation.cwd,
                     timeout=SCRIPT_TIMEOUT,
                 )
@@ -500,8 +527,26 @@ def cmd_scripts(args: argparse.Namespace) -> int:
                     file=sys.stderr,
                 )
                 return 124
+            # Output is captured so the canon contract can be evaluated — the
+            # user still sees it verbatim, just after the run finishes.
+            script_stdout = getattr(proc, "stdout", "") or ""
+            script_stderr = getattr(proc, "stderr", "") or ""
+            sys.stdout.write(script_stdout)
+            sys.stdout.write(script_stderr)
             code = proc.returncode
             executed = True
+            gate = evaluate_result_gate(
+                started=True,
+                # The canon contract binds script-tier output; an ollama
+                # wrapper's LLM text is not a contract channel.
+                result_status=(
+                    evaluate_script_result(script_stdout, code)
+                    if not wrapper.requires_ollama
+                    else RESULT_NOT_EVALUATED
+                ),
+                tier="ollama" if wrapper.requires_ollama else "python",
+                ok=code == 0,
+            )
         else:
             print(cmd)
             if wrapper.read_only:
@@ -519,6 +564,7 @@ def cmd_scripts(args: argparse.Namespace) -> int:
                 executed=executed,
                 outcome_success=(code == 0) if executed else None,
                 operation_id=operation_id,
+                gate=gate,
             ),
         )
         if executed:
@@ -540,11 +586,12 @@ def cmd_scripts(args: argparse.Namespace) -> int:
                     task=f"scripts --run {args.run}",
                     root=root,
                     decision=decision,
-                    outcome="success" if code == 0 else "failure",
+                    outcome=gate.outcome,
                     layer="executor",
                     duration_ms=duration_ms,
                     exit_code=code,
                     operation_id=operation_id,
+                    gate=gate,
                 ),
             )
         return code

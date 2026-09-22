@@ -24,6 +24,17 @@ from greedy_token.outcome_calibration import (
     detect_task_language,
     outcome_calibration_report,
 )
+from greedy_token.result_gate import (  # noqa: F401 — the three codes marked
+    # "re-exported" are kept importable from usage.py; the policy that emits
+    # them lives in result_gate.
+    EXCLUSION_EMPTY_RESULT,  # noqa: F401
+    EXCLUSION_INVALID_RESULT,  # noqa: F401
+    EXCLUSION_NOT_EXECUTED,
+    EXCLUSION_TASK_FAILED,
+    EXCLUSION_UNVERIFIED_RESULT,  # noqa: F401
+    GateDecision,
+    evaluate_result_gate,
+)
 from greedy_token.router import RouteDecision, route_task_all_tiers
 from greedy_token.settings import get_ollama_settings
 from greedy_token.tokens import count_tokens
@@ -63,9 +74,12 @@ PHASE_RECOMMENDED = "recommended"  # advice computed; recommended executor not r
 PHASE_PLANNED = "planned"  # execution requested/planned, never started
 PHASE_EXECUTED = "executed"  # executor really ran (success is a separate fact)
 VALID_PHASES = frozenset({PHASE_RECOMMENDED, PHASE_PLANNED, PHASE_EXECUTED})
-# Why estimated savings were not credited to an operation.
-EXCLUSION_NOT_EXECUTED = "not_executed"
-EXCLUSION_TASK_FAILED = "task_failed"
+# Why estimated savings were not credited to an operation.  The vocabulary
+# itself lives in result_gate (the policy that emits it); the names stay
+# importable from here for backwards compatibility:
+#   not_executed / task_failed / empty_result / invalid_result /
+#   unverified_result
+#
 # usage-override.md: override_rate >= 0.3 over 7d -> disable / re-shadow.
 OVERRIDE_DISABLE_THRESHOLD = 0.3
 
@@ -210,6 +224,8 @@ def build_route_event(
     authorized: bool | None = None,
     operation_id: str | None = None,
     parent_operation_id: str | None = None,
+    result_status: str | None = None,
+    gate: GateDecision | None = None,
 ) -> dict:
     baseline = cursor_baseline(root, task)
     est_tokens = est_tokens_override if est_tokens_override is not None else decision.est_tokens
@@ -222,11 +238,22 @@ def build_route_event(
         phase = PHASE_PLANNED
     else:
         phase = PHASE_RECOMMENDED
+    if gate is None and result_status is not None:
+        # Callers that did not run the gate themselves still get its exclusion
+        # semantics; ``ok`` here is only the caller's outcome verdict.
+        gate = evaluate_result_gate(
+            started=executed_fact,
+            result_status=result_status,
+            tier=decision.target,
+            ok=outcome_success is not False,
+        )
     potential_saved = cursor_saved_for(root, task, est_tokens, decision.target)
     exclusion = ""
     if not executed_fact:
         # Advice, a plan, and a refused run have not saved anything yet.
         exclusion = EXCLUSION_NOT_EXECUTED
+    elif gate is not None and not gate.savings_eligible:
+        exclusion = gate.savings_exclusion
     elif outcome_success is False:
         exclusion = EXCLUSION_TASK_FAILED
     saved = 0 if exclusion else potential_saved
@@ -257,6 +284,11 @@ def build_route_event(
         "executor": executor,
         "phase": phase,
     }
+    if gate is not None:
+        # The evaluator-gate verdict that produced this event's savings ruling.
+        event["result_status"] = gate.result_status
+        event["gate_action"] = gate.action
+        event["gate_reason"] = gate.reason
     if operation_id:
         event["operation_id"] = operation_id
     if parent_operation_id:
@@ -345,6 +377,7 @@ def build_outcome_event(
     exit_code: int | None = None,
     operation_id: str | None = None,
     parent_operation_id: str | None = None,
+    gate: GateDecision | None = None,
 ) -> dict:
     """Build an explicit observed outcome; absence of this event means unknown."""
     if outcome not in VALID_OUTCOMES:
@@ -381,8 +414,17 @@ def build_outcome_event(
         "est_tokens": 0,
         "cursor_baseline": 0,
         "cursor_saved": 0,
-        "savings_eligible": outcome == "success",
+        # A "success" outcome is only savings-eligible when the gate agrees —
+        # a caller cannot override the evaluator's exclusion by labeling.
+        "savings_eligible": outcome == "success"
+        and (gate is None or gate.savings_eligible),
     }
+    if gate is not None:
+        event["result_status"] = gate.result_status
+        event["gate_action"] = gate.action
+        event["gate_reason"] = gate.reason
+        if not gate.savings_eligible:
+            event["savings_exclusion"] = gate.savings_exclusion
     if operation_id:
         # Same id as the request record: two records, one operation.
         event["operation_id"] = operation_id
@@ -406,6 +448,7 @@ def build_script_event(
     executed: bool | None = None,
     outcome_success: bool | None = None,
     operation_id: str | None = None,
+    gate: GateDecision | None = None,
 ) -> dict:
     task = f"scripts --run {script_id}"
     baseline = cursor_baseline(root, task)
@@ -415,6 +458,10 @@ def build_script_event(
     if not executed_fact:
         # A printed command (dry-run) has run nothing.
         exclusion = EXCLUSION_NOT_EXECUTED
+    elif gate is not None and not gate.savings_eligible:
+        # The evaluator gate overrules a bare exit-0: an invalid contract
+        # claim or an unverified script never earns savings.
+        exclusion = gate.savings_exclusion
     elif outcome_success is False:
         exclusion = EXCLUSION_TASK_FAILED
     event: dict = {
@@ -436,6 +483,10 @@ def build_script_event(
         # `scripts --run` always names a script, so the floor is "planned".
         "phase": PHASE_EXECUTED if executed_fact else PHASE_PLANNED,
     }
+    if gate is not None:
+        event["result_status"] = gate.result_status
+        event["gate_action"] = gate.action
+        event["gate_reason"] = gate.reason
     if operation_id:
         event["operation_id"] = operation_id
     if executed is not None:

@@ -793,6 +793,9 @@ def test_log_pipeline_exact(minimal_workspace: Path, monkeypatch: pytest.MonkeyP
     executed = StepResult(
         step=PipelineStep("check-meta-sync", "python", "meta", command="echo hi"),
         ok=True, exit_code=0, output="o", duration_ms=42, est_tokens=13, executed=True,
+        # A delivered contract-tier step declares produced; without the claim
+        # the gate rules it unverified (outcome_success=False).
+        result_status="produced",
     )
     dry = StepResult(
         step=PipelineStep("audit-skill", "ollama", "aud", command="c"),

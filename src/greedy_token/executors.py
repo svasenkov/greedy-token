@@ -7,6 +7,7 @@ from pathlib import Path
 from greedy_token.paths import find_workspace_root, workspace_trusted_script_paths
 from greedy_token.rag_search import format_hits, search_rag
 from greedy_token.result_contract import RESULT_NOT_EVALUATED, evaluate_script_result
+from greedy_token.result_gate import GateDecision, evaluate_result_gate
 from greedy_token.router import RouteDecision, route_task
 from greedy_token.subprocess_safe import (
     UnsafeCommandError,
@@ -465,3 +466,25 @@ def _extract_query_note(task: str) -> str:
     from greedy_token.router import _extract_search_query
 
     return _extract_search_query(task)
+
+
+def task_result_gate(result: TaskRunResult, decision: RouteDecision) -> GateDecision:
+    """Apply the evaluator gate to an executed task result.
+
+    Every outward-facing consumer (CLI, hook, MCP) must route the "is this an
+    answer / may it claim savings" decision through the gate instead of
+    re-reading ``started``/``exit_code``/``result_status`` locally.  The tool
+    tier keeps its own usefulness evaluator — filtered output plus the rg
+    exit-code vocabulary — which the gate honours via ``output_useful``;
+    script tiers rely on the canon contract verdict alone.
+    """
+    useful = None
+    if decision.target == "tool" and result.started:
+        useful = not _tool_output_weak(result.output, result.exit_code)
+    return evaluate_result_gate(
+        started=result.started,
+        result_status=result.result_status,
+        tier=decision.target,
+        ok=result.exit_code == 0,
+        output_useful=useful,
+    )
