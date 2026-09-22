@@ -188,6 +188,18 @@ routes:
     command: python scripts/usage-stats.py
     note: "usage.jsonl tier aggregation — crystallized script tier, 0 LLM"
 
+  - id: python-gt-health
+    target: python
+    read_only: true
+    patterns:
+      - gt health
+      - greedy-token health
+      - observability stack status
+      - gt stack status
+      - metrics exporter status
+    command: python scripts/gt-health.py
+    note: "Observability stack probe (hub/exporter/prometheus/grafana/ollama) — crystallized script tier, 0 LLM"
+
   - id: python-crystal-status
     target: python
     read_only: true
