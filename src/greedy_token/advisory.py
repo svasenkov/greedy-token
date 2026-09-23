@@ -29,6 +29,23 @@ KIND_INTERCEPT = "intercept"
 KIND_OVERKILL = "overkill"
 KIND_PASS = "pass"
 KIND_BYPASS = "bypass"
+KIND_GATE = "gate"
+
+# Hook submit modes — single source for beforeSubmitPrompt policy:
+#   advisory   — log every routed prompt, never block (default).
+#   gate       — block prompts matching an *invocable* route; the toast points
+#                at `greedy-token invoke <op>` and nothing is auto-executed.
+#   intercept  — run the cheap op and return its output in the blocked toast
+#                (full text spills to ~/.greedy-token/last-intercept.md).
+HOOK_MODE_ADVISORY = "advisory"
+HOOK_MODE_GATE = "gate"
+HOOK_MODE_INTERCEPT = "intercept"
+HOOK_MODES = frozenset({HOOK_MODE_ADVISORY, HOOK_MODE_GATE, HOOK_MODE_INTERCEPT})
+
+# Advisory default sits above max confidence (1.0): nothing ever blocks.
+ADVISORY_MIN_CONFIDENCE = 1.01
+# Enforce default: above cursor-fallback (0.35), below real route matches.
+ENFORCE_MIN_CONFIDENCE = 0.55
 
 
 def advisory_log_path() -> Path:
@@ -54,6 +71,38 @@ def overkill_attachment_threshold() -> int:
         return max(0, int(raw))
     except ValueError:
         return 3
+
+
+def hook_mode() -> str:
+    """GREEDY_HOOK_MODE profile; unset → legacy (threshold env only).
+
+    Junk values fail safe to advisory — a typo must never start blocking.
+    """
+    raw = os.environ.get("GREEDY_HOOK_MODE", "").strip().lower()
+    if not raw:
+        return ""
+    return raw if raw in HOOK_MODES else HOOK_MODE_ADVISORY
+
+
+def hook_min_confidence() -> float:
+    """Effective block threshold for the active hook mode.
+
+    An explicit GREEDY_HOOK_MIN_CONFIDENCE always wins in the enforce modes;
+    MODE=advisory never blocks, whatever the threshold env says.  With no
+    mode and no env the legacy default keeps everything advisory.
+    """
+    mode = hook_mode()
+    if mode == HOOK_MODE_ADVISORY:
+        return ADVISORY_MIN_CONFIDENCE
+    raw = os.environ.get("GREEDY_HOOK_MIN_CONFIDENCE", "").strip()
+    if raw:
+        try:
+            return float(raw)
+        except ValueError:
+            pass
+    if mode in (HOOK_MODE_GATE, HOOK_MODE_INTERCEPT):
+        return ENFORCE_MIN_CONFIDENCE
+    return ADVISORY_MIN_CONFIDENCE
 
 
 def tty_path() -> Path | None:
@@ -216,6 +265,7 @@ def format_terminal_block(event: AdvisoryEvent) -> str:
         KIND_OVERKILL: "OVERKILL (Agent heavy)",
         KIND_PASS: "PASS (Agent)",
         KIND_BYPASS: "BYPASS (cursor: prefix)",
+        KIND_GATE: "GATE (invoke required)",
     }.get(event.kind, event.kind.upper())
 
     action = "BLOCKED" if event.blocked else event.action.upper()
@@ -256,6 +306,19 @@ def format_overkill_user_message(
         "greedy-token: Agent overkill — отправка остановлена\n\n"
         f"Задача: {preview}\n\n"
         f"{body}\n\n"
+        "---\n"
+        "Agent всё равно нужен → cursor: <промпт>"
+    )
+
+
+def format_gate_user_message(prompt: str, *, op_id: str) -> str:
+    """Blocked toast for gate mode — a trusted op exists; run it, no Agent."""
+    preview = _truncate(prompt, TASK_MAX_LEN)
+    return (
+        "greedy-token gate — детерминированный op, отправка остановлена\n\n"
+        f"Задача: {preview}\n"
+        f"Op: {op_id} (ready · read-only)\n\n"
+        f"Запуск: greedy-token invoke {op_id}\n"
         "---\n"
         "Agent всё равно нужен → cursor: <промпт>"
     )

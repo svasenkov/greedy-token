@@ -199,10 +199,10 @@ def test_rank_candidates_llm_hits(tmp_path, monkeypatch, minimal_workspace):
     monkeypatch.setenv("GREEDY_TOKEN_LOG", str(log))
     root = minimal_workspace
     for _ in range(3):
-        decision = route_task("find repeated crystallize pattern task", root)
+        decision = route_task("repeated crystallize pattern task", root)
         event = build_route_event(
             cmd="route",
-            task="find repeated crystallize pattern task",
+            task="repeated crystallize pattern task",
             root=root,
             decision=decision,
             duration_ms=1,
@@ -216,7 +216,7 @@ def test_rank_candidates_llm_hits(tmp_path, monkeypatch, minimal_workspace):
     cid = report["candidates"][0]["crystal_id"]
     assert cid.startswith("python-")
     assert not cid.startswith("script-")
-    assert cid == crystal_id_for_pattern("find repeated crystallize pattern task")
+    assert cid == crystal_id_for_pattern("repeated crystallize pattern task")
 
 
 @pytest.mark.unit

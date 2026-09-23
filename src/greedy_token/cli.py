@@ -1183,6 +1183,18 @@ def cmd_crystallize_candidates(args: argparse.Namespace) -> int:
         )
     if not rows:
         lines.append("  (no candidates — see 'greedy-token hub' / crystallize report)")
+    covered = list(data.get("covered") or [])
+    if covered:
+        lines.append("")
+        lines.append(
+            f"Covered by route — adoption gap, not a crystal ({len(covered)}):"
+        )
+        cwidth = max((len(str(c.get("crystal_id"))) for c in covered), default=10)
+        for c in covered:
+            lines.append(
+                f"  {str(c.get('crystal_id')):<{cwidth}}  → {c.get('covered_by')}"
+                f"  hits={int(c.get('hits') or 0):<3}  {c.get('pattern')}"
+            )
     lines.extend(
         [
             "",

@@ -487,6 +487,10 @@ Precedence (low → high): built-in defaults → `~/.greedy-token/config.yaml` (
 | `GREEDY_TOKEN_LOG` | `~/.greedy-token/usage.jsonl` |
 | `GREEDY_TOKEN_LOG_MAX_BYTES` | `5242880` (5 MiB) |
 | `GREEDY_TOKEN_LOG_MAX_FILES` | `5` rotated archives |
+| `GREEDY_HOOK_MODE` | unset — `beforeSubmitPrompt` profile: `advisory` (log only, never blocks — also forced by junk values), `gate` (block when the task matches an *invocable* op; the toast points at `greedy-token invoke <op>`, nothing is executed), `intercept` (execute the cheap op, answer in the toast, spill full text to `~/.greedy-token/last-intercept.md`) |
+| `GREEDY_HOOK_MIN_CONFIDENCE` | `1.01` advisory / `0.55` in gate·intercept — block threshold; without `GREEDY_HOOK_MODE` a value ≤1.0 keeps the legacy execute-and-block behaviour |
+| `GREEDY_OVERKILL_GATE` | unset — `1` blocks Agent-bound prompts the router flags as overkill |
+| `GREEDY_ADVISORY` | `1` — `0` disables the `advisory.jsonl` hook log |
 
 ### Cheap LLM
 

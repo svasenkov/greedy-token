@@ -63,6 +63,147 @@ def test_rank_candidates_filters(hub_home: Path) -> None:
     assert report["candidates"][0]["hits"] == 1  # short "x" task skipped
 
 
+@allure.title("rank_candidates: route-covered tasks move to covered[]")
+def test_rank_candidates_covered(hub_home: Path) -> None:
+    log = hub_home / "usage.jsonl"
+    rows = [
+        {"selected_tier": "cursor", "task": "what changed in recent commits"},
+        {"selected_tier": "cursor", "task": "what changed in recent commits"},
+        {"selected_tier": "cursor", "task": "novel repeated task with no route at all"},
+    ]
+    log.write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
+    report = crystallize.rank_candidates(since=None)
+
+    by_pattern = {c["pattern"]: c["covered_by"] for c in report["covered"]}
+    assert by_pattern.get("what changed in recent commits") == "python-git-recent"
+    cids = [c["crystal_id"] for c in report["candidates"]]
+    assert any("novel-repeated-task" in cid for cid in cids)
+    assert all("what-changed" not in cid for cid in cids)
+
+
+@allure.title("rank_candidates skips tasks rooted only in tmp/pytest sandboxes")
+def test_rank_candidates_sandbox_roots(hub_home: Path) -> None:
+    log = hub_home / "usage.jsonl"
+    rows = [
+        {"selected_tier": "cursor", "task": "run sibling check", "root": "/private/tmp/gt-fdcheck"},
+        {"selected_tier": "cursor", "task": "run sibling check", "root": "/private/tmp/gt-fdcheck"},
+        {
+            "selected_tier": "cursor",
+            "task": "evidence parser probe run",
+            "root": "/var/folders/ab/cdef/T/greedy-token-evidence-xyz",
+        },
+        {"selected_tier": "cursor", "task": "real repeated workspace task", "root": "/ws/real"},
+    ]
+    log.write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
+    # A non-sandbox workspace root makes tmp/pytest roots foreign fixture noise.
+    report = crystallize.rank_candidates(since=None, root=Path("/ws/fake"))
+    assert report["sandbox_skipped"] == 2
+    cids = [c["crystal_id"] for c in report["candidates"]]
+    assert any("real-repeated" in cid for cid in cids)
+    assert all("sibling" not in cid for cid in cids)
+    # mixed roots: one real root keeps the task a candidate
+    log.write_text(
+        json.dumps(
+            {"selected_tier": "cursor", "task": "mixed roots task", "root": "/tmp/sand"}
+        )
+        + "\n"
+        + json.dumps(
+            {"selected_tier": "cursor", "task": "mixed roots task", "root": "/ws/real"}
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    report2 = crystallize.rank_candidates(since=None, root=Path("/ws/fake"))
+    assert report2["sandbox_skipped"] == 0
+    assert any("mixed-roots" in c["crystal_id"] for c in report2["candidates"])
+    # sandbox workspace (minimal_workspace is under pytest tmp) → filter off
+    report3 = crystallize.rank_candidates(since=None)
+    assert report3["sandbox_skipped"] == 0
+
+
+@allure.title("rank_candidates without workspace root: fail-open keeps candidates")
+def test_rank_candidates_no_workspace(hub_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def _boom(*_a: object, **_k: object) -> Path:
+        raise SystemExit(1)
+
+    monkeypatch.setattr(crystallize, "find_workspace_root", _boom)
+    log = hub_home / "usage.jsonl"
+    log.write_text(
+        json.dumps(
+            {"selected_tier": "cursor", "task": "real repeated task", "root": "/ws/real"}
+        )
+        + "\n"
+        + json.dumps(
+            {"selected_tier": "cursor", "task": "sandbox task hits", "root": "/tmp/sand"}
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    report = crystallize.rank_candidates(since=None)
+    assert report["sandbox_skipped"] == 1
+    assert report["covered"] == []
+    assert any("real-repeated" in c["crystal_id"] for c in report["candidates"])
+
+
+@allure.title("is_sandbox_roots: dict/list/empty branches")
+def test_is_sandbox_roots() -> None:
+    assert crystallize.is_sandbox_roots({"/private/tmp/x": 2}) is True
+    assert crystallize.is_sandbox_roots(["/var/folders/a/T/pytest-1"]) is True
+    assert crystallize.is_sandbox_roots({"/private/tmp/x": 1, "/ws/real": 1}) is False
+    assert crystallize.is_sandbox_roots({"/ws/real": 3}) is False
+    assert crystallize.is_sandbox_roots({}) is False
+    assert crystallize.is_sandbox_roots([]) is False
+
+
+@allure.title("covered_route_id: match, no-match, fail-open on bad root")
+def test_covered_route_id(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # minimal_workspace autouse env → real workspace routes resolve.
+    assert (
+        crystallize.covered_route_id("what changed in recent commits")
+        == "python-git-recent"
+    )
+    assert crystallize.covered_route_id("novel repeated task xyz") is None
+    # GREEDY_TOKEN_ROOT pointing at a missing dir → SystemExit → fail-open None.
+    monkeypatch.setenv("GREEDY_TOKEN_ROOT", str(tmp_path / "missing"))
+    assert crystallize.covered_route_id("what changed in recent commits") is None
+
+
+@allure.title("list_crystals: covered[] exposed, covered inbox patterns skipped")
+def test_list_crystals_covered(hub_home: Path) -> None:
+    now = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    log = hub_home / "usage.jsonl"
+    log.write_text(
+        json.dumps(
+            {"ts": now, "selected_tier": "cursor", "task": "what changed in recent commits"}
+        )
+        + "\n"
+        + json.dumps(
+            {"ts": now, "selected_tier": "cursor", "task": "novel task without any route"}
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (hub_home / "crystallize-inbox.json").write_text(
+        json.dumps(
+            {
+                "updated_at": now,
+                "new_candidates": [
+                    {"pattern": "what changed in last commits", "hits": 3},
+                    {"pattern": "fresh uncovered inbox pattern", "hits": 2},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    data = crystallize.list_crystals(since="7d")
+    covered_patterns = {c["pattern"] for c in data["covered"]}
+    assert "what changed in recent commits" in covered_patterns
+    ids = {c["crystal_id"] for c in data["crystals"]}
+    assert not any("what-changed" in cid for cid in ids)
+    assert any("fresh-uncovered" in cid for cid in ids)
+    assert any("novel-task" in cid for cid in ids)
+
+
 @allure.title("_row_matches_tags branches")
 def test_row_matches_tags() -> None:
     assert crystallize._row_matches_tags({}, project=None, step=None) is True
@@ -233,7 +374,7 @@ def test_list_crystals_hygiene(hub_home: Path) -> None:
     assert hidden["stale_inbox"] is True
     assert hidden["reject"] >= 1
     assert hidden["fixture"] >= 1
-    assert hidden["count"] == hidden["reject"] + hidden["fixture"]
+    assert hidden["count"] == hidden["reject"] + hidden["fixture"] + hidden["sandbox"]
     raw_ids = {
         c["crystal_id"]
         for c in crystallize.list_crystals(since="7d", include_hidden=True)["crystals"]

@@ -1425,6 +1425,21 @@ def test_cmd_crystallize_candidates_empty(minimal_workspace: Path, capsys) -> No
 
 
 @allure.story("CLI surface")
+@allure.title("cmd_crystallize_candidates lists covered-by-route rows separately")
+def test_cmd_crystallize_candidates_covered(
+    minimal_workspace: Path, crystal_home: Path, capsys
+) -> None:
+    import greedy_token.cli as cli
+    from tests.conftest import _seed_crystal_candidate as _seed_candidate
+
+    _seed_candidate(crystal_home / "usage.jsonl", "what changed in recent commits", hits=2)
+    assert cli.cmd_crystallize_candidates(_ns(since="30d")) == 0
+    out = capsys.readouterr().out
+    assert "Covered by route" in out
+    assert "python-git-recent" in out
+
+
+@allure.story("CLI surface")
 @allure.title("cmd_crystallize_status prints approval + timeline in text mode")
 def test_cmd_crystallize_status_text(
     minimal_workspace: Path, crystal_home: Path, no_cheap_llm: None, capsys

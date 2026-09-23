@@ -233,6 +233,65 @@ def test_format_overkill_user_message() -> None:
     assert "cursor:" in msg
 
 
+@allure.title("hook_mode: unset → legacy, junk → advisory, valid modes pass")
+def test_hook_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("GREEDY_HOOK_MODE", raising=False)
+    assert advisory.hook_mode() == ""
+    monkeypatch.setenv("GREEDY_HOOK_MODE", "bogus")
+    assert advisory.hook_mode() == advisory.HOOK_MODE_ADVISORY
+    for mode in sorted(advisory.HOOK_MODES):
+        monkeypatch.setenv("GREEDY_HOOK_MODE", f" {mode.upper()} ")
+        assert advisory.hook_mode() == mode
+
+
+@allure.title("hook_min_confidence: env override, enforce default, advisory lock")
+def test_hook_min_confidence(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("GREEDY_HOOK_MODE", raising=False)
+    monkeypatch.delenv("GREEDY_HOOK_MIN_CONFIDENCE", raising=False)
+    assert advisory.hook_min_confidence() == advisory.ADVISORY_MIN_CONFIDENCE
+
+    # Legacy path: env alone arms the threshold when no mode is set.
+    monkeypatch.setenv("GREEDY_HOOK_MIN_CONFIDENCE", "0.9")
+    assert advisory.hook_min_confidence() == 0.9
+    monkeypatch.setenv("GREEDY_HOOK_MIN_CONFIDENCE", "junk")
+    assert advisory.hook_min_confidence() == advisory.ADVISORY_MIN_CONFIDENCE
+
+    for mode in (advisory.HOOK_MODE_GATE, advisory.HOOK_MODE_INTERCEPT):
+        monkeypatch.setenv("GREEDY_HOOK_MODE", mode)
+        monkeypatch.delenv("GREEDY_HOOK_MIN_CONFIDENCE", raising=False)
+        assert advisory.hook_min_confidence() == advisory.ENFORCE_MIN_CONFIDENCE
+        monkeypatch.setenv("GREEDY_HOOK_MIN_CONFIDENCE", "0.7")
+        assert advisory.hook_min_confidence() == 0.7
+
+    # Advisory mode wins over an explicit low threshold — never blocks.
+    monkeypatch.setenv("GREEDY_HOOK_MODE", "advisory")
+    monkeypatch.setenv("GREEDY_HOOK_MIN_CONFIDENCE", "0.1")
+    assert advisory.hook_min_confidence() == advisory.ADVISORY_MIN_CONFIDENCE
+
+
+@allure.title("format_gate_user_message: invoke pointer + bypass hint")
+def test_format_gate_user_message() -> None:
+    msg = advisory.format_gate_user_message(
+        "what changed in recent commits", op_id="python-git-recent"
+    )
+    assert "python-git-recent" in msg
+    assert "greedy-token invoke python-git-recent" in msg
+    assert "cursor:" in msg
+
+    ev = advisory.AdvisoryEvent(
+        ts="t",
+        kind=advisory.KIND_GATE,
+        action="blocked",
+        prompt="p",
+        target="python",
+        route_id="python-git-recent",
+        confidence=0.7,
+        est_tokens=0,
+        blocked=True,
+    )
+    assert "GATE" in advisory.format_terminal_block(ev)
+
+
 @allure.title("watch_events: creates missing log then exits when not following")
 def test_watch_creates_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     log = tmp_path / "missing.jsonl"
