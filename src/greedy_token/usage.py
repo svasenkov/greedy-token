@@ -6,7 +6,7 @@ import re
 import sys
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from greedy_token.baseline import naive_agent_ms, time_saved_ms
@@ -132,7 +132,7 @@ def normalize_task(task: str) -> str:
 
 
 def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def build_tier_scan(task: str, root: Path) -> list[dict]:
@@ -799,7 +799,7 @@ def parse_since(value: str | None) -> datetime | None:
     value = value.strip().lower()
     if value in UNBOUNDED_SINCE:
         return None
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if value.endswith("d") and value[:-1].isdigit():
         return now - timedelta(days=int(value[:-1]))
     if value.endswith("h") and value[:-1].isdigit():
@@ -807,7 +807,7 @@ def parse_since(value: str | None) -> datetime | None:
     try:
         dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
         return dt
     except ValueError as exc:
         raise ValueError(
@@ -822,7 +822,7 @@ def _parse_event_ts(event: dict) -> datetime | None:
     try:
         ts = datetime.fromisoformat(ts_raw.replace("Z", "+00:00"))
         if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=timezone.utc)
+            ts = ts.replace(tzinfo=UTC)
         return ts
     except ValueError:
         return None
@@ -1134,7 +1134,11 @@ def format_report(summary: ReportSummary) -> str:
             f"{stats.saved_vs_cursor:>16,} {time_col:>12}{note}"
         )
 
-    from greedy_token.baseline import get_baseline_settings, get_time_baseline_settings, uncalibrated_nudge
+    from greedy_token.baseline import (
+        get_baseline_settings,
+        get_time_baseline_settings,
+        uncalibrated_nudge,
+    )
 
     baseline_settings = get_baseline_settings()
     time_settings = get_time_baseline_settings()

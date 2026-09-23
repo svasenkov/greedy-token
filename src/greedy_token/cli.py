@@ -6,9 +6,15 @@ import sys
 import time
 from pathlib import Path
 
+from greedy_token.advisory import watch_events
+from greedy_token.budget import rag_est_tokens
 from greedy_token.context_audit import audit_context, render_audit
 from greedy_token.estimator import estimate_task, format_estimate
 from greedy_token.executors import execute_task, plan_run, task_result_gate
+from greedy_token.paths import find_workspace_root
+from greedy_token.pipeline import format_pipeline_response, list_pipelines, run_pipeline
+from greedy_token.prompt_compress import compress_prompt_detail, format_dual
+from greedy_token.rag_search import format_hits, search_rag
 from greedy_token.result_contract import (
     RESULT_EMPTY,
     RESULT_NOT_EVALUATED,
@@ -16,10 +22,6 @@ from greedy_token.result_contract import (
     evaluate_script_result,
 )
 from greedy_token.result_gate import evaluate_result_gate
-from greedy_token.paths import find_workspace_root
-from greedy_token.pipeline import format_pipeline_response, list_pipelines, run_pipeline
-from greedy_token.prompt_compress import compress_prompt_detail, format_dual
-from greedy_token.rag_search import format_hits, search_rag
 from greedy_token.router import RouteDecision, format_decision, route_task
 from greedy_token.settings import (
     apply_ollama_env,
@@ -60,10 +62,6 @@ from greedy_token.wrappers import (
     resolve_wrapper_invocation,
     wrapper_route_id,
 )
-
-
-from greedy_token.budget import rag_est_tokens
-from greedy_token.advisory import watch_events
 
 COMPRESS_MAX_BYTES = 256 * 1024
 
@@ -329,7 +327,7 @@ def cmd_tokens(args: argparse.Namespace) -> int:
     total_chars = 0
     total_tokens = 0
     method = "heuristic/4"
-    for p, est in zip(paths, estimates):
+    for p, est in zip(paths, estimates, strict=True):
         rel = str(p.relative_to(root)) if p.is_relative_to(root) else str(p)
         rows.append((rel, est))
         total_chars += est.chars

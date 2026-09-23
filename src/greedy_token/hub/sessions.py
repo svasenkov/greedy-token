@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from greedy_token.hub.paths import sessions_dir
 from greedy_token.usage import count_operations, load_events, log_path, parse_since
@@ -12,7 +12,7 @@ def _parse_ts(raw: str) -> datetime | None:
     try:
         ts = datetime.fromisoformat(raw.replace("Z", "+00:00"))
         if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=timezone.utc)
+            ts = ts.replace(tzinfo=UTC)
         return ts
     except ValueError:
         return None

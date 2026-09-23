@@ -76,7 +76,7 @@ def serve(*, host: str = "127.0.0.1", port: int = 8787) -> None:
     handler = partial(HubHandler)
     server = ThreadingHTTPServer((host, port), handler)
     print(f"greedy-token hub → http://{host}:{port}", file=sys.stderr)
-    print(f"  log: see /api/health", file=sys.stderr)
+    print("  log: see /api/health", file=sys.stderr)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

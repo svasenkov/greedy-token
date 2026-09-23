@@ -29,7 +29,7 @@ the number is never presented as a measurement when it is an estimate.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
@@ -229,7 +229,7 @@ def write_baseline_config(
     path = settings.user_config_path()
     data = settings._read_yaml(path)
     prev = data.get("baseline") if isinstance(data.get("baseline"), dict) else {}
-    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    now = datetime.now(UTC).isoformat(timespec="seconds")
     section: dict = {
         "overhead_tokens": int(overhead_tokens),
         "calibrated_at": now,

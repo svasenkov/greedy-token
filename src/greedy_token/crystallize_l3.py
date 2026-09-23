@@ -19,7 +19,7 @@ from __future__ import annotations
 import hashlib
 import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from greedy_token.crystal_ids import validate_route_id
@@ -130,7 +130,7 @@ def _proposal_meta(crystal_id: str, route: dict | None) -> tuple[str, int]:
 
 
 def _shadow_until_iso(*, days: int = SHADOW_WINDOW_DAYS) -> str:
-    until = datetime.now(timezone.utc).replace(microsecond=0) + timedelta(days=days)
+    until = datetime.now(UTC).replace(microsecond=0) + timedelta(days=days)
     return until.isoformat().replace("+00:00", "Z")
 
 

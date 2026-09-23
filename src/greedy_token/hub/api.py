@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from statistics import median
 from pathlib import Path
+from statistics import median
 from urllib.parse import parse_qs, unquote, urlparse
 
 from greedy_token.budget_config import get_budget_settings

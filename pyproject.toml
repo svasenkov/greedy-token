@@ -44,6 +44,11 @@ target-version = "py312"
 # Deliberately narrow: correctness and imports, not style opinions. Widening this
 # turns a crystal polish into a repo-wide reformat.
 select = ["E", "F", "W", "I", "UP", "B"]
+# E501 is off on purpose: the violations are long literals (MCP tool descriptions,
+# help/usage text, format-table templates, URLs) where wrapping adds churn, not
+# correctness — and several docstrings are wire-visible protocol surface.
+# line-length=100 stays: it still drives import wrapping and reviews.
+ignore = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

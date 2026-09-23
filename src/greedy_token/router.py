@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, replace
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 # BASE_CURSOR_OVERHEAD re-exported for backward compatibility; the resolved
@@ -24,13 +24,13 @@ from greedy_token.outcome_calibration import (
     detect_task_language,
 )
 from greedy_token.paths import find_workspace_root, load_routes_config
-from greedy_token.tokens import count_tokens
 from greedy_token.subprocess_safe import (
     UnsafeCommandError,
     command_to_argv,
     format_invocation,
     is_absolute_path,
 )
+from greedy_token.tokens import count_tokens
 from greedy_token.tool_paths import resolve_jq, resolve_rg
 from greedy_token.wrappers import (
     ollama_available,
@@ -127,13 +127,13 @@ def _parse_shadow_until(route: dict) -> datetime | None:
     except ValueError:
         return None
     if until.tzinfo is None:
-        until = until.replace(tzinfo=timezone.utc)
+        until = until.replace(tzinfo=UTC)
     return until
 
 
 def _now() -> datetime:
     """Current UTC time. Indirected so shadow-window tests are deterministic."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _route_status(route: dict) -> str:

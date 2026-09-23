@@ -13,12 +13,6 @@ from mcp.types import Icon
 
 from greedy_token.budget import format_savings_lines, rag_est_tokens, wrap_mcp_response
 from greedy_token.code_search import search_code
-from greedy_token.estimator import estimate_task
-from greedy_token.paths import find_workspace_root
-from greedy_token.settings import apply_ollama_env
-from greedy_token.pipeline import format_pipeline_response, list_pipelines, run_pipeline
-from greedy_token.rag_search import format_hits, search_rag
-from greedy_token.result_contract import RESULT_EMPTY, RESULT_PRODUCED
 from greedy_token.crystallize_l3 import (
     DraftResult,
     approve_crystal,
@@ -27,7 +21,13 @@ from greedy_token.crystallize_l3 import (
     promote_crystal,
     reject_crystal,
 )
+from greedy_token.estimator import estimate_task
+from greedy_token.paths import find_workspace_root
+from greedy_token.pipeline import format_pipeline_response, list_pipelines, run_pipeline
+from greedy_token.rag_search import format_hits, search_rag
+from greedy_token.result_contract import RESULT_EMPTY, RESULT_PRODUCED
 from greedy_token.router import format_decision
+from greedy_token.settings import apply_ollama_env
 from greedy_token.tokens import count_tokens
 from greedy_token.usage import aggregate_events, format_report, load_events, log_path, parse_since
 

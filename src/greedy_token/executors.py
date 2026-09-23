@@ -16,6 +16,7 @@ from greedy_token.subprocess_safe import (
     trusted_script_argv,
     trusted_tool_invocation,
 )
+from greedy_token.tool_output import filter_tool_output
 from greedy_token.tool_paths import RG_TIMEOUT, SCRIPT_TIMEOUT
 from greedy_token.trust import (
     TrustError,
@@ -25,8 +26,6 @@ from greedy_token.trust import (
     verify_script,
 )
 from greedy_token.wrappers import wrapper_for_command
-
-from greedy_token.tool_output import filter_tool_output
 
 
 @dataclass

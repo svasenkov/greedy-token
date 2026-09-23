@@ -43,7 +43,7 @@ def count_texts(texts: list[str]) -> list[TokenEstimate]:
         encoded = enc.encode_ordinary_batch(texts, num_threads=os.cpu_count() or 4)
         return [
             TokenEstimate(tokens=len(e), chars=c, method="tiktoken/cl100k_base")
-            for e, c in zip(encoded, chars)
+            for e, c in zip(encoded, chars, strict=True)
         ]
     except Exception:
         return [

@@ -87,7 +87,7 @@ def audit_context(root: Path | None = None, host: str | None = None) -> list[Con
             found.append((path, kind, always_on))
 
     estimates = count_files([f[0] for f in found])
-    for (path, kind, always_on), estimate in zip(found, estimates):
+    for (path, kind, always_on), estimate in zip(found, estimates, strict=True):
         items.append(
             ContextItem(
                 path=str(path.relative_to(root)),

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from greedy_token.paths import find_workspace_root
 
@@ -34,7 +35,7 @@ def file_meta(path: Path, rows: list[dict[str, Any]]) -> dict[str, Any]:
         "path": str(path),
         "count": len(rows),
         "mtime": stat.st_mtime,
-        "mtime_iso": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
+        "mtime_iso": datetime.fromtimestamp(stat.st_mtime, tz=UTC)
         .replace(microsecond=0)
         .isoformat()
         .replace("+00:00", "Z"),

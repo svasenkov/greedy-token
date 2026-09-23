@@ -3,7 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from greedy_token.baseline import baseline_source, cursor_overhead, format_duration_short, naive_agent_ms, time_baseline_source
+from greedy_token.baseline import (
+    baseline_source,
+    cursor_overhead,
+    format_duration_short,
+    naive_agent_ms,
+    time_baseline_source,
+)
 from greedy_token.context_audit import audit_context
 from greedy_token.router import (
     COMPLEXITY_BY_TARGET,

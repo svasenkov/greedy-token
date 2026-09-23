@@ -5,7 +5,6 @@ from pathlib import Path
 
 from greedy_token.llm_invoke import invoke_profile
 
-
 DUAL_VERSION_RULE = """
 Сохрани: цель, scope/зона, skill/rule, пути/файлы, ограничения, критерий готовности, запреты.
 Убери: вводные, повторы, «можно/желательно», пояснения «почему», примеры если суть в ограничениях.

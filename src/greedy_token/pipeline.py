@@ -2,55 +2,34 @@
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import time
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
 
 from greedy_token.baseline import baseline_source
-from greedy_token.calibration import SOURCE_FIXED
 from greedy_token.budget import (
     BASELINE_LABEL,
-    TOTAL_BASELINE_LABEL,
     TIER_LABELS,
+    TOTAL_BASELINE_LABEL,
     cursor_baseline_breakdown,
     format_savings_lines,
     spent_hint,
 )
+from greedy_token.calibration import SOURCE_FIXED
 from greedy_token.code_search import (
     enrich_search_hits,
     parse_hit_lines,
     search_code,
 )
 from greedy_token.estimator import cursor_baseline
+from greedy_token.model_select import apply_model_env, resolve_model
 from greedy_token.paths import find_workspace_root
 from greedy_token.rag_search import format_hits, search_rag
-from greedy_token.router import RouteDecision
-from greedy_token.settings import (
-    apply_cheap_llm_env,
-    get_cheap_llm_settings,
-    get_search_settings,
-)
-from greedy_token.model_select import resolve_model, apply_model_env
-from greedy_token.tokens import count_tokens
-from greedy_token.tool_paths import SCRIPT_TIMEOUT
-from greedy_token.usage import (
-    append_event,
-    build_outcome_event,
-    build_route_event,
-    new_operation_id,
-)
-from greedy_token.subprocess_safe import (
-    UnsafeCommandError,
-    format_invocation,
-    trusted_script_argv,
-)
-from greedy_token.wrappers import WRAPPERS, ollama_available, resolve_wrapper_invocation
-
 from greedy_token.result_contract import (
     RESULT_EMPTY,
     RESULT_INVALID,
@@ -60,15 +39,35 @@ from greedy_token.result_contract import (
 )
 from greedy_token.result_gate import (
     CONTRACT_TIERS,
-    GateDecision,
     REASON_EMPTY_RESULT,
     REASON_INVALID_CONTRACT,
     REASON_NOT_STARTED,
     REASON_OUTPUT_EMPTY,
     REASON_TASK_FAILED,
     REASON_UNVERIFIED_RESULT,
+    GateDecision,
     evaluate_result_gate,
 )
+from greedy_token.router import RouteDecision
+from greedy_token.settings import (
+    apply_cheap_llm_env,
+    get_cheap_llm_settings,
+    get_search_settings,
+)
+from greedy_token.subprocess_safe import (
+    UnsafeCommandError,
+    format_invocation,
+    trusted_script_argv,
+)
+from greedy_token.tokens import count_tokens
+from greedy_token.tool_paths import SCRIPT_TIMEOUT
+from greedy_token.usage import (
+    append_event,
+    build_outcome_event,
+    build_route_event,
+    new_operation_id,
+)
+from greedy_token.wrappers import WRAPPERS, ollama_available, resolve_wrapper_invocation
 
 PIPELINE_SPLIT = re.compile(r"\s+then\s+|\s*→\s*|\s*->\s*|\s*;\s*", re.IGNORECASE)
 
