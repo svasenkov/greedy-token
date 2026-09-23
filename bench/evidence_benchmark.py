@@ -1369,56 +1369,66 @@ def main(argv: list[str] | None = None) -> int:
     live_probes: dict[str, Any] = {}
     with tempfile.TemporaryDirectory(prefix="greedy-token-evidence-") as tmp:
         root = Path(tmp)
-        if args.mode == "deterministic":
-            with _ollama_stub() as stub_url:
-                old_url = os.environ.get("OLLAMA_URL")
-                old_bench = os.environ.get("BENCH_MODEL")
-                old_model = os.environ.pop("OLLAMA_MODEL", None)
-                os.environ["OLLAMA_URL"] = stub_url
-                os.environ["BENCH_MODEL"] = "evidence-stub"
-                try:
-                    _write_fixture(corpus, root)
-                    route_rows = _classify_routes(cases, root)
-                    observations = _run_all(
-                        cases,
-                        root,
-                        repetitions=args.repetitions,
-                        host_command="",
-                        mode=args.mode,
-                    )
-                finally:
-                    if old_url is None:
-                        os.environ.pop("OLLAMA_URL", None)
-                    else:
-                        os.environ["OLLAMA_URL"] = old_url
-                    if old_bench is None:
-                        os.environ.pop("BENCH_MODEL", None)
-                    else:
-                        os.environ["BENCH_MODEL"] = old_bench
-                    if old_model is not None:
-                        os.environ["OLLAMA_MODEL"] = old_model
-        else:
-            _write_fixture(corpus, root)
-            route_rows = _classify_routes(cases, root)
-            observations = _run_all(
-                cases,
-                root,
-                repetitions=args.repetitions,
-                host_command=args.host_command,
-                mode=args.mode,
-            )
-            live_probes["ollama"] = _live_ollama_probe(
-                os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434"),
-                _bench_model("qwen2.5-coder:7b-instruct-q4_K_M"),
-            )
-            live_probes["mcp_stdio"] = _live_mcp_probe(root)
-            live_probes["agent_host"] = {
-                "status": "measured" if args.host_command else "skipped",
-                "billing": args.host_billing,
-                "cost_rule": (
-                    "authoritative adapter value only; otherwise unknown"
-                ),
-            }
+        # route_task() runs in-process — resolve settings against the fixture
+        # workspace like the subprocess env does, not the caller's checkout.
+        old_root_env = os.environ.get("GREEDY_TOKEN_ROOT")
+        os.environ["GREEDY_TOKEN_ROOT"] = str(root)
+        try:
+            if args.mode == "deterministic":
+                with _ollama_stub() as stub_url:
+                    old_url = os.environ.get("OLLAMA_URL")
+                    old_bench = os.environ.get("BENCH_MODEL")
+                    old_model = os.environ.pop("OLLAMA_MODEL", None)
+                    os.environ["OLLAMA_URL"] = stub_url
+                    os.environ["BENCH_MODEL"] = "evidence-stub"
+                    try:
+                        _write_fixture(corpus, root)
+                        route_rows = _classify_routes(cases, root)
+                        observations = _run_all(
+                            cases,
+                            root,
+                            repetitions=args.repetitions,
+                            host_command="",
+                            mode=args.mode,
+                        )
+                    finally:
+                        if old_url is None:
+                            os.environ.pop("OLLAMA_URL", None)
+                        else:
+                            os.environ["OLLAMA_URL"] = old_url
+                        if old_bench is None:
+                            os.environ.pop("BENCH_MODEL", None)
+                        else:
+                            os.environ["BENCH_MODEL"] = old_bench
+                        if old_model is not None:
+                            os.environ["OLLAMA_MODEL"] = old_model
+            else:
+                _write_fixture(corpus, root)
+                route_rows = _classify_routes(cases, root)
+                observations = _run_all(
+                    cases,
+                    root,
+                    repetitions=args.repetitions,
+                    host_command=args.host_command,
+                    mode=args.mode,
+                )
+                live_probes["ollama"] = _live_ollama_probe(
+                    os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434"),
+                    _bench_model("qwen2.5-coder:7b-instruct-q4_K_M"),
+                )
+                live_probes["mcp_stdio"] = _live_mcp_probe(root)
+                live_probes["agent_host"] = {
+                    "status": "measured" if args.host_command else "skipped",
+                    "billing": args.host_billing,
+                    "cost_rule": (
+                        "authoritative adapter value only; otherwise unknown"
+                    ),
+                }
+        finally:
+            if old_root_env is None:
+                os.environ.pop("GREEDY_TOKEN_ROOT", None)
+            else:
+                os.environ["GREEDY_TOKEN_ROOT"] = old_root_env
 
     scorecard = _build_scorecard(
         corpus=corpus,

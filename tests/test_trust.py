@@ -1406,6 +1406,8 @@ def test_verify_script_refusal_codes(minimal_workspace: Path, tmp_path: Path) ->
     recreated_rel = "scripts/recreated.py"
     recreated = _script(minimal_workspace, recreated_rel)
     approve_script(minimal_workspace, recreated_rel)
+    held = recreated.with_name("held-recreated.py")
+    os.link(recreated, held)
     recreated.unlink()
     recreated.write_text("print('approved-ok')\n", encoding="utf-8")
     with pytest.raises(TrustVerificationError) as raised:
