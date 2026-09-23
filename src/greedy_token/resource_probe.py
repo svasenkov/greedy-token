@@ -11,16 +11,17 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
 from importlib import resources
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from greedy_token.model_select import ResolvedModel
 
 import yaml
 
 from greedy_token.cheap_llm import (
     cheap_llm_available,
-    cheap_llm_chat,
     probe_cheap_llm,
     request_target,
 )
@@ -283,11 +284,57 @@ def _save_probe_cache(payload: dict[str, Any]) -> None:
     PROBE_CACHE_PATH.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
+def _benchmark_resolved(model: str, root: Path | None) -> ResolvedModel:
+    """Benchmark target resolved through the LLM registry (ADR-0001/0002).
+
+    A model declared in ``llm.models[]`` keeps its billing and cost even on
+    a loopback URL — the hostname never rewrites registry truth. With no
+    ``llm:`` config there is no billing declaration: the configured
+    endpoint is probed with locality-derived billing — a remote host fails
+    closed as metered, loopback stays free.
+    """
+    from greedy_token.model_select import (
+        ModelSpec,
+        ResolvedModel,
+        _spec_to_settings,
+        get_llm_registry,
+    )
+
+    settings = get_cheap_llm_settings(root)
+    registry = get_llm_registry(root)
+    declared = registry.source in ("user", "workspace")
+    spec = next(
+        (s for s in registry.models if declared and model in (s.id, s.model)),
+        None,
+    )
+    if spec is None:
+        host = (urllib.parse.urlsplit(settings.url).hostname or "").lower()
+        local = host in ("localhost", "127.0.0.1", "0.0.0.0", "::1", "")
+        spec = ModelSpec(
+            id="probe",
+            enabled=True,
+            provider=settings.provider,  # type: ignore[arg-type]
+            url=settings.url,
+            model=model,
+            profiles=("*",),
+            billing="free" if local else "metered",
+            api_key=settings.api_key or "",
+        )
+    return ResolvedModel(
+        spec=spec,
+        settings=_spec_to_settings(spec, source="probe"),
+        profile="benchmark",
+        billing_tier=registry.tier_of(spec),
+    )
+
+
 def run_micro_benchmark(
     model: str,
     *,
     quick: bool = True,
     use_cache: bool = True,
+    root: Path | None = None,
+    allow_expensive: bool = False,
 ) -> BenchmarkResult:
     cache_key = f"bench:{model}"
     if use_cache and quick:
@@ -307,47 +354,63 @@ def run_micro_benchmark(
     system = str(bench.get("system", "You are a code classifier."))
     user = str(bench.get("user", "def foo(): pass"))
 
-    settings = get_cheap_llm_settings()
-    from greedy_token.settings import CheapLlmSettings
+    resolved_root = root
+    if resolved_root is None:
+        try:
+            from greedy_token.paths import find_workspace_root
 
-    probe_settings = CheapLlmSettings(
-        provider=settings.provider,
-        url=settings.url,
-        model=model,
-        source="probe",
-        api_key=settings.api_key,
+            resolved_root = find_workspace_root()
+        except SystemExit:
+            resolved_root = None
+
+    resolved = _benchmark_resolved(model, resolved_root)
+
+    # ADR-0002: a denied metered benchmark must not touch the endpoint —
+    # the spend guard runs before the availability probe and the chat call.
+    from greedy_token.spend_guard import check_metered_allowed, estimate_cost_usd
+    from greedy_token.tokens import count_tokens
+
+    est = estimate_cost_usd(resolved.spec, count_tokens(system + user).tokens)
+    decision = check_metered_allowed(
+        resolved.spec,
+        root=resolved_root,
+        cli_allow=allow_expensive,
+        est_cost_usd=est,
     )
-
-    if not cheap_llm_available(probe_settings, timeout=2.0):
-        return BenchmarkResult(model=model, latency_ms=0, eval_tokens=None, ok=False, error="ollama unavailable")
-
-    # Spend guard: a benchmark against a remote endpoint is a metered call.
-    from greedy_token.model_select import ModelSpec
-    from greedy_token.spend_guard import check_metered_allowed
-
-    host = (urllib.parse.urlsplit(probe_settings.url).hostname or "").lower()
-    probe_spec = ModelSpec(
-        id="probe",
-        enabled=True,
-        provider=probe_settings.provider,  # type: ignore[arg-type]
-        url=probe_settings.url,
-        model=probe_settings.model,
-        profiles=("*",),
-        billing="free" if host in ("localhost", "127.0.0.1", "0.0.0.0", "::1", "") else "metered",
-    )
-    decision = check_metered_allowed(probe_spec)
     if not decision.allowed:
         return BenchmarkResult(
             model=model, latency_ms=0, eval_tokens=None, ok=False, error=decision.reason
         )
 
+    if not cheap_llm_available(resolved.settings, timeout=2.0):
+        return BenchmarkResult(
+            model=model, latency_ms=0, eval_tokens=None, ok=False, error="ollama unavailable"
+        )
+
+    # The chat goes through the single guarded invoke path — per-call spend
+    # and the operation outcome land in the usage log.
+    from greedy_token.llm_invoke import invoke_profile
+
     t0 = time.perf_counter()
     try:
-        _, eval_tokens = cheap_llm_chat(probe_settings, system=system, user=user, timeout=60.0)
+        invoked = invoke_profile(
+            "benchmark",
+            system=system,
+            user=user,
+            root=resolved_root,
+            allow_escalate=False,
+            allow_expensive=allow_expensive,
+            timeout=60.0,
+            resolved=resolved,
+        )
         latency = int((time.perf_counter() - t0) * 1000)
-        result = BenchmarkResult(model=model, latency_ms=latency, eval_tokens=eval_tokens, ok=True)
-    except (OSError, urllib.error.URLError, TimeoutError, ValueError, KeyError) as exc:
-        result = BenchmarkResult(model=model, latency_ms=0, eval_tokens=None, ok=False, error=str(exc))
+        result = BenchmarkResult(
+            model=model, latency_ms=latency, eval_tokens=invoked.eval_tokens, ok=True
+        )
+    except (OSError, RuntimeError, TimeoutError, ValueError, KeyError) as exc:
+        result = BenchmarkResult(
+            model=model, latency_ms=0, eval_tokens=None, ok=False, error=str(exc)
+        )
 
     if use_cache:
         cached = _load_probe_cache()
@@ -401,6 +464,7 @@ def run_doctor(
     quick: bool = True,
     include_paid: bool = False,
     benchmark: bool = False,
+    allow_expensive: bool = False,
 ) -> DoctorReport:
     hw = detect_hardware()
     catalog = load_model_catalog()
@@ -447,7 +511,9 @@ def run_doctor(
 
     bench_result: BenchmarkResult | None = None
     if benchmark and probe.reachable and recommended:
-        bench_result = run_micro_benchmark(recommended[0], quick=quick)
+        bench_result = run_micro_benchmark(
+            recommended[0], quick=quick, root=root, allow_expensive=allow_expensive
+        )
 
     paid_recs: list[str] = []
     if include_paid:

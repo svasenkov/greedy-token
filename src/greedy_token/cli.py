@@ -915,6 +915,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         quick=not args.benchmark,
         include_paid=args.paid,
         benchmark=args.benchmark,
+        allow_expensive=getattr(args, "allow_expensive", False),
     )
     if args.json:
         import dataclasses
@@ -1606,6 +1607,7 @@ def build_parser() -> argparse.ArgumentParser:
     doc.add_argument("--apply", action="store_true", help="Update ~/.greedy-token/config.yaml with recommendation")
     doc.add_argument("--force", action="store_true", help="Overwrite on --apply")
     doc.add_argument("--benchmark", action="store_true", help="Run micro-benchmark on recommended model")
+    doc.add_argument("--allow-expensive", action="store_true", help="Opt in to metered LLM spend")
     doc.add_argument("--paid", action="store_true", help="Include paid model economy recommendations")
     doc.add_argument("--json", action="store_true", help="JSON output")
     doc.set_defaults(func=cmd_doctor)

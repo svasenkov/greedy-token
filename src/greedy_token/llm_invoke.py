@@ -234,11 +234,16 @@ def invoke_profile(
     timeout: float = 120.0,
     log: bool = True,
     parent_operation_id: str | None = None,
+    resolved: ResolvedModel | None = None,
 ) -> InvokeResult:
-    """Run LLM for *profile* with optional escalation chain."""
+    """Run LLM for *profile* with optional escalation chain.
+
+    *resolved* brings an already-resolved model (e.g. the doctor benchmark)
+    through the same guard → call → telemetry path as a profile-resolved one.
+    """
     t0 = time.perf_counter()
     tags = tags or {}
-    current = resolve_model(profile, root=root)
+    current = resolved if resolved is not None else resolve_model(profile, root=root)
     attempts: list[str] = []
     escalated_from = ""
     last_error = ""

@@ -529,7 +529,7 @@ llm:
       api_key_env: BULK_API_KEY
 ```
 
-Каждый metered-вызов (неважно, cheap или expensive выведенный tier) проходит spend guard: дневной кэп `llm.expensive.daily_cap_usd` плюс месячный metered-кэп. Он пишет `cost_usd` с блоком телеметрии `billing.tier: metered`, при этом `billing_tier` сохраняет выведенный tier для совместимости. `greedy-token budget --verbose` / `--json` показывают split metered-расходов (cheap bulk vs expensive), а футеры честно маркируют tier: `cheap LLM (…, metered)` vs `cheap LLM (…, local free)`.
+Каждый metered-вызов (неважно, cheap или expensive выведенный tier) проходит spend guard: дневной кэп `llm.expensive.daily_cap_usd` плюс месячный metered-кэп. Он пишет `cost_usd` с блоком телеметрии `billing.tier: metered`, при этом `billing_tier` сохраняет выведенный tier для совместимости. `greedy-token budget --verbose` / `--json` показывают split metered-расходов (cheap bulk vs expensive), а футеры честно маркируют tier: `cheap LLM (…, metered)` vs `cheap LLM (…, local free)`. Проба `doctor --benchmark` резолвит цель через тот же реестр и guarded invoke-путь — metered-модель требует opt-in (`--allow-expensive`) до любого обращения к endpoint, а её расход пишется в usage-лог.
 
 ### Маршрутизация
 

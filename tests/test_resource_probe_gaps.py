@@ -255,7 +255,7 @@ def test_run_micro_benchmark(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
 
     # success + caches
     monkeypatch.setattr(rp, "cheap_llm_available", lambda *a, **k: True)
-    monkeypatch.setattr(rp, "cheap_llm_chat", lambda *a, **k: ("ok", 12))
+    monkeypatch.setattr("greedy_token.llm_invoke.llm_chat", lambda *a, **k: ("ok", 12))
     res3 = rp.run_micro_benchmark("m", quick=False, use_cache=True)
     assert res3.ok is True and res3.eval_tokens == 12
     assert cache.is_file()
@@ -264,7 +264,7 @@ def test_run_micro_benchmark(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     def boom(*a, **k):
         raise ValueError("boom")
 
-    monkeypatch.setattr(rp, "cheap_llm_chat", boom)
+    monkeypatch.setattr("greedy_token.llm_invoke.llm_chat", boom)
     res4 = rp.run_micro_benchmark("m", quick=False, use_cache=False)
     assert res4.ok is False and "boom" in res4.error
 
@@ -286,16 +286,127 @@ def test_run_micro_benchmark_remote_metered_denied(
             api_key=None,
         ),
     )
-    monkeypatch.setattr(rp, "cheap_llm_available", lambda *a, **k: True)
     called: list[bool] = []
     monkeypatch.setattr(
-        rp, "cheap_llm_chat", lambda *a, **k: called.append(True) or ("ok", 1)
+        rp, "cheap_llm_available", lambda *a, **k: called.append(True) or True
+    )
+    monkeypatch.setattr(
+        "greedy_token.llm_invoke.llm_chat",
+        lambda *a, **k: called.append(True) or ("ok", 1),
     )
     res = rp.run_micro_benchmark("m", quick=True, use_cache=False)
     assert res.ok is False
     assert res.error  # a guard denial reason, not a generic transport error
     assert "LLM" in res.error
+    assert called == []  # denied before any endpoint call
+
+
+@allure.title("run_micro_benchmark: registry metered on loopback still needs opt-in")
+def test_run_micro_benchmark_registry_metered_denied(
+    monkeypatch: pytest.MonkeyPatch, minimal_workspace: Path
+) -> None:
+    """Registry billing beats the hostname heuristic: a metered model declared
+    in llm.models[] stays metered at 127.0.0.1 and refuses before any network."""
+    import yaml
+
+    (minimal_workspace / ".greedy-token.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "routes_file": "workspace-routes.yaml",
+                "llm": {
+                    "models": [
+                        {
+                            "id": "paid-local",
+                            "provider": "openai_compat",
+                            "url": "http://127.0.0.1:11434/v1",
+                            "model": "paid-local",
+                            "billing": "metered",
+                            "cost_per_1m_usd": 0.1,
+                        }
+                    ]
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("GREEDY_METERED_LLM", raising=False)
+    called: list[bool] = []
+    monkeypatch.setattr(
+        rp, "cheap_llm_available", lambda *a, **k: called.append(True) or True
+    )
+    monkeypatch.setattr(
+        "greedy_token.llm_invoke.llm_chat",
+        lambda *a, **k: called.append(True) or ("ok", 1),
+    )
+    res = rp.run_micro_benchmark(
+        "paid-local", quick=True, use_cache=False, root=minimal_workspace
+    )
+    assert res.ok is False and "opt-in" in res.error
     assert called == []
+
+
+@allure.title("run_micro_benchmark: no workspace root falls back to user config")
+def test_run_micro_benchmark_no_workspace_root(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def boom(*a, **k):
+        raise SystemExit("no workspace")
+
+    monkeypatch.setattr("greedy_token.paths.find_workspace_root", boom)
+    monkeypatch.setattr(rp, "cheap_llm_available", lambda *a, **k: True)
+    monkeypatch.setattr("greedy_token.llm_invoke.llm_chat", lambda *a, **k: ("ok", 3))
+    res = rp.run_micro_benchmark("m", quick=True, use_cache=False)
+    assert res.ok is True and res.eval_tokens == 3
+
+
+@allure.title("run_micro_benchmark: metered opt-in goes through the guarded invoke path")
+def test_run_micro_benchmark_registry_metered_logged(
+    monkeypatch: pytest.MonkeyPatch, minimal_workspace: Path
+) -> None:
+    """With the metered opt-in the benchmark invokes via invoke_profile — the
+    per-call spend lands in the usage log."""
+    import yaml
+
+    from greedy_token import usage
+    from greedy_token.spend_guard import _load_today_spend
+
+    (minimal_workspace / ".greedy-token.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "routes_file": "workspace-routes.yaml",
+                "llm": {
+                    "models": [
+                        {
+                            "id": "paid-local",
+                            "provider": "openai_compat",
+                            "url": "http://127.0.0.1:11434/v1",
+                            "model": "paid-local",
+                            "billing": "metered",
+                            "cost_per_1m_usd": 0.1,
+                        }
+                    ],
+                    "metered": {"opt_in": True},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(rp, "cheap_llm_available", lambda *a, **k: True)
+    monkeypatch.setattr(
+        "greedy_token.llm_invoke.llm_chat", lambda *a, **k: ("ok", 1_000_000)
+    )
+    res = rp.run_micro_benchmark(
+        "paid-local", quick=True, use_cache=False, root=minimal_workspace
+    )
+    assert res.ok is True and res.eval_tokens == 1_000_000
+    assert _load_today_spend() == pytest.approx(0.1)
+    rows, _ = usage.load_events(usage.log_path())
+    assert any(
+        r.get("cmd") == "llm"
+        and (r.get("executor") or {}).get("model_id") == "paid-local"
+        and r.get("cost_usd") == 0.1
+        for r in rows
+    )
 
 
 @allure.title("run_micro_benchmark: loopback endpoint stays free, not guarded")
@@ -315,7 +426,7 @@ def test_run_micro_benchmark_loopback_not_metered(
         ),
     )
     monkeypatch.setattr(rp, "cheap_llm_available", lambda *a, **k: True)
-    monkeypatch.setattr(rp, "cheap_llm_chat", lambda *a, **k: ("ok", 7))
+    monkeypatch.setattr("greedy_token.llm_invoke.llm_chat", lambda *a, **k: ("ok", 7))
     res = rp.run_micro_benchmark("m", quick=True, use_cache=False)
     assert res.ok is True and res.eval_tokens == 7
 
