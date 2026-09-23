@@ -275,7 +275,7 @@ def test_format_gate_user_message() -> None:
         "what changed in recent commits", op_id="python-git-recent"
     )
     assert "python-git-recent" in msg
-    assert "greedy-token invoke python-git-recent" in msg
+    assert "greedy-token capabilities invoke python-git-recent" in msg
     assert "cursor:" in msg
 
     ev = advisory.AdvisoryEvent(

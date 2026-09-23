@@ -34,7 +34,7 @@ KIND_GATE = "gate"
 # Hook submit modes — single source for beforeSubmitPrompt policy:
 #   advisory   — log every routed prompt, never block (default).
 #   gate       — block prompts matching an *invocable* route; the toast points
-#                at `greedy-token invoke <op>` and nothing is auto-executed.
+#                at `greedy-token capabilities invoke <op>` / MCP invoke — nothing auto-executed.
 #   intercept  — run the cheap op and return its output in the blocked toast
 #                (full text spills to ~/.greedy-token/last-intercept.md).
 HOOK_MODE_ADVISORY = "advisory"
@@ -318,7 +318,7 @@ def format_gate_user_message(prompt: str, *, op_id: str) -> str:
         "greedy-token gate — детерминированный op, отправка остановлена\n\n"
         f"Задача: {preview}\n"
         f"Op: {op_id} (ready · read-only)\n\n"
-        f"Запуск: greedy-token invoke {op_id}\n"
+        f"Запуск: greedy-token capabilities invoke {op_id} · MCP: greedy_token_invoke\n"
         "---\n"
         "Agent всё равно нужен → cursor: <промпт>"
     )
