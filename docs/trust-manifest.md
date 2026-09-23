@@ -58,6 +58,13 @@ For every manifest-authorized launch, greedy-token:
 6. on POSIX, keeps that verified descriptor open and executes through
    `/dev/fd/<n>`.
 
+Argument confinement applies to every token, not only path-shaped ones:
+`name=value` values and bare words resolve under the workspace root and must
+stay inside it, so a symlink component escaping the root is refused
+(`symlink`) exactly like an explicit `../` or absolute path. For internally
+built `rg`/`jq` argv the user pattern is emitted after `--`, so queries that
+look like options (`--version`, `-l`) remain literal patterns.
+
 Any mismatch blocks the launch until explicit re-approval. `trust verify`
 performs the same checks without executing a script.
 

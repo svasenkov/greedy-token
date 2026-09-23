@@ -222,7 +222,12 @@ URL/file presets fail closed. На POSIX запуск привязан к про
 дескриптору через `/dev/fd`; на Windows остаётся узкое verify-to-open окно, а
 конкурентная запись в тот же inode не снапшотится. Старый ключ
 `trusted_script_paths` deprecated: это только dry-run metadata без execution
-privilege. Subprocess получает проверенный argv при `shell=False`. Детали и
+privilege. Subprocess получает проверенный argv при `shell=False`. Токены
+аргументов ограничены так же — значения `name=value` и голые слова резолвятся
+под корнем workspace и обязаны оставаться внутри, поэтому symlink-аргумент,
+указывающий наружу, отклоняется как явный `../`. Во внутренне собранном argv
+`rg`/`jq` паттерн всегда идёт после `--`, поэтому запрос вроде `--version`
+остаётся литералом, а не опцией. Детали и
 ограничения: [trust manifest и TOCTOU contract](docs/trust-manifest.md).
 
 ### Routing benchmark

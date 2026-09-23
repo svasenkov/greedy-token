@@ -221,7 +221,12 @@ URL/file presets fail closed. POSIX binds the verified descriptor through
 `/dev/fd`; Windows retains a narrow verify-to-open window, and concurrent
 same-inode writes are not snapshotted. The old `trusted_script_paths` config key
 is deprecated dry-run metadata and grants no privilege. Subprocesses receive a
-validated argv list with `shell=False`. See the
+validated argv list with `shell=False`. Argument tokens are confined the same
+way — `name=value` values and bare words resolve under the workspace root and
+must stay inside it, so a symlink argument pointing outside is refused like an
+explicit `../`. In internally built `rg`/`jq` argv the pattern always sits
+after `--`, so a query like `--version` stays a literal pattern, never an
+option. See the
 [trust manifest and TOCTOU contract](docs/trust-manifest.md).
 
 ### Routing benchmark
