@@ -1760,7 +1760,8 @@ def test_invoke_capability_refusal_edges(minimal_workspace: Path) -> None:
     assert "no query parameter" in result.refusal_reason
 
     result = invoke_capability(minimal_workspace, "classify-file", args="../escape.py")
-    assert not result.invocable and result.exit_code == 1
+    assert not result.invocable and result.refusal_code == "invalid_params"
+    assert result.exit_code == 2
 
 
 @allure.story("Invoke")

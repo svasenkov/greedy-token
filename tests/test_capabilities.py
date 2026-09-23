@@ -545,14 +545,24 @@ def test_invoke_wrapper_arg_symlink_confinement(
     outside.write_text("SECRET\n", encoding="utf-8")
     (minimal_workspace / "alias").symlink_to(outside)
 
-    for arg in ("alias", "./alias", "alias/../alias"):
+    for arg in ("alias", "./alias"):
         result = invoke_capability(
             minimal_workspace, "classify-file", args=arg, log=False
         )
         with allure.step(f"{arg!r}: refused before exec, nothing read"):
             assert result.executed is False
             assert result.exit_code == 1
+            assert result.refusal_code == "symlink"
             assert "escapes workspace" in result.refusal_reason
+
+    with allure.step("lexical '..' escape from caller args is a params error"):
+        result = invoke_capability(
+            minimal_workspace, "classify-file", args="alias/../alias", log=False
+        )
+        assert result.executed is False
+        assert result.exit_code == 2
+        assert result.refusal_code == REFUSAL_INVALID_PARAMS
+        assert "escapes workspace" in result.refusal_reason
 
     inside = minimal_workspace / "docs" / "real.txt"
     inside.write_text("INSIDE\n", encoding="utf-8")
@@ -563,6 +573,186 @@ def test_invoke_wrapper_arg_symlink_confinement(
     with allure.step("symlink resolving inside the workspace stays invocable"):
         assert result.executed is True
         assert "INSIDE" in result.output
+
+
+_MATRIX_STUB = (
+    "#!/usr/bin/env python\n"
+    "import json\n"
+    "import sys\n"
+    "\n"
+    "if '--source' not in sys.argv:\n"
+    "    print('{\"ok\": false, \"error\": \"--source required\"}')\n"
+    "    sys.exit(2)\n"
+    "print(json.dumps({'ok': True, 'argv': sys.argv[1:]}))\n"
+)
+
+_SONAR_STUB = (
+    "#!/usr/bin/env python\n"
+    "import json\n"
+    "import sys\n"
+    "\n"
+    "if '--dry-run' not in sys.argv and '--report-task' not in sys.argv:\n"
+    "    msg = '--report-task is required unless --dry-run'\n"
+    "    print(msg, file=sys.stderr)\n"
+    "    print(json.dumps({'ok': False, 'error': msg}))\n"
+    "    sys.exit(2)\n"
+    "print(json.dumps({'ok': True, 'dry_run': '--dry-run' in sys.argv, 'argv': sys.argv[1:]}))\n"
+)
+
+
+@allure.story("Invoke")
+@allure.title("params:[args] routes declare the args contract before approval")
+def test_route_params_args_declared(minimal_workspace: Path) -> None:
+    ops = _ops(collect_capabilities(minimal_workspace))
+    with allure.step("scripts absent in fixture — missing_file, params still shown"):
+        for rid in ("python-java-matrix-plan", "python-sonar-gate-wait"):
+            cap = ops[rid]
+            assert cap.params == ("args",), rid
+            assert cap.readiness == MISSING_FILE
+            assert cap.to_dict()["params"] == ["args"]
+
+    with allure.step("seeded but unapproved — not_approved, params still shown"):
+        _script(minimal_workspace, "scripts/java-matrix-plan.py", _MATRIX_STUB)
+        cap = _ops(collect_capabilities(minimal_workspace))["python-java-matrix-plan"]
+        assert cap.readiness == NOT_APPROVED
+        assert cap.params == ("args",)
+
+
+@allure.story("Invoke")
+@allure.title("params:[args] route — bare invoke runs the baked default argv")
+def test_invoke_route_baked_default_argv(minimal_workspace: Path) -> None:
+    _script(minimal_workspace, "scripts/java-matrix-plan.py", _MATRIX_STUB)
+    approve_script(minimal_workspace, "scripts/java-matrix-plan.py")
+    cap = _ops(collect_capabilities(minimal_workspace))["python-java-matrix-plan"]
+    assert cap.readiness == READY
+    assert cap.invocable
+
+    result = invoke_capability(minimal_workspace, "python-java-matrix-plan")
+    with allure.step("executes the command's own default args — no params needed"):
+        assert result.executed is True
+        assert result.exit_code == 0
+        assert result.result_status == "produced"
+        assert result.outcome == "success"
+        argv = json.loads(result.output)["argv"]
+        assert argv == ["--source", "gradle-junit5-selenide", "--dry-run"]
+
+
+@allure.story("Invoke")
+@allure.title("params:[args] route — caller args land after the fixed argv")
+def test_invoke_route_args_appended_after_fixed(minimal_workspace: Path) -> None:
+    _script(minimal_workspace, "scripts/java-matrix-plan.py", _MATRIX_STUB)
+    approve_script(minimal_workspace, "scripts/java-matrix-plan.py")
+
+    result = invoke_capability(
+        minimal_workspace,
+        "python-java-matrix-plan",
+        args="--source maven-junit5-selenide --targets a,b",
+    )
+    with allure.step("baked args first, caller args appended — argparse last-wins"):
+        assert result.executed is True
+        argv = json.loads(result.output)["argv"]
+        assert argv == [
+            "--source",
+            "gradle-junit5-selenide",
+            "--dry-run",
+            "--source",
+            "maven-junit5-selenide",
+            "--targets",
+            "a,b",
+        ]
+
+
+@allure.story("Invoke")
+@allure.title("params:[args] route — bare usage refusal is a produced contract, args work")
+def test_invoke_route_structured_usage_refusal(minimal_workspace: Path) -> None:
+    _script(minimal_workspace, "scripts/sonar-gate-wait.py", _SONAR_STUB)
+    approve_script(minimal_workspace, "scripts/sonar-gate-wait.py")
+
+    result = invoke_capability(minimal_workspace, "python-sonar-gate-wait")
+    with allure.step("no default exists — the script's own usage refusal, not a crash"):
+        assert result.executed is True
+        assert result.exit_code == 2
+        assert result.result_status == "produced"
+        assert result.outcome == "failure"
+        assert '{"ok": false' in result.output
+        assert "--report-task" in result.output
+
+    with allure.step("args reach the script — --dry-run smoke"):
+        result = invoke_capability(
+            minimal_workspace, "python-sonar-gate-wait", args="--dry-run"
+        )
+        assert result.executed is True
+        assert result.exit_code == 0
+        assert json.loads(result.output)["dry_run"] is True
+
+
+@allure.story("Invoke")
+@allure.title("params:[args] route — caller args stay workspace-confined")
+def test_invoke_route_args_workspace_confined(minimal_workspace: Path) -> None:
+    _script(minimal_workspace, "scripts/java-matrix-plan.py", _MATRIX_STUB)
+    approve_script(minimal_workspace, "scripts/java-matrix-plan.py")
+
+    result = invoke_capability(
+        minimal_workspace,
+        "python-java-matrix-plan",
+        args="--refs-root ../outside",
+    )
+    with allure.step("'..' in a caller arg → invalid_params, nothing executed"):
+        assert result.executed is False
+        assert result.exit_code == 2
+        assert result.refusal_code == REFUSAL_INVALID_PARAMS
+        assert "escapes workspace" in result.refusal_reason
+
+
+@allure.story("Invoke")
+@allure.title("params scalar string normalizes to the same args contract")
+def test_route_params_scalar_string(minimal_workspace: Path) -> None:
+    routes_file = minimal_workspace / "workspace-routes.yaml"
+    data = yaml.safe_load(routes_file.read_text(encoding="utf-8"))
+    route = next(
+        r for r in data["routes"] if r["id"] == "python-java-matrix-plan"
+    )
+    route["params"] = "args"
+    routes_file.write_text(yaml.safe_dump(data), encoding="utf-8")
+
+    _script(minimal_workspace, "scripts/java-matrix-plan.py", _MATRIX_STUB)
+    cap = _ops(collect_capabilities(minimal_workspace))["python-java-matrix-plan"]
+    with allure.step("scalar 'params: args' — same ('args',) contract as a list"):
+        assert cap.params == ("args",)
+
+
+@allure.story("Invoke")
+@allure.title("wrapper resolution OS errors stay structured refusals")
+def test_invoke_wrapper_resolution_os_errors(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import greedy_token.capabilities_invoke as caps
+
+    def _raise(exc: Exception):
+        def _boom(*a, **k):
+            raise exc
+
+        return _boom
+
+    with allure.step("codeless FileNotFoundError → missing_file refusal"):
+        monkeypatch.setattr(
+            caps,
+            "resolve_wrapper_invocation",
+            _raise(FileNotFoundError("gone")),
+        )
+        result = invoke_capability(minimal_workspace, "classify-file", log=False)
+        assert result.invocable is False
+        assert result.refusal_code == MISSING_FILE
+        assert result.exit_code == 1
+
+    with allure.step("OSError → unknown refusal, nothing executed"):
+        monkeypatch.setattr(
+            caps, "resolve_wrapper_invocation", _raise(OSError("disk gone"))
+        )
+        result = invoke_capability(minimal_workspace, "classify-file", log=False)
+        assert result.invocable is False
+        assert result.refusal_code == "unknown"
+        assert result.exit_code == 1
 
 
 @allure.story("Pipeline")

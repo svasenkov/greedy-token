@@ -254,8 +254,10 @@ def greedy_token_capabilities() -> str:
 def greedy_token_invoke(op_id: str, args: str = "", query: str = "") -> str:
     """Invoke a ready read-only operation by stable id (see greedy_token_capabilities).
 
-    Fixed argv for route ops; query= is the rg tool parameter; args= only for
-    wrapper ops. Refusals report the readiness class and execute nothing.
+    query= is the rg tool parameter; args= reaches ops declaring ``params`` —
+    wrapper ops and routes with ``params: [args]`` (appended after the fixed
+    argv, workspace-confined). Other route ops are fixed-argv. Refusals report
+    the readiness class and execute nothing.
     """
     from greedy_token.capabilities_invoke import invoke_capability
 

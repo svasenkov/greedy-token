@@ -1485,7 +1485,7 @@ def build_parser() -> argparse.ArgumentParser:
     cap_inv.add_argument(
         "--args",
         default="",
-        help="Extra args for wrapper ops (validated, workspace-confined)",
+        help="Extra args for ops declaring params (wrapper ops, params:[args] routes; workspace-confined)",
     )
     cap_inv.add_argument("--json", action="store_true", help="JSON output")
     cap_inv.set_defaults(func=cmd_capabilities)

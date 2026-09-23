@@ -15,7 +15,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from greedy_token.calibration import SOURCE_FIXED
-from greedy_token.capabilities import UNKNOWN, Capability, capability_by_id
+from greedy_token.capabilities import (
+    MISSING_FILE,
+    UNKNOWN,
+    Capability,
+    capability_by_id,
+)
 from greedy_token.executors import (
     RunPlan,
     TaskRunResult,
@@ -246,9 +251,10 @@ def invoke_capability(
             exit_code=1,
         )
 
-    # Parameter contract: fixed argv for route ops; `query` for rg tool ops;
-    # `args` only for wrapper ops (validated workspace-relative inside
-    # trusted_script_argv, same as `scripts --run`).
+    # Parameter contract: `query` for rg tool ops; `args` for wrapper ops and
+    # routes declaring ``params: [args]`` (validated workspace-relative inside
+    # trusted_script_argv, same as `scripts --run`); other route ops stay
+    # fixed-argv.
     if cap.params == ("query",):
         if not query.strip():
             return refused(
@@ -303,9 +309,30 @@ def invoke_capability(
             invocation = resolve_wrapper_invocation(
                 cap.id, root, extra_args=extra_args
             )
-        except (FileNotFoundError, UnsafeCommandError, OSError) as exc:
+        except FileNotFoundError as exc:
             return refused(
-                getattr(exc, "code", "") or cap.readiness or UNKNOWN,
+                getattr(exc, "code", "") or MISSING_FILE,
+                str(exc),
+                tier=cap.tier,
+                read_only=cap.read_only,
+                exit_code=1,
+            )
+        except UnsafeCommandError as exc:
+            # A codeless argv violation from caller args is a params error;
+            # without args it is an unclassified refusal — never "ready".
+            code = exc.code or (
+                REFUSAL_INVALID_PARAMS if extra_args else UNKNOWN
+            )
+            return refused(
+                code,
+                str(exc),
+                tier=cap.tier,
+                read_only=cap.read_only,
+                exit_code=2 if code == REFUSAL_INVALID_PARAMS else 1,
+            )
+        except OSError as exc:
+            return refused(
+                UNKNOWN,
                 str(exc),
                 tier=cap.tier,
                 read_only=cap.read_only,
@@ -323,15 +350,30 @@ def invoke_capability(
             script_type=invocation.script_type,
         )
     else:
+        if extra_args:
+            if decision.command_argv is None:  # pragma: no cover - probe refuses unsafe argv routes before they become invocable
+                return refused(
+                    REFUSAL_INVALID_PARAMS,
+                    f"{op_id} accepts args but its command argv did not resolve",
+                    tier=cap.tier,
+                    read_only=cap.read_only,
+                    exit_code=2,
+                )
+            # Fixed command args stay ahead of caller args — same contract as
+            # wrapper invocations; trusted_script_argv confines every token.
+            decision.command_argv = (*decision.command_argv, *extra_args)
         plan = plan_run(decision, task, root)
 
     if not plan.executable:
+        code = plan.refusal_code or (
+            REFUSAL_INVALID_PARAMS if extra_args else UNKNOWN
+        )
         return refused(
-            plan.refusal_code or cap.readiness or UNKNOWN,
+            code,
             plan.refusal_reason or "not authorized for execution",
             tier=cap.tier,
             read_only=cap.read_only,
-            exit_code=1,
+            exit_code=2 if code == REFUSAL_INVALID_PARAMS else 1,
         )
 
     run = execute_plan(plan)

@@ -107,8 +107,9 @@ routes:
       - java matrix fanout
       - java matrix plan
       - selenium variant plan
-    command: python scripts/java-matrix-plan.py
-    note: "java-matrix-fanout plan — crystallized script tier, 0 LLM"
+    command: python scripts/java-matrix-plan.py --source gradle-junit5-selenide --dry-run
+    params: [args]
+    note: "java-matrix-fanout plan — ethalon-anchor default; args override --source/--targets/--refs-root"
 
   - id: python-sonar-gate-wait
     target: python
@@ -118,7 +119,8 @@ routes:
       - quality gate wait
       - sonar.qa.guru
     command: python scripts/sonar-gate-wait.py
-    note: "sonar_quality_gate — crystallized script tier, 0 LLM"
+    params: [args]
+    note: "sonar_quality_gate — bare invoke is a structured usage refusal; pass --dry-run or --report-task via args"
 
   - id: python-stack-verify
     target: python

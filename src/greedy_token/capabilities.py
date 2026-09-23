@@ -468,6 +468,13 @@ def _capability_for_route(
     readiness, reason, authorization, script_path, argv, script_type = (
         _probe_script_route(route, root, checks_by_path)
     )
+    # ``params: [args]`` in the route file declares that extra argv is
+    # accepted — the invoke surface appends it after the fixed command args
+    # and lets trusted_script_argv confine every token to the workspace.
+    declared_params = route.get("params") or []
+    if isinstance(declared_params, str):
+        declared_params = [declared_params]
+    params = ("args",) if "args" in declared_params else ()
     return cap(
         readiness,
         reason,
@@ -475,6 +482,7 @@ def _capability_for_route(
         script_path=script_path,
         script_type=script_type,
         argv=argv,
+        params=params,
     )
 
 
