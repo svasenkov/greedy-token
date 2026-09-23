@@ -340,6 +340,31 @@ def test_trusted_script_invocation_rejects_boundary_breaks(tmp_path: Path) -> No
             registered_script_paths=registered,
         )
 
+    # A bare token carries no "/" or "." marker, so it used to skip the
+    # realpath check entirely — a symlink arg could point outside the root.
+    bare_secret = tmp_path / "outside-secret.txt"
+    bare_secret.write_text("secret\n", encoding="utf-8")
+    (root / "alias").symlink_to(bare_secret)
+    with pytest.raises(UnsafeCommandError, match="escapes workspace") as raised:
+        trusted_script_invocation(
+            f"{root_cd_prefix(root)} python scripts/check.py alias",
+            root=root,
+            registered_script_paths=registered,
+        )
+    assert raised.value.code == "symlink"
+
+    # A symlink whose target stays inside the workspace remains a valid arg.
+    docs = root / "docs"
+    docs.mkdir()
+    (docs / "real.txt").write_text("ok\n", encoding="utf-8")
+    (root / "inside-alias").symlink_to(docs / "real.txt")
+    confined = trusted_script_invocation(
+        f"{root_cd_prefix(root)} python scripts/check.py inside-alias literal",
+        root=root,
+        registered_script_paths=registered,
+    )
+    assert confined.argv[-2:] == ("inside-alias", "literal")
+
     valid_args = trusted_script_invocation(
         f"{root_cd_prefix(root)} python scripts/check.py '' - docs/file.txt",
         root=root,

@@ -528,6 +528,41 @@ def test_invoke_wrapper_route_preserves_fixed_args(
         assert json.loads(result.output)["args"] == ["--audit-fixed-arg"]
 
 
+@allure.story("Invoke")
+@allure.title("Wrapper --args is confined by realpath — bare symlink outside refused")
+def test_invoke_wrapper_arg_symlink_confinement(
+    minimal_workspace: Path,
+) -> None:
+    """A bare-token arg skips the lexical path check — the only gate left is
+    realpath containment, so a symlink pointing outside the workspace must
+    refuse as a structured 'symlink' refusal, not execute."""
+    script = minimal_workspace / "scripts" / "ollama" / "classify-file.sh"
+    script.write_text('#!/bin/sh\ncat "$1"\n', encoding="utf-8")
+    script.chmod(0o755)
+    outside = minimal_workspace.parent / "outside-secret.txt"
+    outside.write_text("SECRET\n", encoding="utf-8")
+    (minimal_workspace / "alias").symlink_to(outside)
+
+    for arg in ("alias", "./alias", "alias/../alias"):
+        result = invoke_capability(
+            minimal_workspace, "classify-file", args=arg, log=False
+        )
+        with allure.step(f"{arg!r}: refused before exec, nothing read"):
+            assert result.executed is False
+            assert result.exit_code == 1
+            assert "escapes workspace" in result.refusal_reason
+
+    inside = minimal_workspace / "docs" / "real.txt"
+    inside.write_text("INSIDE\n", encoding="utf-8")
+    (minimal_workspace / "inside-alias").symlink_to(inside)
+    result = invoke_capability(
+        minimal_workspace, "classify-file", args="inside-alias", log=False
+    )
+    with allure.step("symlink resolving inside the workspace stays invocable"):
+        assert result.executed is True
+        assert "INSIDE" in result.output
+
+
 @allure.story("Pipeline")
 @allure.title("Route id outside PIPELINE_AUTO_RUN parses and refuses with reason")
 def test_pipeline_route_step_refusal(minimal_workspace: Path) -> None:

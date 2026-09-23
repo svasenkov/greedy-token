@@ -7,12 +7,12 @@ never passed to a shell.
 
 from __future__ import annotations
 
-import shlex
-import subprocess
 import json
 import ntpath
 import posixpath
 import re
+import shlex
+import subprocess
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -229,13 +229,17 @@ def _validate_script_args(args: Iterable[str], root: Path) -> None:
             raise UnsafeCommandError(
                 f"argument path escapes workspace root: {value!r}"
             )
-        if "/" in value or "\\" in value or value.startswith("."):
-            try:
-                (root / candidate).resolve().relative_to(root.resolve())
-            except (OSError, ValueError) as exc:
-                raise UnsafeCommandError(
-                    f"argument path escapes workspace root: {value!r}"
-                ) from exc
+        # Bare tokens are checked too — a literal and a relative path spell
+        # the same, and a script may treat any arg as a path.  Lexical
+        # escapes were refused above, so an escape here means a link in the
+        # path chain resolves outside the root.
+        try:
+            (root / candidate).resolve().relative_to(root.resolve())
+        except (OSError, RuntimeError, ValueError) as exc:
+            raise UnsafeCommandError(
+                f"argument path escapes workspace root: {value!r}",
+                code="symlink",
+            ) from exc
 
 
 def trusted_script_argv(
