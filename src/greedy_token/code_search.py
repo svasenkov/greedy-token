@@ -6,8 +6,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
-from greedy_token.tool_output import filter_tool_output
 from greedy_token.paths import find_workspace_root
+from greedy_token.tool_output import filter_tool_output
 from greedy_token.tool_paths import RG_TIMEOUT, resolve_rg
 
 SearchContextMode = Literal["none", "snippet", "file"]
@@ -569,15 +569,18 @@ def search_code(
     if resolved and resolved.is_file():
         scope = resolved.relative_to(root).as_posix()
         if rg_bin:
+            # "--" ends rg option parsing: the user query is a positional
+            # pattern and must stay literal ("--version", "-l", "--files").
             argv = (
                 str(rg_bin),
                 "-n",
                 "--max-columns",
                 "200",
                 "-F",
-                query,
                 "--max-count",
                 str(limit),
+                "--",
+                query,
                 scope,
             )
             code, out = _run_rg(argv, cwd=root)
@@ -629,11 +632,12 @@ def search_code(
             "--max-columns",
             "200",
             "-F",
-            query,
         ]
         for glob in DEFAULT_GLOBS:
             argv.extend(("-g", glob))
-        argv.extend(("--max-count", str(limit)))
+        # "--" ends rg option parsing: the user query is a positional pattern
+        # and must stay literal even when it looks like a flag.
+        argv.extend(("--max-count", str(limit), "--", query))
         if resolved and resolved.is_dir():
             rel = resolved.relative_to(root) if resolved.is_relative_to(root) else resolved
             scope = rel.as_posix()

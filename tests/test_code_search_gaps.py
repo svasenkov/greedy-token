@@ -627,10 +627,10 @@ def test_search_code_workspace_cmd(minimal_workspace: Path, monkeypatch: pytest.
 
     seen = _rg_present(monkeypatch, "projects/sample.js:1:const baseUrl = 'x';")
     r = cs.search_code("baseUrl", minimal_workspace, path=None, limit=7, context="none")
-    expected = ["rg", "-n", "--max-columns", "200", "-F", "baseUrl"]
+    expected = ["rg", "-n", "--max-columns", "200", "-F"]
     for glob in cs.DEFAULT_GLOBS:
         expected.extend(("-g", glob))
-    expected.extend(("--max-count", "7", *detect_search_paths(minimal_workspace)))
+    expected.extend(("--max-count", "7", "--", "baseUrl", *detect_search_paths(minimal_workspace)))
     assert seen["argv"] == tuple(expected)
     assert seen["cwd"] == minimal_workspace
     assert r.engine == "rg"
@@ -642,10 +642,10 @@ def test_search_code_workspace_cmd(minimal_workspace: Path, monkeypatch: pytest.
 def test_search_code_dir_cmd(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     seen = _rg_present(monkeypatch, "docs/x.md:1:hit here")
     r = cs.search_code("baseUrl", minimal_workspace, path="docs", context="none")
-    expected = ["rg", "-n", "--max-columns", "200", "-F", "baseUrl"]
+    expected = ["rg", "-n", "--max-columns", "200", "-F"]
     for glob in cs.DEFAULT_GLOBS:
         expected.extend(("-g", glob))
-    expected.extend(("--max-count", "50", "docs"))
+    expected.extend(("--max-count", "50", "--", "baseUrl", "docs"))
     assert seen["argv"] == tuple(expected)
     assert seen["cwd"] == minimal_workspace
     assert r.text.startswith("Search: 'baseUrl' in docs")
@@ -692,6 +692,39 @@ def test_search_code_rg_empty_miss_no_python_tree(
     assert r.text == "No matches for 'baseUrl' in workspace."
     assert "[python]" not in r.text
     assert tree_calls["n"] == 0
+
+
+# --- Regression: rg option injection via query (code_search surface) ---
+
+
+@allure.title("search_code: '--' ends rg option parsing — query stays a literal pattern")
+@pytest.mark.parametrize("query", ["--version", "-l", "--files"])
+def test_search_code_workspace_query_is_not_an_option(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch, query: str
+) -> None:
+    from greedy_token.paths import detect_search_paths
+
+    seen = _rg_present(monkeypatch, "projects/sample.js:1:hit")
+    cs.search_code(query, minimal_workspace, path=None, context="none")
+    argv = list(seen["argv"])
+    sep = argv.index("--")
+    assert argv[sep + 1] == query  # the pattern, not an rg flag
+    assert query not in argv[:sep]  # never lands in the option slot
+    # every rg option (--max-count, -g globs, …) stays before the separator
+    assert argv[sep + 2 :] == list(detect_search_paths(minimal_workspace))
+
+
+@allure.title("search_code: file-scoped rg argv keeps '--' before the literal pattern")
+def test_search_code_file_query_is_not_an_option(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen = _rg_present(monkeypatch, "1:hit")
+    cs.search_code("--files", minimal_workspace, path="sample.js", context="none")
+    argv = list(seen["argv"])
+    sep = argv.index("--")
+    assert argv[sep + 1] == "--files"
+    assert argv[sep + 2 :] == ["projects/sample.js"]
+    assert "--max-count" in argv[:sep]  # option did not slip past the separator
 
 
 @pytest.mark.parametrize(
