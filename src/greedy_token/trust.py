@@ -347,7 +347,9 @@ def _open_portable_nofollow(root: Path, relative_path: str) -> tuple[int, os.sta
             code=REFUSAL_MISSING_FILE,
         ) from exc
 
-    if stat.S_ISLNK(path_stat.st_mode):
+    # TOCTOU: the path can only become a symlink between the component walk
+    # above and this lstat — a race no deterministic test can hit.
+    if stat.S_ISLNK(path_stat.st_mode):  # pragma: no cover
         os.close(file_fd)
         raise TrustVerificationError(
             f"script path changed to a symlink while it was opened: {relative_path!r}",

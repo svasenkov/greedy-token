@@ -1334,3 +1334,786 @@ def test_remaining_public_coverage_edges(
     with patch("greedy_token.tool_paths.shutil.which", return_value=None):
         found = resolve_rg()
     assert found is None or found.name == "rg"
+
+
+# ---------------------------------------------------------------------------
+# Audit housekeeping: Steps 3-4 surfaces (capabilities, cmd wrappers, MCP
+# tools, crystallize edges) and scattered defensive branches that previously
+# slipped under fail_under=100.
+# ---------------------------------------------------------------------------
+
+
+def _ns(**kwargs) -> Namespace:
+    defaults = {"json": False, "no_log": True, "op_id": "", "args": "", "query": ""}
+    defaults.update(kwargs)
+    return Namespace(**defaults)
+
+
+def _mkscript(root: Path, relative: str, content: str) -> Path:
+    path = root / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+    path.chmod(0o755)
+    return path
+
+
+@allure.story("CLI surface")
+@allure.title("cmd_compress falls back to root=None outside a workspace")
+def test_cmd_compress_outside_workspace(monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    import greedy_token.cli as cli
+
+    def _no_root() -> Path:
+        raise SystemExit(2)
+
+    monkeypatch.setattr("greedy_token.cli.find_workspace_root", _no_root)
+    monkeypatch.setattr(sys, "stdin", io.StringIO("Summarize the diff.\n"))
+    assert cli.cmd_compress(_ns(ollama=False, raw=False)) == 0
+    assert "**Prompt:**" in capsys.readouterr().out
+
+
+@allure.story("CLI surface")
+@allure.title("cmd_capabilities: list/show/invoke through the CLI handler")
+def test_cmd_capabilities_surface(minimal_workspace: Path, capsys) -> None:
+    import greedy_token.cli as cli
+
+    assert cli.cmd_capabilities(_ns(cap_action="list")) == 0
+    assert "Deterministic operations" in capsys.readouterr().out
+
+    assert cli.cmd_capabilities(_ns(cap_action="list", json=True)) == 0
+    assert json.loads(capsys.readouterr().out)["summary"]["ops"] > 0
+
+    show = _ns(cap_action="show", op_id="python-meta-sync-check")
+    assert cli.cmd_capabilities(show) == 0
+    assert "python-meta-sync-check" in capsys.readouterr().out
+
+    assert (
+        cli.cmd_capabilities(
+            _ns(cap_action="show", op_id="python-meta-sync-check", json=True)
+        )
+        == 0
+    )
+    assert json.loads(capsys.readouterr().out)["id"] == "python-meta-sync-check"
+
+    assert cli.cmd_capabilities(_ns(cap_action="show", op_id="no-such-op")) == 2
+    assert "Unknown capability" in capsys.readouterr().err
+
+    invoke = _ns(cap_action="invoke", op_id="python-meta-sync-check")
+    assert cli.cmd_capabilities(invoke) == 0
+    assert "meta-sync-check-ok" in capsys.readouterr().out
+
+    assert (
+        cli.cmd_capabilities(
+            _ns(cap_action="invoke", op_id="python-meta-sync-check", json=True)
+        )
+        == 0
+    )
+    assert json.loads(capsys.readouterr().out)["executed"] is True
+
+    code = cli.cmd_capabilities(_ns(cap_action="invoke", op_id="python-git-recent"))
+    assert code != 0
+    assert "Refused" in capsys.readouterr().err
+
+
+@allure.story("CLI surface")
+@allure.title("cmd_crystallize_candidates prints the empty-state hint")
+def test_cmd_crystallize_candidates_empty(minimal_workspace: Path, capsys) -> None:
+    import greedy_token.cli as cli
+
+    assert cli.cmd_crystallize_candidates(_ns(since="30d")) == 0
+    assert "no candidates" in capsys.readouterr().out
+
+
+@allure.story("CLI surface")
+@allure.title("cmd_crystallize_status prints approval + timeline in text mode")
+def test_cmd_crystallize_status_text(
+    minimal_workspace: Path, crystal_home: Path, no_cheap_llm: None, capsys
+) -> None:
+    import greedy_token.cli as cli
+    import greedy_token.crystallize_l3 as l3
+    from greedy_token.crystal_ids import crystal_id_for_pattern
+
+    cid = crystal_id_for_pattern("summarize weekly spend report table")
+    l3.draft_crystal(cid, root=minimal_workspace)
+    l3.approve_crystal(cid, root=minimal_workspace, actor="alice", reason="reviewed")
+
+    assert cli.cmd_crystallize_status(_ns(crystal_id=cid)) == 0
+    out = capsys.readouterr().out
+    assert "approved:" in out
+    assert "stages:" in out
+    assert "next:" in out
+
+
+@allure.story("MCP surface")
+@allure.title("greedy_token_capabilities + greedy_token_invoke through the MCP tools")
+def test_mcp_capabilities_and_invoke(minimal_workspace: Path) -> None:
+    from greedy_token import mcp
+
+    data = json.loads(mcp.greedy_token_capabilities())
+    assert data["summary"]["ops"] > 0
+
+    body = mcp.greedy_token_invoke("python-meta-sync-check")
+    assert "invoke python-meta-sync-check: exit=0" in body
+
+    body = mcp.greedy_token_invoke("python-git-recent")
+    assert body.startswith("Refused:")
+
+
+@allure.story("MCP surface")
+@allure.title("greedy_token_crystallize validates crystal_id and approves")
+def test_mcp_crystallize_actions(
+    minimal_workspace: Path, crystal_home: Path, no_cheap_llm: None
+) -> None:
+    import greedy_token.crystallize_l3 as l3
+    from greedy_token import mcp
+    from greedy_token.crystal_ids import crystal_id_for_pattern
+
+    with pytest.raises(ValueError, match="requires crystal_id"):
+        mcp.greedy_token_crystallize("status", "")
+    with pytest.raises(ValueError, match="requires crystal_id"):
+        mcp.greedy_token_crystallize("draft", "")
+
+    cid = crystal_id_for_pattern("summarize weekly spend report table")
+    l3.draft_crystal(cid, root=minimal_workspace)
+    out = mcp.greedy_token_crystallize("approve", cid, by="auditor", reason="ok")
+    assert out.startswith(f"Approved {cid}")
+    assert "auditor" in out
+
+
+@allure.story("Capabilities")
+@allure.title("to_dict/format cover every optional field — rich cap, view, result")
+def test_capability_dicts_and_formats() -> None:
+    from greedy_token.capabilities import (
+        Capability,
+        CapabilityView,
+        InvocationResult,
+        format_capabilities,
+        format_capability_detail,
+        format_invocation_result,
+    )
+
+    cap = Capability(
+        id="x-rich",
+        source="route",
+        origin="workspace",
+        tier="python",
+        read_only=True,
+        status="active",
+        readiness="ready",
+        reason="authorized",
+        invocable=True,
+        command="python scripts/x.py",
+        argv=("python", "scripts/x.py"),
+        params=("args",),
+        script_path="scripts/x.py",
+        script_type="python",
+        authorization="manifest:scripts/x.py",
+        trust_entry="ok",
+        contract="script-canon",
+        patterns=("one", "two"),
+        domains=("docs",),
+        note="note",
+        requires_ollama=True,
+        lifecycle_state="proposed",
+        missing_paths=("gone",),
+    )
+    data = cap.to_dict()
+    for key in (
+        "command",
+        "argv",
+        "script_path",
+        "authorization",
+        "trust_entry",
+        "contract",
+        "patterns",
+        "domains",
+        "note",
+        "lifecycle_state",
+        "requires_ollama",
+        "missing_paths",
+    ):
+        assert key in data
+
+    detail = format_capability_detail(cap)
+    for line in (
+        "command:",
+        "argv:",
+        "params:",
+        "missing_paths:",
+        "script:",
+        "auth:",
+        "trust:",
+        "contract:",
+        "lifecycle:",
+        "domains:",
+        "patterns:",
+        "note:",
+    ):
+        assert line in detail
+
+    bare = Capability(
+        id="x-bare",
+        source="route",
+        origin="bundled",
+        tier="tool",
+        read_only=True,
+        status="active",
+        readiness="ready",
+        reason="r",
+        invocable=True,
+    )
+    assert "none — fixed argv" in format_capability_detail(bare)
+
+    view = CapabilityView(root="/w", ops=(cap,), manifest_error="bad manifest")
+    listing = format_capabilities(view)
+    assert "UNREADABLE" in listing and "x-rich" in listing
+    assert view.to_dict()["manifest_error"] == "bad manifest"
+
+    refused = InvocationResult(
+        op_id="x-rich",
+        tier="python",
+        invocable=False,
+        executed=False,
+        exit_code=2,
+        output="",
+        refusal_code="not_approved",
+        refusal_reason="nope",
+    )
+    assert refused.to_dict()["refusal_code"] == "not_approved"
+    assert format_invocation_result(refused).startswith("Refused:")
+
+    ok = InvocationResult(
+        op_id="x-rich",
+        tier="python",
+        invocable=True,
+        executed=True,
+        exit_code=0,
+        output="body\n",
+        gate_action="accepted",
+        gate_reason="produced",
+        result_status="produced",
+        outcome="success",
+        operation_id="op-1",
+        missing_paths=("gone",),
+    )
+    rendered = format_invocation_result(ok)
+    assert "search_paths skipped" in rendered and "exit=0" in rendered
+    assert ok.to_dict()["missing_paths"] == ["gone"]
+
+
+@allure.story("Capabilities")
+@allure.title("collect_capabilities reports an unreadable trust manifest")
+def test_collect_capabilities_manifest_error(
+    minimal_workspace: Path, crystal_home: Path
+) -> None:
+    from greedy_token.capabilities import collect_capabilities
+    from greedy_token.trust import _workspace_id, approve_script
+
+    _mkscript(minimal_workspace, "scripts/git-recent.py", "print(1)\n")
+    approve_script(minimal_workspace, "scripts/git-recent.py")
+    manifest = crystal_home / "trust" / _workspace_id(minimal_workspace) / "manifest.json"
+    manifest.write_text("{corrupt", encoding="utf-8")
+
+    view = collect_capabilities(minimal_workspace)
+    assert view.manifest_error
+
+
+@allure.story("Capabilities")
+@allure.title("_probe_script_route: plan error, dangling manifest ref, codeless refusal")
+def test_probe_script_route_edges(
+    minimal_workspace: Path, crystal_home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import greedy_token.capabilities as caps
+    from greedy_token.capabilities import _probe_script_route
+    from greedy_token.subprocess_safe import UnsafeCommandError
+    from greedy_token.trust import approve_script
+
+    route = {
+        "id": "python-escape",
+        "target": "python",
+        "read_only": True,
+        "command": "python ../escape.py",
+    }
+
+    with allure.step("plan_run raises → unknown readiness"):
+        monkeypatch.setattr(
+            caps,
+            "plan_run",
+            lambda *a, **k: (_ for _ in ()).throw(UnsafeCommandError("boom")),
+        )
+        readiness, reason, *_ = _probe_script_route(route, minimal_workspace, {})
+        assert readiness == "unknown" and reason == "boom"
+        monkeypatch.undo()
+
+    with allure.step("manifest-authorized but entry missing from checks → unknown"):
+        _mkscript(minimal_workspace, "scripts/x.py", "print('{\"ok\": true}')\n")
+        approve_script(minimal_workspace, "scripts/x.py")
+        route["command"] = "python scripts/x.py"
+        readiness, reason, auth, *_ = _probe_script_route(route, minimal_workspace, {})
+        assert readiness == "unknown"
+        assert "manifest entry" in reason
+        assert auth == "manifest:scripts/x.py"
+
+    with allure.step("codeless refusal falls through to unknown"):
+        route["command"] = "python ../escape.py"
+        readiness, reason, auth, *_ = _probe_script_route(route, minimal_workspace, {})
+        assert readiness == "unknown" and auth == ""
+        assert "outside workspace root" in reason
+
+
+@allure.story("Capabilities")
+@allure.title("Route config errors: bad search_paths, bad/missing jq json_path, write op")
+def test_route_capability_config_errors(minimal_workspace: Path) -> None:
+    from greedy_token.capabilities import collect_capabilities
+    from greedy_token.paths import upsert_workspace_routes
+
+    upsert_workspace_routes(
+        minimal_workspace,
+        {
+            "routes": [
+                {
+                    "id": "tool-rg-escaped",
+                    "target": "tool",
+                    "tool": "rg",
+                    "read_only": True,
+                    "search_paths": ["../outside"],
+                },
+                {
+                    "id": "tool-jq-escaped",
+                    "target": "tool",
+                    "tool": "jq",
+                    "read_only": True,
+                    "json_path": "../outside.json",
+                },
+                {
+                    "id": "tool-jq-missing",
+                    "target": "tool",
+                    "tool": "jq",
+                    "read_only": True,
+                    "json_path": "docs/no-such.json",
+                },
+                {
+                    "id": "python-write-op",
+                    "target": "python",
+                    "read_only": False,
+                    "command": "python scripts/meta-sync-check.py",
+                },
+            ]
+        },
+    )
+
+    ops = {op.id: op for op in collect_capabilities(minimal_workspace).ops}
+    assert ops["tool-rg-escaped"].readiness == "unknown"
+    assert "search_paths" in ops["tool-rg-escaped"].reason
+    assert ops["tool-jq-escaped"].readiness == "unknown"
+    assert "json_path" in ops["tool-jq-escaped"].reason
+    assert ops["tool-jq-missing"].readiness == "missing_file"
+    assert "json_path" in ops["tool-jq-missing"].reason
+    assert ops["python-write-op"].readiness == "write_not_invocable"
+    assert "script file also missing" not in ops["python-write-op"].reason
+
+
+@allure.story("Capabilities")
+@allure.title("Wrapper caps: missing file and unsafe (symlink) script resolution")
+def test_wrapper_capability_resolution_errors(tmp_path: Path) -> None:
+    from greedy_token.capabilities import collect_capabilities
+
+    # tmp_path itself is the seeded minimal_workspace — use a fresh empty root.
+    root = tmp_path / "empty-root"
+    root.mkdir()
+    ops = {op.id: op for op in collect_capabilities(root).ops}
+    assert ops["classify-file"].readiness == "missing_file"
+
+    ollama_dir = root / "scripts" / "ollama"
+    ollama_dir.mkdir(parents=True)
+    target = root / "real.sh"
+    target.write_text("#!/bin/sh\necho x\n", encoding="utf-8")
+    (ollama_dir / "classify-file.sh").symlink_to(target)
+    ops = {op.id: op for op in collect_capabilities(root).ops}
+    assert ops["classify-file"].readiness == "symlink"
+
+
+@allure.story("Invoke")
+@allure.title("invoke_capability refusals: quoted query, stray query, unsafe wrapper args")
+def test_invoke_capability_refusal_edges(minimal_workspace: Path) -> None:
+    from greedy_token.capabilities import invoke_capability
+
+    result = invoke_capability(minimal_workspace, "tool-rg-search", query='has "quote"')
+    assert not result.invocable and result.refusal_code == "invalid_params"
+
+    result = invoke_capability(minimal_workspace, "python-meta-sync-check", query="x")
+    assert not result.invocable
+    assert "no query parameter" in result.refusal_reason
+
+    result = invoke_capability(minimal_workspace, "classify-file", args="../escape.py")
+    assert not result.invocable and result.exit_code == 1
+
+
+@allure.story("Invoke")
+@allure.title("invoke_capability refuses when the second plan_run refuses")
+def test_invoke_capability_plan_refusal(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import greedy_token.capabilities as caps
+    from greedy_token.capabilities import invoke_capability
+    from greedy_token.executors import RunPlan
+
+    # The probe inside collect_capabilities calls plan_run with task="" — only
+    # the invoke-time plan (task="invoke <id>") is forced to refuse, so the cap
+    # stays invocable (wrapper-authorized) and the plan-refusal path runs.
+    real_plan_run = caps.plan_run
+
+    def _flaky(decision, task, root):
+        if task:
+            return RunPlan(
+                decision=decision,
+                executable=False,
+                command="",
+                dry_run_output="",
+                refusal_code="",
+                refusal_reason="simulated refusal",
+            )
+        return real_plan_run(decision, task, root)
+
+    monkeypatch.setattr(caps, "plan_run", _flaky)
+    result = invoke_capability(minimal_workspace, "python-meta-sync-check")
+    assert not result.invocable and result.exit_code == 1
+    assert "simulated refusal" in result.refusal_reason
+
+
+@allure.story("Crystallize")
+@allure.title("_proposal_meta derives pattern/hits from route, then the event log")
+def test_proposal_meta_branches(crystal_home: Path) -> None:
+    import greedy_token.crystallize_l3 as l3
+    from greedy_token.hub.crystallize import append_lifecycle_event
+
+    assert l3._proposal_meta("x-none", None) == ("", 0)
+
+    # reversed() walks newest first: x-other (skipped, wrong id) → the empty
+    # x-a draft (pattern/hits still unset → loop back-edge) → x-a shadow (fills
+    # both → break).
+    append_lifecycle_event(
+        stage="shadow", crystal_id="x-a", pattern="p1", hits=3, status="pending"
+    )
+    append_lifecycle_event(
+        stage="draft", crystal_id="x-a", pattern="", hits=0, status="pending"
+    )
+    append_lifecycle_event(
+        stage="draft", crystal_id="x-other", pattern="p2", hits=9, status="pending"
+    )
+    # route without patterns → pattern from the newest matching event, hits fill
+    assert l3._proposal_meta("x-a", {"id": "x-a"}) == ("p1", 3)
+    # route patterns win over the log
+    assert l3._proposal_meta("x-a", {"patterns": ["route-pat"]}) == ("route-pat", 3)
+
+
+@allure.story("Crystallize")
+@allure.title("promote refusals: rejected, route gone, not shadow, draft missing; approve bad id")
+def test_crystallize_promote_refusal_edges(
+    minimal_workspace: Path, crystal_home: Path, no_cheap_llm: None
+) -> None:
+    import greedy_token.crystallize_l3 as l3
+    from greedy_token.crystal_ids import crystal_id_for_pattern
+    from greedy_token.paths import remove_workspace_route, workspace_config_routes
+
+    cid = crystal_id_for_pattern("summarize weekly spend report table")
+
+    with pytest.raises(ValueError, match="must be python"):
+        l3.approve_crystal("!!bad", root=minimal_workspace)
+
+    l3.draft_crystal(cid, root=minimal_workspace)
+    l3.reject_crystal(cid, root=minimal_workspace)
+    with pytest.raises(ValueError, match="rejected"):
+        l3.promote_crystal(cid, root=minimal_workspace)
+
+    l3.draft_crystal(cid, root=minimal_workspace)
+    l3.approve_crystal(cid, root=minimal_workspace)
+    assert remove_workspace_route(minimal_workspace, cid)
+    with pytest.raises(ValueError, match="route .* not found"):
+        l3.promote_crystal(cid, root=minimal_workspace)
+
+    l3.draft_crystal(cid, root=minimal_workspace)
+    route = next(
+        r for r in workspace_config_routes(minimal_workspace) if r["id"] == cid
+    )
+    route.pop("shadow_until", None)
+    from greedy_token.paths import upsert_workspace_routes
+
+    upsert_workspace_routes(minimal_workspace, {"routes": [route]})
+    l3.approve_crystal(cid, root=minimal_workspace)
+    with pytest.raises(ValueError, match="not in shadow"):
+        l3.promote_crystal(cid, root=minimal_workspace)
+
+    route["shadow_until"] = "2099-01-01T00:00:00+00:00"
+    upsert_workspace_routes(minimal_workspace, {"routes": [route]})
+    l3.draft_path(minimal_workspace, cid).unlink()
+    with pytest.raises(ValueError, match="draft script missing"):
+        l3.promote_crystal(cid, root=minimal_workspace)
+
+
+@allure.story("Crystallize")
+@allure.title("crystal_status reports manifest_error when trust verification blows up")
+def test_crystal_status_manifest_error(
+    minimal_workspace: Path, crystal_home: Path, no_cheap_llm: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import greedy_token.crystallize_l3 as l3
+    from greedy_token.crystal_ids import crystal_id_for_pattern
+    from greedy_token.trust import TrustError, approve_script
+
+    cid = crystal_id_for_pattern("summarize weekly spend report table")
+    l3.draft_crystal(cid, root=minimal_workspace)
+    approve_script(minimal_workspace, f".greedy-token/drafts/{cid}.py")
+
+    def _boom(root, **kw):
+        raise TrustError("manifest exploded")
+
+    monkeypatch.setattr(l3, "verify_trust_manifest", _boom)
+    status = l3.crystal_status(cid, root=minimal_workspace)
+    assert status["trust"]["approved"] is True
+    assert status["trust"]["check"] == "manifest_error"
+
+
+@allure.story("Hub crystallize")
+@allure.title("default_actor: env override, USER/LOGNAME fallback, getpass last resort")
+def test_default_actor_fallbacks(monkeypatch: pytest.MonkeyPatch) -> None:
+    import getpass
+
+    from greedy_token.hub.crystallize import default_actor
+
+    monkeypatch.setenv("GREEDY_TOKEN_ACTOR", "ci-bot")
+    assert default_actor() == "ci-bot"
+
+    monkeypatch.delenv("GREEDY_TOKEN_ACTOR")
+    monkeypatch.delenv("USER", raising=False)
+    monkeypatch.setenv("LOGNAME", "log-name")
+    assert default_actor() == "log-name"
+
+    for var in ("USER", "LOGNAME", "USERNAME"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setattr(getpass, "getuser", lambda: "getpass-user")
+    assert default_actor() == "getpass-user"
+
+    def _boom():
+        raise KeyError("no pwd")
+
+    monkeypatch.setattr(getpass, "getuser", _boom)
+    assert default_actor() == "local-cli"
+
+
+@allure.story("Hub crystallize")
+@allure.title("rank_candidates dedups llm task hits by operation_id")
+def test_rank_candidates_llm_op_dedup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import json as _json
+    from datetime import UTC, datetime
+
+    from greedy_token.hub.crystallize import rank_candidates
+
+    log = tmp_path / "usage.jsonl"
+    monkeypatch.setenv("GREEDY_TOKEN_LOG", str(log))
+    ts = datetime.now(UTC).isoformat()
+
+    def _hit(op_id: str) -> dict:
+        return {
+            "ts": ts,
+            "selected_tier": "cursor",
+            "task": "triage flaky e2e failures",
+            "operation_id": op_id,
+        }
+
+    rows = [_hit("op-1"), _hit("op-1"), _hit("op-2")]
+    log.write_text("".join(_json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+
+    report = rank_candidates(since=None)
+    cand = next(c for c in report["candidates"] if "triage" in c["pattern"])
+    assert cand["hits"] == 2
+
+
+@allure.story("Pipeline")
+@allure.title("Auto-run route step without a command refuses cleanly")
+def test_pipeline_route_step_without_command(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import greedy_token.pipeline as pipeline
+    from greedy_token.paths import upsert_workspace_routes
+
+    upsert_workspace_routes(
+        minimal_workspace,
+        {
+            "routes": [
+                {
+                    "id": "advisory-op",
+                    "target": "cursor",
+                    "read_only": True,
+                    "patterns": ["advisory"],
+                }
+            ]
+        },
+    )
+    monkeypatch.setattr(
+        pipeline, "PIPELINE_AUTO_RUN", pipeline.PIPELINE_AUTO_RUN | {"advisory-op"}
+    )
+    result = pipeline.run_pipeline("advisory-op", minimal_workspace, execute=True)
+    assert result.steps[0].ok is False
+    assert "no deterministic command" in result.steps[0].output
+
+
+@allure.story("Result contract")
+@allure.title("Canon JSON with a non-bool ok flag is invalid")
+def test_result_contract_non_bool_ok() -> None:
+    from greedy_token.result_contract import RESULT_INVALID, evaluate_script_result
+
+    assert evaluate_script_result('{"ok": "yes"}', 0) == RESULT_INVALID
+
+
+@allure.story("Settings")
+@allure.title("Cheap-llm model envs: CHEAP_LLM_MODEL wins over deprecated OLLAMA_MODEL")
+def test_settings_model_envs(monkeypatch: pytest.MonkeyPatch) -> None:
+    from greedy_token.settings import get_cheap_llm_settings
+
+    monkeypatch.setenv("OLLAMA_MODEL", "legacy-model:7b")
+    settings = get_cheap_llm_settings()
+    assert settings.model == "legacy-model:7b"
+    assert settings.source == "env"
+
+    monkeypatch.setenv("CHEAP_LLM_MODEL", "cheap-model:7b")
+    settings = get_cheap_llm_settings()
+    assert settings.model == "cheap-model:7b"
+    assert settings.source == "env"
+
+
+@allure.story("Subprocess safety")
+@allure.title("_workspace_script_path refuses symlink components and non-regular files")
+def test_workspace_script_path_refusals(tmp_path: Path) -> None:
+    from greedy_token.subprocess_safe import UnsafeCommandError, _workspace_script_path
+
+    real_dir = tmp_path / "real"
+    real_dir.mkdir()
+    (real_dir / "x.py").write_text("print(1)\n", encoding="utf-8")
+    (tmp_path / "link").symlink_to(real_dir)
+    with pytest.raises(UnsafeCommandError, match="symlink"):
+        _workspace_script_path("link/x.py", tmp_path)
+
+    (tmp_path / "scripts").mkdir(exist_ok=True)
+    (tmp_path / "scripts" / "dir.py").mkdir()
+    with pytest.raises(UnsafeCommandError, match="not a regular file"):
+        _workspace_script_path("scripts/dir.py", tmp_path)
+
+
+@allure.story("Trust")
+@allure.title("verify_trust_manifest maps a mid-verify manifest failure to a failed check")
+def test_verify_manifest_replaced_mid_verify(
+    minimal_workspace: Path, crystal_home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import greedy_token.trust as trust
+    from greedy_token.trust import TrustManifestError, approve_script
+
+    _mkscript(minimal_workspace, "scripts/git-recent.py", "print(1)\n")
+    approve_script(minimal_workspace, "scripts/git-recent.py")
+
+    # The manifest is read once for the loop and again inside verify_script;
+    # a swap between the two reads must degrade to a failed check, not blow up.
+    real_read = trust._read_entries
+    calls = {"n": 0}
+
+    def _flaky(root: Path):
+        calls["n"] += 1
+        if calls["n"] > 1:
+            raise TrustManifestError("manifest replaced mid-verify")
+        return real_read(root)
+
+    monkeypatch.setattr(trust, "_read_entries", _flaky)
+    checks = trust.verify_trust_manifest(minimal_workspace)
+    assert len(checks) == 1
+    assert checks[0].ok is False
+    assert "manifest replaced mid-verify" in checks[0].error
+
+
+@allure.story("MCP surface")
+@allure.title("greedy_token_crystallize wraps approve failures with the action prefix")
+def test_mcp_crystallize_approve_failure(
+    minimal_workspace: Path, crystal_home: Path, no_cheap_llm: None
+) -> None:
+    from greedy_token import mcp
+
+    with pytest.raises(ValueError, match="crystallize approve:"):
+        mcp.greedy_token_crystallize("approve", "python-never-drafted-op")
+
+
+@allure.story("Trust")
+@allure.title("_trust_home falls back to ~/.greedy-token without GREEDY_TOKEN_HOME")
+def test_trust_home_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from greedy_token.trust import _trust_home
+
+    monkeypatch.delenv("GREEDY_TOKEN_HOME", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    assert _trust_home() == tmp_path / ".greedy-token"
+
+
+@allure.story("Capabilities")
+@allure.title("Audit-only lifecycle stages leave the route lifecycle_state empty")
+def test_route_capability_audit_only_lifecycle(
+    minimal_workspace: Path, crystal_home: Path
+) -> None:
+    from greedy_token.capabilities import collect_capabilities
+    from greedy_token.hub.crystallize import append_lifecycle_event
+
+    # "smoke" is an audit-only stage — it derives state "unknown", which the
+    # route view normalizes back to "not a crystal".
+    append_lifecycle_event(
+        stage="smoke",
+        crystal_id="python-meta-sync-check",
+        pattern="meta sync check",
+        hits=1,
+        status="ok",
+    )
+    ops = {op.id: op for op in collect_capabilities(minimal_workspace).ops}
+    assert ops["python-meta-sync-check"].lifecycle_state == ""
+
+
+@allure.story("Capabilities")
+@allure.title("Tool route for a non-rg/jq binary reports a fixed-argv internal builder")
+def test_tool_route_other_tool(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import greedy_token.capabilities as caps
+    from greedy_token.paths import upsert_workspace_routes
+
+    upsert_workspace_routes(
+        minimal_workspace,
+        {
+            "routes": [
+                {
+                    "id": "tool-fd-find",
+                    "target": "tool",
+                    "tool": "fd",
+                    "read_only": True,
+                    "patterns": ["fd find"],
+                }
+            ]
+        },
+    )
+    # resolve_tool only knows rg/jq today; simulate a future supported tool so
+    # the generic-else branch of the reason builder is exercised.
+    monkeypatch.setattr(caps, "resolve_tool", lambda tool: Path("/bin/echo"))
+    ops = {op.id: op for op in caps.collect_capabilities(minimal_workspace).ops}
+    cap = ops["tool-fd-find"]
+    assert cap.readiness == "ready"
+    assert cap.params == ()
+    assert "internal fd argv builder" in cap.reason
+    assert "fixed argv — no parameters" in cap.reason
+
+
+@allure.story("CLI surface")
+@allure.title("cmd_crystallize_status text output skips the pattern line when empty")
+def test_cmd_crystallize_status_unknown_text(
+    minimal_workspace: Path, crystal_home: Path, capsys
+) -> None:
+    import greedy_token.cli as cli
+
+    assert (
+        cli.cmd_crystallize_status(_ns(crystal_id="python-never-seen-op")) == 0
+    )
+    out = capsys.readouterr().out
+    assert "state: unknown" in out
+    assert "pattern:" not in out
