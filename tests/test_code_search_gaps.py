@@ -110,9 +110,9 @@ def test_resolve_detail_reason_strings(tmp_path: Path, monkeypatch: pytest.Monke
                 raise OSError("boom")
             return orig_is_file(self)
 
-        monkeypatch.setattr(Path, "is_file", boom_is_file)
-        assert cs.resolve_search_path_detail("/abs/boom-isfile", root).reason == "not_found"
-        monkeypatch.undo()
+        with monkeypatch.context() as m:
+            m.setattr(Path, "is_file", boom_is_file)
+            assert cs.resolve_search_path_detail("/abs/boom-isfile", root).reason == "not_found"
 
     with allure.step("absolute resolve() raising OSError → reason 'not_found'"):
         real = root / "real-abs.txt"
@@ -840,12 +840,12 @@ def test_search_code_file_rg_empty_miss_no_python_file(
 @allure.title("search_code: no-match final return engine is 'rg' when rg present, 'python' otherwise")
 def test_search_code_no_match_engine(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     with allure.step("rg present, nothing found anywhere → engine 'rg' + 'No matches' text"):
-        monkeypatch.setattr(cs, "resolve_rg", lambda: "rg")
-        monkeypatch.setattr(cs, "_run_rg", lambda argv, *, cwd: (1, ""))
-        r = cs.search_code("ZZZ-NOMATCH-QUERY", minimal_workspace, path=None, context="none")
-        assert r.engine == "rg"
-        assert r.text.startswith("No matches for")
-        monkeypatch.undo()
+        with monkeypatch.context() as m:
+            m.setattr(cs, "resolve_rg", lambda: "rg")
+            m.setattr(cs, "_run_rg", lambda argv, *, cwd: (1, ""))
+            r = cs.search_code("ZZZ-NOMATCH-QUERY", minimal_workspace, path=None, context="none")
+            assert r.engine == "rg"
+            assert r.text.startswith("No matches for")
     with allure.step("rg absent, nothing found → engine 'python'"):
         monkeypatch.setattr(cs, "resolve_rg", lambda: None)
         r2 = cs.search_code("ZZZ-NOMATCH-QUERY", minimal_workspace, path=None, context="none")

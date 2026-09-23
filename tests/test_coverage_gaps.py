@@ -1636,14 +1636,14 @@ def test_probe_script_route_edges(
     }
 
     with allure.step("plan_run raises → unknown readiness"):
-        monkeypatch.setattr(
-            caps,
-            "plan_run",
-            lambda *a, **k: (_ for _ in ()).throw(UnsafeCommandError("boom")),
-        )
-        readiness, reason, *_ = _probe_script_route(route, minimal_workspace, {})
-        assert readiness == "unknown" and reason == "boom"
-        monkeypatch.undo()
+        with monkeypatch.context() as m:
+            m.setattr(
+                caps,
+                "plan_run",
+                lambda *a, **k: (_ for _ in ()).throw(UnsafeCommandError("boom")),
+            )
+            readiness, reason, *_ = _probe_script_route(route, minimal_workspace, {})
+            assert readiness == "unknown" and reason == "boom"
 
     with allure.step("manifest-authorized but entry missing from checks → unknown"):
         _mkscript(minimal_workspace, "scripts/x.py", "print('{\"ok\": true}')\n")

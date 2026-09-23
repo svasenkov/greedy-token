@@ -253,6 +253,16 @@ def _isolate_session_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setenv("GREEDY_TOKEN_SESSION_FILE", str(tmp_path / "session"))
 
 
+@allure.title("Isolate trust home from the developer HOME")
+@pytest.fixture(autouse=True)
+def _isolate_trust_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Default GREEDY_TOKEN_HOME to a per-test temp dir so approve_script and
+    other trust/lifecycle writers never touch the real ~/.greedy-token/.
+    Tests that need a specific home (crystal_home) set the var themselves;
+    tests that exercise the fallback delenv it and fake HOME instead."""
+    monkeypatch.setenv("GREEDY_TOKEN_HOME", str(tmp_path / "gt-home"))
+
+
 @pytest.hookimpl(tryfirst=True)
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     """Auto-mark tests with pyramid layer for pytest -m and CI matrix slices."""

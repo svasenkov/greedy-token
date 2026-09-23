@@ -430,10 +430,10 @@ def test_fallback_for_tier_exact(
             seen["root"] = root
             return orig_est(target, task=task, root=root)
 
-        monkeypatch.setattr(router, "_token_estimate_for_route", spy)
-        _fallback_for_tier("cursor", "task", minimal_workspace, {})
-        assert seen["root"] == minimal_workspace
-        monkeypatch.undo()
+        with monkeypatch.context() as m:
+            m.setattr(router, "_token_estimate_for_route", spy)
+            _fallback_for_tier("cursor", "task", minimal_workspace, {})
+            assert seen["root"] == minimal_workspace
 
     with allure.step("cursor tier → cursor-fallback id, 0.35 confidence, first message line"):
         cfg = {"cursor_fallback": {"message": "Open a chat.\nsecond line"}}
