@@ -1,0 +1,1 @@
+{"id":"736e4ee24484cb4acf085ba96366cf30","fullName":"tests.test_capabilities#test_invoke_empty_wrapper_output_claims_nothing","name":"Silent shell wrapper invoke: bypassed/output_empty — saved=0, honest output","status":"passed","testResultsByEnv":{"default":"52d2b183bc30fe815c57de9d4c303acf"}}

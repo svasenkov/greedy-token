@@ -1,0 +1,1 @@
+{"id":"1cecd00cd7029c359416822f877991c7","fullName":"tests.test_capabilities#test_cli_show","name":"capabilities show inspects one op; unknown id exits 2","status":"passed","testResultsByEnv":{"default":"7f43f868e940125bb8776a7e662c3bca"}}

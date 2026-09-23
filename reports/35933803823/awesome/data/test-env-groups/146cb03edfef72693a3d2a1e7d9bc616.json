@@ -1,0 +1,1 @@
+{"id":"146cb03edfef72693a3d2a1e7d9bc616","fullName":"tests.test_code_search_gaps#test_search_code_workspace_query_is_not_an_option","name":"search_code: '--' ends rg option parsing — query stays a literal pattern","status":"passed","testResultsByEnv":{"default":"51496466b349ba52b116e7c4db00d771"}}

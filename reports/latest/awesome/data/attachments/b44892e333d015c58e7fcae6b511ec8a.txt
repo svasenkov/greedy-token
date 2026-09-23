@@ -1,0 +1,6 @@
+Merged 1 route(s) into /tmp/pytest-of-runner/pytest-0/test_cmd_init_preset_path_and_0/ws/.greedy-token.yaml:
+  - team-file
+Verify: greedy-token route "<task>"
+Merged 1 route(s) into /tmp/pytest-of-runner/pytest-0/test_cmd_init_preset_path_and_0/ws/.greedy-token.yaml:
+  - team-url
+Verify: greedy-token route "<task>"

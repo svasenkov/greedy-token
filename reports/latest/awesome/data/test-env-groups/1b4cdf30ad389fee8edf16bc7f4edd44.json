@@ -1,0 +1,1 @@
+{"id":"1b4cdf30ad389fee8edf16bc7f4edd44","fullName":"tests.test_crystallize_lifecycle#test_draft_refuses_when_applied","name":"draft on an applied crystal is refused — no silent demotion to shadow","status":"passed","testResultsByEnv":{"default":"4ea2c64a5b9110fd5ecca1e0e07b81df"}}

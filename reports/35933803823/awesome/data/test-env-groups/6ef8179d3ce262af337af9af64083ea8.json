@@ -1,0 +1,1 @@
+{"id":"6ef8179d3ce262af337af9af64083ea8","fullName":"tests.test_usage#test_refused_event_contract","name":"Refused execution (planned, not started) claims no execution or savings","status":"passed","testResultsByEnv":{"default":"cf5803ec12043885c090f7d6edf9e3e8"}}

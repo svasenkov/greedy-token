@@ -1,0 +1,1 @@
+{"id":"9415a6763765ec0526b4dd2749e79340","fullName":"tests.test_crystallize_lifecycle#test_promote_requires_sha_pin","name":"promote refuses an approval that carries no sha256 pin","status":"passed","testResultsByEnv":{"default":"e70c913245de10a356fb4b0942a1fbe6"}}

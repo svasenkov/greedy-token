@@ -1,0 +1,1 @@
+{"id":"245c4a2f1ef0f04ee2fd941eaced771b","fullName":"tests.test_mcp_stdio#test_mcp_stdio_capabilities_lists_ops","name":"MCP stdio capabilities returns the derived op view as JSON","status":"passed","testResultsByEnv":{"default":"f2be2b14c3438094efc929972d0be12e"}}

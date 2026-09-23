@@ -1,0 +1,1 @@
+{"id":"45d20ecf163221891f79348d32d1dfad","fullName":"tests.test_coverage_gaps#test_invoke_capability_refusal_edges","name":"invoke_capability refusals: quoted query, stray query, unsafe wrapper args","status":"passed","testResultsByEnv":{"default":"a8b9d6dc7af44228d21ea0d7bd5e0cf1"}}

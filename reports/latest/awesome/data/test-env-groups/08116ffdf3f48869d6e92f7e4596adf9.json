@@ -1,0 +1,1 @@
+{"id":"08116ffdf3f48869d6e92f7e4596adf9","fullName":"tests.test_prompt_compress#test_compress_ollama_metered_denied_no_http","name":"compress_ollama_detail goes through the spend guard — metered denial makes no provider call","status":"passed","testResultsByEnv":{"default":"4e6fae1f4c53bae91e2734e946d1efc8"}}

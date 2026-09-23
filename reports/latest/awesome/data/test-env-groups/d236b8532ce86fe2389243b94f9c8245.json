@@ -1,0 +1,1 @@
+{"id":"d236b8532ce86fe2389243b94f9c8245","fullName":"tests.test_crystallize_lifecycle#test_approve_default_actor","name":"approve defaults actor to the local user when --by is empty","status":"passed","testResultsByEnv":{"default":"031241751ae8437826b99ab1f1ed3a0e"}}

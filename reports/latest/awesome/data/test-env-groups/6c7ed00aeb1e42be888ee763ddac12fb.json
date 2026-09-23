@@ -1,0 +1,1 @@
+{"id":"6c7ed00aeb1e42be888ee763ddac12fb","fullName":"tests.test_trust#test_fd_bound_python_preserves_import_context","name":"Approved Python script keeps sibling imports, __file__, and argv[0] under fd binding","status":"passed","testResultsByEnv":{"default":"5fac4eda3ea5685004954faabfc39141"}}

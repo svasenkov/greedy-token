@@ -1,0 +1,1 @@
+{"id":"21f9dd912d86901e82f01f1cfd8f60fb","fullName":"tests.test_capabilities#test_invoke_tool_op","name":"Tool op invoke builds argv from --query through the internal builder","status":"passed","testResultsByEnv":{"default":"3724c4930883a62015bfa47737502fa7"}}

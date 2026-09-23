@@ -1,0 +1,1 @@
+{"id":"ed021336c4a5867391927780e1fc395b","fullName":"tests.test_crystallize_lifecycle#test_promote_refuses_foreign_workspace_approval","name":"approval is workspace-bound: an approval from workspace A cannot apply in B","status":"passed","testResultsByEnv":{"default":"06fa291adb3458bd76f79dcfd1816e70"}}

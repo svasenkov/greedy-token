@@ -1,0 +1,1 @@
+{"id":"717357c86830ce94ea06f7634e7e5627","fullName":"tests.test_resource_probe_gaps#test_run_micro_benchmark_registry_metered_denied","name":"run_micro_benchmark: registry metered on loopback still needs opt-in","status":"passed","testResultsByEnv":{"default":"99408a224315c3fd50f27f7ab335bbec"}}

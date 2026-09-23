@@ -1,0 +1,1 @@
+{"id":"f5ba5514e1c48f52967286aff68997a1","fullName":"tests.test_llm_invoke_gaps#test_invoke_event_records_attempts","name":"logged invoke writes one event per completed call plus the operation outcome","status":"passed","testResultsByEnv":{"default":"dc1ca010e51ee3e1790978767265bda7"}}

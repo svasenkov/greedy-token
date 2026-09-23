@@ -1,0 +1,1 @@
+{"id":"a5215e3ed808c9f9215a5835d3925f2b","fullName":"tests.test_capabilities#test_invoke_write_and_advisory_refused","name":"Write and advisory ops are refused by policy, never executed","status":"passed","testResultsByEnv":{"default":"922a4eea7c80b19ae9f5a8ab4f501980"}}

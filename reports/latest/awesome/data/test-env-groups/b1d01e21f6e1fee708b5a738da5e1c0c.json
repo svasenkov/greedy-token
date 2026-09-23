@@ -1,0 +1,1 @@
+{"id":"b1d01e21f6e1fee708b5a738da5e1c0c","fullName":"tests.test_crystallize_lifecycle#test_approve_pins_sha_and_actor","name":"approve pins the reviewed draft sha256 and logs actor/reason","status":"passed","testResultsByEnv":{"default":"dda6874e86ae383168b362ca0203f56c"}}

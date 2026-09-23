@@ -1,0 +1,1 @@
+{"id":"3a489d8c3e009b908f15e11307b3f818","fullName":"tests.test_result_contract#test_last_line_canon_detection","name":"a canon JSON summary on the last line still binds the contract","status":"passed","testResultsByEnv":{"default":"b14260b86a0540b313b45c98e0cb7cf1"}}

@@ -1,0 +1,1 @@
+{"id":"c532eda7995c9db425283fe92c3e2c85","fullName":"tests.test_capabilities#test_cli_invoke","name":"capabilities invoke: ready op runs, unapproved op refuses nonzero","status":"passed","testResultsByEnv":{"default":"f68e644de772f84340b1984d435da5ad"}}

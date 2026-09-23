@@ -1,0 +1,1 @@
+{"id":"8d6f824dcbcc75402984e6eb8549a28d","fullName":"tests.test_coverage_gaps#test_mcp_crystallize_approve_failure","name":"greedy_token_crystallize wraps approve failures with the action prefix","status":"passed","testResultsByEnv":{"default":"b558c1356cef59c849728eb0c670ddd6"}}

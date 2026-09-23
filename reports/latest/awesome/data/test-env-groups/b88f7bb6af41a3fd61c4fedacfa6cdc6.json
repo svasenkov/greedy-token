@@ -1,0 +1,1 @@
+{"id":"b88f7bb6af41a3fd61c4fedacfa6cdc6","fullName":"tests.test_crystallize_lifecycle#test_promote_race_binds_only_pinned_bytes","name":"promote under a compare/apply race never binds bytes the approval did not pin","status":"passed","testResultsByEnv":{"default":"afcc770c7ad152a1e8666c069b5e509b"}}

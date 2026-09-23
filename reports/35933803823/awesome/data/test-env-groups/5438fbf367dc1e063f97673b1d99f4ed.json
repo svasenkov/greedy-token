@@ -1,0 +1,1 @@
+{"id":"5438fbf367dc1e063f97673b1d99f4ed","fullName":"tests.test_capabilities#test_invoke_not_approved_refuses","name":"Invoke of an unapproved op refuses: nothing starts, saved=0","status":"passed","testResultsByEnv":{"default":"4aece949fb37e0e0ebcdae2b5b5c5e2b"}}

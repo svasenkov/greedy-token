@@ -1,0 +1,1 @@
+{"id":"3144138f315944683e35b4f7181b6ba6","fullName":"tests.test_coverage_gaps#test_cmd_crystallize_status_unknown_text","name":"cmd_crystallize_status text output skips the pattern line when empty","status":"passed","testResultsByEnv":{"default":"f5482e3f0c698a81811cedd13944c035"}}

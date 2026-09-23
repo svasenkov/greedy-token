@@ -1,0 +1,1 @@
+{"id":"d1bd3e0b06d9fc41ceabe898ecf92a26","fullName":"tests.test_usage#test_outcome_event_correlation","name":"Outcome event carries operation_id/parent and zero usage fields","status":"passed","testResultsByEnv":{"default":"db3ca26395c57d403eef16c51fe20515"}}

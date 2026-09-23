@@ -1,0 +1,1 @@
+{"id":"5740cdced342a4c53b3c8f78e38fc967","fullName":"tests.test_result_gate#test_log_pipeline_gate_fields","name":"_log_pipeline records gate verdict: invalid → failure + exclusion","status":"passed","testResultsByEnv":{"default":"aae9958459cf2b52f8e10607d9c07396"}}

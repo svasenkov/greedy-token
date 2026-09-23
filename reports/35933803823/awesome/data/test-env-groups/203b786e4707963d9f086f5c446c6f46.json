@@ -1,0 +1,1 @@
+{"id":"203b786e4707963d9f086f5c446c6f46","fullName":"tests.test_capabilities#test_pipeline_route_step_refusal","name":"Route id outside PIPELINE_AUTO_RUN parses and refuses with reason","status":"passed","testResultsByEnv":{"default":"e426572cc39264fd44ae7867a19919c2"}}

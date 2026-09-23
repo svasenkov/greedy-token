@@ -1,0 +1,1 @@
+{"id":"0b59894f6dcdfe34ebae4900eaa5b8d7","fullName":"tests.test_coverage_gaps#test_invoke_capability_plan_refusal","name":"invoke_capability refuses when the second plan_run refuses","status":"passed","testResultsByEnv":{"default":"7fbd89d0c6670dfaadc0cbb0474cc021"}}

@@ -1,0 +1,1 @@
+{"id":"15cfa5ecd25c9f00dbf988105e8f3065","fullName":"tests.test_coverage_gaps#test_crystallize_promote_refusal_edges","name":"promote refusals: rejected, route gone, not shadow, draft missing; approve bad id","status":"passed","testResultsByEnv":{"default":"b660a55a5cebbb5410cd7d7a405f313f"}}

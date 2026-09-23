@@ -1,0 +1,1 @@
+{"id":"1acbdd5633f4504d1126fab82d3b7536","fullName":"tests.test_crystallize_lifecycle#test_derive_redraft_resets_approval","name":"re-draft after reject re-proposes and clears the old approval pin","status":"passed","testResultsByEnv":{"default":"90fda448510242c7491cfee5c031c521"}}

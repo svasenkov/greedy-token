@@ -1,0 +1,1 @@
+{"id":"cc0c3861bc802e996452c8895cfd0f56","fullName":"tests.test_coverage_gaps#test_settings_model_envs","name":"Cheap-llm model envs: CHEAP_LLM_MODEL wins over deprecated OLLAMA_MODEL","status":"passed","testResultsByEnv":{"default":"334c087824d7014fb92a78d0586fe8cb"}}

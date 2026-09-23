@@ -1,0 +1,1 @@
+{"id":"9c3630e22d83ce5a304600e8c6fcb210","fullName":"tests.test_capabilities#test_invoke_wrapper_route_preserves_fixed_args","name":"Wrapper-covered route keeps its fixed command args on invoke","status":"passed","testResultsByEnv":{"default":"0d6dd39ea578f0f91dbcfda843867980"}}

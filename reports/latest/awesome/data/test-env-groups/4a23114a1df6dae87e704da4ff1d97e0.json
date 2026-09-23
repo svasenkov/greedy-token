@@ -1,0 +1,1 @@
+{"id":"4a23114a1df6dae87e704da4ff1d97e0","fullName":"tests.test_mcp_stdio#test_mcp_stdio_invoke_ready_op","name":"MCP stdio invoke runs a ready op and logs the operation","status":"passed","testResultsByEnv":{"default":"4dabdaafcee30e032cae8a578aecd3e3"}}

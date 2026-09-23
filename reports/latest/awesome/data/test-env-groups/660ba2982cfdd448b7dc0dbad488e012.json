@@ -1,0 +1,1 @@
+{"id":"660ba2982cfdd448b7dc0dbad488e012","fullName":"tests.test_cli_handlers#test_cmd_pipeline_invalid_contract_exit_code","name":"cmd_pipeline returns non-zero when an executed step is gate-invalid","status":"passed","testResultsByEnv":{"default":"a4bcc0f1a1ef7eb70dfde1cecd45453a"}}

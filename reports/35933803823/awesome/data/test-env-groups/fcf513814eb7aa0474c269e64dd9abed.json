@@ -1,0 +1,1 @@
+{"id":"fcf513814eb7aa0474c269e64dd9abed","fullName":"tests.test_usage#test_script_event_zero_baseline_potential","name":"Script event with zero baseline omits the potential-savings field","status":"passed","testResultsByEnv":{"default":"6fda0f49f13b84adf546167beca7e2ba"}}

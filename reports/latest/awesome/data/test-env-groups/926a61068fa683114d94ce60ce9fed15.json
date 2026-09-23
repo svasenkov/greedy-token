@@ -1,0 +1,1 @@
+{"id":"926a61068fa683114d94ce60ce9fed15","fullName":"tests.test_trust#test_trusted_runner_in_process","name":"_trusted_runner executes fd bytes with restored sys.argv/__file__/sys.path context","status":"passed","testResultsByEnv":{"default":"3893b659e6ce6125c8a3a653a40b472e"}}

@@ -1,0 +1,1 @@
+{"id":"0c6bed33a51bf3cc0cd37840437cfd6f","fullName":"tests.test_capabilities#test_invoke_unknown_and_bad_params","name":"Unknown op id and undeclared params are caller errors (exit 2)","status":"passed","testResultsByEnv":{"default":"f1f280ee2191d22b99c737dfceeeabc2"}}

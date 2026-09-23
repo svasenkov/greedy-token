@@ -1,0 +1,1 @@
+{"id":"9eef305fc3573d0f9cf667b543f9dd29","fullName":"tests.test_result_gate#test_cmd_scripts_gate_invalid","name":"scripts --run records gate verdict: invalid claim → failure + exclusion","status":"passed","testResultsByEnv":{"default":"2742beef267bf2f44da90764706ce5ee"}}

@@ -1,0 +1,1 @@
+{"id":"3c51c6d5e2c10baf6f5cc83ff78e4813","fullName":"tests.test_cli_commands#test_cli_run_refusal_telemetry","name":"CLI run --execute refusal: phase=planned, authorized=false, failure outcome","status":"passed","testResultsByEnv":{"default":"920c35ebcf0af7580ca52c17ea59a81f"}}

@@ -1,0 +1,1 @@
+{"id":"cff64ffa480f7c08a4a17551643358ce","fullName":"tests.test_crystallize_lifecycle#test_reject_revokes_all_candidate_trust_paths","name":"reject revokes every trust path the candidate bound — incl. a repointed route","status":"passed","testResultsByEnv":{"default":"04e734eb0c7647bb5e44ee11caa85fb3"}}

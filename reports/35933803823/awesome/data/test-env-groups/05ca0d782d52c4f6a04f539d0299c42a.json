@@ -1,0 +1,1 @@
+{"id":"05ca0d782d52c4f6a04f539d0299c42a","fullName":"tests.test_result_gate#test_pipeline_all_ok_gate_semantics","name":"all_ok follows the gate: invalid fails even on clean exit","status":"passed","testResultsByEnv":{"default":"17060fd7fd764947334dcd2c2eec4134"}}

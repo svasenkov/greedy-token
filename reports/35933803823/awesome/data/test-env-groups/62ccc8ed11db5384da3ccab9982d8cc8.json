@@ -1,0 +1,1 @@
+{"id":"62ccc8ed11db5384da3ccab9982d8cc8","fullName":"tests.test_llm_invoke_gaps#test_invoke_no_completed_call_logged","name":"invoke with no completed call logs a planned refusal, not silence","status":"passed","testResultsByEnv":{"default":"055e09f8d42da5eac772b7114d51ab92"}}

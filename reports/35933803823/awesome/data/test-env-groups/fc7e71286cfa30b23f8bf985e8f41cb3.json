@@ -1,0 +1,1 @@
+{"id":"fc7e71286cfa30b23f8bf985e8f41cb3","fullName":"tests.test_crystallize_l3#test_generate_draft_code_metered_denied_no_http","name":"draft generation goes through the guarded invoke path — metered denial makes no provider call","status":"passed","testResultsByEnv":{"default":"4f53a04c34ed3a63e8ba69d4d9ab690f"}}

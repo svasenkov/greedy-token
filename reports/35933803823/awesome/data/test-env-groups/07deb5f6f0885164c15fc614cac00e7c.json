@@ -1,0 +1,1 @@
+{"id":"07deb5f6f0885164c15fc614cac00e7c","fullName":"tests.test_crystallize_lifecycle#test_reject_revokes_trust","name":"reject removes draft + route + trust entry and logs who/why","status":"passed","testResultsByEnv":{"default":"e1215fc6687c5bd67448d33b1f0ff9c6"}}

@@ -1,0 +1,1 @@
+{"id":"35222f3c10e6ea57a1cbcdc76bb89bbb","fullName":"tests.test_coverage_gaps#test_trust_home_default","name":"_trust_home falls back to ~/.greedy-token without GREEDY_TOKEN_HOME","status":"passed","testResultsByEnv":{"default":"766f582a73269594c1c4f9ee645d5db7"}}

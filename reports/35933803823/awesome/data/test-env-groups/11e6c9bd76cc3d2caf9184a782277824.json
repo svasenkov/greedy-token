@@ -1,0 +1,1 @@
+{"id":"11e6c9bd76cc3d2caf9184a782277824","fullName":"tests.test_crystallize_lifecycle#test_approve_refusals","name":"approve refuses: no proposal, applied, rejected, missing draft","status":"passed","testResultsByEnv":{"default":"620041ef622bdb02840bc042fcd66692"}}

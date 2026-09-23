@@ -1,0 +1,1 @@
+{"id":"ecce53d62011f09a57d2fca2e8d712fc","fullName":"tests.test_resource_probe_gaps#test_run_micro_benchmark_no_workspace_root","name":"run_micro_benchmark: no workspace root falls back to user config","status":"passed","testResultsByEnv":{"default":"9b51a5260e4f3ed95e4278b956e53a74"}}

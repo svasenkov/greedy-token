@@ -1,0 +1,1 @@
+{"id":"645c18f9d9a06bf0881434ccf71e2b81","fullName":"tests.test_cli_handlers#test_cmd_run_refusal_telemetry","name":"cmd_run --execute refusal logs planned event and failure outcome","status":"passed","testResultsByEnv":{"default":"7d726a3eca42fe3f779381c57dddc67c"}}

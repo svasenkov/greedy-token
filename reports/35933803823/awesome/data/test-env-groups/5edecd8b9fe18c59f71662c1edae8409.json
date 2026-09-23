@@ -1,0 +1,1 @@
+{"id":"5edecd8b9fe18c59f71662c1edae8409","fullName":"tests.test_capabilities#test_invoke_tool_op_query_is_not_an_option","name":"Invoke rg --query stays a literal pattern — '--' ends option parsing","status":"passed","testResultsByEnv":{"default":"265151f93699f00ff6303f66782d3dc3"}}

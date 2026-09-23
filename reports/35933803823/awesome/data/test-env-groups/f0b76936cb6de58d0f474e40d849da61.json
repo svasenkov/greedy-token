@@ -1,0 +1,1 @@
+{"id":"f0b76936cb6de58d0f474e40d849da61","fullName":"tests.test_capabilities#test_cli_capabilities_json","name":"capabilities --json emits parseable JSON with every derived op","status":"passed","testResultsByEnv":{"default":"4ce7140e5b864cd8ac881ff6ffdf1537"}}

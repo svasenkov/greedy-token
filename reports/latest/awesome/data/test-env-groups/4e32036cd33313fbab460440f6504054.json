@@ -1,0 +1,1 @@
+{"id":"4e32036cd33313fbab460440f6504054","fullName":"tests.test_llm_invoke_gaps#test_invoke_failed_chain_logs_cost","name":"failed escalation still logs the completed call's spend","status":"passed","testResultsByEnv":{"default":"4a19350d8b965c90b0a3d11a5395a6e1"}}

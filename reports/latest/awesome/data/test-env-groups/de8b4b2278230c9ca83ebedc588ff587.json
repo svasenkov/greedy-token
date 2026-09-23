@@ -1,0 +1,1 @@
+{"id":"de8b4b2278230c9ca83ebedc588ff587","fullName":"tests.test_resource_probe_gaps#test_run_micro_benchmark_remote_metered_denied","name":"run_micro_benchmark: remote endpoint is spend-guarded, fails closed","status":"passed","testResultsByEnv":{"default":"29ceb729bc357b773037efd715e1f1a9"}}

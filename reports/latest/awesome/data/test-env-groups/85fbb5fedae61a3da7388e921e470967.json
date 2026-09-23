@@ -1,0 +1,1 @@
+{"id":"85fbb5fedae61a3da7388e921e470967","fullName":"tests.test_capabilities#test_invoke_ready_op","name":"Invoke of a ready op runs the guarded path and logs one operation","status":"passed","testResultsByEnv":{"default":"fe41049a5fee10527b9bba0b3a13e00e"}}

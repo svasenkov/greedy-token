@@ -1,0 +1,1 @@
+{"id":"0dfb8b92eaf93790dd8e52dc8010bf75","fullName":"tests.test_prompt_compress#test_compress_ollama_metered_logged","name":"compress_ollama_detail logs the metered call — spend visible in usage","status":"passed","testResultsByEnv":{"default":"027aee7052c301a25db33515025e6c5c"}}

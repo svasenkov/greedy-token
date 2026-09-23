@@ -1,0 +1,1 @@
+{"id":"3dbb9da2e37e4f47e8d437fcfc0a9c46","fullName":"tests.test_trust#test_cmd_trust_verify_codes_and_inert","name":"CLI trust verify prints refusal codes and does not fail on inert stale entries","status":"passed","testResultsByEnv":{"default":"a08f40e1b594f68e5786400e7057a7bd"}}

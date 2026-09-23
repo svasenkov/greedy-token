@@ -1,0 +1,1 @@
+{"id":"510ae2712e146a5482bbee30b6b3d745","fullName":"tests.test_code_search_gaps#test_search_code_file_query_is_not_an_option","name":"search_code: file-scoped rg argv keeps '--' before the literal pattern","status":"passed","testResultsByEnv":{"default":"606f8e053cfbb85d11adb289ccfbf994"}}

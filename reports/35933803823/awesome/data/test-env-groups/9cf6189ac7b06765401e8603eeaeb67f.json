@@ -1,0 +1,1 @@
+{"id":"9cf6189ac7b06765401e8603eeaeb67f","fullName":"tests.test_resource_probe_gaps#test_run_micro_benchmark_registry_metered_logged","name":"run_micro_benchmark: metered opt-in goes through the guarded invoke path","status":"passed","testResultsByEnv":{"default":"4f21324db813c2b27f95631f2b8ca199"}}

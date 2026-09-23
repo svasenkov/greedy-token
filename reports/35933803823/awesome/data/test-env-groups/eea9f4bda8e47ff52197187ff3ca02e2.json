@@ -1,0 +1,1 @@
+{"id":"eea9f4bda8e47ff52197187ff3ca02e2","fullName":"tests.test_trust#test_execute_plan_refusal_codes","name":"execute_plan refusals carry the refusal code and never reach subprocess","status":"passed","testResultsByEnv":{"default":"8586ca2cda667d901aa2659d76928079"}}

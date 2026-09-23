@@ -1,0 +1,1 @@
+{"id":"3650a233588d5465e419cdfbc689b78c","fullName":"tests.test_result_gate#test_task_result_gate_silent_run","name":"task_result_gate: a silent non-tool run is output_empty, not a success","status":"passed","testResultsByEnv":{"default":"f336cd21824b16eb54917a32b2c6757e"}}

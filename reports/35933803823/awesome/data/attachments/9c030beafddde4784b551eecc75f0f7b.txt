@@ -1,0 +1,34 @@
+audit-context
+budget
+calibrate
+capabilities invoke
+capabilities list
+capabilities show
+compress
+config
+crystallize approve
+crystallize candidates
+crystallize draft
+crystallize promote
+crystallize propose
+crystallize reject
+crystallize status
+doctor
+estimate
+hub serve
+init
+llm invoke
+llm list
+override
+pipeline
+rag
+report
+route
+run
+scripts
+tokens
+trust add
+trust list
+trust revoke
+trust verify
+watch

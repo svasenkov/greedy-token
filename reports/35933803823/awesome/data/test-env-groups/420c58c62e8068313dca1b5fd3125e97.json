@@ -1,0 +1,1 @@
+{"id":"420c58c62e8068313dca1b5fd3125e97","fullName":"tests.test_cli_commands#test_cli_pipeline_empty_rag_telemetry","name":"CLI pipeline empty rag result: failure outcome, zero savings, correlated ids","status":"passed","testResultsByEnv":{"default":"6e0ffeec6d976debc7adc8a55418c3f9"}}
