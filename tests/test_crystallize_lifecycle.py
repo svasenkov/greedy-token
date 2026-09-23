@@ -26,7 +26,11 @@ from greedy_token.hub.crystallize import (
     load_lifecycle_events,
 )
 from greedy_token.paths import upsert_workspace_routes, workspace_config_routes
-from greedy_token.trust import trusted_manifest_paths, verify_trust_manifest
+from greedy_token.trust import (
+    approve_script,
+    trusted_manifest_paths,
+    verify_trust_manifest,
+)
 from tests.allure_reporting import attach_text
 
 pytestmark = [
@@ -511,6 +515,26 @@ def test_crystal_status_unknown(minimal_workspace: Path, crystal_home: Path) -> 
     status = l3.crystal_status("python-no-such-op", root=minimal_workspace)
     assert status["state"] == "unknown"
     assert "candidates" in status["next"]
+
+
+@allure.story("Status")
+@allure.title("crystal_status resolves routes_file + trust facts for non-crystal route ids")
+def test_crystal_status_non_crystal_route(
+    minimal_workspace: Path, crystal_home: Path
+) -> None:
+    # python-meta-sync-check lives in workspace-routes.yaml (routes_file), not
+    # inline in .greedy-token.yaml — status must still see it.
+    status = l3.crystal_status("python-meta-sync-check", root=minimal_workspace)
+    assert status["route"]["present"] is True
+    assert status["route"]["status"] == "active"
+    assert status["trust"]["approved"] is False
+
+    approve_script(minimal_workspace, "scripts/meta-sync-check.py")
+    status = l3.crystal_status("python-meta-sync-check", root=minimal_workspace)
+    attach_text("status-routes_file-trusted", json.dumps(status))
+    assert status["route"]["present"] is True
+    assert status["trust"]["approved"] is True
+    assert status["trust"]["check"] == "ok"
 
 
 @allure.story("Candidates")

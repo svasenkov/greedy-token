@@ -39,6 +39,7 @@ from greedy_token.hub.crystallize import (
 )
 from greedy_token.paths import (
     WORKSPACE_CONFIG_NAME,
+    load_routes_config,
     remove_workspace_route,
     upsert_workspace_routes,
     workspace_config_routes,
@@ -328,6 +329,19 @@ def _workspace_route(root: Path, crystal_id: str) -> dict | None:
     return None
 
 
+def _merged_route(root: Path, crystal_id: str) -> dict | None:
+    """Route id resolved against bundled + workspace overlay (routes_file too).
+
+    Crystal drafts are inline workspace routes, but the same id may already
+    exist as a regular route living in ``routes_file`` or the bundled config —
+    status should report that reality instead of ``route: none``.
+    """
+    for route in load_routes_config(root).get("routes") or []:
+        if isinstance(route, dict) and route.get("id") == crystal_id:
+            return route
+    return None
+
+
 def approve_crystal(
     crystal_id: str,
     *,
@@ -611,7 +625,11 @@ def crystal_status(crystal_id: str, *, root: Path) -> dict:
     path = draft_path(root, crystal_id)
     draft_exists = path.is_file()
     route = _workspace_route(root, crystal_id)
-    rel = (DRAFTS_DIR / f"{crystal_id}.py").as_posix()
+    if route is None:
+        route = _merged_route(root, crystal_id)
+    rel = extract_script_path(str((route or {}).get("command") or "")) or (
+        DRAFTS_DIR / f"{crystal_id}.py"
+    ).as_posix()
     trusted = rel in trusted_manifest_paths(root)
     trust_check = ""
     if trusted:
