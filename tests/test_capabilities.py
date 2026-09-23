@@ -459,6 +459,75 @@ def test_invoke_tool_op(
     assert result.tier == "tool"
 
 
+@allure.story("Invoke")
+@allure.title("Invoke rg --query stays a literal pattern — '--' ends option parsing")
+def test_invoke_tool_op_query_is_not_an_option(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _fake_rg(
+        minimal_workspace,
+        monkeypatch,
+        "#!/bin/sh\nprintf '%s\\n' \"$@\"\n",
+    )
+
+    result = invoke_capability(
+        minimal_workspace, "tool-rg-search", query="--version"
+    )
+    assert result.executed is True
+    echoed = result.output.splitlines()
+    with allure.step("argv: options … --max-count N -- <pattern> <paths…>"):
+        sep = echoed.index("--")
+        assert echoed[sep + 1] == "--version"  # the pattern, not rg --version
+        assert echoed[sep + 2 :] == ["projects", "docs", "scripts", "generators"]
+
+
+@allure.story("Invoke")
+@allure.title("Unmatched quote in --args is a structured invalid_params refusal")
+def test_invoke_wrapper_malformed_args_invalid_params(
+    minimal_workspace: Path,
+) -> None:
+    result = invoke_capability(minimal_workspace, "classify-file", args="'")
+    assert result.executed is False
+    assert result.exit_code == 2
+    assert result.refusal_code == REFUSAL_INVALID_PARAMS
+    assert "cannot parse --args" in result.refusal_reason
+
+
+@allure.story("Invoke")
+@allure.title("Wrapper-covered route keeps its fixed command args on invoke")
+def test_invoke_wrapper_route_preserves_fixed_args(
+    minimal_workspace: Path,
+) -> None:
+    _script(
+        minimal_workspace,
+        "scripts/meta-sync-check.py",
+        "import json, sys\n"
+        "print(json.dumps({'ok': True, 'args': sys.argv[1:]}))\n",
+    )
+    overlay = minimal_workspace / "workspace-routes.yaml"
+    data = yaml.safe_load(overlay.read_text(encoding="utf-8"))
+    data["routes"].append(
+        {
+            "id": "python-meta-sync-args",
+            "target": "python",
+            "read_only": True,
+            "patterns": ["meta sync args"],
+            "command": "python scripts/meta-sync-check.py --audit-fixed-arg",
+        }
+    )
+    overlay.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+
+    cap = _ops(collect_capabilities(minimal_workspace))["python-meta-sync-args"]
+    with allure.step("advertised argv already carries the fixed arg"):
+        assert cap.readiness == READY
+        assert cap.invocable
+        assert "--audit-fixed-arg" in cap.argv
+    result = invoke_capability(minimal_workspace, "python-meta-sync-args")
+    with allure.step("the executed argv matches the advertised contract"):
+        assert result.executed is True
+        assert json.loads(result.output)["args"] == ["--audit-fixed-arg"]
+
+
 @allure.story("Pipeline")
 @allure.title("Route id outside PIPELINE_AUTO_RUN parses and refuses with reason")
 def test_pipeline_route_step_refusal(minimal_workspace: Path) -> None:

@@ -35,6 +35,7 @@ from greedy_token.tool_paths import resolve_jq, resolve_rg
 from greedy_token.wrappers import (
     ollama_available,
     resolve_wrapper_invocation,
+    wrapper_command_fixed_args,
     wrapper_for_command,
 )
 
@@ -404,11 +405,12 @@ def _build_tool_argv(route: dict, task: str, root: Path) -> tuple[str, ...]:
         "--max-columns",
         "200",
         "-F",
-        query,
     ]
     for glob in globs:
         argv.extend(("-g", str(glob)))
-    argv.extend(("--max-count", str(max_count), *search_paths))
+    # "--" ends rg option parsing: the user query is a positional pattern and
+    # must stay literal even when it looks like a flag ("--version", "-l").
+    argv.extend(("--max-count", str(max_count), "--", query, *search_paths))
     return tuple(argv)
 
 
@@ -515,7 +517,16 @@ def _decision_from_route(
         wrapper = wrapper_for_command(command)
         try:
             if wrapper is not None:
-                invocation = resolve_wrapper_invocation(wrapper.id, root)
+                _parsed_cwd, parsed_argv = command_to_argv(
+                    command,
+                    default_cwd=root,
+                    workspace_root=root,
+                )
+                invocation = resolve_wrapper_invocation(
+                    wrapper.id,
+                    root,
+                    extra_args=wrapper_command_fixed_args(parsed_argv),
+                )
                 command_argv = invocation.argv
                 command_cwd = invocation.cwd
             else:

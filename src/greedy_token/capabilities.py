@@ -847,14 +847,26 @@ def invoke_capability(
             read_only=cap.read_only,
             exit_code=2,
         )
-    if args.strip() and "args" not in cap.params:
-        return refused(
-            REFUSAL_INVALID_PARAMS,
-            f"{op_id} has a fixed argv contract — no extra args accepted",
-            tier=cap.tier,
-            read_only=cap.read_only,
-            exit_code=2,
-        )
+    extra_args: tuple[str, ...] = ()
+    if args.strip():
+        if "args" not in cap.params:
+            return refused(
+                REFUSAL_INVALID_PARAMS,
+                f"{op_id} has a fixed argv contract — no extra args accepted",
+                tier=cap.tier,
+                read_only=cap.read_only,
+                exit_code=2,
+            )
+        try:
+            extra_args = tuple(shlex.split(args))
+        except ValueError as exc:
+            return refused(
+                REFUSAL_INVALID_PARAMS,
+                f"cannot parse --args: {exc}",
+                tier=cap.tier,
+                read_only=cap.read_only,
+                exit_code=2,
+            )
 
     task = _query_task(query.strip()) if cap.params == ("query",) else f"invoke {op_id}"
     decision = _decision_for_op(cap, task=task, root=root)
@@ -862,7 +874,7 @@ def invoke_capability(
     if cap.source == "wrapper":
         try:
             invocation = resolve_wrapper_invocation(
-                cap.id, root, extra_args=tuple(shlex.split(args)) if args.strip() else ()
+                cap.id, root, extra_args=extra_args
             )
         except (FileNotFoundError, UnsafeCommandError, OSError) as exc:
             return refused(

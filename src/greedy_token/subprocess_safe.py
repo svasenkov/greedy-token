@@ -379,9 +379,14 @@ def trusted_tool_invocation(
     else:
         try:
             marker = args.index("--max-count")
-            path_values = args[marker + 2 :]
+            tail = args[marker + 2 :]
         except (ValueError, IndexError) as exc:
             raise UnsafeCommandError("malformed ripgrep argv") from exc
+        # The internal builder separates options from operands with "--": the
+        # first operand is the search pattern — not a path — so only the
+        # trailing tokens are confinement-checked.  Legacy argv without "--"
+        # keeps every token under the same check.
+        path_values = tail[2:] if tail[:1] == ("--",) else tail
     if not path_values:
         raise UnsafeCommandError(f"{expected} invocation has no workspace path")
     for value in path_values:

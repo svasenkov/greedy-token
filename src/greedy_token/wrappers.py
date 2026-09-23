@@ -130,6 +130,18 @@ def wrapper_for_command(command: str | None) -> ScriptWrapper | None:
     )
 
 
+def wrapper_command_fixed_args(argv: Iterable[str]) -> tuple[str, ...]:
+    """Args after the script token of a wrapper-matching command argv.
+
+    A route command like ``python scripts/x.py --flag`` carries ``--flag`` as
+    part of its fixed contract — these args stay ahead of any caller-supplied
+    extra args when the invocation is resolved through the wrapper.
+    """
+    parts = [str(arg) for arg in argv]
+    skip = 2 if parts and is_python_executable(parts[0]) else 1
+    return tuple(parts[skip:])
+
+
 def resolve_wrapper_invocation(
     wrapper_id: str,
     root: Path,

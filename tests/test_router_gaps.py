@@ -209,9 +209,10 @@ def test_build_tool_command_rg_exact(minimal_workspace: Path) -> None:
 
     with allure.step("Default route → default globs / generic '.' search path / max-count 50"):
         expected_argv = (
-            executable, "-n", "--max-columns", "200", "-F", "baseUrl",
+            executable, "-n", "--max-columns", "200", "-F",
             "-g", "!.git/**", "-g", "!node_modules/**", "-g", "!build/**",
-            "-g", "!.venv/**", "-g", "!.cursor/hooks/**", "--max-count", "50", ".",
+            "-g", "!.venv/**", "-g", "!.cursor/hooks/**", "--max-count", "50",
+            "--", "baseUrl", ".",
         )
         assert _build_tool_argv({}, "find baseUrl", minimal_workspace) == expected_argv
         assert _build_tool_command({}, "find baseUrl", minimal_workspace) == format_invocation(
@@ -222,8 +223,8 @@ def test_build_tool_command_rg_exact(minimal_workspace: Path) -> None:
         (minimal_workspace / "myproj").mkdir()
         route = {"globs": ["!only/**"], "search_paths": ["myproj"], "max_count": 7}
         expected2 = (
-            executable, "-n", "--max-columns", "200", "-F", "baseUrl",
-            "-g", "!only/**", "--max-count", "7", "myproj",
+            executable, "-n", "--max-columns", "200", "-F",
+            "-g", "!only/**", "--max-count", "7", "--", "baseUrl", "myproj",
         )
         assert _build_tool_argv(route, "find baseUrl", minimal_workspace) == expected2
         assert _build_tool_command(route, "find baseUrl", minimal_workspace) == format_invocation(
