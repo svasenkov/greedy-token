@@ -608,13 +608,13 @@ def cmd_scripts(args: argparse.Namespace) -> int:
 
 
 def cmd_capabilities(args: argparse.Namespace) -> int:
-    from greedy_token.capabilities import (
-        collect_capabilities,
+    from greedy_token.capabilities import collect_capabilities
+    from greedy_token.capabilities_format import (
         format_capabilities,
         format_capability_detail,
         format_invocation_result,
-        invoke_capability,
     )
+    from greedy_token.capabilities_invoke import invoke_capability
 
     root = find_workspace_root()
     action = getattr(args, "cap_action", None) or "list"

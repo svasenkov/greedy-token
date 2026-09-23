@@ -1483,14 +1483,13 @@ def test_mcp_crystallize_actions(
 @allure.story("Capabilities")
 @allure.title("to_dict/format cover every optional field — rich cap, view, result")
 def test_capability_dicts_and_formats() -> None:
-    from greedy_token.capabilities import (
-        Capability,
-        CapabilityView,
-        InvocationResult,
+    from greedy_token.capabilities import Capability, CapabilityView
+    from greedy_token.capabilities_format import (
         format_capabilities,
         format_capability_detail,
         format_invocation_result,
     )
+    from greedy_token.capabilities_invoke import InvocationResult
 
     cap = Capability(
         id="x-rich",
@@ -1736,7 +1735,7 @@ def test_wrapper_capability_resolution_errors(tmp_path: Path) -> None:
 @allure.story("Invoke")
 @allure.title("invoke_capability refusals: quoted query, stray query, unsafe wrapper args")
 def test_invoke_capability_refusal_edges(minimal_workspace: Path) -> None:
-    from greedy_token.capabilities import invoke_capability
+    from greedy_token.capabilities_invoke import invoke_capability
 
     result = invoke_capability(minimal_workspace, "tool-rg-search", query='has "quote"')
     assert not result.invocable and result.refusal_code == "invalid_params"
@@ -1754,13 +1753,14 @@ def test_invoke_capability_refusal_edges(minimal_workspace: Path) -> None:
 def test_invoke_capability_plan_refusal(
     minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import greedy_token.capabilities as caps
-    from greedy_token.capabilities import invoke_capability
+    import greedy_token.capabilities_invoke as caps
+    from greedy_token.capabilities_invoke import invoke_capability
     from greedy_token.executors import RunPlan
 
-    # The probe inside collect_capabilities calls plan_run with task="" — only
-    # the invoke-time plan (task="invoke <id>") is forced to refuse, so the cap
-    # stays invocable (wrapper-authorized) and the plan-refusal path runs.
+    # The probe inside collect_capabilities lives in greedy_token.capabilities
+    # and keeps using the real plan_run; this patch hits only the invoke-time
+    # plan (task="invoke <id>"), so the cap stays invocable (wrapper-authorized)
+    # and the plan-refusal path runs.
     real_plan_run = caps.plan_run
 
     def _flaky(decision, task, root):

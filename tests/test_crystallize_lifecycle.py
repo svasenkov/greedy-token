@@ -349,7 +349,7 @@ def test_applied_crystal_is_invocable(
     assert cap.readiness == "ready"
     assert cap.invocable
 
-    from greedy_token.capabilities import invoke_capability
+    from greedy_token.capabilities_invoke import invoke_capability
 
     result = invoke_capability(minimal_workspace, CRYSTAL_ID, log=False)
     assert result.executed is True
@@ -571,7 +571,7 @@ def test_lifecycle_ops_in_capabilities(minimal_workspace: Path) -> None:
     assert ops["crystallize-promote"].readiness == "write_not_invocable"
     assert ops["crystallize-candidates"].readiness == "advisory_only"
 
-    from greedy_token.capabilities import invoke_capability
+    from greedy_token.capabilities_invoke import invoke_capability
 
     refused = invoke_capability(
         minimal_workspace, "crystallize-promote", log=False

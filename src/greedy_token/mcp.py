@@ -257,7 +257,7 @@ def greedy_token_invoke(op_id: str, args: str = "", query: str = "") -> str:
     Fixed argv for route ops; query= is the rg tool parameter; args= only for
     wrapper ops. Refusals report the readiness class and execute nothing.
     """
-    from greedy_token.capabilities import invoke_capability
+    from greedy_token.capabilities_invoke import invoke_capability
 
     t0 = time.perf_counter()
     root = find_workspace_root()
