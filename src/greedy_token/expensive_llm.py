@@ -6,7 +6,7 @@ import json
 import urllib.error
 import urllib.request
 
-from greedy_token.cheap_llm import _chat_openai_compat, openai_compat_base
+from greedy_token.cheap_llm import _chat_openai_compat
 from greedy_token.model_select import ModelSpec, ResolvedModel
 
 

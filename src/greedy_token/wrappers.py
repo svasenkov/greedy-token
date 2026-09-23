@@ -7,7 +7,6 @@ from pathlib import Path
 from greedy_token.cheap_llm import (
     CHEAP_LLM_PROBE_TTL,
     _cheap_llm_probe_cache,
-    clear_cheap_llm_probe_cache,
     cheap_llm_available,
     cheap_llm_status_line,
 )

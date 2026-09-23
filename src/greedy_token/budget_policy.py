@@ -7,7 +7,7 @@ from pathlib import Path
 
 from greedy_token.budget_ledger import cursor_budget_warn, headroom, metered_budget_exhausted
 from greedy_token.resource_probe import local_health_line, run_doctor
-from greedy_token.router import RouteDecision, TIER_ORDER, route_task_all_tiers
+from greedy_token.router import RouteDecision, route_task_all_tiers
 
 
 def apply_budget_policy(

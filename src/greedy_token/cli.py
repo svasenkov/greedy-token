@@ -29,7 +29,7 @@ from greedy_token.settings import (
     init_user_config_from_preset,
     list_preset_names,
 )
-from greedy_token.tokens import TokenEstimate, collect_paths, count_files, count_tokens, format_size_table
+from greedy_token.tokens import TokenEstimate, collect_paths, count_files, format_size_table
 from greedy_token.trust import (
     TrustError,
     approve_script,
@@ -1071,7 +1071,7 @@ def cmd_init(args: argparse.Namespace) -> int:
         print("\n".join(lines))
         return 0
 
-    from greedy_token.settings import init_user_config, user_config_path
+    from greedy_token.settings import init_user_config
 
     if env["config_exists"] and not args.force:
         lines.append("")

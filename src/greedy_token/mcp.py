@@ -27,7 +27,7 @@ from greedy_token.crystallize_l3 import (
     promote_crystal,
     reject_crystal,
 )
-from greedy_token.router import format_decision, route_task
+from greedy_token.router import format_decision
 from greedy_token.tokens import count_tokens
 from greedy_token.usage import aggregate_events, format_report, load_events, log_path, parse_since
 

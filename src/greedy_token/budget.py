@@ -18,7 +18,7 @@ from greedy_token.baseline import (
 )
 from greedy_token.calibration import SOURCE_FIXED
 from greedy_token.context_audit import audit_context
-from greedy_token.estimator import cursor_baseline, cursor_saved_for
+from greedy_token.estimator import cursor_saved_for
 from greedy_token.paths import find_workspace_root
 from greedy_token.rag_search import RagHit
 from greedy_token.result_gate import GateDecision, evaluate_result_gate

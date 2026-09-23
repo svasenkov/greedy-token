@@ -17,7 +17,6 @@ from greedy_token.budget import (
     BASELINE_LABEL,
     TOTAL_BASELINE_LABEL,
     TIER_LABELS,
-    cursor_baseline,
     cursor_baseline_breakdown,
     format_savings_lines,
     spent_hint,
@@ -27,6 +26,7 @@ from greedy_token.code_search import (
     parse_hit_lines,
     search_code,
 )
+from greedy_token.estimator import cursor_baseline
 from greedy_token.paths import find_workspace_root
 from greedy_token.rag_search import format_hits, search_rag
 from greedy_token.router import RouteDecision
