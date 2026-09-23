@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import allure
 import pytest
 
+import allure
 from greedy_token.crystal_ids import crystal_id_for_pattern
 from tests.allure_reporting import attach_text
 from tests.mcp_stdio_helpers import run_mcp, tool_text

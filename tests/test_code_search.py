@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import allure
 import pytest
 
+import allure
 from greedy_token.code_search import resolve_search_path, search_code
 from tests.allure_reporting import attach_text
 
@@ -671,7 +671,6 @@ def test_glob_name_matches_skips_outside(tmp_path: Path, monkeypatch: pytest.Mon
 @allure.title("_glob_name_matches: search_scope_paths matches sort before others, then by str")
 def test_glob_name_matches_sort_order(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     import greedy_token.code_search as cs
-
     from greedy_token.code_search import _glob_name_matches
 
     root = tmp_path / "gt_root"

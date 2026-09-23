@@ -4,18 +4,18 @@ import shlex
 from pathlib import Path
 from unittest.mock import patch
 
-import allure
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
+import allure
 from greedy_token.router import _build_tool_argv, _build_tool_command
 from greedy_token.subprocess_safe import (
     UnsafeCommandError,
     command_to_argv,
     trusted_script_invocation,
 )
-from greedy_token.tool_paths import resolve_rg, root_cd_prefix, sh_quote, shell_args
+from greedy_token.tool_paths import root_cd_prefix, sh_quote, shell_args
 from greedy_token.wrappers import resolve_wrapper_command
 from tests.allure_reporting import attach_text
 
@@ -751,11 +751,10 @@ def test_pipeline_execute_rejects_outside_path(
 @allure.story("Ollama probe")
 @allure.title("Ollama availability probe caches successful result")
 def test_ollama_available_uses_cache(mock_urlopen, mock_json_load) -> None:
-    from greedy_token.cheap_llm import _cheap_llm_probe_cache, clear_cheap_llm_probe_cache
+    from greedy_token.cheap_llm import clear_cheap_llm_probe_cache
     from greedy_token.wrappers import ollama_available
 
     clear_cheap_llm_probe_cache()
-    mock_resp = mock_urlopen.return_value.__enter__.return_value
     with allure.step("Probe Ollama twice with same URL"):
         ollama_available("http://localhost:11434")
         ollama_available("http://localhost:11434")

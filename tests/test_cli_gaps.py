@@ -8,9 +8,9 @@ import sys
 from argparse import Namespace
 from pathlib import Path
 
-import allure
 import pytest
 
+import allure
 import greedy_token.cli as cli
 import greedy_token.hub as hub_pkg
 from greedy_token.llm_invoke import InvokeResult

@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 from unittest.mock import patch
 
-import allure
-import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+import allure
 from greedy_token.tokens import count_texts, count_tokens
 from tests.allure_reporting import attach_json, attach_text
 

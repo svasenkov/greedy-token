@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import allure
 import pytest
 import yaml
 
+import allure
 from greedy_token import settings
 from greedy_token.baseline import (
     BASE_AGENT_OVERHEAD_MS,

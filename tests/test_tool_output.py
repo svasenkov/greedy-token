@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import allure
-import pytest
-
 from greedy_token import __version__
 from greedy_token.tool_output import filter_tool_output
 from greedy_token.version import read_pyproject_version

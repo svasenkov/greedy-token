@@ -9,9 +9,9 @@ import types
 import urllib.error
 from pathlib import Path
 
-import allure
 import pytest
 
+import allure
 from greedy_token import resource_probe as rp
 from greedy_token.resource_probe import (
     BenchmarkResult,

@@ -3,10 +3,10 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-import allure
 import pytest
 import yaml
 
+import allure
 from greedy_token.settings import (
     DEFAULT_OLLAMA_MODEL,
     DEFAULT_OLLAMA_URL,
@@ -15,7 +15,6 @@ from greedy_token.settings import (
     get_cheap_llm_settings,
     get_ollama_settings,
     init_user_config,
-    user_config_path,
     workspace_config_path,
 )
 from tests.allure_reporting import attach_json, attach_text

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import allure
 import pytest
 
+import allure
 from greedy_token.mcp import greedy_token_search
 
 pytestmark = [

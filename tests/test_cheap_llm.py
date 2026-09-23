@@ -3,9 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import allure
 import pytest
 
+import allure
 from greedy_token.cheap_llm import (
     cheap_llm_available,
     cheap_llm_chat,
@@ -379,6 +379,7 @@ def test_status_line_missing_model() -> None:
 def test_probe_auth_and_empty_catalog(monkeypatch: pytest.MonkeyPatch) -> None:
     import io
     import urllib.error
+
     from greedy_token.cheap_llm import _probe_health
 
     def unauthorized(*a, **k):

@@ -3,9 +3,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import allure
 import pytest
 
+import allure
+from greedy_token.crystal_ids import crystal_id_for_pattern
+from greedy_token.hub.crystallize import load_lifecycle_events
 from greedy_token.mcp import (
     greedy_token_crystallize,
     greedy_token_pipeline,
@@ -14,8 +16,6 @@ from greedy_token.mcp import (
     greedy_token_search,
     greedy_token_usage,
 )
-from greedy_token.crystal_ids import crystal_id_for_pattern
-from greedy_token.hub.crystallize import load_lifecycle_events
 from greedy_token.usage import SCHEMA_VERSION
 from tests.allure_reporting import attach_text
 
@@ -263,8 +263,9 @@ def test_mcp_crystallize_draft_lint_failed(
     minimal_workspace: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from greedy_token.crystallize_l3 import DraftResult
     from pathlib import Path as PathCls
+
+    from greedy_token.crystallize_l3 import DraftResult
 
     result = DraftResult(
         crystal_id=CRYSTAL_ID,

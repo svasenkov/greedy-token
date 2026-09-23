@@ -3,9 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import allure
 import pytest
 
+import allure
 from greedy_token.wrappers import WRAPPERS, ollama_available, resolve_wrapper_command
 from tests.allure_reporting import attach_json, attach_text
 
@@ -143,7 +143,7 @@ def test_wrapper_for_command() -> None:
 def test_resolve_wrapper_command_python_script(minimal_workspace: Path) -> None:
     script = minimal_workspace / "scripts" / "demo.py"
     script.write_text("print('ok')\n", encoding="utf-8")
-    from greedy_token.wrappers import ScriptWrapper, WRAPPERS
+    from greedy_token.wrappers import WRAPPERS, ScriptWrapper
 
     WRAPPERS["demo-py"] = ScriptWrapper(
         id="demo-py",
@@ -163,7 +163,7 @@ def test_resolve_wrapper_command_python_script(minimal_workspace: Path) -> None:
 @allure.story("Telemetry")
 @allure.title("wrapper_route_id uses script-path stem or falls back to run-arg")
 def test_wrapper_route_id_stem_and_empty_path_fallback() -> None:
-    from greedy_token.wrappers import ScriptWrapper, WRAPPERS, wrapper_route_id
+    from greedy_token.wrappers import WRAPPERS, ScriptWrapper, wrapper_route_id
 
     assert wrapper_route_id("check-meta-sync") == "python-meta-sync-check"
     assert wrapper_route_id("no-such-wrapper") == "python-no-such-wrapper"

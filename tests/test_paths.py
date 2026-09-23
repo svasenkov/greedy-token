@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
-import allure
 import pytest
 import yaml
 
+import allure
 from greedy_token.paths import find_workspace_root, load_routes_config
 from tests.allure_reporting import attach_text
 
@@ -352,7 +351,6 @@ def test_scaffold_routes_overlay(tmp_path: Path) -> None:
 @allure.story("Init routes helpers")
 @allure.title("upsert_workspace_routes replaces same id in place and appends new routes")
 def test_upsert_workspace_routes(tmp_path: Path) -> None:
-    import yaml
 
     from greedy_token.paths import upsert_workspace_routes
 

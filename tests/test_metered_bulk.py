@@ -7,10 +7,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 
-import allure
 import pytest
 import yaml
 
+import allure
 from greedy_token import spend_guard
 from greedy_token.model_select import (
     ModelSpec,

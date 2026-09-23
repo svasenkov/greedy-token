@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import json
-from dataclasses import replace
 from pathlib import Path
 
-import allure
 import pytest
 
+import allure
 import greedy_token.budget as budget
 import greedy_token.budget_config as bc
 import greedy_token.budget_ledger as bl

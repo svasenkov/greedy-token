@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import allure
 import pytest
 import yaml
 
+import allure
 from greedy_token import llm_invoke
 from greedy_token.llm_invoke import (
     InvokeResult,

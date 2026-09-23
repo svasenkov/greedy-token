@@ -2,19 +2,17 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import UTC, datetime
 from pathlib import Path
 
-import allure
 import pytest
 from allure_commons._allure import fixture as allure_fixture_wrapper
 
-from tests.ollama_stub import clear_ollama_probe_cache, install_ollama_scripts, ollama_stub_server
-from tests.pyramid_layers import layer_for_module, SEVERITY_BY_LAYER
-from tests.testops_ids import TESTOPS_IDS
-
-from datetime import datetime, timezone
-
+import allure
 from greedy_token.usage import append_event
+from tests.ollama_stub import clear_ollama_probe_cache, install_ollama_scripts, ollama_stub_server
+from tests.pyramid_layers import SEVERITY_BY_LAYER, layer_for_module
+from tests.testops_ids import TESTOPS_IDS
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -146,7 +144,7 @@ def minimal_workspace(tmp_path: Path) -> Path:
 
 
 def _seed_crystal_candidate(log: Path, task: str, hits: int = 5) -> None:
-    ts = datetime.now(timezone.utc).isoformat()
+    ts = datetime.now(UTC).isoformat()
     for _ in range(hits):
         append_event(
             {"ts": ts, "selected_tier": "cursor", "task": task, "route_id": "cursor-fallback"},

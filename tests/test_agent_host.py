@@ -9,10 +9,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import allure
 import pytest
 import yaml
 
+import allure
 import greedy_token.settings as st
 from greedy_token.context_audit import (
     HOST_LABELS,

@@ -6,11 +6,12 @@ import json
 from argparse import Namespace
 from pathlib import Path
 
-import allure
 import pytest
 import yaml
 
+import allure
 from greedy_token import baseline as B
+from greedy_token import settings
 from greedy_token.baseline import (
     BASE_CURSOR_OVERHEAD,
     METHOD_MANUAL,
@@ -25,7 +26,6 @@ from greedy_token.baseline import (
     uncalibrated_nudge,
     write_baseline_config,
 )
-from greedy_token import settings
 from greedy_token.cli import cmd_calibrate
 from tests.allure_reporting import attach_text
 
@@ -308,7 +308,7 @@ def test_pipeline_footer_source_label(minimal_workspace: Path) -> None:
 @allure.story("Report source label")
 @allure.title("report marks saved_vs_cursor with the baseline source (text + JSON)")
 def test_report_source_label(minimal_workspace: Path) -> None:
-    from greedy_token.usage import ReportSummary, TierStats, aggregate_events, format_report
+    from greedy_token.usage import aggregate_events, format_report
 
     summary = aggregate_events([
         {"selected_tier": "tool", "est_tokens": 0, "cursor_baseline": 9000, "cursor_saved": 9000},

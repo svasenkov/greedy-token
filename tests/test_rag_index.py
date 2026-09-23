@@ -5,8 +5,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import allure
-import pytest
-
 from greedy_token.rag_index import get_indexed_chunks, invalidate_rag_index
 from greedy_token.rag_search import search_rag
 from tests.allure_reporting import attach_json, attach_text

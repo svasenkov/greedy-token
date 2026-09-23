@@ -8,8 +8,6 @@ import tempfile
 from pathlib import Path
 
 import allure
-import pytest
-
 from tests.allure_reporting import attach_json, attach_text
 
 ROOT = Path(__file__).resolve().parents[1]

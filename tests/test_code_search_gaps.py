@@ -5,9 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-import allure
 import pytest
 
+import allure
 import greedy_token.code_search as cs
 
 pytestmark = [
@@ -374,7 +374,7 @@ def test_enrich_defaults_and_centering(tmp_path: Path) -> None:
         assert "   35|L35" in block
     with allure.step("numbered rows and header/body are '\\n'/'\\n\\n' joined (kills XX-joins)"):
         assert "    5|L5\n    6|L6" in block
-        header = "--- enriched context (snippet, 1 file(s), ~%d tokens) ---" % toks
+        header = f"--- enriched context (snippet, 1 file(s), ~{toks} tokens) ---"
         assert block.startswith(header + "\n\n### r.js:20")
         assert files == 1
 

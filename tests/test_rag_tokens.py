@@ -4,8 +4,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import allure
-import pytest
-
 from greedy_token.budget import rag_est_tokens
 from greedy_token.rag_search import RagHit
 from tests.allure_reporting import attach_text

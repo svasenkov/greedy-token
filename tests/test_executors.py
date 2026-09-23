@@ -3,9 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-import allure
 import pytest
 
+import allure
 from greedy_token.executors import execute_task
 from tests.allure_reporting import attach_json, attach_text
 

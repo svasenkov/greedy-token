@@ -3,10 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import allure
-import pytest
-
 from greedy_token.code_search import (
-    enrich_search_hits,
     parse_hit_lines,
     search_code,
     unique_hit_paths,

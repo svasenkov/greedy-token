@@ -11,8 +11,9 @@ from argparse import Namespace
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import allure
 import pytest
+
+import allure
 
 pytestmark = [
     allure.epic("Test infrastructure"),
@@ -848,7 +849,7 @@ def test_remaining_public_branches(
     from greedy_token.prompt_compress import compress_heuristic
     from greedy_token.rag_index import invalidate_rag_index
     from greedy_token.rag_search import search_rag
-    from greedy_token.router import RouteDecision, route_task
+    from greedy_token.router import route_task
     from greedy_token.tool_paths import resolve_rg
 
     # Russian «почему» drop prefix in compress_heuristic.
@@ -1102,7 +1103,7 @@ def test_remaining_public_coverage_edges(
     from greedy_token.prompt_compress import compress_heuristic
     from greedy_token.rag_index import get_indexed_chunks, invalidate_rag_index
     from greedy_token.rag_search import search_rag
-    from greedy_token.router import RouteDecision, route_task
+    from greedy_token.router import route_task
     from greedy_token.tool_paths import resolve_rg
 
     # code_search: skip nonexistent scope dir + relative_to outside root.

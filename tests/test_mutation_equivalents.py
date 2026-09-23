@@ -18,8 +18,9 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
-import allure
 import yaml
+
+import allure
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = REPO_ROOT / "src" / "greedy_token"

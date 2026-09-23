@@ -6,9 +6,9 @@ import json
 import re
 from pathlib import Path
 
-import allure
 import pytest
 
+import allure
 from greedy_token.rag_index import _tokenize, get_indexed_chunks, invalidate_rag_index
 from greedy_token.rag_search import search_rag
 from greedy_token.router import (

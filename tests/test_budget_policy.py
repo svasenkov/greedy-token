@@ -112,9 +112,7 @@ def test_apply_budget_policy_metered_exhausted(
     minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("GREEDY_BUDGET_METERED_OVERRIDE", "5")
-    log_path = Path.home() / ".greedy-token" / "usage.jsonl"
     # use tmp log instead
-    import greedy_token.usage as usage_mod
 
     tmp_log = minimal_workspace / "usage.jsonl"
     monkeypatch.setenv("GREEDY_TOKEN_LOG", str(tmp_log))

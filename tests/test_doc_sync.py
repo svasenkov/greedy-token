@@ -11,9 +11,9 @@ import argparse
 import re
 from pathlib import Path
 
-import allure
 import pytest
 
+import allure
 from greedy_token import cli
 from greedy_token.calibration import BUCKET_BOUNDS, CALIBRATION_MIN_EVENTS, bucket_label
 from greedy_token.pipeline import PIPELINE_AUTO_RUN

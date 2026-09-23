@@ -3,8 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import allure
-import pytest
-
 from greedy_token.context_audit import audit_context, render_audit
 from tests.allure_reporting import attach_text
 

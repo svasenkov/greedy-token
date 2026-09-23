@@ -5,9 +5,9 @@ from collections.abc import Iterator
 from pathlib import Path
 from unittest.mock import patch
 
-import allure
 import pytest
 
+import allure
 from greedy_token import tool_paths
 from greedy_token.tool_paths import (
     RG_TIMEOUT,
@@ -283,7 +283,7 @@ def test_resolve_rg_dedup_stats_duplicate_once(tmp_path: Path, monkeypatch: pyte
         def __init__(self) -> None:
             self.stat_calls = 0
 
-        def resolve(self) -> "_CountingCandidate":
+        def resolve(self) -> _CountingCandidate:
             return self
 
         def is_file(self) -> bool:

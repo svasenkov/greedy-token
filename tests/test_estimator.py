@@ -4,8 +4,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import allure
-import pytest
-
 from greedy_token.estimator import (
     cursor_baseline,
     cursor_saved_for,

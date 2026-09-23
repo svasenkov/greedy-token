@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-import allure
 import pytest
 
+import allure
 import greedy_token.usage as usage
 from greedy_token.router import RouteDecision
 
@@ -69,11 +69,11 @@ def test_build_script_override_minimal() -> None:
 @allure.title("find_prior_script_hit skips junk and picks nearest prior hit in window")
 def test_find_prior_script_hit(tmp_path: Path) -> None:
     log = tmp_path / "usage.jsonl"
-    assert usage.find_prior_script_hit(log, "", datetime.now(timezone.utc)) is None
+    assert usage.find_prior_script_hit(log, "", datetime.now(UTC)) is None
 
     task = "find base url in config"
     norm = usage.normalize_task(task)
-    when = datetime.now(timezone.utc)
+    when = datetime.now(UTC)
 
     def row(delta_s: int, *, tier: str = "python", event: str | None = None, ts: str | None = "auto") -> str:
         r: dict = {"selected_tier": tier, "task": task}

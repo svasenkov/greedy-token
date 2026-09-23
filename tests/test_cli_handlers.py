@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import argparse
 import io
 import json
 import sys
@@ -8,11 +7,10 @@ from argparse import Namespace
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import allure
 import pytest
 
+import allure
 import greedy_token.cli as cli
-from greedy_token.router import RouteDecision
 from tests.allure_reporting import attach_text
 
 pytestmark = [
@@ -187,9 +185,8 @@ def test_cmd_scripts_run_dry(minimal_workspace: Path, capsys) -> None:
 @allure.story("Scripts")
 @allure.title("cmd_scripts --run --execute runs read-only wrapper")
 def test_cmd_scripts_run_execute(minimal_workspace: Path) -> None:
-    from unittest.mock import MagicMock
-
     import subprocess
+    from unittest.mock import MagicMock
 
     with patch(
         "subprocess.run",
@@ -217,7 +214,7 @@ def test_cmd_scripts_run_refuse_write(minimal_workspace: Path, capsys) -> None:
 @allure.title("cmd_scripts --run returns error for unknown wrapper")
 def test_cmd_scripts_run_unknown(minimal_workspace: Path, capsys) -> None:
     code = cli.cmd_scripts(_ns(list=False, run="no-such", args="", execute=False))
-    err = capsys.readouterr().err
+    capsys.readouterr()
     assert code == 1
 
 
@@ -225,7 +222,7 @@ def test_cmd_scripts_run_unknown(minimal_workspace: Path, capsys) -> None:
 @allure.title("cmd_scripts without list or run prints usage error")
 def test_cmd_scripts_usage(minimal_workspace: Path, capsys) -> None:
     code = cli.cmd_scripts(_ns(list=False, run=None, args="", execute=False))
-    err = capsys.readouterr().err
+    capsys.readouterr()
     assert code == 1
 
 

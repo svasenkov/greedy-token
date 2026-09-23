@@ -9,9 +9,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import allure
 import pytest
 
+import allure
 from greedy_token import executors as ex
 from greedy_token.executors import RunPlan, execute_plan, plan_run
 from greedy_token.router import RouteDecision

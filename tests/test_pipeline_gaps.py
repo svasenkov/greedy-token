@@ -5,9 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import Mock
 
-import allure
 import pytest
 
+import allure
 import greedy_token.pipeline as pl
 from greedy_token.code_search import SearchResult
 from greedy_token.pipeline import PipelineResult, PipelineStep, StepResult
@@ -1242,8 +1242,8 @@ def test_run_pipeline_log_false(minimal_workspace: Path, monkeypatch: pytest.Mon
     assert not log.exists()
 
     with allure.step("log=True writes correlated request/outcome with failure outcome"):
-        result2 = pl.run_pipeline("rag nope", minimal_workspace, execute=True, log=True)
-        events = [json.loads(l) for l in log.read_text(encoding="utf-8").splitlines()]
+        pl.run_pipeline("rag nope", minimal_workspace, execute=True, log=True)
+        events = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
         assert len(events) == 2
         assert events[0]["operation_id"] == events[1]["operation_id"]
         assert events[0]["parent_operation_id"]

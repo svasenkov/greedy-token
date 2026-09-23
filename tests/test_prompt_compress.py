@@ -3,10 +3,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import allure
 import pytest
 import yaml
 
+import allure
 from greedy_token.prompt_compress import compress_heuristic, compress_prompt_detail, format_dual
 from tests.allure_reporting import attach_text
 

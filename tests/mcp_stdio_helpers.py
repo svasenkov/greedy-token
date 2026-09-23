@@ -7,15 +7,13 @@ import os
 import sys
 from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any
 
 pytest = __import__("pytest")
 mcp = pytest.importorskip("mcp")
 
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
-
-T = TypeVar("T")
+from mcp import ClientSession, StdioServerParameters  # noqa: E402 — needs importorskip above
+from mcp.client.stdio import stdio_client  # noqa: E402
 
 
 def tool_text(result: Any) -> str:
@@ -46,7 +44,7 @@ def mcp_server_params(workspace: Path, *, log_path: Path | None = None) -> Stdio
     )
 
 
-async def with_mcp_session(
+async def with_mcp_session[T](
     workspace: Path,
     fn: Callable[[ClientSession], Awaitable[T]],
     *,
@@ -59,7 +57,7 @@ async def with_mcp_session(
             return await fn(session)
 
 
-def run_mcp(
+def run_mcp[T](
     workspace: Path,
     fn: Callable[[ClientSession], Awaitable[T]],
     *,

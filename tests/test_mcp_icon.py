@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import allure
 import pytest
 
+import allure
 from greedy_token.mcp import mcp_icons
 from tests.allure_reporting import attach_json
 

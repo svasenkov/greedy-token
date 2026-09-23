@@ -3,16 +3,15 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import os
 import subprocess
 import sys
 from pathlib import Path
 
-import allure
 import pytest
 import yaml
 
+import allure
 from bench import evidence_benchmark as benchmark
 from greedy_token.cheap_llm import clear_cheap_llm_probe_cache
 

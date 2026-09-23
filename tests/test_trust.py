@@ -9,15 +9,14 @@ from argparse import Namespace
 from pathlib import Path
 from unittest.mock import patch
 
-import allure
 import pytest
 import yaml
 
+import allure
 from greedy_token import trust as trust_mod
 from greedy_token.cli import cmd_trust
 from greedy_token.executors import RunPlan, execute_plan, execute_task, plan_run
-from greedy_token.router import RouteDecision
-from greedy_token.router import route_task
+from greedy_token.router import RouteDecision, route_task
 from greedy_token.subprocess_safe import (
     CommandInvocation,
     UnsafeCommandError,

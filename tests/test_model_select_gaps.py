@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
-import allure
 import pytest
 
+import allure
 from greedy_token import model_select as ms
 from greedy_token.model_select import (
     EscalationConfig,

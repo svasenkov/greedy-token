@@ -4,16 +4,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import allure
 import pytest
 
+import allure
 from greedy_token.hub.meta_stats import (
     accumulate_totals,
     aggregate_meta_intersections,
     classify_meta_kinds,
     workspace_meta_inventory,
 )
-
 
 pytestmark = [
     allure.epic("Hub"),

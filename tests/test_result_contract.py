@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import allure
 import pytest
 
+import allure
 from greedy_token.result_contract import (
     RESULT_INVALID,
     RESULT_NOT_EVALUATED,

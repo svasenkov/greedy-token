@@ -3,8 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import allure
-import pytest
-
 from tests.allure_reporting import attach_json, attach_text
 from tests.pyramid_layers import LAYER_BY_MODULE
 

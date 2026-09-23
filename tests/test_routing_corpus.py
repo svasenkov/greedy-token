@@ -5,10 +5,9 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from pathlib import Path
 
-import allure
-import pytest
 import yaml
 
+import allure
 from greedy_token.router import route_task
 from tests.allure_reporting import attach_json, attach_text
 

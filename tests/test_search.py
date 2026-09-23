@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import allure
 import pytest
 
+import allure
 from greedy_token.executors import _tool_output_weak
 from greedy_token.router import _build_tool_command, _extract_search_query
 from greedy_token.tool_output import filter_tool_output

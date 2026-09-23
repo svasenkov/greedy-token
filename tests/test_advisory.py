@@ -6,9 +6,9 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
-import allure
 import pytest
 
+import allure
 from greedy_token import advisory
 
 pytestmark = [

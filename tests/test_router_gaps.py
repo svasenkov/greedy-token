@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-import allure
 import pytest
 
+import allure
 import greedy_token.router as router
 from greedy_token.router import RouteDecision
 
@@ -31,7 +31,7 @@ def test_parse_shadow_until() -> None:
 
 @allure.title("_route_status maps shadow window, disabled, and active")
 def test_route_status() -> None:
-    future = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+    future = (datetime.now(UTC) + timedelta(days=1)).isoformat()
     assert router._route_status({"shadow_until": future}) == "shadow"
     assert router._route_status({"enabled": False}) == "inactive"
     assert router._route_status({}) == "active"
@@ -619,7 +619,7 @@ def test_normalize() -> None:
 
 @allure.title("_route_status: strict < boundary at the shadow_until instant")
 def test_route_status_boundary() -> None:
-    fixed = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    fixed = datetime(2026, 7, 1, tzinfo=UTC)
     route = {"shadow_until": fixed.isoformat()}
     with patch("greedy_token.router._now", return_value=fixed):
         # now == until → strict < is False → not 'shadow' (kills <=).
@@ -658,7 +658,7 @@ def test_best_in_tier_edges(minimal_workspace: Path) -> None:
 def test_best_shadow_match_edges() -> None:
     from greedy_token.router import _best_shadow_match
 
-    future = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+    future = (datetime.now(UTC) + timedelta(days=1)).isoformat()
     with allure.step("no shadow routes → (None, 0.0)"):
         assert _best_shadow_match([], "text") == (None, 0.0)
 
@@ -794,7 +794,7 @@ def test_runner_up_branches(minimal_workspace: Path) -> None:
 
 
 def _future() -> str:
-    return (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+    return (datetime.now(UTC) + timedelta(days=1)).isoformat()
 
 
 @allure.title("route_task_all_tiers: root/fallback-tier threading, tier-none id, shadow on fallback")

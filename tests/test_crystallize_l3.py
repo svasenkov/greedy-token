@@ -6,10 +6,10 @@ import json
 from argparse import Namespace
 from pathlib import Path
 
-import allure
 import pytest
 import yaml
 
+import allure
 import greedy_token.cli as cli
 import greedy_token.crystallize_l3 as l3
 from greedy_token.crystal_ids import crystal_id_for_pattern
@@ -18,7 +18,6 @@ from greedy_token.paths import remove_workspace_route, workspace_config_routes
 from greedy_token.router import route_task
 from greedy_token.scripts_lint import lint_routes
 from tests.allure_reporting import attach_text
-
 from tests.conftest import _seed_crystal_candidate as _seed_candidate
 
 pytestmark = [

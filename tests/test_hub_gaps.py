@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
+import importlib
 import json
 import threading
 import urllib.request
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-import allure
 import pytest
 
-import importlib
-
+import allure
 from greedy_token.hub import api as hub_api
 from greedy_token.hub import crystallize, paths, providers, sessions
 

@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC
 from pathlib import Path
 from unittest.mock import patch
 
-import allure
 import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
+import allure
 from greedy_token.router import TIER_ORDER, route_task, route_task_all_tiers
 from tests.allure_reporting import attach_json, attach_text
 
@@ -193,9 +194,9 @@ def test_disabled_shadow_route_is_skipped(minimal_workspace: Path) -> None:
     # Pin "now" inside the configured shadow window so the assertion does not
     # depend on the wall clock (the shadow_until date would otherwise expire).
     # Uses provider-balance (still shadow); access-diag was promoted live in v0.11.1.
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    fixed_now = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    fixed_now = datetime(2026, 7, 1, tzinfo=UTC)
     with allure.step("Route task matching provider-balance shadow route"), patch(
         "greedy_token.router._now", return_value=fixed_now
     ):

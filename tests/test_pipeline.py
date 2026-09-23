@@ -3,9 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-import allure
 import pytest
 
+import allure
 from greedy_token.pipeline import (
     PipelineResult,
     PipelineStep,

@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import allure
 import pytest
 
+import allure
 from greedy_token.budget import format_savings_lines, format_tool_footer, wrap_mcp_response
 from greedy_token.estimator import cursor_baseline
 from tests.allure_reporting import attach_text

@@ -8,9 +8,9 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-import allure
 import pytest
 
+import allure
 from greedy_token.cli import cmd_run
 from greedy_token.code_search import SearchResult, resolve_search_path, search_code
 from greedy_token.estimator import TaskEstimate, estimate_task, format_estimate

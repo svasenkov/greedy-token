@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-from greedy_token.budget_config import get_budget_settings
 from greedy_token.budget_ledger import (
     aggregate_budget,
     build_billing_event_fields,

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC
 from pathlib import Path
 
-import allure
 import pytest
 
+import allure
 from greedy_token.estimator import cursor_baseline, cursor_saved_for
 from greedy_token.router import RouteDecision
 from greedy_token.usage import (
@@ -18,8 +19,8 @@ from greedy_token.usage import (
     build_script_override_event,
     format_report,
     load_events,
-    logging_enabled,
     log_archive_paths,
+    logging_enabled,
     max_log_bytes,
     parse_since,
     rotate_log_if_needed,
@@ -718,10 +719,10 @@ def test_load_events_skips_non_dict_lines(log_file: Path) -> None:
         assert len(events) == 2
         assert skipped == 3
         # With a since filter, the non-dict lines must also be skipped safely.
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         events2, skipped2 = load_events(
-            log_file, since=datetime(2020, 1, 1, tzinfo=timezone.utc)
+            log_file, since=datetime(2020, 1, 1, tzinfo=UTC)
         )
         assert len(events2) == 2
         assert skipped2 == 3
@@ -869,8 +870,8 @@ def test_log_path_default(monkeypatch: pytest.MonkeyPatch, value) -> None:
 @allure.story("Event builders")
 @allure.title("build_script_event and build_compress_event populate fields")
 def test_build_script_and_compress_events(minimal_workspace: Path) -> None:
-    from greedy_token.usage import build_compress_event, build_script_event, executor_from_decision
     from greedy_token.router import RouteDecision
+    from greedy_token.usage import build_compress_event, build_script_event, executor_from_decision
 
     script_event = build_script_event(
         script_id="check-meta-sync",
@@ -921,8 +922,8 @@ def test_build_script_and_compress_events(minimal_workspace: Path) -> None:
 @allure.story("Event builders")
 @allure.title("executor_from_decision uses workspace cheap_llm model for ollama tier")
 def test_executor_from_decision_uses_workspace_model(minimal_workspace: Path) -> None:
-    from greedy_token.usage import build_route_event, executor_from_decision
     from greedy_token.router import RouteDecision
+    from greedy_token.usage import build_route_event, executor_from_decision
 
     ws_cfg = minimal_workspace / ".greedy-token.yaml"
     ws_cfg.write_text(

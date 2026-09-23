@@ -7,9 +7,9 @@ import json
 import urllib.error
 from contextlib import contextmanager
 
-import allure
 import pytest
 
+import allure
 from greedy_token import expensive_llm
 from greedy_token.model_select import ModelSpec, ResolvedModel
 from greedy_token.settings import CheapLlmSettings

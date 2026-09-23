@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import allure
 import pytest
 
+import allure
 from greedy_token import __version__
 from greedy_token.version import metadata_version, read_pyproject_version, resolve_version
 from tests.allure_reporting import attach_text
