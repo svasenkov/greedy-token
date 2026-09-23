@@ -149,7 +149,7 @@ Per-release detail: `CUT-v*.md` checklists in the repo root.
 
 | Version | Focus |
 |---------|-------|
-| **v0.18.0** (in progress) | Adoption/enforcement: `GREEDY_HOOK_MODE` gate/intercept hook profiles, `covered` adoption-gap split + tmp/pytest sandbox filter in crystallize candidates, route-first invoke rule |
+| **v0.18.0** | Adoption/enforcement: `GREEDY_HOOK_MODE` gate/intercept hook profiles, `covered` adoption-gap split + tmp/pytest sandbox filter in crystallize candidates, route-first invoke rule |
 | **v0.17.1** | Usage events: `session_id`, calibration n/bucket/matched, `confidence_source`; router question-form prefixes + Titlecase boost; `rg` resolution for `~/.greedy-token` and Devin bundles; `python-git-recent`/`python-git-repos` routes |
 | **v0.17.0** | Crystal ids lock `python-{stem}`; strip executor prefixes; pipeline Saved=0 on all-failed execute |
 | **v0.16.2** | Hub crystals split lesson/workspace; `since=all`; Ollama Basic auth; sheets live + `delete-sheet` |
