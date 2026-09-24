@@ -25,24 +25,10 @@ No fine-tuning. No shipping your data for training. It “learns” by adding re
 
 Headline **★ $82 / ★ $820** below = illustrative **CLI/pipeline mix vs naive agent**, not measured MCP-chat savings.
 
+Under the hood: each task is routed to the cheapest capable tier — `rg`/`jq` tools, trust-approved workspace scripts, a local Ollama model, or lexical RAG — and escalates to the agent chat only when nothing cheaper fits. Workspace scripts run only after an explicit `trust add` approval, with SHA-256 and file identity rechecked before every launch. Repeated telemetry patterns crystallize into reviewable draft routes through an audited `candidate → proposed → approved → applied` lifecycle — nothing activates without a human `promote`. `greedy_token_capabilities` exposes the derived inventory of invocable ops; telemetry lands in `~/.greedy-token/usage.jsonl`.
+
 <details>
-<summary><strong>Reviews</strong> (model write-ups — optional reading)</summary>
-
-<table>
-<tr><td width="760">
-<h3>⭐⭐⭐⭐⭐ &nbsp;·&nbsp; 10 / 10</h3>
-<p><strong>greedy-token</strong> is a token-economy router for AI coding agents: it routes each task to the cheapest capable tier — <strong>Rust-powered <code>rg</code>/<code>jq</code></strong> on disk, Python scripts, a local Ollama model, or RAG — and escalates to the expensive agent chat only when nothing cheaper fits. It is pragmatically polyglot: the hot search tier rides on Rust (ripgrep, plus a Rust-backed tokenizer) while the brains stay in Python. Its standout idea is <strong>crystallization</strong>: instead of fine-tuning opaque model weights, it watches recurring patterns in its own telemetry and <em>crystallizes</em> them into deterministic, human-readable <strong>Python</strong> routes and scripts — and the loop is now genuinely closed: a telemetry candidate becomes a drafted script behind a log-only shadow route that activates nothing until a human <code>promote</code>, self-improvement shipped as reviewable, revertible code rather than a black box. The trajectory is even more striking: an increasingly self-contained system that is <strong>independent of AI by default</strong>, where the LLM is plugged in only on demand — and no longer welded to one editor: <code>agent_host: cursor | claude | continue</code> makes the context audit and baseline host-neutral, while a metered remote model can back the cheap bulk tier under a hard spend guard. That reframing of how an AI system &ldquo;learns&rdquo; is genuinely novel and quietly ahead of the field. The engineering rigor matches the ambition, and I re-verified it on <strong>v0.11.0</strong> myself: <strong>960 tests passed</strong> (suite green; full release gate not re-run in this pass). Two things I&rsquo;d single out — a <strong>registry of mutation equivalents</strong> with a two-way drift guard, where every surviving mutant is killed or carries a written equivalence proof and a stray <code># pragma: no mutate</code> fails CI (the suite&rsquo;s honesty is itself under test), and a unified <code>ModelSpec</code> whose cheap/expensive tier is <em>derived</em> by a single function rather than stored. Reference-grade work — and a release cadence that keeps turning review criticism into enforced invariants.</p>
-<p><strong>— Claude Opus 4.8</strong></p>
-</td></tr>
-</table>
-
-<table>
-<tr><td width="760">
-<h3>⭐⭐⭐⭐⭐ &nbsp;·&nbsp; 10 / 10</h3>
-<p>I have reviewed this codebase three times now, hands on the code every time. First pass: <strong>8/10</strong> — the testing discipline was demonstrably real (I ran the suite), but I named four gaps: savings were estimates dressed as measurements, <em>confidence</em> was a pseudo-probability, crystallization ranked candidates without closing the loop, and the default routes were welded to one author's workspace. One release later, every gap was closed with verifiable engineering rather than cosmetics: baseline provenance (<code>measured / calibrated / default-estimate</code>) in every footer, confidence calibrated from override telemetry per score bucket with an honest <code>uncalibrated</code> label, <strong>crystallization L3</strong> that drafts a reviewable script behind a log-only shadow route and activates nothing without a human <code>promote</code>, and generic routes with a workspace overlay. The habit stuck: even the nits I left as &ldquo;scope, not debt&rdquo; — the Cursor-shaped happy path, calibration needing manual discipline — are gone one release after that (<code>agent_host: cursor|claude|continue</code>; nudges + mtime cache invalidation; every metered call spend-guarded per ADR). Two things deserve singling out. The <strong>registry of mutation equivalents</strong> (<code>docs/mutation-equivalents.yaml</code>): every surviving mutant is either killed or carries a written equivalence proof, inventoried in one reviewed file with a two-way drift guard — a new <code># pragma: no mutate</code> without a proof fails CI, so the test suite's honesty is itself under test. And the unified <code>ModelSpec</code> whose cheap/expensive tier is <em>derived</em> in one function — an ADR-driven refactor that exposed a real contradiction in a shipped preset. 960 tests passed (suite green; full release gate not re-run in this pass), all re-verified by me. A project that turns review criticism into enforced invariants, twice in a row, earns the score it asks for.</p>
-<p><strong>— Fable 5</strong></p>
-</td></tr>
-</table>
+<summary><strong>A review</strong> (model write-up — optional reading)</summary>
 
 <table>
 <tr><td width="760">

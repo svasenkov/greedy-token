@@ -611,11 +611,11 @@ L3 замыкает цикл кристаллизации — кандидат �
 
 ## Охват и roadmap
 
-Сейчас основной сценарий — **любой MCP agent-хост + Ollama + workspace** (Cursor по умолчанию); CLI и MCP не привязаны к IDE. Текущий релиз — **v0.13.0** — Trust cut (честное позиционирование экономии, pin mcp, edit-escalation, кириллический tokenize, routing corpus, `shell=False`), плюс ранее: экономия времени / beyond-Cursor / [metered bulk APIs](#metered-bulk-apis-adr-0002) под spend guard. Paid agent APIs (`expensive_llm`) — по-прежнему opt-in.
+Сейчас основной сценарий — **любой MCP agent-хост + Ollama + workspace** (Cursor по умолчанию); CLI и MCP не привязаны к IDE. Текущий релиз — **v0.18.0**; trust cut вошёл в **v0.13.0** (честное позиционирование экономии, pin mcp, edit-escalation, кириллический tokenize, routing corpus, `shell=False`), поверх раннего: экономия времени / beyond-Cursor / [metered bulk APIs](#metered-bulk-apis-adr-0002) под spend guard. Paid agent APIs (`expensive_llm`) — по-прежнему opt-in.
 
 **Детали по релизам:** cut-чеклисты `CUT-v*.md` в корне репозитория. **Полная матрица (✅ / ❌ / 🔜) + критерии + GitHub issues:** [docs/ROADMAP-RU.md](docs/ROADMAP-RU.md) · [docs/ROADMAP.md](docs/ROADMAP.md)
 
-| Зона | ✅ сейчас (v0.13.0) | 🔜 дальше |
+| Зона | ✅ сейчас (v0.18.0) | 🔜 дальше |
 |------|-------------------|-----------|
 | Executors | `tool`, `python`, `ollama` (через `cheap_llm`), `rag`; **metered bulk APIs** (spend-guarded, [ADR-0002](docs/adr/0002-metered-bulk-cheap-tier.md)) | Crystal IR store |
 | Кристаллизация | L2 telemetry + **audited lifecycle** (`draft` → `approve` → `promote` / `reject`, trust-gated apply) | — (silent auto-apply сознательно не планируется) |
