@@ -211,7 +211,8 @@ def test_build_tool_command_rg_exact(minimal_workspace: Path) -> None:
         expected_argv = (
             executable, "-n", "--max-columns", "200", "-F",
             "-g", "!.git/**", "-g", "!node_modules/**", "-g", "!build/**",
-            "-g", "!.venv/**", "-g", "!.cursor/hooks/**", "--max-count", "50",
+            "-g", "!.venv/**", "-g", "!.cursor/hooks/**", "-g", "!.claude/hooks/**",
+            "-g", "!.devin/hooks/**", "--max-count", "50",
             "--", "baseUrl", ".",
         )
         assert _build_tool_argv({}, "find baseUrl", minimal_workspace) == expected_argv

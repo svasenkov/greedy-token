@@ -4,6 +4,8 @@ from __future__ import annotations
 
 JUNK_TOOL_PATH_FRAGMENTS = (
     ".cursor/hooks/",
+    ".claude/hooks/",
+    ".devin/hooks/",
     "greedy-token-route.sh",
     "greedy-token-home/dev/README",
 )

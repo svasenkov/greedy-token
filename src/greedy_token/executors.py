@@ -427,7 +427,7 @@ def execute_task(task: str, root: Path | None = None) -> TaskRunResult:
                     started=started,
                 )
             if filtered != out.strip():
-                note = f"rg (without .cursor/hooks):\n{filtered}\n"
+                note = f"rg (without agent-internal dirs):\n{filtered}\n"
                 rag_out = _rag_fallback_output(task, root)
                 if rag_out and len(filtered.splitlines()) < 3:
                     note += f"\n---\nAdditional RAG:\n\n{rag_out}"

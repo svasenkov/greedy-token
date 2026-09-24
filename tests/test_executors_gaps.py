@@ -272,7 +272,7 @@ def test_execute_task_filtered_short_with_rag(
     )
     res = ex.execute_task("find baseUrl", minimal_workspace)
     assert res.output == (
-        "rg (without .cursor/hooks):\nbaseUrl\n"
+        "rg (without agent-internal dirs):\nbaseUrl\n"
         "\n---\nAdditional RAG:\n\nRAGX"
     )  # kills note= (drops rg header) and 'XX' string mutants
     assert res.used_rag_fallback is True
@@ -293,7 +293,7 @@ def test_execute_task_filtered_three_lines_no_append(
     # len(filtered.splitlines()) == 3 → `< 3` is False → no append (kills <=3 and <4)
     assert res.used_rag_fallback is False
     assert "Additional RAG" not in res.output
-    assert res.output == "rg (without .cursor/hooks):\nl1: baseUrl\nl2: baseUrl\nl3: baseUrl\n"
+    assert res.output == "rg (without agent-internal dirs):\nl1: baseUrl\nl2: baseUrl\nl3: baseUrl\n"
 
 
 @allure.title("execute_task tool tier: filtered≠raw, no RAG → note only, exit=code, decision")
@@ -307,7 +307,7 @@ def test_execute_task_filtered_no_rag(
         exec_ret=(1, ".cursor/hooks/noise\nbaseUrl"), rag_ret=None,
     )
     res = ex.execute_task("find baseUrl", minimal_workspace)
-    assert res.output == "rg (without .cursor/hooks):\nbaseUrl\n"
+    assert res.output == "rg (without agent-internal dirs):\nbaseUrl\n"
     assert res.exit_code == 1  # kills exit_code=None / dropped (default 0)
     assert res.decision is dec  # kills decision=None
     assert res.used_rag_fallback is False

@@ -37,6 +37,8 @@ routes:
       - "!build/**"
       - "!.venv/**"
       - "!.cursor/hooks/**"
+      - "!.claude/hooks/**"
+      - "!.devin/hooks/**"
     search_paths:
       - projects
       - docs

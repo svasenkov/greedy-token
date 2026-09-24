@@ -21,7 +21,11 @@ DEFAULT_GLOBS = [
     "!node_modules/**",
     "!build/**",
     "!.venv/**",
+    # Agent-host internals — machinery, not content (all known hosts, not just
+    # the configured one: devin hooks reuse the .cursor/hooks script store).
     "!.cursor/hooks/**",
+    "!.claude/hooks/**",
+    "!.devin/hooks/**",
 ]
 
 DEFAULT_PATHS = ["."]

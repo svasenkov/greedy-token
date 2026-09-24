@@ -18,6 +18,7 @@ from greedy_token.calibration import (
     SOURCE_FORMULA,
     SOURCE_NONE,
 )
+from greedy_token.code_search import DEFAULT_GLOBS
 from greedy_token.outcome_calibration import (
     SOURCE_OUTCOME_CALIBRATED,
     confidence_for_outcome,
@@ -381,13 +382,7 @@ def _build_tool_argv(route: dict, task: str, root: Path) -> tuple[str, ...]:
             str(route.get("jq_filter", ".")),
             path_hint,
         )
-    globs = route.get("globs") or [
-        "!.git/**",
-        "!node_modules/**",
-        "!build/**",
-        "!.venv/**",
-        "!.cursor/hooks/**",
-    ]
+    globs = route.get("globs") or DEFAULT_GLOBS
     existing_paths, _missing_paths = _split_search_paths(route, root)
     # Every declared path missing → degrade to the bundled default scope "."
     # rather than hand rg operands it will exit 2 on.
