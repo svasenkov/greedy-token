@@ -14,10 +14,13 @@ from mcp.types import Icon
 from greedy_token.budget import format_savings_lines, rag_est_tokens, wrap_mcp_response
 from greedy_token.code_search import search_code
 from greedy_token.crystallize_l3 import (
-    DraftResult,
     approve_crystal,
     crystal_status,
     draft_crystal,
+    format_approve_result,
+    format_draft_result,
+    format_promote_result,
+    format_reject_result,
     promote_crystal,
     reject_crystal,
 )
@@ -301,42 +304,6 @@ def greedy_token_invoke(op_id: str, args: str = "", query: str = "") -> str:
     )
 
 
-def _format_draft_result(result: DraftResult) -> str:
-    lines = [
-        f"Draft crystal: {result.crystal_id}  (source: {result.source})",
-        f"  Pattern: {result.pattern}  (hits: {result.hits})",
-        f"  Script:  {result.draft_path}",
-        f"  Route:   shadow until {result.shadow_until} (log-only, does not affect route_task)",
-        f"  Config:  {result.config_path}",
-    ]
-    if result.lint_ok:
-        lines.append("  Lint:    scripts lint OK")
-    else:
-        lines.append("  Lint:    FAILED")
-        lines.extend(f"    {v['id']}: {v['detail']}" for v in result.lint_violations)
-    lines.append(
-        f"Review the script, then: greedy-token crystallize approve {result.crystal_id}"
-    )
-    return "\n".join(lines)
-
-
-def _format_promote_result(result: dict, crystal_id: str) -> str:
-    pattern = (result["route"].get("patterns") or [""])[0]
-    return (
-        f"Promoted {crystal_id}: approved → applied in {result['config']}\n"
-        f"  Trust: {result['trusted']} (sha256 {str(result['sha256'])[:12]}…)\n"
-        f'Verify: greedy-token route "{pattern}"'
-    )
-
-
-def _format_reject_result(result: dict, crystal_id: str) -> str:
-    return (
-        f"Rejected {crystal_id}: "
-        f"route removed={result['removed_route']}, draft removed={result['removed_draft']}, "
-        f"trust revoked={result['revoked_trust']}"
-    )
-
-
 @mcp.tool()
 def greedy_token_crystallize(
     action: str,
@@ -373,7 +340,7 @@ def greedy_token_crystallize(
             )
         except ValueError as exc:
             raise ValueError(f"crystallize draft: {exc}") from exc
-        return _format_draft_result(result)
+        return format_draft_result(result)
     if act == "approve":
         try:
             result = approve_crystal(
@@ -381,12 +348,7 @@ def greedy_token_crystallize(
             )
         except ValueError as exc:
             raise ValueError(f"crystallize approve: {exc}") from exc
-        return (
-            f"Approved {result['crystal_id']} by {result['actor']}"
-            + (f" — {result['reason']}" if result.get("reason") else "")
-            + f"\n  pinned draft sha256: {result['approved_sha256'][:12]}…"
-            f"\n  Next: greedy-token crystallize promote {result['crystal_id']}"
-        )
+        return format_approve_result(result)
     if act == "promote":
         try:
             result = promote_crystal(
@@ -394,10 +356,10 @@ def greedy_token_crystallize(
             )
         except ValueError as exc:
             raise ValueError(f"crystallize promote: {exc}") from exc
-        return _format_promote_result(result, crystal_id)
+        return format_promote_result(result, crystal_id)
     if act == "reject":
         result = reject_crystal(crystal_id, root=root, actor=actor, reason=reason)
-        return _format_reject_result(result, crystal_id)
+        return format_reject_result(result, crystal_id)
     raise ValueError(
         f"crystallize: unknown action {action!r} "
         "(expected candidates, status, draft/propose, approve, promote, or reject)"

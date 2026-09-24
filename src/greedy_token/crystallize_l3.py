@@ -690,3 +690,53 @@ def crystal_status(crystal_id: str, *, root: Path) -> dict:
         "next": _NEXT_HINT.get(state, _NEXT_HINT[STATE_UNKNOWN]).format(id=crystal_id),
     }
     return result
+
+
+# ---------------------------------------------------------------------------
+# Result formatting — shared by the CLI and MCP surfaces.
+# ---------------------------------------------------------------------------
+
+
+def format_draft_result(result: DraftResult) -> str:
+    lines = [
+        f"Draft crystal: {result.crystal_id}  (source: {result.source})",
+        f"  Pattern: {result.pattern}  (hits: {result.hits})",
+        f"  Script:  {result.draft_path}",
+        f"  Route:   shadow until {result.shadow_until} (log-only, does not affect route_task)",
+        f"  Config:  {result.config_path}",
+    ]
+    if result.lint_ok:
+        lines.append("  Lint:    scripts lint OK")
+    else:
+        lines.append("  Lint:    FAILED")
+        lines.extend(f"    {v['id']}: {v['detail']}" for v in result.lint_violations)
+    lines.append(
+        f"Review the script, then: greedy-token crystallize approve {result.crystal_id}"
+    )
+    return "\n".join(lines)
+
+
+def format_approve_result(result: dict) -> str:
+    return (
+        f"Approved {result['crystal_id']} by {result['actor']}"
+        + (f" — {result['reason']}" if result.get("reason") else "")
+        + f"\n  pinned draft sha256: {result['approved_sha256'][:12]}…"
+        f"\n  Next: greedy-token crystallize promote {result['crystal_id']}"
+    )
+
+
+def format_promote_result(result: dict, crystal_id: str) -> str:
+    pattern = (result["route"].get("patterns") or [""])[0]
+    return (
+        f"Promoted {crystal_id}: approved → applied in {result['config']}\n"
+        f"  Trust: {result['trusted']} (sha256 {str(result['sha256'])[:12]}…)\n"
+        f'Verify: greedy-token route "{pattern}"'
+    )
+
+
+def format_reject_result(result: dict, crystal_id: str) -> str:
+    return (
+        f"Rejected {crystal_id}: "
+        f"route removed={result['removed_route']}, draft removed={result['removed_draft']}, "
+        f"trust revoked={result['revoked_trust']}"
+    )

@@ -1253,7 +1253,7 @@ def cmd_crystallize_status(args: argparse.Namespace) -> int:
 
 
 def cmd_crystallize_draft(args: argparse.Namespace) -> int:
-    from greedy_token.crystallize_l3 import draft_crystal
+    from greedy_token.crystallize_l3 import draft_crystal, format_draft_result
 
     root = find_workspace_root()
     try:
@@ -1287,27 +1287,12 @@ def cmd_crystallize_draft(args: argparse.Namespace) -> int:
             )
         )
         return 0 if result.lint_ok else 1
-    lines = [
-        f"Draft crystal: {result.crystal_id}  (source: {result.source})",
-        f"  Pattern: {result.pattern}  (hits: {result.hits})",
-        f"  Script:  {result.draft_path}",
-        f"  Route:   shadow until {result.shadow_until} (log-only, does not affect route_task)",
-        f"  Config:  {result.config_path}",
-    ]
-    if result.lint_ok:
-        lines.append("  Lint:    scripts lint OK")
-    else:
-        lines.append("  Lint:    FAILED")
-        lines.extend(f"    {v['id']}: {v['detail']}" for v in result.lint_violations)
-    lines.append(
-        f"Review the script, then: greedy-token crystallize approve {result.crystal_id}"
-    )
-    print("\n".join(lines))
+    print(format_draft_result(result))
     return 0 if result.lint_ok else 1
 
 
 def cmd_crystallize_approve(args: argparse.Namespace) -> int:
-    from greedy_token.crystallize_l3 import approve_crystal
+    from greedy_token.crystallize_l3 import approve_crystal, format_approve_result
 
     root = find_workspace_root()
     try:
@@ -1320,17 +1305,12 @@ def cmd_crystallize_approve(args: argparse.Namespace) -> int:
     if args.json:
         print(json.dumps(result, indent=2, ensure_ascii=False))
         return 0
-    print(
-        f"Approved {result['crystal_id']} by {result['actor']}"
-        + (f" — {result['reason']}" if result.get("reason") else "")
-        + f"\n  pinned draft sha256: {result['approved_sha256'][:12]}…"
-        f"\n  Next: greedy-token crystallize promote {result['crystal_id']}"
-    )
+    print(format_approve_result(result))
     return 0
 
 
 def cmd_crystallize_promote(args: argparse.Namespace) -> int:
-    from greedy_token.crystallize_l3 import promote_crystal
+    from greedy_token.crystallize_l3 import format_promote_result, promote_crystal
 
     root = find_workspace_root()
     try:
@@ -1343,16 +1323,12 @@ def cmd_crystallize_promote(args: argparse.Namespace) -> int:
     if args.json:
         print(json.dumps(result, indent=2, ensure_ascii=False))
         return 0
-    print(
-        f"Promoted {args.crystal_id}: approved → applied in {result['config']}\n"
-        f"  Trust: {result['trusted']} (sha256 {result['sha256'][:12]}…)\n"
-        f"Verify: greedy-token route \"{(result['route'].get('patterns') or [''])[0]}\""
-    )
+    print(format_promote_result(result, args.crystal_id))
     return 0
 
 
 def cmd_crystallize_reject(args: argparse.Namespace) -> int:
-    from greedy_token.crystallize_l3 import reject_crystal
+    from greedy_token.crystallize_l3 import format_reject_result, reject_crystal
 
     root = find_workspace_root()
     result = reject_crystal(
@@ -1361,11 +1337,7 @@ def cmd_crystallize_reject(args: argparse.Namespace) -> int:
     if args.json:
         print(json.dumps(result, indent=2, ensure_ascii=False))
         return 0
-    print(
-        f"Rejected {args.crystal_id}: "
-        f"route removed={result['removed_route']}, draft removed={result['removed_draft']}, "
-        f"trust revoked={result['revoked_trust']}"
-    )
+    print(format_reject_result(result, args.crystal_id))
     return 0
 
 
