@@ -26,6 +26,7 @@ from greedy_token.code_search import (
     parse_hit_lines,
     search_code,
 )
+from greedy_token.context_audit import HOST_SKILLS_DIR, resolve_host
 from greedy_token.estimator import cursor_baseline
 from greedy_token.model_select import apply_model_env, resolve_model
 from greedy_token.paths import find_workspace_root
@@ -583,7 +584,9 @@ def _resolve_wrapper_args(step_id: str, args: str) -> str:
     if arg.endswith(".md") or "/" in arg:
         resolved = _resolve_under_root(arg, root)
         return str(resolved.relative_to(root.resolve()))
-    skill_path = (root / ".cursor/skills" / arg / "SKILL.md").resolve()
+    skill_path = (
+        root / HOST_SKILLS_DIR[resolve_host(root)] / arg / "SKILL.md"
+    ).resolve()
     # equivalent: this branch is only reached when `arg` has no "/" (checked
     # above), so skill_path always stays under root → rejection (and its hint)
     # is unreachable.

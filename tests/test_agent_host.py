@@ -17,6 +17,7 @@ import greedy_token.settings as st
 from greedy_token.context_audit import (
     HOST_LABELS,
     HOST_RULE_GLOBS,
+    HOST_SKILLS_DIR,
     audit_context,
     render_audit,
     resolve_host,
@@ -190,5 +191,6 @@ def test_host_registry_complete() -> None:
     assert set(HOST_RULE_GLOBS) == {"cursor", "claude", "continue"}
     assert set(HOST_LABELS) == set(HOST_RULE_GLOBS)
     assert set(HOST_RULES_HINT) == set(HOST_RULE_GLOBS)
+    assert set(HOST_SKILLS_DIR) == set(HOST_RULE_GLOBS)
     with allure.step("workspace config example documents the key"):
         assert "agent_host:" in st.example_workspace_config()

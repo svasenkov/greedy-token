@@ -3,8 +3,8 @@
 Host conventions (config key ``agent_host: cursor|claude|continue``):
 
 * **cursor** — ``.cursor/rules/*.mdc`` always-on rules + ``.cursor/skills``;
-* **claude** — ``CLAUDE.md`` (workspace root) + ``.claude/rules/*.md``;
-* **continue** — ``.continuerules`` + ``.continue/rules/*.md``.
+* **claude** — ``CLAUDE.md`` (workspace root) + ``.claude/rules/*.md`` + ``.claude/skills``;
+* **continue** — ``.continuerules`` + ``.continue/rules/*.md`` + ``.continue/skills``.
 
 The sampled docs set is host-independent. Telemetry keys (``cursor_baseline``)
 keep their names — they are baseline slot names, not host claims.
@@ -33,18 +33,23 @@ class ContextItem:
 HOST_RULE_GLOBS: dict[AgentHost, list[tuple[str, str, bool]]] = {
     "cursor": [
         (".cursor/rules/*.mdc", "rule", True),
-        (".cursor/skills/*/SKILL.md", "skill", False),
     ],
     "claude": [
         ("CLAUDE.md", "rule", True),
         (".claude/rules/*.md", "rule", True),
-        (".cursor/skills/*/SKILL.md", "skill", False),
     ],
     "continue": [
         (".continuerules", "rule", True),
         (".continue/rules/*.md", "rule", True),
-        (".cursor/skills/*/SKILL.md", "skill", False),
     ],
+}
+
+# Skills storage is host-native too — the host's own skills dir is where
+# audit_context and the audit-skill pipeline step resolve SKILL.md files.
+HOST_SKILLS_DIR: dict[AgentHost, str] = {
+    "cursor": ".cursor/skills",
+    "claude": ".claude/skills",
+    "continue": ".continue/skills",
 }
 
 DOC_GLOBS: list[tuple[str, str, bool]] = [
@@ -77,7 +82,11 @@ def audit_context(root: Path | None = None, host: str | None = None) -> list[Con
     resolved_host = resolve_host(root, host)
     items: list[ContextItem] = []
 
-    globs = HOST_RULE_GLOBS[resolved_host] + DOC_GLOBS
+    globs = (
+        HOST_RULE_GLOBS[resolved_host]
+        + [(f"{HOST_SKILLS_DIR[resolved_host]}/*/SKILL.md", "skill", False)]
+        + DOC_GLOBS
+    )
 
     found: list[tuple[Path, str, bool]] = []
     for pattern, kind, always_on in globs:
@@ -114,7 +123,7 @@ def render_audit(items: list[ContextItem], host: str | None = None) -> str:
         f"== {label} context audit ==",
         "",
         f"Always-on rules ({rules_hint}): {rules_total:,} tokens",
-        f"Skills on disk (.cursor/skills/*/SKILL.md): {skills_total:,} tokens",
+        f"Skills on disk ({HOST_SKILLS_DIR[resolved_host]}/*/SKILL.md): {skills_total:,} tokens",
         f"Sampled docs: {all_total - rules_total - skills_total:,} tokens",
         f"Grand total (sampled set): {all_total:,} tokens",
         "",

@@ -101,8 +101,9 @@ equivalents:
       unreachable.
     proof: >-
       A bare skill name without "/" always yields a path under
-      root/.cursor/skills, so _reject_outside_root never rejects here and
-      mutations of the call (or its hint kwarg) are unobservable.
+      root/<host skills dir> (HOST_SKILLS_DIR), so _reject_outside_root never
+      rejects here and mutations of the call (or its hint kwarg) are
+      unobservable.
     pragma: true
 
   - module: pipeline.py
