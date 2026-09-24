@@ -804,6 +804,8 @@ def parse_since(value: str | None) -> datetime | None:
         return now - timedelta(days=int(value[:-1]))
     if value.endswith("h") and value[:-1].isdigit():
         return now - timedelta(hours=int(value[:-1]))
+    if value.endswith("m") and value[:-1].isdigit():
+        return now - timedelta(minutes=int(value[:-1]))
     try:
         dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
         if dt.tzinfo is None:
@@ -828,10 +830,16 @@ def _parse_event_ts(event: dict) -> datetime | None:
         return None
 
 
-def load_events(path: Path, *, since: datetime | None = None) -> tuple[list[dict], int]:
+def load_events(
+    path: Path,
+    *,
+    since: datetime | None = None,
+    include_archives: bool = True,
+) -> tuple[list[dict], int]:
     events: list[dict] = []
     skipped = 0
-    for log_file in log_archive_paths(path):
+    paths = log_archive_paths(path) if include_archives else [path]
+    for log_file in paths:
         if not log_file.is_file():
             continue
         with log_file.open(encoding="utf-8") as fh:

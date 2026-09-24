@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 
 import pytest
@@ -117,9 +118,9 @@ def test_crystal_id_for_pattern_identity() -> None:
 
 
 @allure.title("scripts/_crystallize_lib derives the same canonical crystal id")
-def test_scripts_lib_crystal_id_parity(workspace_root: Path) -> None:
-    """Package canon is the single id source — the workspace scripts ranker
-    must emit identical ids, otherwise one candidate lists twice."""
+def test_scripts_lib_crystal_id_parity(workspace_root: Path, tmp_path: Path) -> None:
+    """The workspace scripts ranker is a thin delegate over the package SSOT:
+    same fixture log must yield identical candidates and canonical ids."""
     lib_path = workspace_root / "scripts" / "_crystallize_lib.py"
     spec = importlib.util.spec_from_file_location("_crystallize_lib", lib_path)
     assert spec is not None and spec.loader is not None
@@ -127,13 +128,21 @@ def test_scripts_lib_crystal_id_parity(workspace_root: Path) -> None:
     spec.loader.exec_module(lib)
 
     task = "summarize the weekly spend report table"
+    log = tmp_path / "usage.jsonl"
     row = {
         "ts": "2026-09-22T04:23:42Z",
         "selected_tier": "cursor",
         "task": task,
         "task_normalized": task,
     }
-    cluster = lib.cluster_llm_rows([row])[0]
+    log.write_text(json.dumps(row) + "\n", encoding="utf-8")
+
+    from greedy_token.hub.crystallize import rank_candidates as hub_rank_candidates
+
+    scr = lib.rank_candidates(log, None, 15)
+    pkg = hub_rank_candidates(since=None, top=15, usage_path=log)
+
     cid = crystal_id_for_pattern(task)
-    assert cluster["suggested_script"] == cluster["crystal_id"] == cid
-    assert lib.slugify is crystal_ids.slugify
+    assert scr["candidates"] == pkg["candidates"]
+    assert scr["candidates"][0]["suggested_script"] == scr["candidates"][0]["crystal_id"] == cid
+    assert lib.crystal_id_for_pattern is crystal_ids.crystal_id_for_pattern

@@ -12,10 +12,35 @@ from pathlib import Path
 from greedy_token.crystal_ids import crystal_id_for_pattern, stem_of, validate_route_id
 from greedy_token.hub.paths import inbox_path, lifecycle_path, watch_state_path
 from greedy_token.paths import find_workspace_root
-from greedy_token.usage import load_events, log_path, parse_since
+from greedy_token.usage import (
+    CHEAP_TIERS,
+    load_events,
+    log_path,
+    normalize_task,
+    parse_since,
+)
 
 SCRIPT_TIERS = frozenset({"tool", "python", "script", "rag"})
 LLM_TIERS = frozenset({"ollama", "cursor"})
+OVERRIDE_EVENT = "script_override"
+PROMOTE_MIN_HITS = 3
+# Sessionization fallback: usage events carry no session_id, so >30min of
+# silence between any events splits a work session (web-analytics convention).
+SESSION_GAP_SEC = 30 * 60
+NOISE_EXACT = frozenset(
+    {
+        "audit :: audit",
+        "cursor :: cursor",
+        "audit-skill x :: audit",
+        "classify-file x :: classify",
+        "audit-skill gap :: audit",
+        "classify-file gap :: classify",
+    }
+)
+# pytest pipeline fixtures for pipeline-audit-skill / pipeline-classify-file
+_PIPELINE_FIXTURE_TASK = re.compile(
+    r"^(audit-skill|classify-file) [a-z0-9_-]+ :: (audit|classify)$"
+)
 # Pipeline/pytest dogfood logs tasks as "step :: layer" (audit :: audit).
 INBOX_MAX_AGE = timedelta(days=7)
 HIDDEN_STATUSES = frozenset({"reject", "rejected"})
@@ -75,6 +100,20 @@ def is_fixture_task(pattern: str) -> bool:
     return " :: " in (pattern or "")
 
 
+def is_noise(pattern: str) -> bool:
+    """True for patterns that are telemetry noise or too vague to crystallize."""
+    p = (pattern or "").lower().strip()
+    if p in NOISE_EXACT:
+        return True
+    if _PIPELINE_FIXTURE_TASK.fullmatch(p):
+        return True
+    if len(p) < 12:
+        return True
+    if re.fullmatch(r"[a-z]+ :: [a-z]+", p):
+        return True
+    return False
+
+
 def is_lesson_root(path: str) -> bool:
     text = (path or "").replace("\\", "/").lower()
     return any(marker in text for marker in LESSON_ROOT_MARKERS)
@@ -126,6 +165,79 @@ def parse_iso_ts(value: object) -> datetime | None:
     return dt
 
 
+def _session_id(row: dict) -> str | None:
+    tags = row.get("tags") if isinstance(row.get("tags"), dict) else {}
+    for key in ("session_id", "session", "sid"):
+        val = row.get(key) or tags.get(key)
+        if val:
+            return str(val)
+    return None
+
+
+def _event_day(row: dict) -> str | None:
+    when = parse_iso_ts(row.get("ts"))
+    return when.date().isoformat() if when else None
+
+
+def _gap_sessions(rows: list[dict]) -> dict[int, int]:
+    """Map id(row) -> session index from time gaps across ALL activity."""
+    timed = sorted(
+        (ts, id(row)) for row in rows if (ts := parse_iso_ts(row.get("ts"))) is not None
+    )
+    buckets: dict[int, int] = {}
+    idx = 0
+    prev: datetime | None = None
+    for ts, row_id in timed:
+        if prev is not None and (ts - prev).total_seconds() > SESSION_GAP_SEC:
+            idx += 1
+        buckets[row_id] = idx
+        prev = ts
+    return buckets
+
+
+def _row_session(row: dict, gap_sessions: dict[int, int]) -> str | None:
+    explicit = _session_id(row)
+    if explicit:
+        return explicit
+    idx = gap_sessions.get(id(row))
+    return f"gap-{idx}" if idx is not None else None
+
+
+def script_hits_by_route(route_rows: list[dict]) -> dict[str, int]:
+    """Count cheap-tier hits per route/crystal id (override_rate denominator)."""
+    hits: Counter[str] = Counter()
+    for row in route_rows:
+        if row.get("selected_tier") in CHEAP_TIERS:
+            hits[row.get("route_id") or "unknown"] += 1
+    return dict(hits)
+
+
+def rank_overrides(
+    rows: list[dict],
+    top: int,
+    *,
+    script_hits_by_crystal: dict[str, int] | None = None,
+) -> list[dict]:
+    counts: Counter[tuple[str, str]] = Counter()
+    for row in rows:
+        crystal_id = row.get("crystal_id") or row.get("route_id") or "unknown"
+        task = normalize_task(row.get("task_normalized") or row.get("task") or "")
+        counts[(crystal_id, task)] += 1
+    out: list[dict] = []
+    for (crystal_id, task), count in counts.most_common(top):
+        entry: dict = {
+            "crystal_id": crystal_id,
+            "task": task,
+            "override_count": count,
+        }
+        if script_hits_by_crystal is not None:
+            hits = script_hits_by_crystal.get(crystal_id, 0)
+            entry["script_hits"] = hits
+            entry["override_rate"] = round(count / max(1, hits), 4)
+        out.append(entry)
+    return out
+
+
 def inbox_is_fresh(
     inbox: dict,
     *,
@@ -170,9 +282,29 @@ def rank_candidates(
     project: str | None = None,
     step: str | None = None,
     root: Path | None = None,
+    usage_path: Path | None = None,
+    include_overrides: bool = False,
 ) -> dict:
+    """Rank LLM-tier tasks as crystallize candidates — the single SSOT.
+
+    Canonical hit semantics (scripts/_crystallize_lib.py delegates here):
+
+    - one hit = one request event on an LLM tier (``ollama``/``cursor``);
+      ``route_outcome`` rows are the same operation's result, never a new hit;
+    - ``script_override`` rows are excluded from hits and tier_counts but
+      measured separately (``override_rate`` over cheap-tier hits);
+    - rows sharing ``operation_id`` count once — an escalation chain is one
+      task invocation, however many provider calls it logged;
+    - candidates merge by canonical ``crystal_id_for_pattern`` (no fuzzy
+      matching — the canonical id already covers spelling variants);
+    - ``promote_ready`` = ≥3 hits across ≥2 sessions or ≥2 distinct days;
+    - tasks matching an active non-cursor route move to ``covered`` (an
+      adoption gap, not a missing primitive); tmp/pytest-rooted tasks are
+      sandbox noise unless the workspace itself is a sandbox.
+    """
     since_dt = parse_since(since) if since else None
-    events, _ = load_events(log_path(), since=since_dt)
+    path = Path(usage_path) if usage_path is not None else log_path()
+    events, _skipped = load_events(path, since=since_dt)
     if project or step:
         events = [e for e in events if _row_matches_tags(e, project=project, step=step)]
     if not events:
@@ -181,28 +313,45 @@ def rank_candidates(
             "coverage_pct": 0.0,
             "total_events": 0,
             "script_or_tool_events": 0,
+            "script_override_events": 0,
+            "override_rate": 0.0,
+            "cheap_hold_rate": 1.0,
             "tier_counts": {},
             "candidates": [],
+            "covered": [],
             "fixture_skipped": 0,
+            "sandbox_skipped": 0,
+            "usage_path": str(path),
             "since": since,
+            "project": project,
+            "step": step,
         }
 
-    tier_counts = Counter(e.get("selected_tier", "unknown") for e in events)
+    # Overrides are telemetry about already-routed work, not candidate
+    # material — excluded from hits and tier_counts, measured on their own.
+    override_rows = [e for e in events if e.get("event") == OVERRIDE_EVENT]
+    route_rows = [e for e in events if e.get("event") != OVERRIDE_EVENT]
+    tier_counts = Counter(e.get("selected_tier", "unknown") for e in route_rows)
     script_like = sum(tier_counts.get(t, 0) for t in SCRIPT_TIERS)
     coverage_pct = round(100.0 * script_like / len(events), 1)
 
+    gap_sessions = _gap_sessions(route_rows)
     llm_tasks: Counter[str] = Counter()
     fixture_tasks: set[str] = set()
     task_roots: dict[str, Counter[str]] = defaultdict(Counter)
+    task_sessions: dict[str, set[str]] = defaultdict(set)
+    task_days: dict[str, set[str]] = defaultdict(set)
     seen_llm_ops: set[str] = set()
-    for row in events:
+    for row in route_rows:
         tier = row.get("selected_tier", "")
         if tier not in LLM_TIERS:
             continue
-        task = (row.get("task") or "").strip().lower()
+        if row.get("event") == "route_outcome":
+            continue  # outcome of an already-counted request, never a new hit
+        task = normalize_task(row.get("task_normalized") or row.get("task") or "")
         if len(task) < 8:
             continue
-        if is_fixture_task(task):
+        if is_fixture_task(task) or is_noise(task):
             fixture_tasks.add(task)
             continue
         op_id = str(row.get("operation_id") or "")
@@ -216,6 +365,12 @@ def rank_candidates(
         event_root = str(row.get("root") or "")
         if event_root:
             task_roots[task][event_root] += 1
+        session = _row_session(row, gap_sessions)
+        if session:
+            task_sessions[task].add(session)
+        day = _event_day(row)
+        if day:
+            task_days[task].add(day)
     fixture_skipped = len(fixture_tasks)
 
     # One candidate per canonical id — spellings that derive the same stem
@@ -235,9 +390,13 @@ def rank_candidates(
                 "stem": stem_of(cid),
                 "tier_seen": "cursor/ollama",
                 "roots": Counter(),
+                "_sessions": set(),
+                "_days": set(),
             }
         row["hits"] += hits
         row["roots"].update(task_roots[task])
+        row["_sessions"].update(task_sessions[task])
+        row["_days"].update(task_days[task])
 
     # Split coverage: a task that already matches an active non-cursor route
     # is an adoption gap (agent never invoked it), not a missing primitive —
@@ -271,20 +430,43 @@ def rank_candidates(
     candidates = candidates[:top]
     covered = covered[:top]
     for row in candidates + covered:
+        sessions = row.pop("_sessions")
+        days = row.pop("_days")
         row["roots"] = dict(row["roots"])
+        row["distinct_sessions"] = len(sessions)
+        row["distinct_days"] = len(days)
+        row["promote_ready"] = bool(
+            int(row["hits"]) >= PROMOTE_MIN_HITS
+            and (row["distinct_sessions"] >= 2 or row["distinct_days"] >= 2)
+        )
 
-    return {
+    script_hits_by_crystal = script_hits_by_route(route_rows)
+    script_hits_total = sum(script_hits_by_crystal.values())
+    override_rate = round(len(override_rows) / max(1, script_hits_total), 4)
+
+    result = {
         "ok": True,
         "coverage_pct": coverage_pct,
         "total_events": len(events),
         "script_or_tool_events": script_like,
+        "script_override_events": len(override_rows),
+        "override_rate": override_rate,
+        "cheap_hold_rate": round(max(0.0, 1.0 - override_rate), 4),
         "tier_counts": dict(tier_counts),
         "candidates": candidates,
         "covered": covered,
         "fixture_skipped": fixture_skipped,
         "sandbox_skipped": sandbox_skipped,
+        "usage_path": str(path),
         "since": since,
+        "project": project,
+        "step": step,
     }
+    if include_overrides:
+        result["overrides"] = rank_overrides(
+            override_rows, top, script_hits_by_crystal=script_hits_by_crystal
+        )
+    return result
 
 
 def _row_matches_tags(row: dict, *, project: str | None, step: str | None) -> bool:

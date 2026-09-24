@@ -145,6 +145,216 @@ def test_rank_candidates_no_workspace(hub_home: Path, monkeypatch: pytest.Monkey
     assert any("real-repeated" in c["crystal_id"] for c in report["candidates"])
 
 
+@allure.title("rank_candidates: session/day gates drive promote_ready")
+def test_rank_candidates_promote_ready(hub_home: Path) -> None:
+    log = hub_home / "usage.jsonl"
+    rows = [
+        {
+            "ts": "2026-09-20T10:00:00Z",
+            "selected_tier": "cursor",
+            "task": "rotate the kerberos keytabs please",
+            "tags": {"session_id": "s1"},
+        },
+        {
+            "ts": "2026-09-21T10:00:00Z",
+            "selected_tier": "cursor",
+            "task": "rotate the kerberos keytabs please",
+            "tags": {"session_id": "s2"},
+        },
+        {
+            "ts": "2026-09-21T10:05:00Z",
+            "selected_tier": "cursor",
+            "task": "rotate the kerberos keytabs please",
+            "session": "s2",  # top-level session alias counts too
+        },
+    ]
+    log.write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+    report = crystallize.rank_candidates(since=None)
+    cand = report["candidates"][0]
+    assert cand["hits"] == 3
+    assert cand["distinct_sessions"] == 2
+    assert cand["distinct_days"] == 2
+    assert cand["promote_ready"] is True
+
+
+@allure.title("rank_candidates: >30min silence splits a session when no id is set")
+def test_rank_candidates_gap_sessions(hub_home: Path) -> None:
+    log = hub_home / "usage.jsonl"
+    base = "2026-09-20T10:00:00Z"
+    rows = [
+        {"ts": base, "selected_tier": "cursor", "task": "rotate the kerberos keytabs please"},
+        {
+            "ts": "2026-09-20T10:10:00Z",
+            "selected_tier": "tool",
+            "task": "unrelated tool work between",
+        },
+        {
+            "ts": "2026-09-20T10:50:00Z",
+            "selected_tier": "cursor",
+            "task": "rotate the kerberos keytabs please",
+        },
+        {
+            "ts": "2026-09-20T10:55:00Z",
+            "selected_tier": "cursor",
+            "task": "rotate the kerberos keytabs please",
+        },
+        # untimed row: no session id and no gap bucket — contributes a hit only
+        {"selected_tier": "cursor", "task": "rotate the kerberos keytabs please"},
+    ]
+    log.write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+    report = crystallize.rank_candidates(since=None)
+    cand = report["candidates"][0]
+    assert cand["hits"] == 4
+    assert cand["distinct_sessions"] == 2
+    assert cand["distinct_days"] == 1
+    assert cand["promote_ready"] is True
+
+
+@allure.title("rank_candidates: same-day same-session repeats are not promote_ready")
+def test_rank_candidates_not_promote_ready(hub_home: Path) -> None:
+    log = hub_home / "usage.jsonl"
+    rows = [
+        {
+            "ts": "2026-09-20T10:00:00Z",
+            "selected_tier": "cursor",
+            "task": "rotate the kerberos keytabs please",
+            "sid": "only",
+        }
+    ] * 3
+    log.write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+    cand = crystallize.rank_candidates(since=None)["candidates"][0]
+    assert cand["hits"] == 3
+    assert cand["distinct_sessions"] == 1
+    assert cand["promote_ready"] is False
+
+
+@allure.title("rank_candidates: script_override excluded from hits, metered apart")
+def test_rank_candidates_overrides(hub_home: Path) -> None:
+    log = hub_home / "usage.jsonl"
+    rows = [
+        {"ts": "2026-09-20T10:00:00Z", "selected_tier": "python", "task": "ssh check", "route_id": "python-ssh-check"},
+        {"ts": "2026-09-20T10:00:00Z", "selected_tier": "python", "task": "ssh check", "route_id": "python-ssh-check"},
+        {"ts": "2026-09-20T10:00:00Z", "selected_tier": "python", "task": "ssh check"},
+        {
+            "ts": "2026-09-20T11:00:00Z",
+            "selected_tier": "cursor",
+            "task": "ssh check failed",
+            "event": "script_override",
+            "crystal_id": "python-ssh-check",
+        },
+        {"ts": "2026-09-20T11:05:00Z", "selected_tier": "cursor", "task": "a genuinely new long task"},
+    ]
+    log.write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+    report = crystallize.rank_candidates(since=None, include_overrides=True)
+    assert report["script_override_events"] == 1
+    assert report["tier_counts"].get("cursor") == 1  # override not in tier_counts
+    assert report["override_rate"] == 0.3333  # 1 override / 3 cheap hits
+    assert report["cheap_hold_rate"] == 0.6667
+    over = report["overrides"][0]
+    assert over["crystal_id"] == "python-ssh-check"
+    assert over["override_count"] == 1
+    assert over["script_hits"] == 2
+    assert over["override_rate"] == 0.5
+    # and the override row never became a candidate hit
+    assert all("ssh check" not in c["pattern"] for c in report["candidates"])
+
+    report2 = crystallize.rank_candidates(since=None)
+    assert "overrides" not in report2
+
+
+@allure.title("rank_candidates: route_outcome rows never count as hits")
+def test_rank_candidates_route_outcome_skipped(hub_home: Path) -> None:
+    log = hub_home / "usage.jsonl"
+    rows = [
+        {"ts": "2026-09-20T10:00:00Z", "selected_tier": "ollama", "task": "check ollama invocation path", "operation_id": "op-1"},
+        # legacy outcome without operation_id — still never a hit
+        {"ts": "2026-09-20T10:00:01Z", "selected_tier": "ollama", "task": "check ollama invocation path", "event": "route_outcome"},
+    ]
+    log.write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+    cand = crystallize.rank_candidates(since=None)["candidates"][0]
+    assert cand["hits"] == 1
+
+
+@allure.title("rank_candidates: usage_path override + project/step echo + empty shape")
+def test_rank_candidates_usage_path(hub_home: Path, tmp_path: Path) -> None:
+    other = tmp_path / "elsewhere.jsonl"
+    other.write_text(
+        json.dumps(
+            {"ts": "2026-09-20T10:00:00Z", "selected_tier": "cursor", "task": "task from the other file"}
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    report = crystallize.rank_candidates(since=None, usage_path=other)
+    assert report["usage_path"] == str(other)
+    assert report["total_events"] == 1
+
+    tagged = tmp_path / "tagged.jsonl"
+    tagged.write_text(
+        json.dumps(
+            {
+                "ts": "2026-09-20T10:00:00Z",
+                "selected_tier": "cursor",
+                "task": "task carrying project step tags",
+                "tags": {"project": "p", "step": "s"},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    report = crystallize.rank_candidates(
+        since=None, usage_path=tagged, project="p", step="s"
+    )
+    assert report["project"] == "p" and report["step"] == "s"
+    assert report["total_events"] == 1
+    report = crystallize.rank_candidates(since=None, usage_path=tagged, project="other")
+    assert report["total_events"] == 0
+
+    empty = tmp_path / "empty.jsonl"
+    report = crystallize.rank_candidates(since=None, usage_path=empty)
+    assert report["ok"] is True
+    assert report["candidates"] == [] and report["covered"] == []
+    assert report["script_override_events"] == 0
+    assert report["cheap_hold_rate"] == 1.0
+
+
+@allure.title("is_noise: every rule branch")
+def test_is_noise_branches() -> None:
+    assert crystallize.is_noise("audit :: audit")  # exact set
+    assert crystallize.is_noise("audit-skill deep :: audit")  # pipeline fixture
+    assert crystallize.is_noise("too short")  # <12 chars
+    assert crystallize.is_noise("alpha :: beta")  # word :: word fixture
+    assert crystallize.is_noise("")  # falsy pattern
+    assert not crystallize.is_noise("real workspace task with length")
+
+
+@allure.title("script_hits_by_route: cheap tiers per route, unknown fallback")
+def test_script_hits_by_route() -> None:
+    rows = [
+        {"selected_tier": "python", "route_id": "python-a"},
+        {"selected_tier": "tool", "route_id": "tool-b"},
+        {"selected_tier": "cursor", "route_id": "cursor-x"},
+        {"selected_tier": "rag"},  # cheap, no route_id
+    ]
+    hits = crystallize.script_hits_by_route(rows)
+    assert hits == {"python-a": 1, "tool-b": 1, "unknown": 1}
+
+
+@allure.title("rank_overrides: route_id fallback and no-hit denominators")
+def test_rank_overrides_standalone() -> None:
+    rows = [
+        {"task": "override via route", "route_id": "python-r"},
+        {"task": "override unknown"},
+    ]
+    ranked = crystallize.rank_overrides(rows, 5)
+    assert ranked[0]["crystal_id"] == "python-r"
+    assert "script_hits" not in ranked[0]  # no denominator map → no rate fields
+    ranked = crystallize.rank_overrides(rows, 5, script_hits_by_crystal={})
+    assert ranked[0]["script_hits"] == 0
+    assert ranked[0]["override_rate"] == 1.0
+    assert ranked[1]["crystal_id"] == "unknown"
+
+
 @allure.title("is_sandbox_roots: dict/list/empty branches")
 def test_is_sandbox_roots() -> None:
     assert crystallize.is_sandbox_roots({"/private/tmp/x": 2}) is True

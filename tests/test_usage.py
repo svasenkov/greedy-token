@@ -682,6 +682,18 @@ def test_parse_since_variants() -> None:
         assert parse_since(None) is None
 
 
+@allure.story("Time filter")
+@allure.title("Since parser accepts minute windows")
+def test_parse_since_minutes() -> None:
+    with allure.step("Parse a minutes since string"):
+        dt_30m = parse_since("30m")
+        dt_1h = parse_since("1h")
+        attach_text("30m", dt_30m.isoformat())
+    with allure.step("Verify minutes window sits inside the hourly one"):
+        assert dt_30m is not None and dt_30m.tzinfo is not None
+        assert dt_1h is not None and dt_1h < dt_30m
+
+
 @allure.story("Log loading")
 @allure.title("Event loader skips malformed JSON lines")
 def test_load_events_skips_bad_lines(log_file: Path) -> None:
@@ -802,6 +814,26 @@ def test_load_events_reads_archives(log_file: Path, monkeypatch: pytest.MonkeyPa
         attach_text("skipped", str(skipped))
     with allure.step("Verify both archive and current events loaded"):
         assert cmds == {"archived", "current"}
+        assert skipped == 0
+
+
+@allure.story("Archives")
+@allure.title("Event loader can ignore rotated archives")
+def test_load_events_without_archives(log_file: Path) -> None:
+    archive = log_file.with_name("usage.jsonl.1")
+    archive.write_text(
+        '{"cmd":"archived","ts":"2026-07-07T00:00:00Z","selected_tier":"tool"}\n',
+        encoding="utf-8",
+    )
+    log_file.write_text(
+        '{"cmd":"current","ts":"2026-07-07T01:00:00Z","selected_tier":"rag"}\n',
+        encoding="utf-8",
+    )
+    with allure.step("Load events with archives disabled"):
+        events, skipped = load_events(log_file, include_archives=False)
+        attach_text("loaded events", str(len(events)))
+    with allure.step("Verify only the active log was read"):
+        assert [e["cmd"] for e in events] == ["current"]
         assert skipped == 0
 
 
