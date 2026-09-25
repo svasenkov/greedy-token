@@ -278,4 +278,4 @@ Outcome confidence calibration (explicit success/failure; min n=20):
 
 Repeated work → **crystallize** into a script → next time **0 LLM**. Details: [guide](docs/guide.md) · [roadmap](docs/ROADMAP.md)
 
-**License:** MIT · **v0.18.0**
+**License:** MIT · **v0.18.1**

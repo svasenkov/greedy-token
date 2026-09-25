@@ -279,4 +279,4 @@ Outcome confidence calibration (explicit success/failure; min n=20):
 
 Повторяющаяся задача → **crystallize** в скрипт → следующий раз **0 LLM**. Подробности: [guide](docs/guide-RU.md) · [roadmap](docs/ROADMAP-RU.md)
 
-**Лицензия:** MIT · **v0.18.0**
+**Лицензия:** MIT · **v0.18.1**

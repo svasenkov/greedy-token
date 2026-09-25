@@ -199,6 +199,7 @@ CI job → greedy-token CLI → rg | python | cheap_llm (Ollama/internal) | RAG 
 
 | Версия | Фокус |
 |--------|-------|
+| **v0.18.1** | Crystallize candidates: canonical `rank_candidates` SSOT — dedup по `crystal_id` + `operation_id`, sandbox/fixture-фильтры; per-host skills dir (`HOST_SKILLS_DIR`); host-internal search exclusions; общие result formatters CLI/MCP |
 | **v0.18.0** | Adoption/enforcement: `GREEDY_HOOK_MODE` gate/intercept hook-профили, `covered` adoption-gap split + tmp/pytest sandbox-фильтр в crystallize candidates, route-first invoke rule |
 | **v0.17.1** | Usage-события: `session_id`, calibration n/bucket/matched, `confidence_source`; router: question-form prefixes + Titlecase boost; резолв `rg` из `~/.greedy-token` и Devin-бандла; маршруты `python-git-recent`/`python-git-repos` |
 | **v0.17.0** | Crystal ids: lock `python-{stem}`; срез executor-префиксов; pipeline Saved=0 при all-failed execute |
