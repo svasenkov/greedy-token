@@ -66,7 +66,13 @@ built `rg`/`jq` argv the user pattern is emitted after `--`, so queries that
 look like options (`--version`, `-l`) remain literal patterns.
 
 Any mismatch blocks the launch until explicit re-approval. `trust verify`
-performs the same checks without executing a script.
+performs the same checks without executing a script — run it proactively
+after editing an approved file instead of discovering staleness at the next
+invoke. It prints each failure with its refusal code (`stale_bytes`,
+`stale_identity`, `missing_file`, `symlink`, `untrusted_type`), ends with a
+`verify: N/M ok` summary, and exits nonzero when any entry failed. `--json`
+emits the same checks plus a `{total, ok, inert, failed}` summary for
+automation.
 
 Trust commands do not emit usage events. Script bytes, stdout, approval notes,
 environment values, and secrets are not copied into telemetry. Existing route

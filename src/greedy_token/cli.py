@@ -762,10 +762,40 @@ def cmd_trust(args: argparse.Namespace) -> int:
             checks = verify_trust_manifest(
                 root, wrapper_paths={w.path for w in WRAPPERS.values()}
             )
+            ok_count = sum(1 for check in checks if check.ok)
+            inert_count = sum(1 for check in checks if check.inert)
+            fail_count = len(checks) - ok_count - inert_count
+            if getattr(args, "json", False):
+                print(
+                    json.dumps(
+                        {
+                            "ok": fail_count == 0,
+                            "manifest": str(trust_manifest_path(root)),
+                            "checks": [
+                                {
+                                    "path": check.entry.path,
+                                    "ok": check.ok,
+                                    "inert": check.inert,
+                                    "code": check.code or None,
+                                    "error": check.error or None,
+                                }
+                                for check in checks
+                            ],
+                            "summary": {
+                                "total": len(checks),
+                                "ok": ok_count,
+                                "inert": inert_count,
+                                "failed": fail_count,
+                            },
+                        },
+                        indent=2,
+                        ensure_ascii=False,
+                    )
+                )
+                return 0 if fail_count == 0 else 1
             if not checks:
                 print("Trust manifest is empty.")
                 return 0
-            ok = True
             for check in checks:
                 if check.ok:
                     print(f"OK   {check.entry.path}")
@@ -775,12 +805,18 @@ def cmd_trust(args: argparse.Namespace) -> int:
                         "(wrapper-registered; manifest entry grants nothing)"
                     )
                 else:
-                    ok = False
                     print(
                         f"FAIL {check.entry.path} [{check.code}]: {check.error}",
                         file=sys.stderr,
                     )
-            return 0 if ok else 1
+            summary = f"verify: {ok_count}/{len(checks)} ok"
+            if inert_count:
+                summary += f", {inert_count} inert"
+            if fail_count:
+                print(f"{summary}, {fail_count} failed", file=sys.stderr)
+            else:
+                print(summary)
+            return 0 if fail_count == 0 else 1
 
         removed = revoke_script(root, args.path)
         if not removed:
@@ -1534,9 +1570,11 @@ def build_parser() -> argparse.ArgumentParser:
     trust_sub.add_parser("list", help="List local script approvals").set_defaults(
         func=cmd_trust
     )
-    trust_sub.add_parser(
+    trust_verify = trust_sub.add_parser(
         "verify", help="Verify every approved script against disk"
-    ).set_defaults(func=cmd_trust)
+    )
+    trust_verify.add_argument("--json", action="store_true", help="JSON output")
+    trust_verify.set_defaults(func=cmd_trust)
     trust_revoke = trust_sub.add_parser(
         "revoke", help="Remove execution approval for PATH"
     )

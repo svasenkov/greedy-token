@@ -159,7 +159,7 @@ Expected after setup: **8 MCP tools** (including `greedy_token_pipeline` and `gr
 | `greedy-token capabilities invoke ID` | Invoke a ready read-only op by id |
 | `greedy-token trust add PATH` | Approve the current SHA-256 and identity of a workspace script |
 | `greedy-token trust list` | List local workspace script approvals |
-| `greedy-token trust verify` | Verify every approval against disk |
+| `greedy-token trust verify [--json]` | Verify every approval against disk; nonzero exit + per-entry code on staleness |
 | `greedy-token trust revoke PATH` | Remove a local script approval |
 | `greedy-token audit-context` | Rules/skills token audit |
 | `greedy-token calibrate [--overhead N] [--from-file PATH]` | Calibrate the naive agent-chat baseline (writes `baseline:` to `~/.greedy-token/config.yaml`) |

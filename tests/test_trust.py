@@ -1476,6 +1476,73 @@ def test_cmd_trust_verify_codes_and_inert(
 
 
 @allure.story("Refusal classes")
+@allure.title("CLI trust verify --json emits per-entry codes and summary counts")
+def test_cmd_trust_verify_json(
+    minimal_workspace: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    stale_rel = "scripts/stale.py"
+    ok_rel = "scripts/ok.py"
+    stale = _script(minimal_workspace, stale_rel)
+    _script(minimal_workspace, ok_rel)
+    approve_script(minimal_workspace, stale_rel)
+    approve_script(minimal_workspace, ok_rel)
+    stale.write_text("print('changed')\n", encoding="utf-8")
+
+    assert cmd_trust(Namespace(trust_action="verify", json=True)) == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert Path(payload["manifest"]).name == "manifest.json"
+    assert payload["summary"] == {"total": 2, "ok": 1, "inert": 0, "failed": 1}
+    checks = {check["path"]: check for check in payload["checks"]}
+    assert checks[stale_rel]["ok"] is False
+    assert checks[stale_rel]["code"] == "stale_bytes"
+    assert checks[stale_rel]["inert"] is False
+    assert checks[ok_rel]["ok"] is True
+    assert checks[ok_rel]["code"] is None
+    assert checks[ok_rel]["error"] is None
+
+
+@allure.story("Refusal classes")
+@allure.title("CLI trust verify --json reports clean and empty manifests")
+def test_cmd_trust_verify_json_clean_and_empty(
+    minimal_workspace: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert cmd_trust(Namespace(trust_action="verify", json=True)) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["checks"] == []
+    assert payload["summary"] == {"total": 0, "ok": 0, "inert": 0, "failed": 0}
+
+    rel = "scripts/ok.py"
+    _script(minimal_workspace, rel)
+    approve_script(minimal_workspace, rel)
+    assert cmd_trust(Namespace(trust_action="verify", json=True)) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["summary"] == {"total": 1, "ok": 1, "inert": 0, "failed": 0}
+
+
+@allure.story("Refusal classes")
+@allure.title("CLI trust verify prints a summary footer with ok/inert/failed counts")
+def test_cmd_trust_verify_summary(
+    minimal_workspace: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    ok_rel = "scripts/ok.py"
+    _script(minimal_workspace, ok_rel)
+    approve_script(minimal_workspace, ok_rel)
+    assert cmd_trust(Namespace(trust_action="verify")) == 0
+    assert capsys.readouterr().out.strip().endswith("verify: 1/1 ok")
+
+    stale_rel = "scripts/stale.py"
+    stale = _script(minimal_workspace, stale_rel)
+    approve_script(minimal_workspace, stale_rel)
+    stale.write_text("print('changed')\n", encoding="utf-8")
+    assert cmd_trust(Namespace(trust_action="verify")) == 1
+    captured = capsys.readouterr()
+    assert "verify: 1/2 ok, 1 failed" in captured.err
+
+
+@allure.story("Refusal classes")
 @allure.title("execute_plan refusals carry the refusal code and never reach subprocess")
 def test_execute_plan_refusal_codes(minimal_workspace: Path) -> None:
     relative = "scripts/not-approved.py"

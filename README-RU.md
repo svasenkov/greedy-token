@@ -159,7 +159,7 @@ find baseUrl in configurator-option-presets.html
 | `greedy-token capabilities invoke ID` | Invoke готовой read-only операции по id |
 | `greedy-token trust add PATH` | Одобрить текущие SHA-256 и identity workspace-скрипта |
 | `greedy-token trust list` | Показать локальные approval workspace-скриптов |
-| `greedy-token trust verify` | Проверить все approval по файлам на диске |
+| `greedy-token trust verify [--json]` | Проверить все approval по файлам на диске; при staleness — nonzero exit + код по каждой записи |
 | `greedy-token trust revoke PATH` | Отозвать локальный approval скрипта |
 | `greedy-token audit-context` | Rules/skills token audit |
 | `greedy-token calibrate [--overhead N] [--from-file PATH]` | Калибровка базлайна наивного агент-чата (пишет `baseline:` в `~/.greedy-token/config.yaml`) |
