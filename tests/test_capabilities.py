@@ -29,6 +29,7 @@ from greedy_token.capabilities import (
     NOT_APPROVED,
     READY,
     STALE_BYTES,
+    STALE_IDENTITY,
     TOOL_UNAVAILABLE,
     TRUST_WRAPPER_COVERED_INERT,
     WRITE_NOT_INVOCABLE,
@@ -173,6 +174,33 @@ def test_tool_readiness(
     assert not cap.invocable
 
 
+@allure.story("Readiness taxonomy")
+@allure.title("Missing tool binary is tool_unavailable — reason names the env override")
+def test_tool_unavailable_binary_missing(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """resolve_tool → None is the no-binary host path; the kill-switch
+    (GREEDY_TOKEN_DISABLE_EXTERNAL_TOOLS) is covered by test_tool_readiness."""
+    import greedy_token.capabilities as caps
+
+    monkeypatch.setattr(caps, "resolve_tool", lambda tool: None)
+    ops = _ops(collect_capabilities(minimal_workspace))
+
+    with allure.step("rg route — binary not found, hint points at GREEDY_TOKEN_RG"):
+        cap = ops["tool-rg-search"]
+        assert cap.readiness == TOOL_UNAVAILABLE
+        assert not cap.invocable
+        assert "rg binary not found" in cap.reason
+        assert "GREEDY_TOKEN_RG" in cap.reason
+
+    with allure.step("jq route — same class, its own GREEDY_TOKEN_JQ hint"):
+        cap = ops["tool-jq-manifest"]
+        assert cap.readiness == TOOL_UNAVAILABLE
+        assert not cap.invocable
+        assert "jq binary not found" in cap.reason
+        assert "GREEDY_TOKEN_JQ" in cap.reason
+
+
 def _set_rg_search_paths(workspace: Path, paths: list[str]) -> None:
     overlay = workspace / "workspace-routes.yaml"
     data = yaml.safe_load(overlay.read_text(encoding="utf-8"))
@@ -275,6 +303,34 @@ def test_view_manifest_states(minimal_workspace: Path) -> None:
         # Wrapper authorization wins; the stale manifest row grants nothing.
         assert cap.readiness == READY
         assert cap.trust_entry == TRUST_WRAPPER_COVERED_INERT
+
+
+@allure.story("Readiness taxonomy")
+@allure.title("Same bytes, new inode after approval → stale_identity at listing time")
+def test_view_manifest_stale_identity(minimal_workspace: Path) -> None:
+    """verify_script checks sha256 before file identity, so recreating the file
+    with identical content keeps the hash but changes (device, inode) —
+    stale_identity, not stale_bytes."""
+    rel = "scripts/git-recent.py"
+    script = _script(minimal_workspace, rel, "print('v1')\n")
+    approve_script(minimal_workspace, rel)
+
+    with allure.step("approved script is ready before identity drift"):
+        cap = _ops(collect_capabilities(minimal_workspace))["python-git-recent"]
+        assert cap.readiness == READY
+        assert cap.invocable
+
+    with allure.step("same bytes, new inode → stale_identity, re-approval required"):
+        held = script.with_name("held-git-recent.py")
+        os.link(script, held)  # pin the approved inode so the new file can't reuse it
+        script.unlink()
+        script.write_text("print('v1')\n", encoding="utf-8")
+
+        cap = _ops(collect_capabilities(minimal_workspace))["python-git-recent"]
+        assert cap.readiness == STALE_IDENTITY
+        assert not cap.invocable
+        assert cap.trust_entry == STALE_IDENTITY
+        assert "re-approval" in cap.reason
 
 
 @allure.story("Derivation")
