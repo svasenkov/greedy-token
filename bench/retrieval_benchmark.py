@@ -9,8 +9,8 @@ import os
 import statistics
 import time
 from collections import defaultdict
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from greedy_token.rag_fts import index_path
 from greedy_token.rag_search import RagHit, search_rag

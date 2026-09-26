@@ -297,14 +297,18 @@ Requires **Python 3.12+** (same as CI). GitHub Actions job **tests (all)** runs 
 
 ```bash
 # from this clone (after pip install -e ".[dev,mcp]"):
-python -m coverage run -m pytest tests/ -v --alluredir=build/allure-results
+python -m pytest tests/ -v --alluredir=build/allure-results --cov
 python -m coverage report --include='src/greedy_token/*'
 npx --yes allure@3.13.0 quality-gate build/allure-results --config allurerc.mjs
 npx --yes allure@3.13.0 generate build/allure-results --config allurerc.mjs -o build/allure-report
 # monorepo hub alternative: cd ../dev && ./scripts/install.sh && source .venv/bin/activate && cd ../greedy-token
 ```
 
-**Coverage:** `branch = true` and `fail_under = 100` on `src/greedy_token/` (see `[tool.coverage.run]` / `[tool.coverage.report]` in `pyproject.toml`). CI runs `coverage run` + `coverage report` on every push/PR. 100% is reached without the optional `stacks/java-spring/` checkout.
+**Coverage:** `branch = true` and `fail_under = 100` on `src/greedy_token/` (see `[tool.coverage.run]` / `[tool.coverage.report]` in `pyproject.toml`). CI runs `pytest --cov` (pytest-cov) + `coverage report` on every push/PR. 100% is reached without the optional `stacks/java-spring/` checkout.
+
+**Parallel:** the suite runs under pytest-xdist via `addopts = ["-n", "auto"]` — all cores locally, 4 workers on GitHub runners. Bare `coverage run -m pytest` does not see xdist workers; use `pytest --cov` (or `-n0` to run serial).
+
+**Pinned CI deps:** `constraints-ci.txt` (generated: `uv pip compile pyproject.toml --extra dev --extra mcp --python-version 3.12 -o constraints-ci.txt`) pins the full resolved tree for the `test` / `evidence` / `tests` gate jobs via `pip install -e ".[dev,mcp]" -c constraints-ci.txt`. The `portability` / `integration` / `dependencies` jobs stay unconstrained on purpose — their job is to catch incompatibilities with newer releases.
 
 ### Mutation testing
 

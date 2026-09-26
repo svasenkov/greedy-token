@@ -299,14 +299,18 @@ Saved by executor (sum of per-step savings):
 
 ```bash
 # из этого clone (после pip install -e ".[dev,mcp]"):
-python -m coverage run -m pytest tests/ -v --alluredir=build/allure-results
+python -m pytest tests/ -v --alluredir=build/allure-results --cov
 python -m coverage report --include='src/greedy_token/*'
 npx --yes allure@3.13.0 quality-gate build/allure-results --config allurerc.mjs
 npx --yes allure@3.13.0 generate build/allure-results --config allurerc.mjs -o build/allure-report
 # monorepo hub: cd ../dev && ./scripts/install.sh && source .venv/bin/activate && cd ../greedy-token
 ```
 
-**Coverage:** `branch = true` и `fail_under = 100` для `src/greedy_token/` (`pyproject.toml`). CI: `coverage run` + `coverage report` (lines + branches). 100% достигается без опционального checkout `stacks/java-spring/`.
+**Coverage:** `branch = true` и `fail_under = 100` для `src/greedy_token/` (`pyproject.toml`). CI: `pytest --cov` (pytest-cov) + `coverage report` (lines + branches). 100% достигается без опционального checkout `stacks/java-spring/`.
+
+**Параллель:** suite работает под pytest-xdist через `addopts = ["-n", "auto"]` — все ядра локально, 4 workers на GitHub-раннерах. Голый `coverage run -m pytest` не видит xdist-workers; используйте `pytest --cov` (или `-n0` для последовательного прогона).
+
+**Пины CI:** `constraints-ci.txt` (генерация: `uv pip compile pyproject.toml --extra dev --extra mcp --python-version 3.12 -o constraints-ci.txt`) фиксирует всё дерево для гейт-джоб `test` / `evidence` / `tests` через `pip install -e ".[dev,mcp]" -c constraints-ci.txt`. Джобы `portability` / `integration` / `dependencies` остаются без constraints намеренно — их роль ловить несовместимости с новыми релизами.
 
 ### Mutation testing
 

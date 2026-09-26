@@ -6,7 +6,6 @@ import subprocess
 import sys
 from importlib import metadata
 
-
 MCP_TESTS = [
     "tests/test_mcp_gaps.py",
     "tests/test_mcp_handlers.py",

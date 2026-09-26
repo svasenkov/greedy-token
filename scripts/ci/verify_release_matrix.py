@@ -9,7 +9,6 @@ import sys
 import urllib.parse
 import urllib.request
 
-
 REQUIRED_JOB = "required matrix gate"
 
 

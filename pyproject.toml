@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "allure-pytest>=2.16", "coverage>=7.0", "hypothesis>=6.10.1", "mutmut>=3.6", "ruff>=0.6"]
+dev = ["pytest>=8.0", "pytest-xdist>=3.8", "pytest-cov>=6.0", "allure-pytest>=2.16", "coverage>=7.0", "hypothesis>=6.10.1", "mutmut>=3.6", "ruff>=0.6"]
 # 1.15.0 is the first release whose FastMCP + Icon API passes our contract suite.
 # MCP 2.0 removed mcp.server.fastmcp (breaks greedy_token.mcp + collection).
 mcp = ["mcp>=1.15,<2"]
@@ -53,6 +53,9 @@ ignore = ["E501"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 minversion = "8.0"
+# -n auto: xdist distributes across all cores (12 local, 4 on GHA runners).
+# Serial fallback for debugging: -n0 or -p no:xdist.
+addopts = ["-n", "auto"]
 filterwarnings = [
     # Upstream: mcp 1.28.x FastMCP `Settings.lifespan` is annotated with the
     # FastMCP class defined *below* it in mcp.server.fastmcp.server, so

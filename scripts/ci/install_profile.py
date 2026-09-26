@@ -5,7 +5,6 @@ from __future__ import annotations
 import subprocess
 import sys
 
-
 MCP_LOWEST = "1.15.0"
 MINIMUM = [
     "PyYAML==6.0.1",
