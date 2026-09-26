@@ -22,7 +22,10 @@ pytestmark = [
 def test_wrappers_registry_has_check_meta_sync() -> None:
     with allure.step("Inspect wrappers registry"):
         entry = WRAPPERS.get("check-meta-sync")
-        attach_json("check-meta-sync entry", {"present": entry is not None, "read_only": entry.read_only if entry else None})
+        attach_json(
+            "check-meta-sync entry",
+            {"present": entry is not None, "read_only": entry.read_only if entry else None},
+        )
     with allure.step("Verify check-meta-sync is read-only"):
         assert "check-meta-sync" in WRAPPERS
         assert WRAPPERS["check-meta-sync"].read_only is True
@@ -179,12 +182,13 @@ def test_wrapper_route_id_stem_and_empty_path_fallback() -> None:
         del WRAPPERS["empty-path"]
 
 
+@patch("urllib.request.urlopen", side_effect=OSError("connection refused"))
 @allure.story("Status")
 @allure.title("ollama_status_line reports unavailable when server is down")
-def test_ollama_status_line_unavailable() -> None:
+def test_ollama_status_line_unavailable(mock_urlopen) -> None:
+    from greedy_token.cheap_llm import clear_cheap_llm_probe_cache
     from greedy_token.wrappers import ollama_status_line
 
-    with patch("greedy_token.wrappers.ollama_available", return_value=False):
-        line = ollama_status_line()
+    clear_cheap_llm_probe_cache()
+    line = ollama_status_line()
     assert "unavailable" in line
-
