@@ -203,6 +203,20 @@ routes:
     command: python scripts/gt-health.py
     note: "Observability stack probe (hub/exporter/prometheus/grafana/ollama) — crystallized script tier, 0 LLM"
 
+  - id: python-pc-performance
+    target: python
+    read_only: true
+    patterns:
+      - devin тормозит лаг
+      - почему devin тормозит
+      - комп тормозит ресурсы
+      - devin slow cpu
+      - why is devin slow
+      - check devin performance
+      - что жрёт cpu
+    command: python scripts/pc-performance.py
+    note: "Devin/host perf snapshot (top cpu, devin roles, memory, extensions, strays) — read-only, 0 LLM"
+
   - id: python-crystal-status
     target: python
     read_only: true
