@@ -38,6 +38,20 @@ function setSince(value) {
   localStorage.setItem(SINCE_STORAGE_KEY, value);
 }
 
+function esc(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function safeUrl(value) {
+  const url = String(value ?? "").trim();
+  return /^https?:\/\//i.test(url) ? esc(url) : "#";
+}
+
 function fmt(n) {
   n = Number(n) || 0;
   if (n >= 1_000_000) return `~${(n / 1_000_000).toFixed(1)}M`;
@@ -105,7 +119,7 @@ function renderSavingsIndication(data) {
   const time = acc.time_saved_ms > 0 ? formatDuration(acc.time_saved_ms) : "—";
   el.title =
     `Accumulated (all-time) vs naive agent chat · ${acc.money_source || "cursor_estimate"}` +
-    ` · ${acc.events || 0} events · $${acc.usd_per_1m_tokens || 15}/1M tok`;
+    ` · ${Number(acc.events) || 0} events · $${Number(acc.usd_per_1m_tokens) || 15}/1M tok`;
   el.innerHTML =
     `<span class="si-label">saved</span>` +
     `<span class="si-pill" data-metric="money">${money}</span>` +
@@ -118,7 +132,7 @@ function renderSavingsIndication(data) {
 async function renderTestWidget() {
   const t = await api("/api/tests");
   document.getElementById("test-widget").innerHTML =
-    `pytest: <strong>${t.test_files}</strong> files · TestOps <a class="link" href="${t.dashboard_url}" target="_blank">5276</a>`;
+    `pytest: <strong>${Number(t.test_files) || 0}</strong> files · TestOps <a class="link" href="${safeUrl(t.dashboard_url)}" target="_blank" rel="noopener noreferrer">5276</a>`;
 }
 
 function renderMetaSection(meta) {
@@ -129,21 +143,21 @@ function renderMetaSection(meta) {
     .filter((k) => k.hits > 0)
     .map((k) => {
       const pct = totalHits ? (100 * k.hits) / totalHits : 0;
-      return `<span style="width:${pct}%;background:${META_COLORS[k.kind] || META_COLORS.other}" title="${k.kind}: ${k.hits}"></span>`;
+      return `<span style="width:${pct}%;background:${META_COLORS[k.kind] || META_COLORS.other}" title="${esc(k.kind)}: ${Number(k.hits) || 0}"></span>`;
     })
     .join("");
   const legend = hitKinds
     .filter((k) => k.hits > 0 || k.inventory > 0)
     .map(
       (k) =>
-        `<span><i style="background:${META_COLORS[k.kind] || META_COLORS.other}"></i>${k.kind}</span>`
+        `<span><i style="background:${META_COLORS[k.kind] || META_COLORS.other}"></i>${esc(k.kind)}</span>`
     )
     .join("");
   const rows = kinds
     .map(
       (k) =>
         `<tr>
-          <td><code>${k.kind}</code></td>
+          <td><code>${esc(k.kind)}</code></td>
           <td>${k.inventory}</td>
           <td>${k.hits}</td>
           <td>${fmt(k.saved_vs_cursor)}</td>
@@ -155,7 +169,7 @@ function renderMetaSection(meta) {
   return `
     <div class="card">
       <h3>Workflow meta intersections <span style="font-weight:400;opacity:.6">— skill · rule · rag · adr · meta</span></h3>
-      <p class="muted" style="margin:0 0 .5rem;font-size:.85rem">${meta?.note || ""}</p>
+      <p class="muted" style="margin:0 0 .5rem;font-size:.85rem">${esc(meta?.note || "")}</p>
       <div class="meta-bar">${bar || ""}</div>
       <div class="meta-legend">${legend || `<span class="muted">No classified hits in window</span>`}</div>
       <table>
@@ -182,13 +196,13 @@ async function renderHome() {
   };
 
   const tierRows = Object.entries(tiers).map(([tier, s]) =>
-    `<tr><td>${tier}</td><td>${s.count}</td><td>${fmt(s.saved_vs_cursor)}</td><td>${fmt(s.est_tokens)}</td></tr>`
+    `<tr><td>${esc(tier)}</td><td>${s.count}</td><td>${fmt(s.saved_vs_cursor)}</td><td>${fmt(s.est_tokens)}</td></tr>`
   ).join("");
 
   const totalCalls = Object.values(tiers).reduce((a, s) => a + s.count, 0);
   const bar = Object.entries(tiers).map(([tier, s]) => {
     const pct = totalCalls ? (100 * s.count / totalCalls) : 0;
-    return `<span style="width:${pct}%;background:${tierColors[tier] || "#666"}" title="${tier}"></span>`;
+    return `<span style="width:${pct}%;background:${tierColors[tier] || "#666"}" title="${esc(tier)}"></span>`;
   }).join("");
 
   const q = data.quality || {};
@@ -197,9 +211,9 @@ async function renderHome() {
   const hasQuality = (q.script_hits || 0) > 0;
   const worst = (q.by_crystal || []).filter((c) => c.override_count > 0).slice(0, 5);
   const worstRows = worst.map((c) =>
-    `<tr><td><code title="${c.crystal_id}">${c.stem || crystalStem(c.crystal_id)}</code></td><td>${pct(c.override_rate)}</td>` +
+    `<tr><td><code title="${esc(c.crystal_id)}">${esc(c.stem || crystalStem(c.crystal_id))}</code></td><td>${pct(c.override_rate)}</td>` +
     `<td>${c.override_count}/${c.script_hits}</td>` +
-    `<td>${c.reuse_action ? `<span style="color:var(--warn)">${c.reuse_action}</span>` : "—"}</td></tr>`
+    `<td>${c.reuse_action ? `<span style="color:var(--warn)">${esc(c.reuse_action)}</span>` : "—"}</td></tr>`
   ).join("");
   const overThreshold = hasQuality && (q.override_rate_7d ?? 0) >= (q.disable_threshold ?? 0.3);
   const lat = m.latency || {};
@@ -212,19 +226,19 @@ async function renderHome() {
 
   document.getElementById("app").innerHTML = `
     <div class="grid">
-      <div class="card" title="all-time estimate vs naive agent chat (${acc.money_source || "cursor_estimate"})">
+      <div class="card" title="all-time estimate vs naive agent chat (${esc(acc.money_source || "cursor_estimate")})">
         <h3>Accumulated saved $</h3><div class="value">${formatUsd(acc.saved_usd_est)}</div>
         <p class="muted" style="margin:.35rem 0 0;font-size:.78rem">${fmt(acc.saved_vs_cursor)} tok · ${accTime} · ${acc.events || 0} events</p>
       </div>
-      <div class="card" title="window (${data.since || getSince()}) estimate vs naive agent chat">
-        <h3>Window saved $ (${data.since || getSince()})</h3><div class="value">${windowMoney}</div>
+      <div class="card" title="window (${esc(data.since || getSince())}) estimate vs naive agent chat">
+        <h3>Window saved $ (${esc(data.since || getSince())})</h3><div class="value">${windowMoney}</div>
         <p class="muted" style="margin:.35rem 0 0;font-size:.78rem">${fmt(window.saved_vs_cursor)} tok · ${timeSavedValue}</p>
       </div>
-      <div class="card" title="estimate vs naive agent-chat baseline (source: ${data.baseline?.source || "default-estimate"})">
-        <h3>Saved tokens (${data.since || getSince()})</h3><div class="value">${fmt(window.saved_vs_cursor || 0)}</div>
+      <div class="card" title="estimate vs naive agent-chat baseline (source: ${esc(data.baseline?.source || "default-estimate")})">
+        <h3>Saved tokens (${esc(data.since || getSince())})</h3><div class="value">${fmt(window.saved_vs_cursor || 0)}</div>
       </div>
-      <div class="card" title="estimate vs naive agent wall-clock (${data.baseline?.time_source || "default-estimate"}; ${m.duration_samples || 0} timed events)">
-        <h3>Time saved (${data.since || getSince()})</h3><div class="value">${timeSavedValue}</div>
+      <div class="card" title="estimate vs naive agent wall-clock (${esc(data.baseline?.time_source || "default-estimate")}; ${Number(m.duration_samples) || 0} timed events)">
+        <h3>Time saved (${esc(data.since || getSince())})</h3><div class="value">${timeSavedValue}</div>
       </div>
       <div class="card" title="share of events routed to cheap tiers"><h3>Coverage</h3><div class="value">${coverage}%</div></div>
       <div class="card" title="cheap hits kept across all cheap tiers (not re-asked in Cursor)">
@@ -257,7 +271,7 @@ async function renderHome() {
 async function renderSessions() {
   const data = await api(`/api/sessions?since=${getSince()}`);
   const rows = (data.sessions || []).map((s) =>
-    `<tr><td><code>${s.session_id.slice(0, 12)}…</code></td><td>${s.since}</td><td>${s.calls}</td><td>${fmt(s.saved_vs_cursor)}</td><td>${fmt(s.est_tokens)}</td></tr>`
+    `<tr><td><code>${esc(String(s.session_id ?? "").slice(0, 12))}…</code></td><td>${esc(s.since)}</td><td>${s.calls}</td><td>${fmt(s.saved_vs_cursor)}</td><td>${fmt(s.est_tokens)}</td></tr>`
   ).join("");
   document.getElementById("app").innerHTML = `
     <div class="card">
@@ -275,8 +289,8 @@ function crystalStem(id) {
 function crystalRows(rows) {
   return (rows || []).map((c) => {
     const stem = c.stem || crystalStem(c.crystal_id);
-    return `<tr><td><a class="link" href="#/crystals/${encodeURIComponent(c.crystal_id)}" title="${c.crystal_id}">${stem}</a></td>
-    <td>${(c.pattern || "").slice(0, 60)}</td><td>${c.hits}</td><td>${c.latest_stage || "—"}</td><td>${c.status || "—"}</td></tr>`;
+    return `<tr><td><a class="link" href="#/crystals/${encodeURIComponent(c.crystal_id)}" title="${esc(c.crystal_id)}">${esc(stem)}</a></td>
+    <td>${esc((c.pattern || "").slice(0, 60))}</td><td>${c.hits}</td><td>${esc(c.latest_stage || "—")}</td><td>${esc(c.status || "—")}</td></tr>`;
   }).join("");
 }
 
@@ -287,7 +301,7 @@ async function renderCrystals() {
   const hidden = data.hidden || {};
   const hiddenCount = hidden.count || 0;
   const hideNote = hiddenCount || hidden.stale_inbox
-    ? `<p class="muted">Hidden ${hiddenCount}: reject ${hidden.reject || 0}, pytest fixture ${hidden.fixture || 0}${hidden.stale_inbox ? ". Stale inbox ignored" : ""}.</p>`
+    ? `<p class="muted">Hidden ${Number(hiddenCount) || 0}: reject ${Number(hidden.reject) || 0}, pytest fixture ${Number(hidden.fixture) || 0}${hidden.stale_inbox ? ". Stale inbox ignored" : ""}.</p>`
     : "";
   const lessonCard = lesson.length
     ? `<div class="card">
@@ -322,14 +336,14 @@ async function renderCrystalDetail(id) {
   }).join("");
 
   const events = (data.events || []).map((e) =>
-    `<tr><td>${e.stage}</td><td>${e.ts}</td><td>${e.status || "—"}</td><td>${e.pr_url || e.jira_key || "—"}</td></tr>`
+    `<tr><td>${esc(e.stage)}</td><td>${esc(e.ts)}</td><td>${esc(e.status || "—")}</td><td>${esc(e.pr_url || e.jira_key || "—")}</td></tr>`
   ).join("");
 
   document.getElementById("app").innerHTML = `
     <p><a class="link" href="#/crystals">← Crystals</a></p>
     <div class="card">
-      <h3>${crystalStem(id)}</h3>
-      <p class="muted"><code>${id}</code></p>
+      <h3>${esc(crystalStem(id))}</h3>
+      <p class="muted"><code>${esc(id)}</code></p>
       <p>Saved (route match): <strong>${fmt(data.saved_vs_cursor || 0)}</strong></p>
       <div class="stage-pipeline">${pipeline}</div>
       <table><thead><tr><th>Stage</th><th>Time</th><th>Status</th><th>Link</th></tr></thead>
@@ -340,7 +354,7 @@ async function renderCrystalDetail(id) {
 async function renderRoutes() {
   const data = await api(`/api/routes?since=${getSince()}`);
   const rows = (data.routes || []).slice(0, 30).map((r) =>
-    `<tr><td><code>${r.route_id}</code></td><td>${r.count}</td><td>${fmt(r.saved_vs_cursor)}</td><td>${fmt(r.est_tokens)}</td></tr>`
+    `<tr><td><code>${esc(r.route_id)}</code></td><td>${r.count}</td><td>${fmt(r.saved_vs_cursor)}</td><td>${fmt(r.est_tokens)}</td></tr>`
   ).join("");
   document.getElementById("app").innerHTML = `
     <div class="card">
@@ -354,13 +368,13 @@ async function renderTests() {
   const t = await api("/api/tests");
   document.getElementById("app").innerHTML = `
     <div class="grid">
-      <div class="card"><h3>Test files</h3><div class="value">${t.test_files}</div></div>
-      <div class="card"><h3>TestOps project</h3><div class="value" style="font-size:1rem">${t.testops_project_id}</div></div>
+      <div class="card"><h3>Test files</h3><div class="value">${Number(t.test_files) || 0}</div></div>
+      <div class="card"><h3>TestOps project</h3><div class="value" style="font-size:1rem">${esc(t.testops_project_id)}</div></div>
     </div>
     <div class="card">
       <h3>pytest + Allure dashboard</h3>
-      <p><a class="link" href="${t.dashboard_url}" target="_blank">${t.dashboard_url}</a></p>
-      <p class="muted">${t.source}</p>
+      <p><a class="link" href="${safeUrl(t.dashboard_url)}" target="_blank" rel="noopener noreferrer">${esc(t.dashboard_url)}</a></p>
+      <p class="muted">${esc(t.source)}</p>
     </div>`;
 }
 

@@ -7,7 +7,7 @@ from statistics import median
 from urllib.parse import parse_qs, unquote, urlparse
 
 from greedy_token.budget_config import get_budget_settings
-from greedy_token.budget_ledger import aggregate_budget
+from greedy_token.budget_ledger import aggregate_budget, cursor_estimate_spend_usd
 from greedy_token.hub.crystallize import (
     crystal_timeline,
     list_crystals,
@@ -22,6 +22,7 @@ from greedy_token.hub.meta_stats import (
 from greedy_token.hub.providers import catalog_payload, local_models_payload
 from greedy_token.hub.sessions import list_sessions
 from greedy_token.paths import find_workspace_root
+from greedy_token.spend_ledger import metered_spend_usd
 from greedy_token.usage import aggregate_events, load_events, log_path, parse_since
 
 
@@ -68,7 +69,11 @@ def handle_api(path: str) -> tuple[int, dict]:
             "mode": budget.mode,
         }
         payload["metrics"] = _operational_metrics(
-            events, summary, budget, usd_per_1m=usd_per_1m
+            events,
+            summary,
+            usd_per_1m=usd_per_1m,
+            cursor_spend_usd=cursor_estimate_spend_usd(events, cursor_rate=usd_per_1m),
+            metered_spend_usd_window=metered_spend_usd(since=since_dt),
         )
         payload["accumulated"] = accumulate_totals(all_events, usd_per_1m=usd_per_1m)
         payload["window"] = savings_block(
@@ -99,7 +104,9 @@ def handle_api(path: str) -> tuple[int, dict]:
             saved = sum(
                 int(e.get("cursor_saved") or 0)
                 for e in events
-                if crystal_id in (e.get("route_id") or "")
+                # Exact match only — a crystal id that is a prefix of a
+                # route_id must not absorb that route's savings.
+                if e.get("crystal_id") == crystal_id or e.get("route_id") == crystal_id
             )
             data["saved_vs_cursor"] = saved
             data["since"] = since
@@ -133,13 +140,19 @@ def handle_api(path: str) -> tuple[int, dict]:
 
 
 def _operational_metrics(
-    events: list[dict], summary, budget, *, usd_per_1m: float
+    events: list[dict],
+    summary,
+    *,
+    usd_per_1m: float,
+    cursor_spend_usd: float,
+    metered_spend_usd_window: float,
 ) -> dict:
     """Hub-only ops metrics: execution latency + cost/task next to coverage.
 
     Latency from ``duration_ms`` samples (route/script/compress events that
-    recorded one). cost/task is the Cursor-estimate spend spread over calls —
-    what the window's traffic is charging against the soft budget.
+    recorded one). cost/task is the *window's* spend spread over the window's
+    calls — dividing a whole month's budget by this window's operations
+    priced every task as if the month had already been spent.
     """
     durations = [
         int(e["duration_ms"])
@@ -164,8 +177,8 @@ def _operational_metrics(
     }
     return {
         "latency": latency,
-        "cost_per_task_usd": round(budget.cursor_est_spent_usd / calls, 4),
-        "metered_cost_per_task_usd": round(budget.metered_spent_usd / calls, 4),
+        "cost_per_task_usd": round(cursor_spend_usd / calls, 4),
+        "metered_cost_per_task_usd": round(metered_spend_usd_window / calls, 4),
         "saved_per_task_tokens": int(saved_tokens / calls),
         "saved_usd_est": round((saved_tokens / 1_000_000) * usd_per_1m, 4),
         "usd_per_1m_tokens": float(usd_per_1m),

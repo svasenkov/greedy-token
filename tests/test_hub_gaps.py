@@ -687,18 +687,55 @@ def test_list_sessions_from_files(hub_home: Path) -> None:
     assert "old" not in ids
 
 
-@allure.title("_aggregate honours since and root filters")
-def test_aggregate_filters() -> None:
+@allure.title("_aggregate attributes by session_id, then by the [since, until) window")
+def test_aggregate_session_scope() -> None:
     from datetime import UTC, datetime
 
     events = [
-        {"ts": "2026-07-15T12:00:00Z", "cursor_saved": 100, "est_tokens": 5, "root": "/r"},
-        {"ts": "2000-01-01T00:00:00Z", "cursor_saved": 999, "est_tokens": 5, "root": "/r"},
-        {"ts": "2026-07-15T12:00:00Z", "cursor_saved": 7, "est_tokens": 5, "root": "/other"},
+        # session-alpha by id — counts even though its ts precedes `since`
+        {"ts": "2025-01-01T00:00:00Z", "session_id": "alpha", "cursor_saved": 5, "est_tokens": 1},
+        {"ts": "2026-07-15T12:00:00Z", "cursor_saved": 100, "est_tokens": 5},
+        {"ts": "2000-01-01T00:00:00Z", "cursor_saved": 999, "est_tokens": 5},
+        # a different session's id must not leak into this bucket
+        {"ts": "2026-07-15T12:30:00Z", "session_id": "beta", "cursor_saved": 7, "est_tokens": 5},
+        # inside the window but at/after `until` — belongs to the next session
+        {"ts": "2026-08-01T00:00:00Z", "cursor_saved": 50, "est_tokens": 5},
     ]
-    since = datetime(2026, 1, 1, tzinfo=UTC)
-    out = sessions._aggregate(events, since=since, root="/r")
-    assert out["calls"] == 1 and out["saved_vs_cursor"] == 100
+    out = sessions._aggregate(
+        events,
+        session_id="alpha",
+        since=datetime(2026, 1, 1, tzinfo=UTC),
+        until=datetime(2026, 8, 1, tzinfo=UTC),
+    )
+    assert out["saved_vs_cursor"] == 105  # alpha's 5 + orphan-in-window 100
+
+
+@allure.title("a session bucket counts only its own events — not later sessions'")
+def test_list_sessions_scoped(hub_home: Path) -> None:
+    log = hub_home / "usage.jsonl"
+    now = datetime.now(UTC)
+    t1 = (now - timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    t2 = (now - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    t3 = (now - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    log.write_text(
+        json.dumps({"ts": t1, "session_id": "alpha", "cursor_saved": 10, "est_tokens": 1}) + "\n"
+        # orphan event inside alpha's implicit window [t1, t3)
+        + json.dumps({"ts": t2, "cursor_saved": 20, "est_tokens": 1}) + "\n"
+        # beta's event used to inflate alpha's bucket too (overlap bug)
+        + json.dumps({"ts": t3, "session_id": "beta", "cursor_saved": 40, "est_tokens": 1}) + "\n",
+        encoding="utf-8",
+    )
+    sdir = hub_home / "statusline-sessions"
+    sdir.mkdir()
+    (sdir / "alpha.since").write_text(t1, encoding="utf-8")
+    (sdir / "beta.since").write_text(t3, encoding="utf-8")
+
+    result = sessions.list_sessions(since="30d")
+    by_id = {s["session_id"]: s for s in result}
+    assert by_id["alpha"]["saved_vs_cursor"] == 30  # own 10 + orphan 20, not +40
+    assert by_id["beta"]["saved_vs_cursor"] == 40
+    # newest session first
+    assert [s["session_id"] for s in result] == ["beta", "alpha"]
 
 
 # ---------------------------------------------------------------- providers
@@ -861,3 +898,46 @@ def test_origin_is_local() -> None:
     assert serve_mod._origin_is_local("https://evil.example.com") is False
     assert serve_mod._origin_is_local("") is False
     assert serve_mod._origin_is_local("http://[") is False  # invalid IPv6 → ValueError
+
+
+@allure.title("crystal detail counts exact route/crystal ids only — no substring savings")
+def test_crystal_savings_exact_match(hub_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression: 'script-foo' used to absorb savings of 'script-foo-bar'
+    through `crystal_id in route_id` substring matching."""
+    now = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    log = hub_home / "usage.jsonl"
+    log.write_text(
+        json.dumps({"ts": now, "route_id": "script-foo", "cursor_saved": 42}) + "\n"
+        + json.dumps({"ts": now, "route_id": "script-foo-bar", "cursor_saved": 999}) + "\n"
+        + json.dumps({"ts": now, "crystal_id": "script-foo", "cursor_saved": 8}) + "\n",
+        encoding="utf-8",
+    )
+    (hub_home / "crystallize-lifecycle.jsonl").write_text(
+        json.dumps({"crystal_id": "script-foo", "stage": "watch", "ts": now}) + "\n",
+        encoding="utf-8",
+    )
+    status, payload = hub_api.handle_api("/api/crystals/script-foo")
+    assert status == 200
+    assert payload["saved_vs_cursor"] == 50  # 42 exact route + 8 crystal field — not +999
+
+
+@allure.title("summary metrics price this window's tasks — not the whole month's budget")
+def test_summary_metrics_window_scoped(hub_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression: cost_per_task divided the *monthly* budget snapshot by the
+    window's calls — a 7d window with one cheap task showed a ~$100/task cost."""
+    now = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    old = (datetime.now(UTC) - timedelta(days=10)).isoformat()
+    log = hub_home / "usage.jsonl"
+    log.write_text(
+        # inside the 7d window: one cursor-estimate task that cost ~$0.50
+        json.dumps({"ts": now, "selected_tier": "cursor", "task": "t", "cost_usd": 0.5}) + "\n"
+        # outside the window: the month's expensive history — must not leak in
+        + json.dumps({"ts": old, "selected_tier": "cursor", "task": "t2", "cost_usd": 100.0}) + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(hub_api, "find_workspace_root", lambda: (_ for _ in ()).throw(SystemExit(1)))
+    status, payload = hub_api.handle_api("/api/summary?since=7d")
+    assert status == 200
+    metrics = payload["metrics"]
+    assert metrics["cost_per_task_usd"] == pytest.approx(0.5)
+    assert metrics["metered_cost_per_task_usd"] == pytest.approx(0.0)

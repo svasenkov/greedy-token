@@ -3,6 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Telemetry text is escaped before rendering; CSP is the second wall: no
+       inline scripts or event handlers, same-origin fetch only. -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
   <title>greedy-token hub</title>
   <link rel="stylesheet" href="/app.css">
   <link rel="stylesheet" href="/provider-catalog.css">
