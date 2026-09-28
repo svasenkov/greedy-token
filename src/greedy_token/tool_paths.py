@@ -19,8 +19,11 @@ def _tool_candidates(tool: str, *, override_var: str) -> Iterator[Path]:
         yield Path(which)
 
     for directory in os.environ.get("PATH", "").split(os.pathsep):
-        if directory:
-            yield Path(directory) / tool
+        if not directory:
+            continue
+        yield Path(directory) / tool
+        if sys.platform == "win32":
+            yield from _windows_executable_names(tool, directory)
 
     if tool == "rg":
         home = Path.home()
@@ -55,6 +58,19 @@ def _tool_candidates(tool: str, *, override_var: str) -> Iterator[Path]:
                 / "Applications/Devin.app/Contents/Resources/app/node_modules/@vscode"
             ).glob("ripgrep*/bin/*/rg")
         )
+
+
+def _windows_executable_names(tool: str, directory: str) -> Iterator[Path]:
+    """PATHEXT filename variants for *tool* inside one PATH directory.
+
+    ``shutil.which`` already honours PATHEXT; this manual PATH scan needs the
+    same treatment or ``dir\\rg`` never matches a real ``rg.exe``.
+    """
+    pathext = os.environ.get("PATHEXT", ".COM;.EXE;.BAT;.CMD")
+    for ext in pathext.split(";"):
+        ext = ext.strip().lower()
+        if ext:
+            yield Path(directory) / f"{tool}{ext}"
 
 
 def _rg_candidates() -> Iterator[Path]:

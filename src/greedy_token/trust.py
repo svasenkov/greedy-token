@@ -410,8 +410,11 @@ def _read_entries(root: Path) -> tuple[TrustEntry, ...]:
     try:
         if path.stat().st_size > MANIFEST_MAX_BYTES:
             raise TrustManifestError("trust manifest exceeds 1 MiB")
-        # equivalent: valid UTF-8 manifests decode identically with utf-8, UTF-8, or the UTF-8 locale default.
-        raw = json.loads(path.read_text(encoding="utf-8"))  # pragma: no mutate
+        # equivalent: a codec-name case-flip ("UTF-8") is the same codec on
+        # every host.  A dropped/defaulted encoding is NOT equivalent — a
+        # non-UTF-8 locale (Windows ANSI, LC_ALL=C) decodes differently or
+        # raises; killed by tests/test_portability.py locale cases.
+        raw = json.loads(path.read_text(encoding="utf-8"))
     except TrustManifestError:
         raise
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
@@ -449,7 +452,8 @@ def _write_entries(root: Path, entries: tuple[TrustEntry, ...]) -> Path:
     temp_path = Path(temp_name)
     try:
         os.chmod(temp_path, 0o600)
-        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+        # newline="" pins LF bytes so manifests are byte-identical across OSes.
+        with os.fdopen(fd, "w", encoding="utf-8", newline="") as stream:
             json.dump(payload, stream, ensure_ascii=False, indent=2)
             stream.write("\n")
             stream.flush()

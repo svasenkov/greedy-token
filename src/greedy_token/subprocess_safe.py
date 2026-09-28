@@ -49,6 +49,13 @@ class CommandInvocation:
 _SHELL_NAMES = frozenset({"sh", "bash", "dash", "zsh", "ksh", "fish"})
 _PYTHON_NAMES = frozenset({"python", "python3"})
 
+# Windows drive-anchored forms that ntpath.isabs() declines: "C:x" resolves
+# against the per-drive current directory and "C:" names the drive itself —
+# on Windows both escape POSIX-style root confinement, so they are refused
+# everywhere for a host-independent trust boundary.  The lookahead keeps
+# "C:\x"/"C:/x" on the ordinary absolute-path path.
+_WINDOWS_DRIVE_PREFIX = re.compile(r"^[A-Za-z]:(?![\\/])")
+
 
 def executable_name(value: str | Path) -> str:
     """Return a case-folded executable name on POSIX and Windows."""
@@ -138,6 +145,10 @@ def command_to_argv(
 
     cwd = default_cwd
     if len(parts) >= 3 and parts[0] == "cd" and parts[2] == "&&":
+        if _WINDOWS_DRIVE_PREFIX.match(parts[1]):
+            raise UnsafeCommandError(
+                f"drive-relative cd target is not allowed: {parts[1]!r}"
+            )
         cwd = Path(parts[1])
         parts = parts[3:]
 
@@ -155,6 +166,10 @@ def command_to_argv(
     _reject_code_string_launch(parts)
 
     executable = Path(parts[0]).expanduser()
+    if _WINDOWS_DRIVE_PREFIX.match(parts[0]):
+        raise UnsafeCommandError(
+            f"drive-relative executable is not allowed: {parts[0]!r}"
+        )
     if is_absolute_path(parts[0]):
         try:
             resolved_executable = executable.resolve()
@@ -184,6 +199,10 @@ def _workspace_script_path(token: str, root: Path) -> tuple[Path, str]:
     candidate = Path(token).expanduser()
     if is_absolute_path(token):
         raise UnsafeCommandError("absolute script paths are not allowed")
+    if _WINDOWS_DRIVE_PREFIX.match(token):
+        raise UnsafeCommandError(
+            f"drive-relative script path is not allowed: {token!r}"
+        )
     # A symlink anywhere in the path is refused before any resolve, so the
     # refusal class stays "symlink" even when the target escapes the root.
     current = root
@@ -224,6 +243,10 @@ def _validate_script_args(args: Iterable[str], root: Path) -> None:
         if is_absolute_path(value) or value.startswith("~"):
             raise UnsafeCommandError(
                 f"absolute argument path is not allowed: {value!r}"
+            )
+        if _WINDOWS_DRIVE_PREFIX.match(value):
+            raise UnsafeCommandError(
+                f"drive-relative argument path is not allowed: {value!r}"
             )
         if ".." in candidate.parts:
             raise UnsafeCommandError(
@@ -397,6 +420,10 @@ def trusted_tool_invocation(
         candidate = Path(value)
         if is_absolute_path(value):
             raise UnsafeCommandError("absolute tool path is not allowed")
+        if _WINDOWS_DRIVE_PREFIX.match(value):
+            raise UnsafeCommandError(
+                f"drive-relative tool path is not allowed: {value!r}"
+            )
         try:
             (resolved_root / candidate).resolve().relative_to(resolved_root)
         except (OSError, ValueError) as exc:

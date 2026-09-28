@@ -532,7 +532,8 @@ def append_lifecycle_event(
         event.update(extra)
     path = lifecycle_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as fh:
+    # newline="" pins LF bytes — text mode would translate to CRLF on Windows.
+    with path.open("a", encoding="utf-8", newline="") as fh:
         fh.write(json.dumps(event, ensure_ascii=False) + "\n")
     return event
 

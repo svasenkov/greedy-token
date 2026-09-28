@@ -296,13 +296,17 @@ def format_executor_savings_summary(
 
 
 def _load_pipelines_config() -> dict:
-    # equivalent: path segments are case-insensitive on the local (macOS/APFS)
-    # filesystem, so "config"/"pipelines.yaml" case-flips resolve identically.
+    # equivalent: path segments are case-insensitive on the dev filesystems
+    # mutmut runs on (macOS APFS, Windows NTFS), so "config"/"pipelines.yaml"
+    # case-flips resolve identically there.
     path = Path(__file__).parent / "config" / "pipelines.yaml"  # pragma: no mutate
     if not path.is_file():
         return {}
-    # equivalent: file is ASCII YAML; utf-8/UTF-8/locale-default decode the same.
-    with path.open(encoding="utf-8") as fh:  # pragma: no mutate
+    # equivalent: a codec-name case-flip ("UTF-8") is the same codec on every
+    # host.  A dropped/defaulted encoding is NOT equivalent — pipelines.yaml
+    # carries non-ASCII descriptions and a non-UTF-8 locale (Windows ANSI,
+    # LC_ALL=C) mangles them or raises; killed by tests/test_portability.py.
+    with path.open(encoding="utf-8") as fh:
         return yaml.safe_load(fh) or {}
 
 
@@ -610,9 +614,12 @@ def _estimate_step_tokens(step: PipelineStep, output: str, root: Path) -> int:
         if step.step_id == "audit-skill" and step.args:
             p = root / step.args
             if p.is_file():
-                # equivalent: errors="replace" + local UTF-8 locale means
-                # utf-8/UTF-8/None decode to the same token count.
-                extra = count_tokens(p.read_text(encoding="utf-8", errors="replace")).tokens  # pragma: no mutate
+                # equivalent: a codec-name case-flip ("UTF-8") is the same codec
+                # on every host.  A dropped/defaulted encoding is NOT
+                # equivalent — under a non-UTF-8 locale errors="replace"
+                # silently mangles skill text into a different token count;
+                # killed by tests/test_portability.py locale cases.
+                extra = count_tokens(p.read_text(encoding="utf-8", errors="replace")).tokens
         return extra + count_tokens(output).tokens
     return count_tokens(output).tokens
 
