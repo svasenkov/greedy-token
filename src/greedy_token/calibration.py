@@ -166,7 +166,12 @@ def _log_signature(path) -> tuple[int, int] | None:
 
 
 def _stats_from_log() -> tuple[BucketStats, ...]:
-    from greedy_token.usage import load_events, log_path, logging_enabled
+    from greedy_token.usage import (
+        load_events,
+        log_archive_paths,
+        log_path,
+        logging_enabled,
+    )
 
     if not logging_enabled():
         return _empty_stats()
@@ -176,7 +181,12 @@ def _stats_from_log() -> tuple[BucketStats, ...]:
     cached = _CACHE.get(key)
     if cached is not None and cached[0] == signature:
         return cached[1]
-    events, _skipped = load_events(path)
+    # collect_bucket_stats is last-write-wins per task, so archives must feed
+    # oldest → newest; log_archive_paths returns the active log first.
+    events: list[dict] = []
+    for log_file in reversed(log_archive_paths(path)):
+        chunk, _skipped = load_events(log_file, include_archives=False)
+        events.extend(chunk)
     stats = collect_bucket_stats(events)
     _CACHE[key] = (signature, stats)
     return stats

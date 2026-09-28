@@ -231,18 +231,25 @@ def test_run_micro_benchmark(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     cache = tmp_path / "probe-cache.json"
     monkeypatch.setattr(rp, "PROBE_CACHE_PATH", cache)
 
-    # cache hit
+    # cache hit — entry stored under the resolved-endpoint cache key
     import time
 
+    monkeypatch.setattr(
+        rp, "_benchmark_resolved", lambda m, root: _fake_resolved("http://a:11434")
+    )
+    cache_key = rp._benchmark_cache_key(
+        "m", _fake_resolved("http://a:11434"), quick=True,
+        catalog=rp.load_model_catalog(),
+    )
     cache.write_text(
-        json.dumps({"bench:m": {"ts": time.time(), "latency_ms": 5, "eval_tokens": 3, "ok": True, "error": ""}}),
+        json.dumps({cache_key: {"ts": time.time(), "latency_ms": 5, "eval_tokens": 3, "ok": True, "error": ""}}),
         encoding="utf-8",
     )
     res = rp.run_micro_benchmark("m", quick=True, use_cache=True)
     assert res.ok is True and res.latency_ms == 5
 
     # cache present but expired (ts=0) with quick+use_cache → proceeds past cache block
-    cache.write_text(json.dumps({"bench:m": {"ts": 0, "ok": True}}), encoding="utf-8")
+    cache.write_text(json.dumps({cache_key: {"ts": 0, "ok": True}}), encoding="utf-8")
     monkeypatch.setattr(rp, "cheap_llm_available", lambda *a, **k: False)
     expired = rp.run_micro_benchmark("m", quick=True, use_cache=True)
     assert expired.ok is False
@@ -267,6 +274,99 @@ def test_run_micro_benchmark(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     monkeypatch.setattr("greedy_token.llm_invoke.llm_chat", boom)
     res4 = rp.run_micro_benchmark("m", quick=False, use_cache=False)
     assert res4.ok is False and "boom" in res4.error
+
+
+def _fake_resolved(url: str, model: str = "m", provider: str = "ollama"):
+    """A real ResolvedModel for the fake endpoint — invoke paths need .settings."""
+    from greedy_token.model_select import ModelSpec, ResolvedModel
+    from greedy_token.settings import CheapLlmSettings
+
+    spec = ModelSpec(
+        id="probe",
+        enabled=True,
+        provider=provider,  # type: ignore[arg-type]
+        url=url,
+        model=model,
+        profiles=("*",),
+        billing="free",
+    )
+    settings = CheapLlmSettings(
+        provider=provider, url=url, model=model, source="probe"  # type: ignore[arg-type]
+    )
+    return ResolvedModel(
+        spec=spec, settings=settings, profile="benchmark", billing_tier="cheap"
+    )
+
+
+@allure.title("_benchmark_cache_key varies with model, endpoint, provider, prompt and mode")
+def test_benchmark_cache_key_identity() -> None:
+    a = _fake_resolved("http://a:11434")
+    key = rp._benchmark_cache_key("m", a, quick=True, catalog={})
+    assert key.startswith("bench:")
+    variants = {
+        "same": rp._benchmark_cache_key("m", a, quick=True, catalog={}),
+        "endpoint": rp._benchmark_cache_key(
+            "m", _fake_resolved("http://b:11434"), quick=True, catalog={}
+        ),
+        "model": rp._benchmark_cache_key(
+            "other", _fake_resolved("http://a:11434"), quick=True, catalog={}
+        ),
+        "spec_model": rp._benchmark_cache_key(
+            "m", _fake_resolved("http://a:11434", model="other"), quick=True, catalog={}
+        ),
+        "provider": rp._benchmark_cache_key(
+            "m", _fake_resolved("http://a:11434", provider="openai_compat"),
+            quick=True, catalog={},
+        ),
+        "mode": rp._benchmark_cache_key("m", a, quick=False, catalog={}),
+        "prompts": rp._benchmark_cache_key(
+            "m", a, quick=True, catalog={"benchmark": {"user": "other prompt"}}
+        ),
+    }
+    assert variants["same"] == key  # deterministic
+    distinct = {v for k, v in variants.items() if k != "same"}
+    assert len(distinct) == len(variants) - 1  # every dimension moves the key
+
+
+@allure.title("run_micro_benchmark: a cached result is scoped to its endpoint")
+def test_run_micro_benchmark_cache_scoped_to_endpoint(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    cache = tmp_path / "probe-cache.json"
+    monkeypatch.setattr(rp, "PROBE_CACHE_PATH", cache)
+
+    import time
+
+    current = {"url": "http://a:11434"}
+    monkeypatch.setattr(
+        rp, "_benchmark_resolved", lambda m, root: _fake_resolved(current["url"])
+    )
+    key_a = rp._benchmark_cache_key(
+        "m", _fake_resolved("http://a:11434"), quick=True,
+        catalog=rp.load_model_catalog(),
+    )
+    cache.write_text(
+        json.dumps({key_a: {"ts": time.time(), "latency_ms": 42, "ok": True}}),
+        encoding="utf-8",
+    )
+
+    with allure.step("same endpoint → cache hit, availability probe untouched"):
+        called: list[bool] = []
+        monkeypatch.setattr(
+            rp, "cheap_llm_available", lambda *a, **k: called.append(True) or True
+        )
+        hit = rp.run_micro_benchmark("m", quick=True, use_cache=True)
+        assert hit.ok is True and hit.latency_ms == 42
+        assert called == []
+
+    with allure.step("changed endpoint → stale entry is not reused, probe runs"):
+        current["url"] = "http://b:11434"
+        monkeypatch.setattr(
+            "greedy_token.llm_invoke.llm_chat", lambda *a, **k: ("ok", 9)
+        )
+        miss = rp.run_micro_benchmark("m", quick=True, use_cache=True)
+        assert called == [True]  # availability probe ran → real miss
+        assert miss.ok is True and miss.eval_tokens == 9 and miss.latency_ms != 42
 
 
 @allure.title("run_micro_benchmark: remote endpoint is spend-guarded, fails closed")

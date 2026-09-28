@@ -966,3 +966,31 @@ def test_escalate_edit_confidence_source(minimal_workspace: Path) -> None:
         assert esc_high.confidence == 0.8
         assert esc_high.confidence_source == SOURCE_OUTCOME_CALIBRATED
         assert esc_high.calibration_n == 30
+
+
+@allure.story("Telemetry scan")
+@allure.title("_stats_from_log feeds archives oldest → newest for last-write-wins")
+def test_stats_from_log_chronological_archives(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression: load_events returns the active log first, but override
+    attribution is last-write-wins per task — the archive hit must be seen
+    before the active log's override, not after it."""
+    from greedy_token.calibration import _stats_from_log
+
+    log = tmp_path / "usage.jsonl"
+    monkeypatch.setenv("GREEDY_TOKEN_LOG", str(log))
+    # Active log (newer): the re-ask override, then a different task's hit.
+    log.write_text(
+        json.dumps(_override("shared task")) + "\n"
+        + json.dumps(_hit("shared task", 9.0)) + "\n",
+        encoding="utf-8",
+    )
+    # Archive .1 (older): the original cheap hit the override refers to.
+    Path(str(log) + ".1").write_text(
+        json.dumps(_hit("shared task", 2.5)) + "\n",
+        encoding="utf-8",
+    )
+    stats = _stats_from_log()
+    # Chronological order: hit[2,4) → override → hit[8,+).
+    # Active-first order dropped the override (no prior hit seen yet).
+    assert stats[1].hits == 1 and stats[1].overrides == 1
+    assert stats[-1].hits == 1 and stats[-1].overrides == 0

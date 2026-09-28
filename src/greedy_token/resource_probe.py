@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import platform
@@ -328,6 +329,51 @@ def _benchmark_resolved(model: str, root: Path | None) -> ResolvedModel:
     )
 
 
+def _benchmark_prompts(catalog: dict[str, Any]) -> tuple[str, str]:
+    bench = catalog.get("benchmark") or {}
+    return (
+        str(bench.get("system", "You are a code classifier.")),
+        str(bench.get("user", "def foo(): pass")),
+    )
+
+
+def _benchmark_cache_key(
+    model: str,
+    resolved: ResolvedModel,
+    *,
+    quick: bool,
+    catalog: dict[str, Any],
+) -> str:
+    """Cache identity for a benchmark run: endpoint + model + configuration.
+
+    A bare ``bench:<model>`` key would replay latency measured against a
+    different endpoint, provider or prompt set, so the identity is hashed from
+    everything that can change the measurement.  The API key only enters as a
+    digest — secrets never land in the cache file.
+    """
+    spec = resolved.spec
+    system, user = _benchmark_prompts(catalog)
+    identity = {
+        "model": model,
+        "spec_model": spec.model,
+        "endpoint": spec.url,
+        "provider": spec.provider,
+        "billing": spec.billing,
+        "api_key": (
+            hashlib.sha256(spec.api_key.encode("utf-8")).hexdigest()[:16]
+            if spec.api_key
+            else ""
+        ),
+        "quick": quick,
+        "system": system,
+        "user": user,
+    }
+    digest = hashlib.sha256(
+        json.dumps(identity, sort_keys=True).encode("utf-8")
+    ).hexdigest()
+    return f"bench:{digest[:24]}"
+
+
 def run_micro_benchmark(
     model: str,
     *,
@@ -336,7 +382,19 @@ def run_micro_benchmark(
     root: Path | None = None,
     allow_expensive: bool = False,
 ) -> BenchmarkResult:
-    cache_key = f"bench:{model}"
+    resolved_root = root
+    if resolved_root is None:
+        try:
+            from greedy_token.paths import find_workspace_root
+
+            resolved_root = find_workspace_root()
+        except SystemExit:
+            resolved_root = None
+
+    resolved = _benchmark_resolved(model, resolved_root)
+    catalog = load_model_catalog()
+    system, user = _benchmark_prompts(catalog)
+    cache_key = _benchmark_cache_key(model, resolved, quick=quick, catalog=catalog)
     if use_cache and quick:
         cached = _load_probe_cache()
         entry = cached.get(cache_key)
@@ -348,22 +406,6 @@ def run_micro_benchmark(
                 ok=bool(entry.get("ok")),
                 error=str(entry.get("error", "")),
             )
-
-    catalog = load_model_catalog()
-    bench = catalog.get("benchmark") or {}
-    system = str(bench.get("system", "You are a code classifier."))
-    user = str(bench.get("user", "def foo(): pass"))
-
-    resolved_root = root
-    if resolved_root is None:
-        try:
-            from greedy_token.paths import find_workspace_root
-
-            resolved_root = find_workspace_root()
-        except SystemExit:
-            resolved_root = None
-
-    resolved = _benchmark_resolved(model, resolved_root)
 
     # ADR-0002: a denied metered benchmark must not touch the endpoint —
     # the spend guard runs before the availability probe and the chat call.
