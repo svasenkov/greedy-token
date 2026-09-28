@@ -10,6 +10,8 @@ MINIMUM = [
     "PyYAML==6.0.1",
     "tiktoken==0.7.0",
     "pytest==8.0.0",
+    # pyproject addopts passes -n auto unconditionally — xdist is not optional.
+    "pytest-xdist==3.8.0",
     "allure-pytest==2.16.0",
     "coverage==7.0.0",
     "hypothesis==6.10.1",

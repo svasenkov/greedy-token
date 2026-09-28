@@ -1,8 +1,19 @@
-include LICENSE README.md README-RU.md pyproject.toml
+include LICENSE README.md README-RU.md pyproject.toml constraints-ci.txt
 recursive-include docs *
 recursive-include examples *
 recursive-include src/greedy_token/config *
 recursive-include src/greedy_token/presets *
 recursive-include src/greedy_token/route_presets *
 recursive-include src/greedy_token/static *
-recursive-include tests *
+# tests/ ship in the sdist — they only contain .py sources, and the suite
+# they carry imports bench/ corpora and reads .github/ + scripts/.
+# MANIFEST can't see git status: an untracked tests/*.py would silently ship,
+# so release-gate.sh and scripts/ci/build_smoke.py refuse a dirty tests/ tree.
+recursive-include tests *.py
+recursive-include bench *
+recursive-include scripts *
+recursive-include .github *
+# Never ship interpreter caches or bytecode from a dirty build tree.
+global-exclude __pycache__
+global-exclude *.py[co]
+prune */__pycache__

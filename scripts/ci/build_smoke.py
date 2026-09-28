@@ -16,7 +16,47 @@ def run(argv: list[str], *, cwd: Path = ROOT) -> None:
     subprocess.run(argv, cwd=cwd, check=True, shell=False)
 
 
+def _untracked_test_files(porcelain: str) -> list[str]:
+    """Untracked ``.py`` files under ``tests/`` in ``git status --porcelain``.
+
+    ``MANIFEST.in`` ships ``recursive-include tests *.py`` — a file that was
+    never committed still lands in the sdist, so builds must start from a
+    clean checkout of ``tests/``.
+    """
+    flagged: list[str] = []
+    for line in porcelain.splitlines():
+        if not line.startswith("?? "):
+            continue
+        path = line[3:].strip().strip('"')
+        if path.startswith("tests/") and path.endswith(".py"):
+            flagged.append(path)
+    return flagged
+
+
+def _guard_clean_tests_checkout() -> None:
+    try:
+        status = subprocess.run(
+            ["git", "status", "--porcelain", "--", "tests/"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return  # no git binary — nothing to guard
+    if status.returncode != 0:
+        return  # not a git checkout — nothing to guard
+    untracked = _untracked_test_files(status.stdout)
+    if untracked:
+        raise SystemExit(
+            "untracked tests/*.py would silently enter the sdist "
+            "(MANIFEST.in can't see git status) — commit or remove them:\n"
+            + "\n".join(f"  {name}" for name in untracked)
+        )
+
+
 def main() -> int:
+    _guard_clean_tests_checkout()
     dist = ROOT / "dist"
     if dist.exists():
         shutil.rmtree(dist)

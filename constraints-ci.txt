@@ -173,3 +173,6 @@ urllib3==2.8.0
     # via requests
 uvicorn==0.54.0
     # via mcp
+# Build backend for sdist/editable installs (pyproject.toml requires >=68);
+# pinned manually — it is not part of the uv-resolved dependency tree.
+setuptools==80.9.0
