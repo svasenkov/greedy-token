@@ -2,7 +2,7 @@
 
 # greedy-token
 
-**Русская версия:** [README-RU.md](README-RU.md) · **Why this exists:** [WHY.md](WHY.md) · [WHY-RU.md](WHY-RU.md)
+**Русская версия:** [README-RU.md](../README-RU.md) · **Why this exists:** [WHY.md](../WHY.md) · [WHY-RU.md](../WHY-RU.md)
 
 <img src="docs/greedy-cat.gif" alt="greedy-token mascot" width="240" />
 
@@ -20,7 +20,7 @@ sort-of-AI bulk work        →  local cheap LLM (Ollama, …)
 wiring / design / judgment  →  expensive agent chat
 ```
 
-First matching cheap path wins. Every answer ends with a **Greedy token** footer: what this call cost vs a naive full chat. Short ELI5 pitch: [WHY.md](WHY.md).
+First matching cheap path wins. Every answer ends with a **Greedy token** footer: what this call cost vs a naive full chat. Short ELI5 pitch: [WHY.md](../WHY.md).
 
 ## Which path should I use? (money)
 
@@ -156,14 +156,14 @@ export GREEDY_TOKEN_ROOT=/path/to/workspace   # optional; auto-detect when marke
 
 ## Cursor integration (recommended)
 
-**Full guide (any workspace / PyPI):** [docs/cursor-setup.md](docs/cursor-setup.md) · [docs/cursor-setup-RU.md](docs/cursor-setup-RU.md)
+**Full guide (any workspace / PyPI):** [docs/cursor-setup.md](cursor-setup.md) · [docs/cursor-setup-RU.md](cursor-setup-RU.md)
 
 Starter kit in this repo (copy into your project):
 
 | Template | Copy to |
 |----------|---------|
-| [`examples/cursor/mcp.json`](examples/cursor/mcp.json) | `.cursor/mcp.json` |
-| [`examples/cursor/rules/greedy-token.mdc`](examples/cursor/rules/greedy-token.mdc) | `.cursor/rules/greedy-token.mdc` |
+| [`examples/cursor/mcp.json`](../examples/cursor/mcp.json) | `.cursor/mcp.json` |
+| [`examples/cursor/rules/greedy-token.mdc`](../examples/cursor/rules/greedy-token.mdc) | `.cursor/rules/greedy-token.mdc` |
 
 ```bash
 pip install "greedy-token[mcp]"
@@ -183,9 +183,9 @@ Cursor is the default host, but the stdio MCP server and the context audit work 
 
 | Host | Always-on rules audited | Setup guide | Starter kit |
 |------|------------------------|-------------|-------------|
-| `cursor` (default) | `.cursor/rules/*.mdc` | [docs/cursor-setup.md](docs/cursor-setup.md) | [`examples/cursor/`](examples/cursor/) |
-| `claude` (Claude Desktop) | `CLAUDE.md` + `.claude/rules/*.md` | [docs/claude-setup.md](docs/claude-setup.md) | [`examples/claude/`](examples/claude/) |
-| `continue` (Continue) | `.continuerules` + `.continue/rules/*.md` | [docs/continue-setup.md](docs/continue-setup.md) | [`examples/continue/`](examples/continue/) |
+| `cursor` (default) | `.cursor/rules/*.mdc` | [docs/cursor-setup.md](cursor-setup.md) | [`examples/cursor/`](../examples/cursor/) |
+| `claude` (Claude Desktop) | `CLAUDE.md` + `.claude/rules/*.md` | [docs/claude-setup.md](claude-setup.md) | [`examples/claude/`](../examples/claude/) |
+| `continue` (Continue) | `.continuerules` + `.continue/rules/*.md` | [docs/continue-setup.md](continue-setup.md) | [`examples/continue/`](../examples/continue/) |
 
 Telemetry stays compatible: the `cursor_baseline` field and the `cursor` tier id are host-neutral slot names ("naive agent chat" / "expensive agent path"), not claims about the specific host.
 
@@ -515,11 +515,11 @@ cheap_llm:
   model: qwen2.5-coder:7b-instruct-q4_K_M
 ```
 
-Multi-model registry ([ADR-0001](docs/adr/0001-unified-model-spec-derived-tier.md)): declare one unified `llm.models[]` list; the cheap/expensive tier is *derived* from each model's attributes — `billing: free|metered`, `cost_per_1m_usd`, threshold `llm.cheap_cost_threshold_per_1m_usd` (default 0.2 USD per 1M tokens). `locality: local|remote` never affects the tier. Legacy `llm.cheap.models[]` / `llm.expensive.models[]` sections are still read. Templates: `examples/presets/`.
+Multi-model registry ([ADR-0001](adr/0001-unified-model-spec-derived-tier.md)): declare one unified `llm.models[]` list; the cheap/expensive tier is *derived* from each model's attributes — `billing: free|metered`, `cost_per_1m_usd`, threshold `llm.cheap_cost_threshold_per_1m_usd` (default 0.2 USD per 1M tokens). `locality: local|remote` never affects the tier. Legacy `llm.cheap.models[]` / `llm.expensive.models[]` sections are still read. Templates: `examples/presets/`.
 
 ### Metered bulk APIs (ADR-0002)
 
-A metered remote model with derived tier *cheap* (e.g. a $0.05/1M classify API) can serve the bulk executor tier when local Ollama is down — **opt-in only** ([ADR-0002](docs/adr/0002-metered-bulk-cheap-tier.md)):
+A metered remote model with derived tier *cheap* (e.g. a $0.05/1M classify API) can serve the bulk executor tier when local Ollama is down — **opt-in only** ([ADR-0002](adr/0002-metered-bulk-cheap-tier.md)):
 
 ```yaml
 llm:
@@ -619,11 +619,11 @@ Everything else (rsync / migrate / batch-inventory, non-allowlisted wrappers) �
 
 Today the happy path is **any MCP agent host + Ollama + workspace** (Cursor by default); CLI and MCP are IDE-agnostic. The current release is **v0.18.1**; the trust cut landed in **v0.13.0** (honest savings framing, mcp pin, edit-escalation, Cyrillic tokenize, routing corpus scorecard, `shell=False` harden), on top of earlier time savings / beyond-Cursor hosts / spend-guarded [metered bulk APIs](#metered-bulk-apis-adr-0002). Paid agent APIs (`expensive_llm`) remain opt-in.
 
-**Per-release detail:** cut checklists `CUT-v*.md` in the repo root. **Full matrix (✅ / ❌ / 🔜) + acceptance criteria + GitHub issues:** [docs/ROADMAP.md](docs/ROADMAP.md) · [docs/ROADMAP-RU.md](docs/ROADMAP-RU.md)
+**Per-release detail:** cut checklists `CUT-v*.md` in the repo root. **Full matrix (✅ / ❌ / 🔜) + acceptance criteria + GitHub issues:** [docs/ROADMAP.md](ROADMAP.md) · [docs/ROADMAP-RU.md](ROADMAP-RU.md)
 
 | Area | ✅ today (v0.18.1) | 🔜 next |
 |------|-------------------|---------|
-| Executors | `tool`, `python`, `ollama` (via `cheap_llm`), `rag`; **metered bulk APIs** (spend-guarded, [ADR-0002](docs/adr/0002-metered-bulk-cheap-tier.md)) | Crystal IR store |
+| Executors | `tool`, `python`, `ollama` (via `cheap_llm`), `rag`; **metered bulk APIs** (spend-guarded, [ADR-0002](adr/0002-metered-bulk-cheap-tier.md)) | Crystal IR store |
 | Crystallization | L2 telemetry + **audited lifecycle** (`draft` → `approve` → `promote` / `reject`, trust-gated apply) | — (silent auto-apply intentionally not planned) |
 | Agent host | Cursor (default) + **Claude Desktop, Continue** via `agent_host` config ([Agent hosts](#agent-hosts)) | more host conventions on request |
 | Config | `cheap_llm.provider` + `OLLAMA_*` / `ollama:` aliases; **team route presets** (`init --preset name|url|path`) | — |

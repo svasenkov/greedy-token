@@ -2,7 +2,7 @@
 
 # greedy-token
 
-**English version:** [README.md](README.md) · **Зачем это:** [WHY-RU.md](WHY-RU.md) · [WHY.md](WHY.md)
+**English version:** [README.md](../README.md) · **Зачем это:** [WHY-RU.md](../WHY-RU.md) · [WHY.md](../WHY.md)
 
 <img src="docs/greedy-cat.gif" alt="талисман greedy-token" width="240" />
 
@@ -20,7 +20,7 @@ greedy-token сидит рядом с Cursor / Claude Desktop / Continue (CLI + 
 wiring / дизайн / суждения        →  дорогой agent chat
 ```
 
-Побеждает первый подходящий дешёвый путь. В конце ответа — footer **Greedy token**: сколько стоил вызов против наивного полного чата. Короткий ELI5-pitch: [WHY-RU.md](WHY-RU.md).
+Побеждает первый подходящий дешёвый путь. В конце ответа — footer **Greedy token**: сколько стоил вызов против наивного полного чата. Короткий ELI5-pitch: [WHY-RU.md](../WHY-RU.md).
 
 ## Какой путь выбрать? (деньги)
 
@@ -156,14 +156,14 @@ export GREEDY_TOKEN_ROOT=/path/to/workspace   # опционально; авто
 
 ## Интеграция с Cursor
 
-**Полная инструкция (любой workspace / PyPI):** [docs/cursor-setup-RU.md](docs/cursor-setup-RU.md) · [docs/cursor-setup.md](docs/cursor-setup.md)
+**Полная инструкция (любой workspace / PyPI):** [docs/cursor-setup-RU.md](cursor-setup-RU.md) · [docs/cursor-setup.md](cursor-setup.md)
 
 Starter kit в этом репозитории (скопируйте в свой проект):
 
 | Шаблон | Куда |
 |--------|------|
-| [`examples/cursor/mcp.json`](examples/cursor/mcp.json) | `.cursor/mcp.json` |
-| [`examples/cursor/rules/greedy-token.mdc`](examples/cursor/rules/greedy-token.mdc) | `.cursor/rules/greedy-token.mdc` |
+| [`examples/cursor/mcp.json`](../examples/cursor/mcp.json) | `.cursor/mcp.json` |
+| [`examples/cursor/rules/greedy-token.mdc`](../examples/cursor/rules/greedy-token.mdc) | `.cursor/rules/greedy-token.mdc` |
 
 ```bash
 pip install "greedy-token[mcp]"
@@ -183,9 +183,9 @@ Cursor — хост по умолчанию, но stdio MCP-сервер и ау
 
 | Хост | Какие always-on правила аудируются | Гайд | Starter kit |
 |------|-----------------------------------|------|-------------|
-| `cursor` (по умолчанию) | `.cursor/rules/*.mdc` | [docs/cursor-setup-RU.md](docs/cursor-setup-RU.md) | [`examples/cursor/`](examples/cursor/) |
-| `claude` (Claude Desktop) | `CLAUDE.md` + `.claude/rules/*.md` | [docs/claude-setup-RU.md](docs/claude-setup-RU.md) | [`examples/claude/`](examples/claude/) |
-| `continue` (Continue) | `.continuerules` + `.continue/rules/*.md` | [docs/continue-setup-RU.md](docs/continue-setup-RU.md) | [`examples/continue/`](examples/continue/) |
+| `cursor` (по умолчанию) | `.cursor/rules/*.mdc` | [docs/cursor-setup-RU.md](cursor-setup-RU.md) | [`examples/cursor/`](../examples/cursor/) |
+| `claude` (Claude Desktop) | `CLAUDE.md` + `.claude/rules/*.md` | [docs/claude-setup-RU.md](claude-setup-RU.md) | [`examples/claude/`](../examples/claude/) |
+| `continue` (Continue) | `.continuerules` + `.continue/rules/*.md` | [docs/continue-setup-RU.md](continue-setup-RU.md) | [`examples/continue/`](../examples/continue/) |
 
 Телеметрия совместима: поле `cursor_baseline` и tier id `cursor` — нейтральные имена слотов («naive agent chat» / «expensive agent path»), а не привязка к конкретному хосту.
 
@@ -376,7 +376,7 @@ greedy-token report --since 7d
 - **Executor (rg/python/rag)** — free tier, 0 LLM spend на этот шаг (`search` в pipeline → `rg`)
 - **Executor (ollama)** — cheap LLM
 - **Tier alternatives** — строка `← this call` = фактический Spent этого вызова
-- **Saved vs naive agent chat** — **оценка** greedy-token (tiktoken), не биллинг API хоста; всегда помечена источником базлайна: `measured` / `calibrated` / `default-estimate`
+- **Saved vs naive agent chat** — **оценка** greedy-token (tiktoken), не биллинг API хоста; всегда помечена источником базлайна: `measured` / `calibrated` / `default-estimate` (см. [Калибровка базлайна](#калибровка-базлайна))
 - **Agent chat** — expensive LLM (rules + ваше сообщение + ответ)
 - **Исключения footer:** `usage` → Session totals; `pipeline: list` → только рецепты
 
@@ -513,11 +513,11 @@ cheap_llm:
   model: qwen2.5-coder:7b-instruct-q4_K_M
 ```
 
-Multi-model реестр ([ADR-0001](docs/adr/0001-unified-model-spec-derived-tier.md)): единый список `llm.models[]`; tier cheap/expensive *выводится* из атрибутов модели — `billing: free|metered`, `cost_per_1m_usd`, порог `llm.cheap_cost_threshold_per_1m_usd` (default 0.2 USD за 1M токенов). `locality: local|remote` на tier не влияет. Старые секции `llm.cheap.models[]` / `llm.expensive.models[]` продолжают читаться. Шаблоны: `examples/presets/`.
+Multi-model реестр ([ADR-0001](adr/0001-unified-model-spec-derived-tier.md)): единый список `llm.models[]`; tier cheap/expensive *выводится* из атрибутов модели — `billing: free|metered`, `cost_per_1m_usd`, порог `llm.cheap_cost_threshold_per_1m_usd` (default 0.2 USD за 1M токенов). `locality: local|remote` на tier не влияет. Старые секции `llm.cheap.models[]` / `llm.expensive.models[]` продолжают читаться. Шаблоны: `examples/presets/`.
 
 ### Metered bulk APIs (ADR-0002)
 
-Metered remote-модель с выведенным tier *cheap* (например, classify-API за $0.05/1M) может обслуживать bulk-executor tier, когда локальная Ollama недоступна — **только opt-in** ([ADR-0002](docs/adr/0002-metered-bulk-cheap-tier.md)):
+Metered remote-модель с выведенным tier *cheap* (например, classify-API за $0.05/1M) может обслуживать bulk-executor tier, когда локальная Ollama недоступна — **только opt-in** ([ADR-0002](adr/0002-metered-bulk-cheap-tier.md)):
 
 ```yaml
 llm:
@@ -617,11 +617,11 @@ L3 замыкает цикл кристаллизации — кандидат �
 
 Сейчас основной сценарий — **любой MCP agent-хост + Ollama + workspace** (Cursor по умолчанию); CLI и MCP не привязаны к IDE. Текущий релиз — **v0.18.1**; trust cut вошёл в **v0.13.0** (честное позиционирование экономии, pin mcp, edit-escalation, кириллический tokenize, routing corpus, `shell=False`), поверх раннего: экономия времени / beyond-Cursor / [metered bulk APIs](#metered-bulk-apis-adr-0002) под spend guard. Paid agent APIs (`expensive_llm`) — по-прежнему opt-in.
 
-**Детали по релизам:** cut-чеклисты `CUT-v*.md` в корне репозитория. **Полная матрица (✅ / ❌ / 🔜) + критерии + GitHub issues:** [docs/ROADMAP-RU.md](docs/ROADMAP-RU.md) · [docs/ROADMAP.md](docs/ROADMAP.md)
+**Детали по релизам:** cut-чеклисты `CUT-v*.md` в корне репозитория. **Полная матрица (✅ / ❌ / 🔜) + критерии + GitHub issues:** [docs/ROADMAP-RU.md](ROADMAP-RU.md) · [docs/ROADMAP.md](ROADMAP.md)
 
 | Зона | ✅ сейчас (v0.18.1) | 🔜 дальше |
 |------|-------------------|-----------|
-| Executors | `tool`, `python`, `ollama` (через `cheap_llm`), `rag`; **metered bulk APIs** (spend-guarded, [ADR-0002](docs/adr/0002-metered-bulk-cheap-tier.md)) | Crystal IR store |
+| Executors | `tool`, `python`, `ollama` (через `cheap_llm`), `rag`; **metered bulk APIs** (spend-guarded, [ADR-0002](adr/0002-metered-bulk-cheap-tier.md)) | Crystal IR store |
 | Кристаллизация | L2 telemetry + **audited lifecycle** (`draft` → `approve` → `promote` / `reject`, trust-gated apply) | — (silent auto-apply сознательно не планируется) |
 | Agent host | Cursor (по умолчанию) + **Claude Desktop, Continue** через конфиг `agent_host` ([Agent hosts](#agent-hosts)) | другие хост-конвенции по запросу |
 | Конфиг | `cheap_llm.provider` + алиасы `OLLAMA_*` / `ollama:`; **team route presets** (`init --preset name|url|path`) | — |

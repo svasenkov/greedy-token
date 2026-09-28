@@ -167,3 +167,90 @@ def test_readme_calibration_matches_code(readme: Path, cli_heading: str) -> None
     with allure.step("every score bucket label from code is documented"):
         for index in range(len(BUCKET_BOUNDS) + 1):
             assert f"`{bucket_label(index)}`" in markdown, bucket_label(index)
+
+
+# ---------------------------------------------------------------------------
+# guide.md ↔ guide-RU.md structural parity
+# ---------------------------------------------------------------------------
+
+GUIDE_EN = REPO_ROOT / "docs" / "guide.md"
+GUIDE_RU = REPO_ROOT / "docs" / "guide-RU.md"
+
+_FENCE_BLOCK_RE = re.compile(r"^```.*?^```", re.MULTILINE | re.DOTALL)
+
+
+def _strip_fences(markdown: str) -> str:
+    return _FENCE_BLOCK_RE.sub("", markdown)
+
+
+def _heading_levels(markdown: str) -> list[int]:
+    return [len(m) for m in re.findall(r"^(#+)\s", _strip_fences(markdown), re.M)]
+
+
+def _fence_langs(markdown: str) -> list[str]:
+    return re.findall(r"^```(\w*)", markdown, re.M)
+
+
+def _link_targets(markdown: str) -> list[str]:
+    return re.findall(r"\]\(([^)\s]+)\)", markdown)
+
+
+def _normalize_doc_links(targets: list[str]) -> list[str]:
+    """Collapse localized doc links (foo-RU.md → foo.md) for parity diff."""
+    return [
+        re.sub(r"-RU\.md$", ".md", t) if not t.startswith(("http", "#")) else t
+        for t in targets
+    ]
+
+
+def _gh_slug(heading: str) -> str:
+    """GitHub-style anchor slug: lowercase, drop punctuation, spaces → -."""
+    text = heading.strip().lower()
+    text = re.sub(r"[^\w\s-]", "", text)
+    return re.sub(r"\s", "-", text)
+
+
+@allure.story("Guide parity")
+@allure.title("guide.md and guide-RU.md share heading levels, fences, and link sets")
+def test_guides_structural_parity() -> None:
+    en = GUIDE_EN.read_text(encoding="utf-8")
+    ru = GUIDE_RU.read_text(encoding="utf-8")
+    assert _heading_levels(en) == _heading_levels(ru), "heading skeleton drifted"
+    assert _fence_langs(en) == _fence_langs(ru), "code blocks drifted"
+    # #anchor targets are heading-derived, so they legitimately differ between
+    # languages — parity means "same count"; validity is checked separately by
+    # test_guide_internal_anchors_resolve.
+    en_links = _link_targets(en)
+    ru_links = _link_targets(ru)
+    en_external = sorted(
+        _normalize_doc_links([t for t in en_links if not t.startswith("#")])
+    )
+    ru_external = sorted(
+        _normalize_doc_links([t for t in ru_links if not t.startswith("#")])
+    )
+    assert en_external == ru_external, (
+        "external/relative link sets drifted — only -RU.md localization is "
+        f"allowed:\nen-only: {sorted(set(en_external) - set(ru_external))}\n"
+        f"ru-only: {sorted(set(ru_external) - set(en_external))}"
+    )
+    assert sum(t.startswith("#") for t in en_links) == sum(
+        t.startswith("#") for t in ru_links
+    ), "internal anchor-link count drifted"
+
+
+@allure.story("Guide parity")
+@allure.title("every internal #anchor link resolves to a heading in the same doc")
+@pytest.mark.parametrize(
+    "guide",
+    [
+        pytest.param(GUIDE_EN, id="en"),
+        pytest.param(GUIDE_RU, id="ru"),
+    ],
+)
+def test_guide_internal_anchors_resolve(guide: Path) -> None:
+    markdown = guide.read_text(encoding="utf-8")
+    headings = re.findall(r"^#+\s+(.+)$", _strip_fences(markdown), re.M)
+    slugs = {_gh_slug(h) for h in headings}
+    anchors = [t[1:] for t in _link_targets(markdown) if t.startswith("#")]
+    dangling = [a for a in anchors if a not in slugs]
+    assert not dangling, f"{guide.name} has dangling anchors: {dangling}"
