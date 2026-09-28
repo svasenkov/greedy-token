@@ -149,6 +149,7 @@ Per-release detail: `CUT-v*.md` checklists in the repo root.
 
 | Version | Focus |
 |---------|-------|
+| **v0.18.2** | Mutation hardening: ~160 kill tests across spend_ledger / llm_invoke / usage / budget* / advisory; proven-equivalent registry (`docs/mutation-equivalents.yaml` + `# equivalent:` markers + drift guard); 100% line+branch coverage; flaky latency assert dropped |
 | **v0.18.1** | Crystallize candidates: canonical `rank_candidates` SSOT — dedup by `crystal_id` + `operation_id`, sandbox/fixture filters; per-host skills dir (`HOST_SKILLS_DIR`); host-internal search exclusions; shared CLI/MCP result formatters |
 | **v0.18.0** | Adoption/enforcement: `GREEDY_HOOK_MODE` gate/intercept hook profiles, `covered` adoption-gap split + tmp/pytest sandbox filter in crystallize candidates, route-first invoke rule |
 | **v0.17.1** | Usage events: `session_id`, calibration n/bucket/matched, `confidence_source`; router question-form prefixes + Titlecase boost; `rg` resolution for `~/.greedy-token` and Devin bundles; `python-git-recent`/`python-git-repos` routes |
