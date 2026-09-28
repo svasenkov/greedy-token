@@ -552,7 +552,10 @@ def test_required_cross_platform_matrices_are_release_gated() -> None:
 def test_release_gate_runs_coverage_report() -> None:
     gate = Path("scripts/release-gate.sh").read_text(encoding="utf-8")
     pyproject = Path("pyproject.toml").read_text(encoding="utf-8")
-    assert "python -m coverage run -m pytest tests/ -q" in gate
+    # pytest-cov, not bare `coverage run`: addopts forces -n auto and bare
+    # coverage cannot see xdist workers (report would measure ~0%).
+    assert "python -m pytest tests/ -q --cov" in gate
+    assert "python -m coverage run" not in gate
     assert "python -m coverage report --include='src/greedy_token/*'" in gate
     assert "branch = true" in pyproject
     assert "fail_under = 100" in pyproject

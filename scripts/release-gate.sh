@@ -22,7 +22,9 @@ fi
 python -m compileall -q src/greedy_token
 python -m pytest -q
 python -m coverage erase
-python -m coverage run -m pytest tests/ -q
+# pytest-cov, not bare `coverage run`: addopts forces -n auto, and coverage
+# cannot see xdist worker processes — the report would measure ~0%.
+python -m pytest tests/ -q --cov
 python -m coverage report --include='src/greedy_token/*'
 python -m pytest -q --release-version="$TARGET" -m release
 bash "$ROOT/scripts/sync-min-tests-count.sh"
