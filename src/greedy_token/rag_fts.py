@@ -172,29 +172,39 @@ def search_bm25(
     by_key = {document.entry_key: document for document in documents}
     if not by_key:
         return []
+    allowed_domains = sorted(set(domains or ()))
     connection = _connect(root)
     try:
         _sync_index(connection, documents)
-        rows = connection.execute(
+        # The domain predicate must run inside SQLite — a Python post-filter
+        # applied after LIMIT can exhaust the result window on higher-ranked
+        # rows from other domains and drop every matching document.
+        sql = (
             "SELECT entry_key, chunk_id, path, domain, "
             "bm25(rag_chunks, 0.0, 0.0, 0.0, 0.0, 5.0, 1.0) AS bm25_score "
             "FROM rag_chunks WHERE rag_chunks MATCH ? "
-            "ORDER BY bm25_score, chunk_id LIMIT ?",
-            (match_query, MAX_RESULTS),
-        ).fetchall()
+        )
+        params: list[object] = [match_query]
+        if allowed_domains:
+            placeholders = ", ".join("?" for _ in allowed_domains)
+            sql += f"AND domain IN ({placeholders}) "
+            params.extend(allowed_domains)
+        sql += "ORDER BY bm25_score, chunk_id LIMIT ?"
+        params.append(min(limit, MAX_RESULTS))
+        rows = connection.execute(sql, params).fetchall()
     except sqlite3.OperationalError as exc:
         if "fts5" in str(exc).casefold():
             raise Fts5Unavailable(str(exc)) from exc
         raise
     finally:
         connection.close()
-    allowed_domains = set(domains or ())
+    allowed_domains_set = set(allowed_domains)
     matches: list[Bm25Match] = []
     for row in rows:
         document = by_key.get(row["entry_key"])
         if document is None:
             continue
-        if allowed_domains and document.domain not in allowed_domains:
+        if allowed_domains_set and document.domain not in allowed_domains_set:
             continue
         # SQLite FTS5 returns a lower-is-better negative rank. Public scores stay
         # higher-is-better for compatibility with the previous overlap engine.

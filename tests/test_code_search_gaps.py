@@ -83,7 +83,53 @@ def test_enrich_token_budget(tmp_path: Path) -> None:
         max_tokens=1,
         max_files=3,
     )
-    assert files == 1 and "stopped at token budget" in block
+    assert files == 0 and "stopped at token budget" in block
+
+
+@allure.title("enrich_search_hits truncates a first file that exceeds the token budget")
+def test_enrich_first_file_over_budget(tmp_path: Path) -> None:
+    big = tmp_path / "big.md"
+    big.write_text(
+        "\n".join(f"row {i} " + "payload " * 20 for i in range(400)),
+        encoding="utf-8",
+    )
+
+    with allure.step("file mode: leading slice fits, rest is marked truncated"):
+        block, files, toks = cs.enrich_search_hits(
+            tmp_path,
+            [("big.md", 1, "x")],
+            mode="file",
+            max_tokens=500,
+            max_files=3,
+        )
+        assert files == 1
+        assert 0 < toks <= 500
+        assert "truncated to token budget" in block
+        assert "### big.md (full file, 400 lines)" in block
+
+    with allure.step("snippet mode: header range reflects the emitted slice"):
+        block2, files2, toks2 = cs.enrich_search_hits(
+            tmp_path,
+            [("big.md", 200, "x")],
+            mode="snippet",
+            max_tokens=300,
+            context_lines=15,
+        )
+        assert files2 == 1
+        assert 0 < toks2 <= 300
+        assert "truncated to token budget" in block2
+        assert "### big.md:200 (±15 lines, 185-" in block2
+
+
+@allure.title("enrich_search_hits emits the budget marker when even a row cannot fit")
+def test_enrich_first_file_unfittable(tmp_path: Path) -> None:
+    (tmp_path / "a.js").write_text("row\n" * 10, encoding="utf-8")
+    block, files, toks = cs.enrich_search_hits(
+        tmp_path, [("a.js", 1, "x")], mode="snippet", max_tokens=1
+    )
+    assert files == 0
+    assert toks == 0
+    assert "stopped at token budget" in block
 
 
 # --- Mutation kill-tests: resolve_search_path_detail / _path_resolve_error ---
@@ -260,6 +306,44 @@ def test_python_search_tree_edges(tmp_path: Path) -> None:
         # break on the first (non-matching) file would skip b_keep.py entirely
         assert any("b_keep.py" in h for h in hits4)
         assert not any("a_skip.txt" in h for h in hits4)
+
+
+@allure.title("_python_search_file still matches inside a non-UTF-8 file")
+def test_python_search_file_invalid_utf8(tmp_path: Path) -> None:
+    """Kills the errors="replace" -> "strict" mutant: real trees contain
+    non-UTF-8 files and the fallback must degrade, not crash."""
+    bad = tmp_path / "bad.bin"
+    bad.write_bytes(b"needle \xff\nother line\n")
+    hits = cs._python_search_file(bad, "needle", limit=5)
+    assert len(hits) == 1
+    assert "needle" in hits[0]
+
+
+@allure.title("_python_search_tree scans a tree containing a non-UTF-8 file")
+def test_python_search_tree_invalid_utf8(tmp_path: Path) -> None:
+    """Same strict-decode mutant for the tree scan: a binary file in the tree
+    must not abort the scan or lose the sibling's hit."""
+    base = tmp_path / "tree"
+    base.mkdir()
+    (base / "a_bad.bin").write_bytes(b"junk \xff\xfe\n")
+    (base / "z_good.py").write_text("NEEDLE here\n", encoding="utf-8")
+    hits = cs._python_search_tree(
+        tmp_path, "NEEDLE", scope_dirs=[base], name_glob=None, limit=50
+    )
+    assert any("z_good.py" in h for h in hits)
+
+
+@allure.title("enrich_search_hits survives a non-UTF-8 file in the hit list")
+def test_enrich_invalid_utf8_hit(tmp_path: Path) -> None:
+    """rg can hand enrich a binary-file hit; errors="replace" re-reads it
+    instead of the strict mutant raising UnicodeDecodeError."""
+    bad = tmp_path / "bad.bin"
+    bad.write_bytes(b"needle \xff\nsecond line\n")
+    block, files_done, _tokens = cs.enrich_search_hits(
+        tmp_path, [(str(bad), 1, "needle")], mode="snippet"
+    )
+    assert files_done == 1
+    assert "needle" in block
 
 
 # --- Mutation kill-tests: _run_rg timeout kwarg ---
@@ -623,14 +707,12 @@ def _rg_present(monkeypatch: pytest.MonkeyPatch, canned: str) -> dict:
 
 @allure.title("search_code: workspace rg command is exact; no enrichment for context 'none'")
 def test_search_code_workspace_cmd(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from greedy_token.paths import detect_search_paths
-
     seen = _rg_present(monkeypatch, "projects/sample.js:1:const baseUrl = 'x';")
     r = cs.search_code("baseUrl", minimal_workspace, path=None, limit=7, context="none")
     expected = ["rg", "-n", "--max-columns", "200", "-F"]
     for glob in cs.DEFAULT_GLOBS:
         expected.extend(("-g", glob))
-    expected.extend(("--max-count", "7", "--", "baseUrl", *detect_search_paths(minimal_workspace)))
+    expected.extend(("--max-count", "7", "--", "baseUrl", *cs.search_scope_paths(minimal_workspace)))
     assert seen["argv"] == tuple(expected)
     assert seen["cwd"] == minimal_workspace
     assert r.engine == "rg"
@@ -659,6 +741,32 @@ def test_search_code_file_cmd(minimal_workspace: Path, monkeypatch: pytest.Monke
     assert r.hit_paths == ["projects/sample.js"]  # kills default_path=scope → None/dropped
     assert r.hit_count == 1
     assert "enriched context" not in r.text  # kills context=None
+
+
+@allure.title("search_code: rg multi-file output is capped to the global limit")
+def test_search_code_rg_global_limit_capped(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # --max-count is per-file in rg; search_code must enforce the global cap.
+    _rg_present(
+        monkeypatch,
+        "projects/a.txt:1:capme\nprojects/a.txt:2:capme\nprojects/b.txt:1:capme",
+    )
+    r = cs.search_code("capme", minimal_workspace, limit=2, context="none")
+    assert r.engine == "rg"
+    assert r.hit_count == 2
+    hit_lines = [ln for ln in r.text.splitlines() if ln.endswith(":capme")]
+    assert len(hit_lines) == 2
+
+
+@allure.title("search_code: file-scoped rg output is capped to the global limit")
+def test_search_code_rg_file_limit_capped(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _rg_present(monkeypatch, "1:capme\n2:capme\n3:capme\n4:capme")
+    r = cs.search_code("capme", minimal_workspace, path="sample.js", limit=3, context="none")
+    assert r.hit_count == 3
+    assert "4:capme" not in r.text
 
 
 @allure.title("search_code: python global tree scan — engine/note/header/body exact")
@@ -702,8 +810,6 @@ def test_search_code_rg_empty_miss_no_python_tree(
 def test_search_code_workspace_query_is_not_an_option(
     minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch, query: str
 ) -> None:
-    from greedy_token.paths import detect_search_paths
-
     seen = _rg_present(monkeypatch, "projects/sample.js:1:hit")
     cs.search_code(query, minimal_workspace, path=None, context="none")
     argv = list(seen["argv"])
@@ -711,7 +817,7 @@ def test_search_code_workspace_query_is_not_an_option(
     assert argv[sep + 1] == query  # the pattern, not an rg flag
     assert query not in argv[:sep]  # never lands in the option slot
     # every rg option (--max-count, -g globs, …) stays before the separator
-    assert argv[sep + 2 :] == list(detect_search_paths(minimal_workspace))
+    assert argv[sep + 2 :] == list(cs.search_scope_paths(minimal_workspace))
 
 
 @allure.title("search_code: file-scoped rg argv keeps '--' before the literal pattern")

@@ -32,10 +32,25 @@ DEFAULT_PATHS = ["."]
 
 
 def search_scope_paths(root: Path) -> list[str]:
-    """Portable search roots: detected top-level folders, else ``'.'``."""
+    """Visible top-level folders plus visible root-level files.
+
+    Folder detection stays delegated to ``detect_search_paths`` (the scaffold
+    contract is folders-only); the search scope additionally covers files
+    sitting at the workspace root — ``README.md``, ``package.json`` — which a
+    folders-only scope silently drops.  When no folders exist the ``["."]``
+    fallback already covers root files, so nothing is appended.
+    """
     from greedy_token.paths import detect_search_paths
 
-    return detect_search_paths(root)
+    dirs = detect_search_paths(root)
+    if dirs == ["."]:
+        return dirs
+    files = sorted(
+        p.name
+        for p in root.iterdir()
+        if p.is_file() and not p.name.startswith(".")
+    )
+    return dirs + files
 
 SKIP_DIR_NAMES = {".git", "node_modules", "build", ".venv", "__pycache__", "dist", ".tox"}
 
@@ -227,9 +242,8 @@ def _python_search_file(
     display_path: str | None = None,
 ) -> list[str]:
     try:
-        # equivalent: local UTF-8 locale + errors="replace" → utf-8/UTF-8/None and
-        # strict/replace decode identically for the ASCII/valid-UTF-8 files scanned.
-        text = path.read_text(encoding="utf-8", errors="replace")  # pragma: no mutate
+        # errors="replace" keeps non-UTF-8 files searchable instead of raising.
+        text = path.read_text(encoding="utf-8", errors="replace")
     except OSError as exc:
         return [f"Error reading {path}: {exc}"]
 
@@ -245,6 +259,133 @@ def _python_search_file(
     return hits
 
 
+@dataclass(frozen=True)
+class _IgnoreRule:
+    """One parsed .ignore line, anchored to the directory holding the file."""
+
+    base_dir: str  # workspace-relative dir containing the .ignore ("" = root)
+    regex: re.Pattern[str]
+    anchored: bool  # pattern contains "/" → anchored to base_dir, not a basename
+    dir_only: bool  # trailing "/" — matches directories only
+    negated: bool  # leading "!"
+
+    def matches(self, rel: str) -> bool:
+        if self.base_dir:
+            if rel != self.base_dir and not rel.startswith(self.base_dir + "/"):
+                return False
+            local = rel[len(self.base_dir) + 1 :]
+        else:
+            local = rel
+        parts = local.split("/")
+        # A directory-only rule can match proper ancestors of the file, never
+        # the file itself; other rules also ignore everything below a match.
+        depth = len(parts) - (1 if self.dir_only else 0)
+        if self.anchored:
+            return any(
+                self.regex.fullmatch("/".join(parts[:i]))
+                for i in range(1, depth + 1)
+            )
+        return any(self.regex.fullmatch(p) for p in parts[:depth])
+
+
+def _glob_to_regex(pattern: str) -> re.Pattern[str]:
+    """Translate an ignore glob where ``*`` never crosses ``/`` and ``**`` does."""
+    out: list[str] = []
+    i = 0
+    while i < len(pattern):
+        if pattern[i : i + 2] == "**":
+            out.append(".*")
+            i += 2
+        elif pattern[i] == "*":
+            out.append("[^/]*")
+            i += 1
+        elif pattern[i] == "?":
+            out.append("[^/]")
+            i += 1
+        elif pattern[i] == "[":
+            end = pattern.find("]", i + 1)
+            if end == -1:
+                out.append(re.escape("["))
+                i += 1
+            else:
+                out.append(pattern[i : end + 1])
+                i = end + 1
+        else:
+            out.append(re.escape(pattern[i]))
+            i += 1
+    return re.compile("".join(out))
+
+
+def _ignore_rules_in(path: Path, base_dir: str) -> list[_IgnoreRule]:
+    rules: list[_IgnoreRule] = []
+    try:
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return rules
+    for raw in lines:
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        negated = line.startswith("!")
+        pattern = line[1:] if negated else line
+        dir_only = pattern.endswith("/")
+        pattern = pattern.strip("/").strip()
+        if not pattern:
+            continue
+        rules.append(
+            _IgnoreRule(
+                base_dir=base_dir,
+                regex=_glob_to_regex(pattern),
+                anchored="/" in pattern,
+                dir_only=dir_only,
+                negated=negated,
+            )
+        )
+    return rules
+
+
+def _load_ignore_rules(root: Path, scope_dirs: list[Path]) -> list[_IgnoreRule]:
+    """Collect .ignore rules the fallback must honor, mirroring rg semantics.
+
+    The root ``.ignore`` applies workspace-wide; nested ``.ignore`` files are
+    anchored to their directory (deeper rules win — they sort last).  Files
+    passed explicitly as scope operands bypass ignore rules, like rg.
+    """
+    ignore_files: list[Path] = []
+    if (root / ".ignore").is_file():
+        ignore_files.append(root / ".ignore")
+    for base in scope_dirs:
+        if not base.is_dir():
+            continue
+        for ignore in base.rglob(".ignore"):
+            if any(
+                part in SKIP_DIR_NAMES or part.startswith(".")
+                for part in ignore.relative_to(base).parts[:-1]
+            ):
+                continue
+            ignore_files.append(ignore)
+    # Deeper directories sort later so their rules win on conflict.
+    ignore_files.sort(key=lambda p: len(p.parts))
+    rules: list[_IgnoreRule] = []
+    for ignore in ignore_files:
+        try:
+            base_dir = ignore.parent.relative_to(root).as_posix()
+        except ValueError:
+            base_dir = ""
+        if base_dir == ".":
+            base_dir = ""
+        rules.extend(_ignore_rules_in(ignore, base_dir))
+    return rules
+
+
+def _is_ignored(rel: str, rules: list[_IgnoreRule]) -> bool:
+    ignored = False
+    for rule in rules:
+        if rule.matches(rel):
+            ignored = not rule.negated
+    return ignored
+
+
 def _python_search_tree(
     root: Path,
     query: str,
@@ -254,13 +395,28 @@ def _python_search_tree(
     limit: int,
 ) -> list[str]:
     hits: list[str] = []
+    ignore_rules = _load_ignore_rules(root, scope_dirs)
     for base in scope_dirs:
-        if not base.is_dir():
+        # Explicit scope files are operands — like rg they bypass skip and
+        # .ignore rules. Directory contents are traversed with the rules on.
+        explicit = base.is_file()
+        if explicit:
+            entries = [base]
+        elif base.is_dir():
+            entries = sorted(base.rglob("*"))
+        else:
             continue
-        for path in sorted(base.rglob("*")):
+        for path in entries:
             if not path.is_file():
                 continue
-            if any(part in SKIP_DIR_NAMES for part in path.parts):
+            try:
+                local_parts = path.relative_to(base).parts if path != base else ()
+            except ValueError:
+                local_parts = path.parts
+            if not explicit and any(
+                part in SKIP_DIR_NAMES or part.startswith(".")
+                for part in local_parts
+            ):
                 continue
             if name_glob and not path.match(name_glob):
                 continue
@@ -268,9 +424,12 @@ def _python_search_tree(
                 rel = path.relative_to(root).as_posix()
             except ValueError:
                 rel = str(path)
+            if not explicit and ignore_rules and _is_ignored(rel, ignore_rules):
+                continue
             for line_no, line in enumerate(
-                # equivalent: encoding/errors variants decode valid files identically.
-                path.read_text(encoding="utf-8", errors="replace").splitlines(), 1  # pragma: no mutate
+                # errors="replace" keeps non-UTF-8 files in the scan instead of
+                # raising UnicodeDecodeError on binary/badly-encoded sources.
+                path.read_text(encoding="utf-8", errors="replace").splitlines(), 1
             ):
                 if query not in line:
                     continue
@@ -315,6 +474,32 @@ def _rg_not_runnable(code: int, output: str) -> bool:
     return code in (126, 127)
 
 
+def _cap_hit_lines(
+    body: str, limit: int, *, default_path: str | None = None
+) -> str:
+    """Keep at most *limit* hit lines; diagnostic rows pass through.
+
+    ``rg --max-count N`` caps matches per file — the python fallback caps
+    globally.  Truncating the displayed hit rows brings rg back to the same
+    contract: *limit* bounds the total number of reported matches.
+    """
+    if limit <= 0:
+        return ""
+    kept: list[str] = []
+    hits = 0
+    for line in body.splitlines():
+        stripped = line.strip()
+        is_hit = bool(_HIT_LINE_RE.match(stripped)) or (
+            default_path is not None and bool(_BARE_LINE_RE.match(stripped))
+        )
+        if is_hit:
+            hits += 1
+            if hits > limit:
+                continue
+        kept.append(line)
+    return "\n".join(kept)
+
+
 def _search_from_rg(
     *,
     query: str,
@@ -324,11 +509,14 @@ def _search_from_rg(
     root: Path,
     context: SearchContextMode | None,
     default_path: str | None = None,
+    limit: int | None = None,
     miss_suffix: str = "",
 ) -> SearchResult | None:
     """Interpret one rg invocation. ``None`` means the caller may python-fallback."""
     if _rg_completed(code, out):
         filtered = filter_tool_output(out)
+        if limit is not None and filtered:
+            filtered = _cap_hit_lines(filtered, limit, default_path=default_path)
         if filtered:
             return _finalize_search(
                 header=f"Search: {query!r} in {scope}",
@@ -414,6 +602,26 @@ def unique_hit_paths(hits: list[tuple[str, int, str]], *, limit: int = 3) -> lis
     return seen
 
 
+_TRUNCATION_NOTE = "… (truncated to token budget)"
+
+
+def _fit_rows_to_budget(rows: list[str], token_budget: int) -> list[str]:
+    """Largest leading slice of *rows* estimated to fit *token_budget*."""
+    if token_budget <= 0:
+        return []
+    from greedy_token.tokens import count_tokens
+
+    kept: list[str] = []
+    spent = 0
+    for row in rows:
+        # +1 covers the newline joining the rows into the chunk body.
+        spent += count_tokens(row).tokens + 1
+        if spent > token_budget:
+            break
+        kept.append(row)
+    return kept
+
+
 def enrich_search_hits(
     root: Path,
     hits: list[tuple[str, int, str]],
@@ -436,6 +644,10 @@ def enrich_search_hits(
         if path_s not in line_by_path:
             line_by_path[path_s] = line_no
 
+    marker = (
+        f"### … (stopped at token budget ~{max_tokens}; "
+        f"skipped remaining files)"
+    )
     blocks: list[str] = []
     used_tokens = 0
     files_done = 0
@@ -452,35 +664,57 @@ def enrich_search_hits(
         if not file_path.is_file():
             continue
         try:
-            # equivalent: encoding/errors variants decode valid files identically.
-            all_lines = file_path.read_text(encoding="utf-8", errors="replace").splitlines()  # pragma: no mutate
+            # errors="replace" — hits may point at non-UTF-8 files (rg still
+            # reports binary hits); strict decoding would raise here.
+            all_lines = file_path.read_text(encoding="utf-8", errors="replace").splitlines()
         except OSError:
             continue
 
         rel = _format_rel(file_path, root)
+        snippet_anchor = 0
+        snippet_start = 1
         if mode == "file":
-            body = "\n".join(all_lines)
-            chunk = f"### {rel} (full file, {len(all_lines)} lines)\n{body}"
+            header = f"### {rel} (full file, {len(all_lines)} lines)"
+            rows = all_lines
         else:
             # path_s always came from ``hits`` (via unique_hit_paths), so it is
             # guaranteed present in line_by_path — no default needed.
             center = line_by_path[path_s]
             start = max(1, center - context_lines)
             end = min(len(all_lines), center + context_lines)
-            slice_lines = all_lines[start - 1 : end]
-            numbered = [f"{start + i:>5}|{line}" for i, line in enumerate(slice_lines)]
-            chunk = (
-                f"### {rel}:{center} (±{context_lines} lines, {start}-{end})\n"
-                + "\n".join(numbered)
-            )
+            snippet_anchor = center
+            snippet_start = start
+            header = f"### {rel}:{center} (±{context_lines} lines, {start}-{end})"
+            rows = [
+                f"{start + i:>5}|{line}"
+                for i, line in enumerate(all_lines[start - 1 : end])
+            ]
 
+        chunk = f"{header}\n" + "\n".join(rows)
         tok = count_tokens(chunk).tokens
-        if used_tokens and used_tokens + tok > max_tokens:
-            blocks.append(
-                f"### … (stopped at token budget ~{max_tokens}; "
-                f"skipped remaining files)"
+        if used_tokens + tok > max_tokens:
+            if used_tokens:
+                blocks.append(marker)
+                break
+            # The very first file can exceed the whole budget: emit the largest
+            # leading slice that fits instead of bypassing the limit.
+            kept = _fit_rows_to_budget(
+                rows, max_tokens - count_tokens(header + "\n").tokens
             )
-            break
+            while kept:
+                if mode != "file":
+                    header = (
+                        f"### {rel}:{snippet_anchor} (±{context_lines} lines, "
+                        f"{snippet_start}-{snippet_start + len(kept) - 1})"
+                    )
+                chunk = f"{header}\n" + "\n".join([*kept, _TRUNCATION_NOTE])
+                tok = count_tokens(chunk).tokens
+                if tok <= max_tokens:
+                    break
+                kept = kept[:-1]
+            if not kept:
+                blocks.append(marker)
+                break
         blocks.append(chunk)
         used_tokens += tok
         files_done += 1
@@ -596,6 +830,7 @@ def search_code(
                 root=root,
                 context=context,
                 default_path=scope,
+                limit=limit,
                 miss_suffix=(
                     "Try greedy_token_rag for docs/rag lookup, or search without path."
                 ),
@@ -657,6 +892,7 @@ def search_code(
             out=out,
             root=root,
             context=context,
+            limit=limit,
         )
         if settled is not None:
             return settled

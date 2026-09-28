@@ -736,6 +736,113 @@ def test_resolve_search_path_detail_want_dir_contract(
         assert calls[1] is False
 
 
+# --- Regression: rg ↔ python fallback parity (Party 3 audit) ---
+
+
+def _run_both_engines(
+    query: str,
+    root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    **kwargs: object,
+):
+    """Run search_code under a real rg (when installed) and the python fallback.
+
+    The native run only happens when a real rg binary resolves — CI runners
+    may lack it — so parity assertions stay deterministic everywhere.
+    """
+    import greedy_token.code_search as cs
+
+    results: dict[str, object] = {}
+    if cs.resolve_rg() is not None:
+        results["rg"] = search_code(query, root, **kwargs)  # type: ignore[arg-type]
+    monkeypatch.setattr(cs, "resolve_rg", lambda: None)
+    results["python"] = search_code(query, root, **kwargs)  # type: ignore[arg-type]
+    return results
+
+
+@allure.story("Engine parity")
+@allure.title("search_code: default scope includes root-level files on every engine")
+def test_search_default_scope_includes_root_files(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    marker = minimal_workspace / "ROOT_MARKER.md"
+    marker.write_text("unique_root_hit\n", encoding="utf-8")
+    results = _run_both_engines(
+        "unique_root_hit", minimal_workspace, monkeypatch, context="none"
+    )
+    for engine, res in results.items():
+        with allure.step(f"{engine} engine finds the root file"):
+            assert res.hit_count == 1  # type: ignore[attr-defined]
+            assert res.hit_paths == ["ROOT_MARKER.md"]  # type: ignore[attr-defined]
+
+
+@allure.story("Engine parity")
+@allure.title("search_code: .ignore rules are honored on every engine")
+def test_search_dot_ignore_parity(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (minimal_workspace / ".ignore").write_text(
+        "ignored-marker.md\n", encoding="utf-8"
+    )
+    ignored = minimal_workspace / "projects" / "ignored-marker.md"
+    ignored.write_text("audit_ignored_hit only_here\n", encoding="utf-8")
+    (minimal_workspace / "projects" / "visible.md").write_text(
+        "audit_ignored_hit\n", encoding="utf-8"
+    )
+    results = _run_both_engines(
+        "audit_ignored_hit", minimal_workspace, monkeypatch, context="none"
+    )
+    for engine, res in results.items():
+        with allure.step(f"{engine} engine excludes the ignored file"):
+            assert res.hit_paths == ["projects/visible.md"]  # type: ignore[attr-defined]
+    results2 = _run_both_engines(
+        "only_here", minimal_workspace, monkeypatch, context="none"
+    )
+    for engine, res in results2.items():
+        with allure.step(f"{engine} engine reports zero hits inside ignored file"):
+            assert res.hit_count == 0  # type: ignore[attr-defined]
+
+
+@allure.story("Engine parity")
+@allure.title("search_code: limit is a global hit cap, not per-file, on every engine")
+def test_search_limit_is_global(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for i in range(3):
+        (minimal_workspace / "projects" / f"multi{i}.txt").write_text(
+            "capme\ncapme\ncapme\n", encoding="utf-8"
+        )
+    results = _run_both_engines(
+        "capme", minimal_workspace, monkeypatch, limit=2, context="none"
+    )
+    for engine, res in results.items():
+        with allure.step(f"{engine} engine reports at most 2 hits"):
+            assert res.hit_count <= 2  # type: ignore[attr-defined]
+            hit_lines = [
+                ln for ln in res.text.splitlines() if ln.endswith(":capme")  # type: ignore[attr-defined]
+            ]
+            assert len(hit_lines) == res.hit_count  # type: ignore[attr-defined]
+
+
+@allure.story("Engine parity")
+@allure.title("search_code: hidden subtrees are skipped on every engine")
+def test_search_hidden_subtrees_skipped(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    hidden_dir = minimal_workspace / "projects" / ".hidden-sub"
+    hidden_dir.mkdir()
+    (hidden_dir / "secret.md").write_text("hidden_marker_hit\n", encoding="utf-8")
+    (minimal_workspace / "projects" / "visible.md").write_text(
+        "hidden_marker_hit\n", encoding="utf-8"
+    )
+    results = _run_both_engines(
+        "hidden_marker_hit", minimal_workspace, monkeypatch, context="none"
+    )
+    for engine, res in results.items():
+        with allure.step(f"{engine} engine skips the hidden dir"):
+            assert res.hit_paths == ["projects/visible.md"]  # type: ignore[attr-defined]
+
+
 @allure.story("Path resolve error")
 @allure.title("_path_resolve_error: ambiguous message lists candidates + ellipsis at 8")
 def test_path_resolve_error_ambiguous(tmp_path: Path) -> None:

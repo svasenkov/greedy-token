@@ -361,3 +361,32 @@ def test_domain_filter_and_limit_are_applied_after_bm25(
 
     assert [hit.chunk_id for hit in hits] == ["test-baseurl"]
     assert search_rag("baseUrl", minimal_workspace, limit=0) == []
+
+
+def test_domain_filter_runs_in_sql_before_limit(
+    minimal_workspace: Path,
+) -> None:
+    """> MAX_RESULTS higher-ranked foreign-domain rows must not limit out the
+    only matching document: the domain predicate belongs in the SQL, not in a
+    post-filter applied after ``LIMIT``."""
+    from greedy_token.rag_fts import MAX_RESULTS
+
+    _add_chunk(
+        minimal_workspace,
+        chunk_id="z-target",
+        body="needle_marker target document",
+        domain="wanted",
+    )
+    for i in range(MAX_RESULTS + 10):
+        _add_chunk(
+            minimal_workspace,
+            chunk_id=f"a-{i:03d}",
+            body="needle_marker needle_marker",
+            domain="other",
+        )
+
+    hits = search_rag(
+        "needle_marker", minimal_workspace, domains=["wanted"], limit=5
+    )
+
+    assert [hit.chunk_id for hit in hits] == ["z-target"]

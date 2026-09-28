@@ -123,11 +123,11 @@ def test_format_hits_empty() -> None:
 
 @allure.story("Index")
 @allure.title("RAG index handles missing manifest")
-def test_rag_index_missing_manifest() -> None:
+def test_rag_index_missing_manifest(tmp_path: Path) -> None:
     from greedy_token.rag_index import _load_manifest_rows, invalidate_rag_index
 
-    isolated = Path("/tmp/greedy_token_rag_isolated")
-    isolated.mkdir(parents=True, exist_ok=True)
+    isolated = tmp_path / "isolated"
+    isolated.mkdir()
     invalidate_rag_index(isolated)
     assert _load_manifest_rows(isolated / "missing.jsonl") == []
     chunks = get_indexed_chunks(isolated)
