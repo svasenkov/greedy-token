@@ -15,35 +15,6 @@
 # with a proof that passed review. Do not record mutmut ids here.
 equivalents:
   - module: code_search.py
-    symbol: _python_search_file
-    reason: >-
-      local UTF-8 locale + errors="replace" → utf-8/UTF-8/None and strict/replace
-      decode identically for the ASCII/valid-UTF-8 files scanned.
-    proof: >-
-      The files this fallback scans are ASCII/valid UTF-8 on a UTF-8 locale, so
-      encoding mutations (utf-8/UTF-8/None) and errors mutations (replace/strict)
-      decode byte-identical text and produce the same hits.
-    pragma: true
-
-  - module: code_search.py
-    symbol: _python_search_tree
-    reason: >-
-      encoding/errors variants decode valid files identically.
-    proof: >-
-      The tree scan reads valid UTF-8 files only; any encoding/errors variant of
-      read_text decodes the same lines, so hit output is unchanged.
-    pragma: true
-
-  - module: code_search.py
-    symbol: enrich_search_hits
-    reason: >-
-      encoding/errors variants decode valid files identically.
-    proof: >-
-      Enrichment re-reads files that already decoded as valid UTF-8 during the
-      search, so encoding/errors mutations yield identical text and blocks.
-    pragma: true
-
-  - module: code_search.py
     symbol: search_code
     reason: >-
       initial None sentinel is only truthiness-checked below and is always
@@ -67,21 +38,29 @@ equivalents:
   - module: pipeline.py
     symbol: _load_pipelines_config
     reason: >-
-      path segments are case-insensitive on the local (macOS/APFS) filesystem, so
-      "config"/"pipelines.yaml" case-flips resolve identically.
+      path segments are case-insensitive on the dev filesystems mutmut runs on
+      (macOS APFS, Windows NTFS), so "config"/"pipelines.yaml" case-flips
+      resolve identically there.
     proof: >-
-      On the case-insensitive macOS/APFS filesystem a case-flipped path segment
-      resolves to the same file, so the mutant loads identical config.
+      On a case-insensitive filesystem (the APFS/NTFS dev hosts where mutmut
+      campaigns run) a case-flipped path segment resolves to the same file, so
+      the mutant loads identical config.
     pragma: true
 
   - module: pipeline.py
     symbol: _load_pipelines_config
     reason: >-
-      file is ASCII YAML; utf-8/UTF-8/locale-default decode the same.
+      a codec-name case-flip ("UTF-8") is the same codec on every host. A
+      dropped/defaulted encoding is NOT equivalent — pipelines.yaml carries
+      non-ASCII descriptions and a non-UTF-8 locale (Windows ANSI, LC_ALL=C)
+      mangles them or raises; killed by tests/test_portability.py.
     proof: >-
-      pipelines.yaml is pure ASCII, so utf-8, UTF-8, and the locale default all
-      decode it to the same text and the same parsed config.
-    pragma: true
+      codecs.lookup() normalizes case, so "UTF-8" is byte-identical to "utf-8".
+      The former pure-ASCII claim was refuted in Part 5: pipelines.yaml ships
+      em-dash descriptions, so on a non-UTF-8 locale an encoding=None mutant
+      raises UnicodeDecodeError or yields mojibake — proven by
+      tests/test_portability.py under an ASCII-locale child process.
+    pragma: false
 
   - module: pipeline.py
     symbol: _bind_recipe_args
@@ -109,12 +88,17 @@ equivalents:
   - module: pipeline.py
     symbol: _estimate_step_tokens
     reason: >-
-      errors="replace" + local UTF-8 locale means utf-8/UTF-8/None decode to the
-      same token count.
+      a codec-name case-flip ("UTF-8") is the same codec on every host. A
+      dropped/defaulted encoding is NOT equivalent — under a non-UTF-8 locale
+      errors="replace" silently mangles skill text into a different token
+      count; killed by tests/test_portability.py locale cases.
     proof: >-
-      The skill file is valid UTF-8 on a UTF-8 locale, so encoding/errors
-      mutations decode the same text and count_tokens returns the same number.
-    pragma: true
+      codecs.lookup() normalizes case, so "UTF-8" is byte-identical to
+      "utf-8". The UTF-8-locale claim was refuted in Part 5: skill files carry
+      Cyrillic, and on a non-UTF-8 locale an encoding=None mutant returns a
+      different token count (errors="replace" mangles instead of raising) —
+      proven by tests/test_portability.py under an ASCII-locale child process.
+    pragma: false
 
   - module: pipeline.py
     symbol: format_pipeline_footer
@@ -156,16 +140,6 @@ equivalents:
     pragma: true
 
   - module: router.py
-    symbol: _extract_search_query
-    reason: >-
-      .lower()/.upper() induce the same tie-break ordering.
-    proof: >-
-      .lower() and .upper() are consistent case-fold maps over the candidate
-      tokens, so as the final sort key they produce the same tie-break order and
-      the same winning token.
-    pragma: true
-
-  - module: router.py
     symbol: _build_tool_command
     reason: >-
       the "rg" default is only compared against "jq" below, so any non-"jq"
@@ -195,24 +169,31 @@ equivalents:
       best_score` comparison — `<` vs `<=` is unobservable.
     pragma: true
 
-  - module: spend_guard.py
-    symbol: _load_today_spend
+  - module: spend_ledger.py
+    symbol: usage_metered_spend_usd
     reason: >-
-      encoding=None/"UTF-8" decode identically on UTF-8 locale.
+      a codec-name case-flip ("UTF-8") is the same codec on every host. A
+      dropped/defaulted encoding is NOT equivalent — a non-UTF-8 locale
+      (Windows ANSI, LC_ALL=C) decodes differently or raises; killed by
+      tests/test_portability.py locale cases.
     proof: >-
-      Usage logs are UTF-8 on a UTF-8 locale, so encoding=None, "utf-8" and
-      "UTF-8" decode the same lines and the spend total is unchanged.
+      codecs.lookup() normalizes case, so "UTF-8" is byte-identical to
+      "utf-8". The UTF-8-locale claim was refuted in Part 5: usage.jsonl is
+      written with ensure_ascii=False (Cyrillic task text is normal), and on
+      a non-UTF-8 locale an encoding=None mutant raises UnicodeDecodeError
+      (only OSError is caught) — proven by tests/test_portability.py under an
+      ASCII-locale child process.
     pragma: false
 
-  - module: spend_guard.py
-    symbol: _load_today_spend
+  - module: spend_ledger.py
+    symbol: _parse_ts
     reason: >-
-      default "" vs None/dropped/"XXXX" only when ts key is absent; str(...)
-      still won't start with today's date → same skip branch.
+      default "" vs "XXXX" only when ts key is absent — str() of any default
+      still fails fromisoformat → same None/skip branch.
     proof: >-
-      The default matters only for events without a ts key; str() of "" or of
-      any mutated default still does not start with today's date, so the event
-      is skipped either way.
+      The default matters only for events without a ts key; fromisoformat
+      rejects "", "XXXX" or any mutated default alike, so _parse_ts returns
+      None and the reader skips the row either way.
     pragma: false
 
   - module: spend_guard.py
@@ -237,8 +218,8 @@ equivalents:
       False.
     pragma: false
 
-  - module: spend_guard.py
-    symbol: _is_metered_event
+  - module: spend_ledger.py
+    symbol: is_metered_spend_event
     reason: >-
       default "" vs None/dropped/"XXXX" only when tier key is absent; str(...)
       of any default never equals "metered" → same False branch.
@@ -271,13 +252,18 @@ equivalents:
   - module: trust.py
     symbol: _read_entries
     reason: >-
-      valid UTF-8 manifests decode identically with utf-8, UTF-8, or the UTF-8
-      locale default.
+      a codec-name case-flip ("UTF-8") is the same codec on every host. A
+      dropped/defaulted encoding is NOT equivalent — a non-UTF-8 locale
+      (Windows ANSI, LC_ALL=C) decodes differently or raises; killed by
+      tests/test_portability.py locale cases.
     proof: >-
-      Trust manifests are written as valid UTF-8 JSON; Python's local default
-      encoding is UTF-8, so all three encoding variants produce identical text
-      and parsed entries.
-    pragma: true
+      codecs.lookup() normalizes case, so "UTF-8" is byte-identical to
+      "utf-8". The UTF-8-locale claim was refuted in Part 5: manifests are
+      written with ensure_ascii=False (non-ASCII script paths are legal), and
+      on a non-UTF-8 locale an encoding=None mutant decodes to mojibake or
+      surfaces as "cannot read trust manifest" — proven by
+      tests/test_portability.py under an ASCII-locale child process.
+    pragma: false
 
   - module: subprocess_safe.py
     symbol: _reject_code_string_launch

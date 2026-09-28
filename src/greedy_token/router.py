@@ -324,8 +324,7 @@ def _extract_search_query(task: str) -> str:
     if candidates:
         if QUESTION_SCAFFOLD.match(task.strip()):
             return candidates[-1][1]
-        # equivalent: .lower()/.upper() induce the same tie-break ordering.
-        candidates.sort(key=lambda item: (-item[0], -len(item[1]), item[1].lower()))  # pragma: no mutate
+        candidates.sort(key=lambda item: (-item[0], -len(item[1]), item[1].lower()))
         return candidates[0][1]
 
     return text

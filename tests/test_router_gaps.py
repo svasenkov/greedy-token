@@ -602,6 +602,17 @@ def test_extract_search_query_branches() -> None:
         assert _extract_search_query("find where Jenkins jobs are defined") != "defined"
 
 
+@allure.title("_extract_search_query: case-fold tie-break is order-visible for unicode/mixed case")
+def test_extract_search_query_case_fold_tiebreak() -> None:
+    """Kills the case-fold tie-break mutants: '.upper()' would order 'SSZ'
+    before 'ST' and pick ßz, while dropping '.lower()' keeps raw 'aCz' ahead
+    of 'abZ' ('C' < 'b') instead of the case-folded 'abz' < 'acz'."""
+    from greedy_token.router import _extract_search_query
+
+    assert _extract_search_query("find ßz st") == "st"
+    assert _extract_search_query("find aCz abZ") == "abZ"
+
+
 @allure.title("_strip_search_prefix: strips known prefix case-insensitively")
 def test_strip_search_prefix() -> None:
     from greedy_token.router import _strip_search_prefix
