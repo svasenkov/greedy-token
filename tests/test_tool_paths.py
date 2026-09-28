@@ -357,6 +357,18 @@ def test_devin_home_bundle_globbed(
 
 
 @allure.story("Ripgrep")
+@allure.title("PATHEXT empty/blank segments emit no candidate names")
+def test_windows_executable_names_skips_empty_pathext(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PATHEXT", ".EXE;; ;.BAT;")
+    names = [
+        p.name for p in tool_paths._windows_executable_names("rg", str(tmp_path))
+    ]
+    assert names == ["rg.exe", "rg.bat"]
+
+
+@allure.story("Ripgrep")
 @allure.title("/Applications Devin glob finds a real executable rg on this machine")
 @pytest.mark.skipif(
     not _DEVIN_SYS_PARENT.is_dir(), reason="Devin.app is not installed"

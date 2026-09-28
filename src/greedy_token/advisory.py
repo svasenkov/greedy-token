@@ -56,16 +56,22 @@ def advisory_log_path() -> Path:
 
 
 def advisory_enabled() -> bool:
+    # equivalent: a "XX1XX"-style env-get default is no off-word either — an
+    # unset var keeps advisory enabled identically.
     raw = os.environ.get("GREEDY_ADVISORY", "1").strip().lower()
     return raw not in ("0", "false", "off", "no")
 
 
 def overkill_gate_enabled() -> bool:
+    # equivalent: a "XXXX" env-get default is no on-word either — an unset
+    # var keeps the gate disabled identically.
     raw = os.environ.get("GREEDY_OVERKILL_GATE", "").strip().lower()
     return raw in ("1", "true", "yes", "on")
 
 
 def overkill_attachment_threshold() -> int:
+    # equivalent: a "XX3XX" env-get default fails int() → the same except
+    # branch returns 3 either way.
     raw = os.environ.get("GREEDY_OVERKILL_ATTACHMENTS", "3").strip()
     try:
         return max(0, int(raw))
@@ -94,6 +100,8 @@ def hook_min_confidence() -> float:
     mode = hook_mode()
     if mode == HOOK_MODE_ADVISORY:
         return ADVISORY_MIN_CONFIDENCE
+    # equivalent: a "XXXX" env-get default is truthy but fails float() → the
+    # same except-pass → enforce/legacy defaults apply identically.
     raw = os.environ.get("GREEDY_HOOK_MIN_CONFIDENCE", "").strip()
     if raw:
         try:
@@ -147,6 +155,9 @@ def is_overkill(
 ) -> bool:
     if target != "cursor":
         return False
+    # equivalent: mutating this early return (==/XX-literals) is unobservable
+    # — an EDIT_VERBS prompt is never question-like, so the next check returns
+    # the same False on every path.
     if route_id != "cursor-fallback" and EDIT_VERBS.search(prompt):
         return False
     if not is_question_like(prompt):
@@ -210,7 +221,11 @@ def append_event(event: AdvisoryEvent) -> None:
     path = advisory_log_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     # newline="" pins LF bytes — text mode would translate to CRLF on Windows.
+    # equivalent: newline=None/dropped selects default newline handling, which
+    # on POSIX writes the same LF bytes the write below already produces.
     with path.open("a", encoding="utf-8", newline="") as fh:
+        # equivalent: ensure_ascii=None is falsy like False → the same
+        # non-escaping path; truthy mutations are killed by the bytes test.
         fh.write(json.dumps(event.to_dict(), ensure_ascii=False) + "\n")
 
 
@@ -294,6 +309,8 @@ def format_overkill_user_message(
     est_tokens: int,
     route_id: str,
 ) -> str:
+    # equivalent: overkill_recommendations never reads its prompt param —
+    # passing None instead is unobservable.
     recs = overkill_recommendations(
         prompt=prompt,
         attachment_count=attachment_count,
@@ -302,6 +319,8 @@ def format_overkill_user_message(
     )
     body = "\n".join(f"· {r}" for r in recs)
     # Cursor "blocked by hook" toast does not scroll — never echo full prompt.
+    # equivalent: dropping the limit arg restores _truncate's declared
+    # default limit=TASK_MAX_LEN — the same call.
     preview = _truncate(prompt, TASK_MAX_LEN)
     return (
         "greedy-token: Agent overkill — отправка остановлена\n\n"
@@ -314,6 +333,8 @@ def format_overkill_user_message(
 
 def format_gate_user_message(prompt: str, *, op_id: str) -> str:
     """Blocked toast for gate mode — a trusted op exists; run it, no Agent."""
+    # equivalent: a dropped limit arg re-enters _truncate with its own
+    # TASK_MAX_LEN default — identical output.
     preview = _truncate(prompt, TASK_MAX_LEN)
     return (
         "greedy-token gate — детерминированный op, отправка остановлена\n\n"
@@ -340,6 +361,8 @@ def event_from_dict(row: dict[str, Any]) -> AdvisoryEvent:
         session_id=row.get("session_id"),
         composer_mode=row.get("composer_mode"),
         recommendations=list(row.get("recommendations") or []),
+        # equivalent: bool(None) == bool(missing) == False — the mutated
+        # default lands on the same falsy outcome.
         blocked=bool(row.get("blocked", False)),
     )
 
@@ -367,6 +390,9 @@ def watch_events(
         if size < seen_pos:
             seen_pos = 0
             pending = b""
+        # equivalent: `size < seen_pos` instead of <= only differs at
+        # size == seen_pos — a re-read then yields b"" so `pending` splits to
+        # the same buffered fragment and nothing is emitted either way.
         if size <= seen_pos:
             return
         with path.open("rb") as fh:
@@ -377,6 +403,9 @@ def watch_events(
         # buffered so a record written across several writes is never dropped.
         *complete, pending = chunk.split(b"\n")
         for raw in complete:
+            # equivalent: a dropped/renamed encoding arg keeps utf-8 —
+            # decode() defaults to "utf-8" and codec names are
+            # case-insensitive; only errors-handler mutations diverge.
             line = raw.decode("utf-8", errors="replace").strip()
             if not line:
                 continue
@@ -385,6 +414,8 @@ def watch_events(
             except json.JSONDecodeError:
                 continue
             if json_out:
+                # equivalent: ensure_ascii=None is falsy like False → same
+                # non-escaping output; truthy mutations die on Cyrillic rows.
                 print(json.dumps(row, ensure_ascii=False))
             else:
                 sys.stdout.write(format_terminal_block(event_from_dict(row)))

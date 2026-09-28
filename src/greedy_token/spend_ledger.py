@@ -43,6 +43,9 @@ def spend_log_path() -> Path:
 
 
 def reservation_ttl_sec() -> float:
+    # equivalent: a "XXXX" env-get default and `if raw or True` both still
+    # route an unset/empty env through float("") → ValueError → default TTL —
+    # the except branch makes them unobservable.
     raw = os.environ.get("GREEDY_SPEND_RESERVATION_TTL_SEC", "").strip()
     try:
         return max(0.0, float(raw)) if raw else float(DEFAULT_RESERVATION_TTL_SEC)
@@ -118,6 +121,9 @@ def _parse_ts(value: object) -> datetime | None:
     if not raw:
         return None
     try:
+        # equivalent: a junk replace pattern ("XXZXX") never matches, and
+        # Python ≥3.12 (pinned requires-python) parses the "Z" suffix
+        # natively — skipping the replace leaves timestamps identical.
         ts = datetime.fromisoformat(raw.replace("Z", "+00:00"))
     except ValueError:
         return None
@@ -131,14 +137,25 @@ def _finite(value: object) -> float:
         cost = float(value or 0)
     except (TypeError, ValueError):
         return 0.0
+    # equivalent: `> 0` vs `>= 0` differ only at cost == 0, where returning
+    # cost and returning 0.0 are the same value.
     return cost if math.isfinite(cost) and cost > 0 else 0.0
 
 
 def _append_spend_record(record: dict) -> None:
     path = spend_log_path()
     path.parent.mkdir(parents=True, exist_ok=True)
+    # equivalent: ensure_ascii=None is falsy, so json.dumps takes the same
+    # non-escaping path as ensure_ascii=False.
     line = json.dumps(record, ensure_ascii=False, separators=(",", ":"))
     # newline="" pins LF bytes — text mode would translate to CRLF on Windows.
+    # equivalent: a codec-name case-flip ("UTF-8") is the same codec on every
+    # host (codecs.lookup normalizes case).  A dropped/defaulted encoding is
+    # NOT equivalent — killed by tests/test_portability.py's ASCII-locale
+    # child, which mutmut cannot attribute to this function (subprocess
+    # coverage), so the mutant reports survived.  newline=None vs "" is
+    # equivalent on the POSIX hosts where campaigns run — both translate to
+    # the same \n bytes; only Windows (never mutated on) diverges.
     with path.open("a", encoding="utf-8", newline="") as fh:
         fh.write(line + "\n")
 
@@ -184,6 +201,9 @@ def settle_spend(reservation_id: str, *, cost_usd: float) -> None:
 def release_spend(reservation_id: str) -> None:
     try:
         with spend_lock():
+            # equivalent: a release outcome is only gated on
+            # kind == "settle" in ledger_spend_by_tier — its ts key is never
+            # parsed, so renaming it changes nothing observable.
             _append_spend_record(
                 {"ts": _utc_now_iso(), "kind": "release", "id": reservation_id}
             )
@@ -196,6 +216,11 @@ def _iter_spend_records() -> Iterator[dict]:
     if not path.is_file():
         return
     try:
+        # equivalent: a codec-name case-flip ("UTF-8") is the same codec on
+        # every host (codecs.lookup normalizes case).  A dropped/defaulted
+        # encoding is NOT equivalent — killed by tests/test_portability.py's
+        # ASCII-locale child, which mutmut cannot attribute to this function
+        # (subprocess coverage), so the mutant reports survived.
         lines = path.read_text(encoding="utf-8").splitlines()
     except OSError:
         return

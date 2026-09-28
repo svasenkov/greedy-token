@@ -87,19 +87,31 @@ only_mutate = [
     "src/greedy_token/subprocess_safe.py",
     "src/greedy_token/trust.py",
     "src/greedy_token/spend_guard.py",
+    "src/greedy_token/spend_ledger.py",
+    "src/greedy_token/llm_invoke.py",
+    "src/greedy_token/usage.py",
+    "src/greedy_token/budget.py",
+    "src/greedy_token/budget_ledger.py",
+    "src/greedy_token/budget_policy.py",
+    "src/greedy_token/advisory.py",
     "src/greedy_token/code_search.py",
     "src/greedy_token/tool_paths.py",
     "src/greedy_token/rag_index.py",
     "src/greedy_token/rag_fts.py",
     "src/greedy_token/rag_search.py",
 ]
-# Keep each mutant run quiet. Skip the node/allure dashboard test — it needs
+# Keep each mutant run quiet. -n0 overrides addopts "-n auto": mutmut maps
+# mutants to tests via worker-side pytest hooks, which never fire on the xdist
+# controller — with -n auto stats collection finds zero associations and aborts.
+# Parallelism comes from `mutmut run --max-children`, not xdist.
+# Skip the node/allure dashboard test — it needs
 # repo assets (.github/, allure/*.mjs) that are not part of the mutants tree and
 # does not exercise any of the hot modules under mutation. Skip the
 # mutation-equivalents guard too: mutmut duplicates every `# equivalent:`
 # marker across the generated mutant copies, so the source↔registry sync can
 # only be checked in the real tree (release gate), never inside mutants/.
 pytest_add_cli_args = [
+    "-n0",
     "-q",
     "--no-header",
     "-p",
@@ -114,6 +126,8 @@ pytest_add_cli_args = [
 also_copy = [
     "README.md",
     "README-RU.md",
+    "MANIFEST.in",
+    "constraints-ci.txt",
     "docs/",
     "examples/routes/",
     "bench/",

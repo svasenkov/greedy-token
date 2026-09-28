@@ -118,6 +118,8 @@ def spent_hint(tier: str, spent: int, executor_sub: str | None = None) -> str:
 def format_spent_line(
     spent: int,
     *,
+    # equivalent: spent_hint returns "" for any unlisted tier, so a "XXXX"
+    # default renders identically to "".
     tier: str = "",
     executor_sub: str | None = None,
     note: str | None = None,
@@ -136,6 +138,8 @@ def format_savings_lines(
     spent: int,
     saved: int | None = None,
     title: str = "Saved vs naive agent chat",
+    # equivalent: spent_hint returns "" for any unlisted tier, so a "XXXX"
+    # default renders identically to "".
     tier: str = "",
     executor_sub: str | None = None,
     spent_note: str | None = None,
@@ -153,6 +157,7 @@ def format_savings_lines(
             tier=tier,
             executor_sub=executor_sub,
             note=spent_note,
+            # equivalent: format_spent_line defaults indent to the same "  ".
             indent="  ",
         ),
         f"  Saved:             ~{saved:,}  (= baseline − spent; baseline: {source})",
@@ -169,6 +174,8 @@ def _format_tier_alternatives(
     """Tier scan estimates; the selected row uses actual spent when provided."""
     lines = ["Tier alternatives (estimated):"]
     for tier, decision in route_task_all_tiers(task, root):
+        # equivalent: route_task_all_tiers only yields tiers that are all
+        # TIER_LABELS keys, so the `tier` fallback default is unreachable.
         label = TIER_LABELS.get(tier, tier)
         if tier == selected and selected_spent is not None:
             est = selected_spent
@@ -218,6 +225,8 @@ def _cheap_billing_note(root: Path | None = None) -> str:
     """"metered" vs "local free" for the cheap-LLM tier (ADR-0002 honesty)."""
     from greedy_token.model_select import billing_note_for_model
 
+    # equivalent: a "XXXX" fallback matches no registry model just like "" —
+    # billing_note_for_model returns "local free" either way.
     model_id = os.environ.get("GREEDY_LLM_MODEL_ID", "").strip()
     return billing_note_for_model(model_id, root)
 
@@ -233,6 +242,8 @@ def _billing_short(
         return "free tier"
     if tier == "ollama":
         llm = get_cheap_llm_settings()
+        # equivalent: `if model_id` treats a None fallback identically to "" —
+        # the label prefix stays empty in both cases.
         model_id = os.environ.get("GREEDY_LLM_MODEL_ID", "")
         label = f"{model_id}/" if model_id else ""
         note = f", ~{ollama_eval_tokens:,} eval" if ollama_eval_tokens else ""
@@ -251,12 +262,16 @@ def _build_tool_footer_context(
     *,
     tier: str,
     est_tokens: int,
+    # equivalent: the only caller (format_tool_footer) always forwards
+    # route_id explicitly, so this default is unreachable.
     route_id: str = "",
     executor_sub: str | None = None,
     duration_ms: int | None = None,
     rag_hits: int | None = None,
     ollama_eval_tokens: int | None = None,
     task_success: bool | None = None,
+    # equivalent: format_tool_footer always forwards executed explicitly,
+    # so this default is unreachable.
     executed: bool = True,
 ) -> ToolFooterContext:
     breakdown = cursor_baseline_breakdown(root, task)
@@ -299,6 +314,8 @@ def _build_tool_footer_context(
         baseline_ms=baseline_ms,
         time_saved=saved_ms,
         time_source=time_source,
+        # equivalent: ctx.task_success is recorded for callers/debugging, but
+        # no renderer reads it — a None/omitted mutation is unobservable.
         task_success=task_success,
         saved_note=saved_note,
     )
@@ -385,6 +402,7 @@ def _format_tool_footer_full(ctx: ToolFooterContext) -> str:
             ctx.est_tokens,
             tier=ctx.tier,
             executor_sub=ctx.executor_sub,
+            # equivalent: format_spent_line defaults indent to the same "  ".
             indent="  ",
         )
     )
@@ -433,6 +451,9 @@ def _format_tool_footer_full(ctx: ToolFooterContext) -> str:
             saved=ctx.saved,
             tier=ctx.tier,
             executor_sub=ctx.executor_sub,
+            # equivalent: breakdown.source already is
+            # get_baseline_settings().source — the same value
+            # format_savings_lines falls back to when source is None.
             source=ctx.breakdown.source,
         )
     )

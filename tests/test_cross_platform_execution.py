@@ -108,6 +108,36 @@ def test_absolute_legacy_executable_requires_exact_registration(tmp_path: Path) 
     assert argv == [str(executable), "arg"]
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        "cd C:relative && rg x",
+        "cd D: && rg x",
+        'cd "E:dir with space" && rg x',
+    ],
+)
+def test_command_to_argv_rejects_drive_relative_cd(command: str) -> None:
+    # "C:x" resolves against the per-drive cwd on Windows — never a valid
+    # cd target inside a parsed legacy command, on any host.
+    with pytest.raises(UnsafeCommandError, match="drive-relative"):
+        command_to_argv(command)
+
+
+@pytest.mark.parametrize("command", ["C:tool arg", "z:script --flag"])
+def test_command_to_argv_rejects_drive_relative_executable(command: str) -> None:
+    with pytest.raises(UnsafeCommandError, match="drive-relative executable"):
+        command_to_argv(command)
+
+
+def test_command_to_argv_drive_absolute_is_not_drive_relative() -> None:
+    # "C:\x" / "C:/x" are drive-anchored absolutes, not drive-relative — the
+    # lookahead keeps them on the ordinary absolute-executable check, which
+    # then refuses an unregistered executable.
+    for command in (r"C:\tools\rg.exe --version", "C:/tools/rg.exe --version"):
+        with pytest.raises(UnsafeCommandError, match="absolute executable is not registered"):
+            command_to_argv(command)
+
+
 def test_structured_script_rejects_empty_and_interpreter_only_argv(
     tmp_path: Path,
 ) -> None:

@@ -410,3 +410,433 @@ def test_watch_once_ignores_partial_tail(advisory_log: Path, capsys) -> None:
     out = capsys.readouterr().out
     assert "complete row" in out
     assert "unterminated" not in out
+
+
+# ---------------------------------------------------------------------------
+# Mutation-hardening: exact contracts for advisory helpers/formatters/watch.
+# ---------------------------------------------------------------------------
+
+
+@allure.title("advisory_enabled: off-words in any case disable; default stays on")
+def test_advisory_enabled_words(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("GREEDY_ADVISORY", raising=False)
+    assert advisory.advisory_enabled() is True
+    for off in ("0", "false", "FALSE", " Off ", "no", "NO"):
+        monkeypatch.setenv("GREEDY_ADVISORY", off)
+        assert advisory.advisory_enabled() is False, off
+    monkeypatch.setenv("GREEDY_ADVISORY", "junk")
+    assert advisory.advisory_enabled() is True
+
+
+@allure.title("overkill_gate_enabled: only explicit on-words enable")
+def test_overkill_gate_words(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("GREEDY_OVERKILL_GATE", raising=False)
+    assert advisory.overkill_gate_enabled() is False
+    for on in ("1", "true", "TRUE", " yes ", "ON"):
+        monkeypatch.setenv("GREEDY_OVERKILL_GATE", on)
+        assert advisory.overkill_gate_enabled() is True, on
+    monkeypatch.setenv("GREEDY_OVERKILL_GATE", "2")
+    assert advisory.overkill_gate_enabled() is False
+
+
+@allure.title("_utc_now_iso emits whole-second ISO-8601 with Z suffix")
+def test_utc_now_iso_shape() -> None:
+    import re
+
+    ts = advisory._utc_now_iso()
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", ts)
+
+
+@allure.title("_truncate keeps exactly-limit text verbatim")
+def test_truncate_boundary() -> None:
+    text = "x" * advisory.TASK_MAX_LEN
+    assert advisory._truncate(text) == text  # <= limit → unchanged
+    assert advisory._truncate(text + "y") == "x" * (advisory.TASK_MAX_LEN - 1) + "…"
+    assert advisory._truncate("  pad  ") == "pad"
+
+
+@allure.title("parse_attachments skips non-dict items but keeps scanning")
+def test_parse_attachments_continues() -> None:
+    data = {"attachments": ["junk", {"path": "after.py"}]}
+    assert advisory.parse_attachments(data) == ["after.py"]
+    assert advisory.parse_attachments({"attachments": [{"file_path": ""}, {"file_path": "b"}]}) == ["b"]
+    assert advisory.parse_attachments({"attachments": None}) == []
+
+
+@allure.title("is_overkill: fallback + attachments=0 stays under threshold")
+def test_is_overkill_fallback_zero_attachments(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GREEDY_OVERKILL_ATTACHMENTS", "3")
+    # cursor-fallback with zero attachments → False (> 0 required)
+    assert (
+        advisory.is_overkill(
+            "what is x", route_id="cursor-fallback",
+            target="cursor", attachment_count=0,
+        )
+        is False
+    )
+
+
+@allure.title("overkill_recommendations emits the exact advice list")
+def test_overkill_recommendations_golden() -> None:
+    recs = advisory.overkill_recommendations(
+        prompt="p", attachment_count=2, est_tokens=1234, route_id="cursor-fallback"
+    )
+    assert recs == [
+        "Agent overkill (~1,234 tokens with rules context).",
+        "Route: cursor-fallback.",
+        "Attachments: 2 — открепите или pin 1–3 файла.",
+        "Shift+Tab → Ask (вопрос без правок)",
+        "Переформулировать: find … / объясни … → hook перехватит",
+        "Префикс ask: — read-only в Agent",
+        "Нужен полный Agent → cursor: <промпт>",
+    ]
+
+
+@allure.title("append_event writes one UTF-8 LF-terminated JSON line")
+def test_append_event_bytes(
+    advisory_log: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    nested = tmp_path / "deep" / "nested" / "advisory.jsonl"
+    monkeypatch.setenv("GREEDY_ADVISORY_LOG", str(nested))
+    monkeypatch.delenv("GREEDY_ADVISORY", raising=False)
+    ev = advisory.AdvisoryEvent(
+        ts="t", kind="k", action="a", prompt="привет", target="cursor",
+        route_id="r", confidence=0.5, est_tokens=1,
+    )
+    advisory.append_event(ev)
+    raw = nested.read_bytes()
+    assert raw == (json.dumps(ev.to_dict(), ensure_ascii=False) + "\n").encode()
+    assert "привет".encode() in raw  # non-ASCII must not be \u-escaped
+
+
+@allure.title("append_event opens the log with utf-8 + pinned LF newline")
+def test_append_event_open_args(
+    advisory_log: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    real_open = Path.open
+    seen: list[dict] = []
+
+    def spy(self: Path, *args, **kwargs):
+        if self == advisory_log:
+            seen.append(kwargs)
+        return real_open(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", spy)
+    ev = advisory.AdvisoryEvent(
+        ts="t", kind="k", action="a", prompt="p", target="cursor",
+        route_id="r", confidence=0.5, est_tokens=1,
+    )
+    advisory.append_event(ev)
+    assert seen and seen[-1]["encoding"] == "utf-8"
+    assert seen[-1]["newline"] == ""
+
+
+@allure.title("write_tty opens the tty with utf-8 encoding")
+def test_write_tty_open_args(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    tty = tmp_path / "tty.out"
+    monkeypatch.setenv("GREEDY_TOKEN_TTY", str(tty))
+    real_open = Path.open
+    seen: list[dict] = []
+
+    def spy(self: Path, *args, **kwargs):
+        if self == tty:
+            seen.append((args, kwargs))
+        return real_open(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", spy)
+    ev = advisory.AdvisoryEvent(
+        ts="t", kind="k", action="a", prompt="p", target="cursor",
+        route_id="r", confidence=0.5, est_tokens=1,
+    )
+    advisory.write_tty(ev)
+    assert seen and seen[-1][1]["encoding"] == "utf-8"
+    assert tty.read_text(encoding="utf-8") == advisory.format_terminal_block(ev)
+
+
+@allure.title("build_event golden: every field attributed from decision+data")
+def test_build_event_golden() -> None:
+    data = {
+        "attachments": [{"file_path": f"f{i}"} for i in range(10)],
+        "session_id": "s1",
+        "composer_mode": "agent",
+    }
+    ev = advisory.build_event(
+        kind=advisory.KIND_GATE,
+        action="blocked",
+        prompt="probe",
+        decision=_decision(
+            target="ollama", route_id="ollama-x",
+            confidence=0.62, est_tokens=4321,
+        ),
+        data=data,
+        blocked=True,
+        recommendations=["r1", "r2"],
+    )
+    d = ev.to_dict()
+    assert d["kind"] == "gate" and d["action"] == "blocked"
+    assert d["prompt"] == "probe"
+    assert d["target"] == "ollama"
+    assert d["route_id"] == "ollama-x"
+    assert d["confidence"] == 0.62
+    assert d["est_tokens"] == 4321
+    assert d["attachment_count"] == 10
+    assert d["attachments"] == [f"f{i}" for i in range(8)]  # capped at 8
+    assert d["session_id"] == "s1"
+    assert d["composer_mode"] == "agent"
+    assert d["recommendations"] == ["r1", "r2"]
+    assert d["blocked"] is True
+    assert d["ts"].endswith("Z")
+
+
+@allure.title("build_event defaults: missing decision attrs + empty data")
+def test_build_event_defaults() -> None:
+    ev = advisory.build_event(
+        kind="k", action="a", prompt="p", decision=object(), data={}
+    )
+    assert ev.blocked is False
+    assert ev.target == "cursor"
+    assert ev.route_id == ""
+    assert ev.confidence == 0.0
+    assert ev.est_tokens == 0
+    assert ev.attachments == []
+    assert ev.composer_mode is None
+    assert ev.recommendations == []
+    assert ev.session_id is None
+
+
+@allure.title("format_terminal_block renders the exact block")
+def test_format_terminal_block_golden() -> None:
+    ev = advisory.AdvisoryEvent(
+        ts="t", kind=advisory.KIND_OVERKILL, action="warn", prompt="task text",
+        target="cursor", route_id="cursor-fallback", confidence=0.4,
+        est_tokens=9000, attachment_count=2, recommendations=["do x"],
+        blocked=False,
+    )
+    block = advisory.format_terminal_block(ev)
+    assert block == (
+        "\n"
+        "\033[36m[greedy-token watch]\033[0m OVERKILL (Agent heavy) · WARN\n"
+        "  tier: CURSOR (cursor-fallback, 40%)\n"
+        "  est: ~9,000 tokens\n"
+        "  attachments: 2\n"
+        "  prompt: task text\n"
+        "\033[33m  recommendations:\033[0m\n"
+        "    · do x\n"
+    )
+    for kind, header in (
+        (advisory.KIND_INTERCEPT, "INTERCEPT (cheap tier)"),
+        (advisory.KIND_PASS, "PASS (Agent)"),
+        (advisory.KIND_BYPASS, "BYPASS (cursor: prefix)"),
+        (advisory.KIND_GATE, "GATE (invoke required)"),
+    ):
+        e2 = advisory.AdvisoryEvent(
+            ts="t", kind=kind, action="act", prompt="p", target="cursor",
+            route_id="r", confidence=0.5, est_tokens=1,
+        )
+        assert f"{header} · ACT" in advisory.format_terminal_block(e2)
+    blocked = advisory.AdvisoryEvent(
+        ts="t", kind=advisory.KIND_PASS, action="pass", prompt="p",
+        target="cursor", route_id="r", confidence=0.5, est_tokens=1,
+        blocked=True,
+    )
+    assert "PASS (Agent) · BLOCKED" in advisory.format_terminal_block(blocked)
+
+
+@allure.title("format_overkill_user_message renders the exact toast")
+def test_format_overkill_user_message_golden() -> None:
+    msg = advisory.format_overkill_user_message(
+        "fix the thing", attachment_count=1, est_tokens=9000,
+        route_id="cursor-fallback",
+    )
+    assert msg == (
+        "greedy-token: Agent overkill — отправка остановлена\n\n"
+        "Задача: fix the thing\n\n"
+        "· Agent overkill (~9,000 tokens with rules context).\n"
+        "· Route: cursor-fallback.\n"
+        "· Attachments: 1 — открепите или pin 1–3 файла.\n"
+        "· Shift+Tab → Ask (вопрос без правок)\n"
+        "· Переформулировать: find … / объясни … → hook перехватит\n"
+        "· Префикс ask: — read-only в Agent\n"
+        "· Нужен полный Agent → cursor: <промпт>\n\n"
+        "---\n"
+        "Agent всё равно нужен → cursor: <промпт>"
+    )
+
+
+@allure.title("format_gate_user_message renders the exact toast")
+def test_format_gate_user_message_golden() -> None:
+    msg = advisory.format_gate_user_message(
+        "what changed", op_id="python-git-recent"
+    )
+    assert msg == (
+        "greedy-token gate — детерминированный op, отправка остановлена\n\n"
+        "Задача: what changed\n"
+        "Op: python-git-recent (ready · read-only)\n\n"
+        "Запуск: greedy-token capabilities invoke python-git-recent · "
+        "MCP: greedy_token_invoke\n"
+        "---\n"
+        "Agent всё равно нужен → cursor: <промпт>"
+    )
+
+
+@allure.title("event_from_dict golden: full row and missing-keys defaults")
+def test_event_from_dict_golden() -> None:
+    row = {
+        "ts": "2026-01-01T00:00:00Z", "kind": "gate", "action": "blocked",
+        "prompt": "p", "target": "ollama", "route_id": "r1",
+        "confidence": 0.75, "est_tokens": 42, "attachment_count": 3,
+        "attachments": ["a", "b"], "session_id": "s",
+        "composer_mode": "agent", "recommendations": ["x"],
+        "blocked": True,
+    }
+    ev = advisory.event_from_dict(row)
+    assert ev.to_dict() == {
+        "ts": "2026-01-01T00:00:00Z", "kind": "gate", "action": "blocked",
+        "prompt": "p", "target": "ollama", "route_id": "r1",
+        "confidence": 0.75, "est_tokens": 42, "attachment_count": 3,
+        "attachments": ["a", "b"], "session_id": "s",
+        "composer_mode": "agent", "recommendations": ["x"],
+        "blocked": True,
+    }
+    ev2 = advisory.event_from_dict({})
+    assert ev2.to_dict() == {
+        "ts": "", "kind": "", "action": "", "prompt": "", "target": "",
+        "route_id": "", "confidence": 0.0, "est_tokens": 0,
+        "attachment_count": 0, "attachments": [], "session_id": None,
+        "composer_mode": None, "recommendations": [], "blocked": False,
+    }
+    # falsy-but-present values fall back the same as missing keys
+    ev3 = advisory.event_from_dict(
+        {"attachments": None, "recommendations": 0}
+    )
+    assert ev3.attachments == [] and ev3.recommendations == []
+
+
+@allure.title("watch_events announces + creates a missing log on stderr")
+def test_watch_missing_log_stderr(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    log = tmp_path / "deep" / "nested" / "a.jsonl"
+    monkeypatch.setenv("GREEDY_ADVISORY_LOG", str(log))
+    assert advisory.watch_events(follow=False) == 0
+    err = capsys.readouterr().err
+    assert err == f"Waiting for advisory log: {log}\n"
+    assert log.is_file()
+
+
+@allure.title("watch_events once-mode emits nothing for already-read content")
+def test_watch_from_size_no_output(advisory_log: Path, capsys) -> None:
+    advisory_log.write_text('{"kind": "pass"}\n', encoding="utf-8")
+    assert advisory.watch_events(follow=False, json_out=True) == 0
+    assert capsys.readouterr().out == ""
+
+
+@allure.title("watch_events truncation reset re-reads from byte 0 with empty pending")
+def test_watch_truncation_replay(
+    advisory_log: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    row = {"kind": "pass", "action": "p", "prompt": "after-truncate",
+           "target": "cursor", "route_id": "r", "confidence": 0.5,
+           "est_tokens": 1, "ts": "t"}
+    advisory_log.write_text(
+        json.dumps({"pad": "x" * 500}) + "\n", encoding="utf-8"
+    )
+    calls = {"n": 0}
+    short = json.dumps(row) + "\n"
+
+    def fake_sleep(seconds: float) -> None:
+        assert seconds == 0.25
+        calls["n"] += 1
+        if calls["n"] == 1:
+            advisory_log.write_text(short, encoding="utf-8")
+        else:
+            raise KeyboardInterrupt
+
+    monkeypatch.setattr(advisory.time, "sleep", fake_sleep)
+    assert advisory.watch_events(follow=True, from_start=False, json_out=True) == 0
+    captured = capsys.readouterr()
+    assert "after-truncate" in captured.out  # reset to byte 0, no stale pending
+    assert f"watching {advisory_log}" in captured.err
+    assert captured.err.endswith("\n\033[90mwatch stopped\033[0m\n")
+
+
+@allure.title("watch_events decodes invalid bytes as U+FFFD, skips bad JSON")
+def test_watch_bad_bytes(
+    advisory_log: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    advisory_log.write_bytes(
+        b'\xff\xfe{bad\n{"kind": "pass", "action": "p", "prompt": "ok-row",'
+        b' "target": "c", "route_id": "r", "confidence": 0.1,'
+        b' "est_tokens": 1, "ts": "t"}\n'
+    )
+    assert advisory.watch_events(follow=False, from_start=True, json_out=True) == 0
+    out = capsys.readouterr().out
+    assert "ok-row" in out
+
+
+@allure.title("watch_events skips empty and non-JSON lines mid-stream")
+def test_watch_skips_junk_mid_stream(
+    advisory_log: Path, capsys
+) -> None:
+    advisory_log.write_text(
+        '\nnot-json\n{"kind": "pass", "action": "p", "prompt": "survivor",'
+        ' "target": "c", "route_id": "r", "confidence": 0.1,'
+        ' "est_tokens": 1, "ts": "t"}\n',
+        encoding="utf-8",
+    )
+    assert advisory.watch_events(follow=False, from_start=True, json_out=True) == 0
+    out = capsys.readouterr().out
+    assert "survivor" in out
+    assert "not-json" not in out
+
+
+@allure.title("watch_events json_out keeps non-ASCII unescaped")
+def test_watch_json_out_unicode(
+    advisory_log: Path, capsys
+) -> None:
+    advisory_log.write_text(
+        json.dumps({"kind": "pass", "action": "p", "prompt": "привет",
+                    "target": "c", "route_id": "r", "confidence": 0.1,
+                    "est_tokens": 1, "ts": "t"}, ensure_ascii=False)
+        + "\n",
+        encoding="utf-8",
+    )
+    assert advisory.watch_events(follow=False, from_start=True, json_out=True) == 0
+    assert "привет" in capsys.readouterr().out
+
+
+@allure.title("watch_events bare call defaults to follow mode")
+def test_watch_events_default_follows(
+    advisory_log: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    advisory_log.write_text(
+        '{"kind": "pass", "action": "p", "prompt": "x", "target": "c",'
+        ' "route_id": "r", "confidence": 0.1, "est_tokens": 1, "ts": "t"}\n',
+        encoding="utf-8",
+    )
+
+    def fake_sleep(_seconds: float) -> None:
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(advisory.time, "sleep", fake_sleep)
+    # bare call: follow must default to True → the watching banner appears
+    assert advisory.watch_events() == 0
+    assert "watching" in capsys.readouterr().err
+
+
+@allure.title("watch_events defaults to human-readable (not json) output")
+def test_watch_events_default_text_out(
+    advisory_log: Path, capsys
+) -> None:
+    advisory_log.write_text(
+        '{"kind": "pass", "action": "p", "prompt": "x", "target": "cursor",'
+        ' "route_id": "r", "confidence": 0.1, "est_tokens": 1, "ts": "t"}\n',
+        encoding="utf-8",
+    )
+    # json_out omitted → text block, not a JSON object dump
+    assert advisory.watch_events(follow=False, from_start=True) == 0
+    out = capsys.readouterr().out
+    assert "\033[36m[greedy-token watch]" in out
+    assert '"kind"' not in out

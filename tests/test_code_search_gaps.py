@@ -86,6 +86,133 @@ def test_enrich_token_budget(tmp_path: Path) -> None:
     assert files == 0 and "stopped at token budget" in block
 
 
+@allure.title(".ignore glob translation: *, **, ?, char classes, comments, empty patterns")
+def test_ignore_rules_in_glob_variants(tmp_path: Path) -> None:
+    ignore = tmp_path / ".ignore"
+    ignore.write_text(
+        "# a comment line\n"
+        "\n"
+        "*.log\n"  # `*` never crosses "/"
+        "**/cache/**\n"  # `**` crosses "/"
+        "a?.txt\n"  # `?`
+        "c[ab].txt\n"  # closed char class passes through verbatim
+        "d[unclosed\n"  # unclosed `[` is a literal `[`
+        "/\n"  # dir-only marker strips to an empty pattern → skipped
+        "!\n"  # negation with an empty pattern → skipped
+        "build/\n"  # dir-only: matches proper ancestors, never the file itself
+        "!keep.log\n",  # negation re-includes
+        encoding="utf-8",
+    )
+    rules = cs._ignore_rules_in(ignore, "")
+    assert cs._is_ignored("x/app.log", rules) is True
+    assert cs._is_ignored("keep.log", rules) is False
+    assert cs._is_ignored("deep/a/cache/file", rules) is True
+    assert cs._is_ignored("a1.txt", rules) is True
+    assert cs._is_ignored("a12.txt", rules) is False
+    assert cs._is_ignored("ca.txt", rules) is True
+    assert cs._is_ignored("cc.txt", rules) is False
+    assert cs._is_ignored("d[unclosed", rules) is True
+    assert cs._is_ignored("dunclosed", rules) is False
+    assert cs._is_ignored("build/out.txt", rules) is True
+    # A file literally named "build" is not a directory → the dir-only rule
+    # must not match it (kills the depth-off-by-one mutant).
+    assert cs._is_ignored("build", rules) is False
+
+
+@allure.title(".ignore read failure returns the rules parsed so far")
+def test_ignore_rules_in_unreadable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    real_read_text = Path.read_text
+
+    def guarded(self: Path, *args: object, **kwargs: object) -> str:
+        if self.name == ".ignore":
+            raise OSError("denied")
+        return real_read_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", guarded)
+    assert cs._ignore_rules_in(tmp_path / ".ignore", "") == []
+
+
+@allure.title("nested .ignore anchors to its dir; vendor/hidden .ignore files are skipped")
+def test_ignore_rules_nested_and_vendor_skipped(tmp_path: Path) -> None:
+    ws = tmp_path / "ws"
+    base = ws / "proj"
+    (base / "sub").mkdir(parents=True)
+    (base / "node_modules").mkdir()
+    (base / ".hidden").mkdir()
+    (base / "sub" / ".ignore").write_text(
+        "ignored.txt\ndocs/private.md\n", encoding="utf-8"
+    )
+    # Nested inside a skipped dir / a dot-dir: discovered by rglob but dropped.
+    (base / "node_modules" / ".ignore").write_text("*\n", encoding="utf-8")
+    (base / ".hidden" / ".ignore").write_text("*\n", encoding="utf-8")
+
+    rules = cs._load_ignore_rules(ws, [base])
+    assert all(r.base_dir == "proj/sub" for r in rules)
+
+    by_pattern = {r.regex.pattern: r for r in rules}
+    unanchored = by_pattern["ignored\\.txt"]
+    assert not unanchored.anchored
+    # A path outside the rule's base_dir can never match it.
+    assert unanchored.matches("proj/other/ignored.txt") is False
+    assert unanchored.matches("proj/sub/ignored.txt") is True
+
+    anchored = by_pattern["docs/private\\.md"]
+    assert anchored.anchored
+    # Anchored to the nested base_dir: only proj/sub/docs/private.md matches.
+    assert anchored.matches("proj/sub/docs/private.md") is True
+    assert anchored.matches("proj/sub/x/docs/private.md") is False
+
+    # The same rule set drives the python tree scan: ignored hits disappear.
+    (base / "sub" / "ignored.txt").write_text("NEEDLE\n", encoding="utf-8")
+    (base / "sub" / "keep.txt").write_text("NEEDLE\n", encoding="utf-8")
+    hits = cs._python_search_tree(ws, "NEEDLE", scope_dirs=[base], name_glob=None, limit=50)
+    assert any("keep.txt" in h for h in hits)
+    assert not any("ignored.txt" in h for h in hits)
+
+
+@allure.title("an .ignore outside the workspace root still loads with a root anchor")
+def test_load_ignore_rules_outside_root(tmp_path: Path) -> None:
+    root = tmp_path / "ws"
+    root.mkdir()
+    outside = tmp_path / "outside"
+    (outside / "sub").mkdir(parents=True)
+    (outside / "sub" / ".ignore").write_text("*.log\n", encoding="utf-8")
+    rules = cs._load_ignore_rules(root, [outside])
+    # `ignore.parent.relative_to(root)` raised ValueError → base_dir "".
+    assert [r.base_dir for r in rules] == [""]
+    assert cs._is_ignored("anywhere/x.log", rules) is True
+
+
+@allure.title("_cap_hit_lines: limit<=0 empties the body; non-hit lines pass through")
+def test_cap_hit_lines_edges() -> None:
+    assert cs._cap_hit_lines("a.js:1:x", 0) == ""
+    # rg diagnostics/context rows are not hit lines — they survive the cap.
+    out = cs._cap_hit_lines("rg: warning line\na.js:1:x\na.js:2:y", 1)
+    assert "rg: warning line" in out
+    assert "a.js:1:x" in out
+    assert "a.js:2:y" not in out
+
+
+@allure.title("_fit_rows_to_budget returns the whole slice when everything fits")
+def test_fit_rows_to_budget_all_fit() -> None:
+    assert cs._fit_rows_to_budget(["tiny row", "another"], 1000) == ["tiny row", "another"]
+    assert cs._fit_rows_to_budget(["x"], 0) == []
+
+
+@allure.title("enrich trims the fitted first-file slice until the note also fits")
+def test_enrich_first_file_trim_loop(tmp_path: Path) -> None:
+    # The fitted slice plus the truncation note still exceeds the budget, so
+    # the loop must drop rows one at a time (line 714) until the note fits.
+    f = tmp_path / "f.py"
+    f.write_text("lorem ipsum dolor sit amet\n" * 6, encoding="utf-8")
+    block, files, toks = cs.enrich_search_hits(
+        tmp_path, [("f.py", 1, "x")], mode="file", max_tokens=30, max_files=3
+    )
+    assert files == 1
+    assert 0 < toks <= 30
+    assert "truncated to token budget" in block
+
+
 @allure.title("enrich_search_hits truncates a first file that exceeds the token budget")
 def test_enrich_first_file_over_budget(tmp_path: Path) -> None:
     big = tmp_path / "big.md"

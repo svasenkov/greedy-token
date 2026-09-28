@@ -249,6 +249,25 @@ def test_usage_metered_spend_utf8_on_ascii_locale(tmp_path: Path) -> None:
     assert real.stdout.strip() == "1.5000"
 
 
+@allure.title("spend ledger writes and reads UTF-8 under an ASCII locale")
+def test_spend_ledger_utf8_on_ascii_locale(tmp_path: Path) -> None:
+    # Covers both directions of the pinned encoding: _append_spend_record's
+    # open(encoding="utf-8") and _iter_spend_records' read_text(encoding="utf-8")
+    # — under encoding=None either side raises Unicode*Error on ASCII locale.
+    log = tmp_path / "spend.jsonl"
+    snippet = (
+        "import os, sys; from pathlib import Path; "
+        "from greedy_token import spend_ledger; "
+        "os.environ['GREEDY_TOKEN_SPEND_LOG'] = sys.argv[1]; "
+        "spend_ledger.reserve_spend("
+        "reservation_id='r', model_id='Ёлки', est_usd=1.0); "
+        "print(f'{spend_ledger.ledger_spend_usd():.4f}')"
+    )
+    real = _ascii_child(snippet, log)
+    assert real.returncode == 0, real.stderr
+    assert real.stdout.strip() == "1.0000"
+
+
 @allure.title("trust manifest reads UTF-8 under an ASCII locale")
 def test_trust_manifest_utf8_on_ascii_locale(tmp_path: Path) -> None:
     snippet = (

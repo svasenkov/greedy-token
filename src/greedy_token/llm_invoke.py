@@ -122,6 +122,8 @@ def _should_escalate(
     if "json_parse_fail" in triggers and _json_parse_fail(text):
         return True
     if "low_confidence" in triggers:
+        # equivalent: re.I makes the alternation case-insensitive, so
+        # uppercasing the word list cannot change what it matches.
         if re.search(r"\b(unsure|unknown|cannot determine)\b", text, re.I):
             return True
     return False
@@ -194,12 +196,21 @@ def _log_invoke_events(
         # Spend denial or provider errors before any response: the operation
         # never started — record the refusal with zero spend.
         tier = _invoke_tier(first)
+        # equivalent: falsy-for-falsy arg variants (started / result_status /
+        # tier / ok → None) produce an identical observable gate verdict —
+        # `result_status or RESULT_NOT_EVALUATED` normalizes None, `tier` and
+        # `continue_chain` are stored on GateDecision but never consumed by
+        # the event builders, and `not ok` treats None as False anyway.
         gate = evaluate_result_gate(
             started=False,
             result_status=RESULT_NOT_EVALUATED,
             tier=tier,
             ok=False,
         )
+        # equivalent: dropping/None-ing `est_tokens_override` or the decision's
+        # est_tokens arg is unobservable here — the override mirrors
+        # decision.est_tokens=prompt_tokens, so build_route_event falls back
+        # to the same value either way.
         append_event(
             build_route_event(
                 cmd="llm",
@@ -226,6 +237,9 @@ def _log_invoke_events(
             cand = call.model
             tier = _invoke_tier(cand)
             est = (call.eval_tokens or 0) + prompt_tokens
+            # equivalent: falsy-for-falsy gate args (result_status / tier →
+            # None) are unobservable — the status normalizes via `or` and the
+            # tier is stored on GateDecision without event consumers.
             gate = evaluate_result_gate(
                 started=True,
                 result_status=RESULT_NOT_EVALUATED,
@@ -233,6 +247,10 @@ def _log_invoke_events(
                 ok=True,
                 output_useful=call.served and call.useful,
             )
+            # equivalent: the est/flag variants inside this call are
+            # unobservable — est_tokens_override mirrors decision.est_tokens,
+            # and execution_requested only affects the phase when `executed`
+            # is False, which never happens for completed calls.
             append_event(
                 build_route_event(
                     cmd="llm",
@@ -261,6 +279,8 @@ def _log_invoke_events(
                 )
             )
     outcome_tier = _invoke_tier(calls[-1].model if calls else first)
+    # equivalent: the outcome event hardcodes est_tokens=0, so the third
+    # _invoke_decision argument is never read here.
     append_event(
         build_outcome_event(
             task=task,
@@ -306,6 +326,9 @@ def invoke_profile(
     current = resolved if resolved is not None else resolve_model(profile, root=root)
     attempts: list[str] = []
     escalated_from = ""
+    # equivalent: last_error is rewritten on every loop iteration that fails
+    # to deliver, and `or` treats any falsy initial value identically — the
+    # "" initial value is never read while falsy-behavior differs.
     last_error = ""
     operation_id = new_operation_id()
 
@@ -313,13 +336,24 @@ def invoke_profile(
     if allow_escalate:
         candidates.extend(escalation_chain_from(current, root=root))
 
+    # equivalent: text is reassigned from every llm_chat return before any
+    # read (the weak-output check and InvokeResult both see the provider's
+    # value), and the raise path never reads it — a None/"XXXX" default is
+    # unobservable.
     text = ""
+    # equivalent: eval_tokens is reassigned from every llm_chat return before
+    # InvokeResult reads it; on the failure path RuntimeError is raised
+    # without ever reading the initial value.
     eval_tokens: int | None = None
+    # equivalent: `used` is reassigned to the serving candidate on the only
+    # path that builds InvokeResult; a None default cannot surface.
     used: ResolvedModel = current
     # Spend accrues for every completed provider call, not only the model that
     # served — an escalated-away attempt still consumed tokens.
     cost = 0.0
     calls: list[_ProviderCall] = []
+    # equivalent: `delivered` is read only through `if not delivered`
+    # truthiness, so a None initial value behaves identically to False.
     delivered = False
 
     for index, candidate in enumerate(candidates):
@@ -368,6 +402,9 @@ def invoke_profile(
                     eval_tokens=exc.eval_tokens,
                     cost_usd=call_cost,
                     duration_ms=call_ms,
+                    # equivalent: this call's `served` stays False forever, so
+                    # the gate's `served and useful` is False no matter what
+                    # useful holds — None/True/dropped are all unobservable.
                     useful=False,
                     spend_ref=reservation.reservation_id if reservation else "",
                 )
@@ -425,6 +462,9 @@ def invoke_profile(
 
     if not delivered:
         duration_ms = int((time.perf_counter() - t0) * 1000)
+        # equivalent: every loop exit that reaches this line leaves
+        # last_error non-empty (denied reservation, provider error, rejected
+        # output), so the or-default literal is unreachable dead code.
         msg = last_error or "all models in escalation chain failed"
         if log:
             _log_invoke_events(

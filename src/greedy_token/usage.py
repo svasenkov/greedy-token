@@ -106,6 +106,8 @@ def new_operation_id() -> str:
 def logging_enabled(*, no_log: bool = False) -> bool:
     if no_log:
         return False
+    # equivalent: a "XXXX" env-get default reaches the same branch — "" and
+    # "XXXX" are both absent from the off-word tuple, so logging stays enabled.
     if os.environ.get("GREEDY_TOKEN_LOG", "").strip().lower() in ("0", "false", "off", "no"):
         return False
     return True
@@ -250,7 +252,10 @@ def build_route_event(
             ok=outcome_success is not False,
         )
     potential_saved = cursor_saved_for(root, task, est_tokens, decision.target)
+    # equivalent: `exclusion` is only ever truthiness-tested (`if exclusion` /
+    # `not exclusion`) or emitted as a string — a None init routes identically.
     exclusion = ""
+
     if not executed_fact:
         # Advice, a plan, and a refused run have not saved anything yet.
         exclusion = EXCLUSION_NOT_EXECUTED
@@ -307,11 +312,16 @@ def build_route_event(
         event["raw_score"] = round(decision.raw_score, 4)
         event["calibration_n"] = decision.calibration_n
         event["bucket"] = bucket_label(bucket_index(decision.raw_score))
+        # equivalent: RouteDecision is a dataclass that always carries
+        # calibration_segment (default "") — the getattr default is unreachable,
+        # so mutating it to None/"XXXX"/missing changes nothing.
         calibration_segment = getattr(decision, "calibration_segment", "")
         if calibration_segment:
             event["calibration_segment"] = calibration_segment
     if decision.matched:
         event["matched"] = _cap_matched(decision.matched)
+    # equivalent: RouteDecision always carries shadow_route_id (default None),
+    # so mutating the getattr default is unreachable dead code.
     if getattr(decision, "shadow_route_id", None):
         event["shadow_route_id"] = decision.shadow_route_id
         event["shadow"] = True
@@ -440,6 +450,8 @@ def build_outcome_event(
         event["operation_id"] = operation_id
     if parent_operation_id:
         event["parent_operation_id"] = parent_operation_id
+    # equivalent: RouteDecision always carries calibration_segment, so the
+    # getattr default is unreachable; mutating it cannot change behavior.
     calibration_segment = getattr(decision, "calibration_segment", "")
     if calibration_segment:
         event["calibration_segment"] = calibration_segment
@@ -464,6 +476,8 @@ def build_script_event(
     baseline = cursor_baseline(root, task)
     rid = wrapper_route_id(script_id)
     executed_fact = executed is True
+    # equivalent: `exclusion` is only ever truthiness-tested or emitted — a
+    # None init routes identically to "".
     exclusion = ""
     if not executed_fact:
         # A printed command (dry-run) has run nothing.
@@ -587,6 +601,8 @@ def find_prior_cheap_hit(
                 continue
             if row.get("event") == "script_override":
                 continue
+            # equivalent: a missing selected_tier only needs any non-cheap
+            # value — "", None, "XXXX" all fail `tier in CHEAP_TIERS` the same.
             tier = row.get("selected_tier", "")
             if tier not in CHEAP_TIERS:
                 continue
@@ -621,9 +637,14 @@ def maybe_emit_auto_script_override(event: dict, *, path: Path) -> None:
     when = _parse_event_ts(event)
     if when is None:
         return
+    # equivalent: dropping window_sec reverts to the same default —
+    # find_prior_cheap_hit declares window_sec=OVERRIDE_WINDOW_SEC itself.
     prior = find_prior_cheap_hit(path, normalized, when, window_sec=OVERRIDE_WINDOW_SEC)
     if prior is None:
         return
+    # equivalent: find_prior_cheap_hit only returns rows whose selected_tier
+    # is in CHEAP_TIERS, so the `or "python"` fallback is unreachable — any
+    # mutated fallback string is dead.
     previous_tier = prior.get("selected_tier") or "python"
     if previous_tier not in CHEAP_TIERS:  # pragma: no cover - prior hits are pre-filtered to CHEAP_TIERS
         return
@@ -643,6 +664,9 @@ def maybe_emit_auto_script_override(event: dict, *, path: Path) -> None:
         tags=tags,
         operation_id=new_operation_id(),
     )
+    # equivalent: emit_auto_override=None is falsy like False; =True only
+    # re-enters maybe_emit_auto_script_override on the override event itself,
+    # which early-returns on event=="script_override" — no observable change.
     append_event(override, path=path, emit_auto_override=False)
 
 
@@ -697,6 +721,8 @@ def build_compress_event(
 
 
 def max_log_bytes() -> int:
+    # equivalent: a "XXXX" env-get default still fails .isdigit() like "" —
+    # both fall through to DEFAULT_MAX_LOG_BYTES when the var is unset.
     raw = os.environ.get("GREEDY_TOKEN_LOG_MAX_BYTES", "").strip()
     if raw.isdigit():
         return max(1, int(raw))
@@ -704,6 +730,8 @@ def max_log_bytes() -> int:
 
 
 def max_rotated_files() -> int:
+    # equivalent: a "XXXX" env-get default still fails .isdigit() like "" —
+    # both fall through to DEFAULT_MAX_ROTATED when the var is unset.
     raw = os.environ.get("GREEDY_TOKEN_LOG_MAX_FILES", "").strip()
     if raw.isdigit():
         return max(1, int(raw))
@@ -757,6 +785,8 @@ def session_id() -> str:
         raw = session_file().read_text(encoding="utf-8").strip()
     except (OSError, ValueError):
         return ""
+    # equivalent: only element [0] is read, and maxsplit never affects the
+    # first split element — dropping it or raising it to 2 is unobservable.
     return raw.split("\n", 1)[0].strip()[:SESSION_ID_MAX_LEN]
 
 
@@ -782,6 +812,8 @@ def append_event(
     try:
         _ensure_log_dir(target)
         rotate_log_if_needed(target)
+        # equivalent: json treats ensure_ascii=None as falsy → the same
+        # non-escaping UTF-8 path as False; only a truthy value would escape.
         line = json.dumps(event, ensure_ascii=False, separators=(",", ":"))
         # newline="" pins LF bytes — text mode would translate to CRLF on Windows.
         with target.open("a", encoding="utf-8", newline="") as fh:
@@ -794,6 +826,8 @@ def append_event(
 
 
 def maybe_append_event(args, event: dict) -> None:
+    # equivalent: getattr default False vs None are both falsy — no_log only
+    # feeds `if no_log`, so the mutated default routes identically.
     if not logging_enabled(no_log=getattr(args, "no_log", False)):
         return
     append_event(event)
@@ -820,6 +854,8 @@ def parse_since(value: str | None) -> datetime | None:
     try:
         # The value was lowercased for the shorthands — the ISO "Z" suffix
         # arrived as "z", so normalize the suffix case-insensitively.
+        # equivalent: `value` was lowercased above, so the "Z" tuple member is
+        # dead — mutating it cannot change the endswith result.
         raw = value[:-1] + "+00:00" if value.endswith(("z", "Z")) else value
         dt = datetime.fromisoformat(raw)
         if dt.tzinfo is None:
@@ -832,10 +868,16 @@ def parse_since(value: str | None) -> datetime | None:
 
 
 def _parse_event_ts(event: dict) -> datetime | None:
+    # equivalent: any default here lands on `if not ts_raw: return None` (for
+    # falsy values) or on the except-ValueError path (for junk like "XXXX") —
+    # every mutation of the default returns None for a missing "ts".
     ts_raw = event.get("ts", "")
     if not ts_raw:
         return None
     try:
+        # equivalent: on Python >=3.11 fromisoformat parses a trailing "Z"
+        # natively, so rewriting the replace pattern ("Z"→"XXZXX" or "z")
+        # never changes the parse result for real inputs.
         ts = datetime.fromisoformat(ts_raw.replace("Z", "+00:00"))
         if ts.tzinfo is None:
             ts = ts.replace(tzinfo=UTC)
@@ -971,6 +1013,9 @@ def quality_metrics(events: list[dict], *, since_label: str | None = None) -> di
 
     for event in events:
         if event.get("event") == OUTCOME_EVENT:
+            # equivalent: `outcome` is only compared against "success" and
+            # "failure" — every other fallback string lands in the same
+            # "other" bucket, so mutating the literal is unobservable.
             outcome = str(event.get("outcome") or "unknown")
             tier = str(event.get("selected_tier") or "unknown")
             tier_counts = outcomes_by_tier.setdefault(
@@ -992,6 +1037,8 @@ def quality_metrics(events: list[dict], *, since_label: str | None = None) -> di
             override_by_crystal[crystal] = override_by_crystal.get(crystal, 0) + 1
             override_total += 1
             continue
+        # equivalent: a missing selected_tier only needs any value outside
+        # CHEAP_TIERS — "", None, and "XXXX" all take the same skip branch.
         tier = event.get("selected_tier", "")
         if tier in CHEAP_TIERS:
             crystal = event.get("route_id") or "unknown"
@@ -1000,6 +1047,8 @@ def quality_metrics(events: list[dict], *, since_label: str | None = None) -> di
             cheap_hits_total += 1
 
     override_rate = round(override_total / max(1, cheap_hits_total), 4)
+    # equivalent: override_rate was already rounded to 4 decimals, so
+    # 1.0 - rate never needs a 5th decimal — round(…, 5) is identical output.
     cheap_hold_rate = round(max(0.0, 1.0 - override_rate), 4)
     measured_outcomes = outcome_successes + outcome_failures
     task_success_rate = (

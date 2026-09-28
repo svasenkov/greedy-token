@@ -469,3 +469,41 @@ def test_chat_openai_compat_malformed(monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(MalformedResponseError, match="no choices") as err:
         _chat_openai_compat(settings, system="s", user="u", timeout=1.0)
     assert err.value.eval_tokens == 7
+
+
+@allure.story("Malformed responses")
+@allure.title("openai_compat choice without message content is a structured error, not TypeError")
+def test_chat_openai_compat_no_message_content(monkeypatch: pytest.MonkeyPatch) -> None:
+    import io
+    import json as _json
+    from contextlib import contextmanager
+
+    from greedy_token.cheap_llm import MalformedResponseError, _chat_openai_compat
+
+    @contextmanager
+    def _fake(payload: dict):
+        yield io.BytesIO(_json.dumps(payload).encode("utf-8"))
+
+    settings = CheapLlmSettings(provider="openai_compat", url="http://x/v1", model="m", source="t")
+
+    # message["content"] is None — e.g. a tool-calls-only reply shape.
+    monkeypatch.setattr(
+        "urllib.request.urlopen",
+        lambda *a, **k: _fake(
+            {
+                "choices": [{"message": {"content": None}}],
+                "usage": {"completion_tokens": 4},
+            }
+        ),
+    )
+    with pytest.raises(MalformedResponseError, match="no message content") as err:
+        _chat_openai_compat(settings, system="s", user="u", timeout=1.0)
+    assert err.value.eval_tokens == 4
+
+    # choices[0] is a dict but carries no "message" key at all.
+    monkeypatch.setattr(
+        "urllib.request.urlopen",
+        lambda *a, **k: _fake({"choices": [{"finish_reason": "stop"}]}),
+    )
+    with pytest.raises(MalformedResponseError, match="no message content"):
+        _chat_openai_compat(settings, system="s", user="u", timeout=1.0)

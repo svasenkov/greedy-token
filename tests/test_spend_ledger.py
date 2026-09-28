@@ -15,13 +15,14 @@ import pytest
 import yaml
 
 import allure
-from greedy_token import spend_guard
+from greedy_token import spend_guard, spend_ledger
 from greedy_token.model_select import ModelSpec
 from greedy_token.spend_ledger import (
     ledger_spend_by_tier,
     ledger_spend_usd,
     metered_spend_usd,
     release_spend,
+    reservation_ttl_sec,
     reserve_spend,
     settle_spend,
     spend_log_path,
@@ -250,3 +251,289 @@ def test_spend_log_path(metered_root: Path, monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.delenv("GREEDY_TOKEN_SPEND_LOG")
     home = Path(os.environ["GREEDY_TOKEN_HOME"])
     assert spend_log_path() == home / "spend.jsonl"
+
+
+@allure.title("an unparseable GREEDY_SPEND_RESERVATION_TTL_SEC falls back to the default")
+def test_reservation_ttl_bad_env(metered_root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GREEDY_SPEND_RESERVATION_TTL_SEC", "not-a-number")
+    assert reservation_ttl_sec() == 600.0
+    monkeypatch.setenv("GREEDY_SPEND_RESERVATION_TTL_SEC", "")
+    assert reservation_ttl_sec() == 600.0
+    monkeypatch.setenv("GREEDY_SPEND_RESERVATION_TTL_SEC", "30")
+    assert reservation_ttl_sec() == 30.0
+
+
+@allure.title("the ledger reader skips junk rows and still counts the valid tail")
+def test_iter_spend_records_skips_junk(metered_root: Path) -> None:
+    # Every skip-triggering row precedes a valid one, so a continue→break
+    # mutation on any filter undercounts the ledger.
+    now = datetime.now(UTC).isoformat()
+    spend_log_path().write_text(
+        "\n"  # blank line → `if not line`
+        "not-json\n"  # JSONDecodeError → continue
+        "[1, 2]\n"  # valid JSON but not a dict → continue
+        + json.dumps({"kind": "reserve", "est_usd": 9.0}) + "\n"  # no id → continue
+        + json.dumps({"kind": "audit", "id": "q1", "est_usd": 9.0}) + "\n"  # unknown kind
+        + json.dumps({"kind": "reserve", "id": "no-ts", "est_usd": 9.0}) + "\n"  # ts absent → stale
+        + json.dumps({"kind": "reserve", "id": "bad-ts", "ts": "junk", "est_usd": 9.0}) + "\n"
+        + json.dumps({"kind": "reserve", "id": "no-outcome-ts", "ts": now, "est_usd": 9.0}) + "\n"
+        + json.dumps({"kind": "settle", "id": "no-outcome-ts"}) + "\n"  # settle without ts → not in window
+        + json.dumps({"kind": "reserve", "id": "ok", "ts": now, "est_usd": 0.5}) + "\n",
+        encoding="utf-8",
+    )
+    assert ledger_spend_usd() == pytest.approx(0.5)
+
+
+@allure.title("a fresh pending reservation outside the since window does not count")
+def test_pending_reserve_outside_since_window(metered_root: Path) -> None:
+    # Within the 600s TTL (fresh) but before `since` — skipped by the window
+    # check, not by staleness.
+    old_fresh = (datetime.now(UTC) - timedelta(minutes=5)).isoformat()
+    with spend_log_path().open("a", encoding="utf-8") as fh:
+        fh.write(
+            json.dumps(
+                {"kind": "reserve", "id": "old", "ts": old_fresh, "est_usd": 3.0}
+            )
+            + "\n"
+        )
+    reserve_spend(reservation_id="recent", model_id="bulk", est_usd=5.0)
+    since = datetime.now(UTC) - timedelta(minutes=2)
+    assert ledger_spend_usd(since=since) == pytest.approx(5.0)
+
+
+@allure.title("an unreadable ledger file reads as zero, not as a crash")
+def test_iter_spend_records_unreadable(metered_root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    target = spend_log_path()
+    target.write_text(
+        json.dumps({"kind": "reserve", "id": "r", "ts": datetime.now(UTC).isoformat(), "est_usd": 7.0})
+        + "\n",
+        encoding="utf-8",
+    )
+    real_read_text = Path.read_text
+
+    def guarded(self: Path, *args: object, **kwargs: object) -> str:
+        if self == target:
+            raise OSError("read denied")
+        return real_read_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", guarded)
+    assert ledger_spend_usd() == 0.0
+
+
+@allure.title("unwritable ledger rows warn on stderr instead of crashing the call path")
+def test_settle_release_write_failure_warns(
+    metered_root: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # A directory named spend.jsonl: open("a") fails on every OS (IsADirectory
+    # on POSIX, PermissionError on Windows) while the .lock sidecar still works.
+    spend_log_path().mkdir()
+    settle_spend("r9", cost_usd=1.0)
+    release_spend("r9")
+    err = capsys.readouterr().err
+    assert err.count("spend ledger write failed") == 2
+
+
+@allure.title("a reservation that cannot be persisted fails the cap check closed")
+def test_unwritable_ledger_fails_closed(metered_root: Path) -> None:
+    spend_log_path().mkdir()
+    reservation = spend_guard.reserve_metered_call(_spec(), root=metered_root, est_cost_usd=0.01)
+    assert not reservation.allowed
+    assert "spend ledger write failed" in reservation.reason
+
+
+@allure.title("an unreadable usage archive is skipped, later archives still count")
+def test_usage_metered_archive_unreadable(metered_root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    usage = metered_root / "usage.jsonl"
+    bad_archive = usage.with_name("usage.jsonl.1")
+    later_archive = usage.with_name("usage.jsonl.2")
+    usage.write_text(json.dumps(_usage_event(cost=0.2)) + "\n", encoding="utf-8")
+    bad_archive.write_text(json.dumps(_usage_event(cost=9.0)) + "\n", encoding="utf-8")
+    # A valid archive after the unreadable one kills a continue→break mutant.
+    later_archive.write_text(json.dumps(_usage_event(cost=0.3)) + "\n", encoding="utf-8")
+    real_read_text = Path.read_text
+
+    def guarded(self: Path, *args: object, **kwargs: object) -> str:
+        if self == bad_archive:
+            raise OSError("read denied")
+        return real_read_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", guarded)
+    assert usage_metered_spend_usd() == pytest.approx(0.5)
+
+
+# --------------------------------------------------------------------------
+# Mutation-kill coverage — assertions a surviving mutant cannot satisfy.
+# --------------------------------------------------------------------------
+
+
+@allure.title("GREEDY_TOKEN_SPEND_LOG disable tokens route to the home default")
+@pytest.mark.parametrize("value", ["0", "false", "off", "no"])
+def test_spend_log_path_disable_tokens(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    monkeypatch.setenv("GREEDY_TOKEN_HOME", str(tmp_path))
+    monkeypatch.setenv("GREEDY_TOKEN_SPEND_LOG", value)
+    assert spend_log_path() == tmp_path / "spend.jsonl"
+
+
+@allure.title("no env vars at all → ~/.greedy-token/spend.jsonl")
+def test_spend_log_path_full_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("GREEDY_TOKEN_SPEND_LOG", raising=False)
+    monkeypatch.delenv("GREEDY_TOKEN_HOME", raising=False)
+    assert spend_log_path() == Path.home() / ".greedy-token" / "spend.jsonl"
+
+
+@allure.title("explicit zero TTL is honoured — not clamped to a positive floor")
+def test_reservation_ttl_zero(metered_root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GREEDY_SPEND_RESERVATION_TTL_SEC", "0")
+    assert reservation_ttl_sec() == 0.0
+    monkeypatch.setenv("GREEDY_SPEND_RESERVATION_TTL_SEC", "0.5")
+    assert reservation_ttl_sec() == 0.5
+
+
+@allure.title("reserve rows carry UTC-aware ts and the full key schema")
+def test_reserve_record_schema(metered_root: Path) -> None:
+    reserve_spend(reservation_id="schema", model_id="модель", est_usd=0.01)
+    rec = json.loads(spend_log_path().read_text(encoding="utf-8").strip())
+    assert rec["kind"] == "reserve" and rec["id"] == "schema"
+    assert rec["model_id"] == "модель" and rec["op"] == "" and rec["billing_tier"] == ""
+    assert rec["est_usd"] == pytest.approx(0.01)
+    assert datetime.fromisoformat(rec["ts"]).tzinfo is not None
+
+
+@allure.title("spend rows are compact UTF-8 JSONL — Cyrillic is not escaped")
+def test_spend_record_compact_utf8(metered_root: Path) -> None:
+    reserve_spend(reservation_id="enc", model_id="модель-x", est_usd=0.01)
+    raw = spend_log_path().read_bytes()
+    assert "модель-x".encode() in raw
+    assert b'", "' not in raw and b'": "' not in raw
+
+
+@allure.title("a nested missing GREEDY_TOKEN_HOME is created for the ledger")
+def test_reserve_creates_missing_parents(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    home = tmp_path / "deep" / "nested" / "home"
+    monkeypatch.setenv("GREEDY_TOKEN_HOME", str(home))
+    monkeypatch.delenv("GREEDY_TOKEN_SPEND_LOG", raising=False)
+    reserve_spend(reservation_id="deep", model_id="m", est_usd=0.01)
+    assert (home / "spend.jsonl").is_file()
+
+
+@allure.title("a fresh reserve row without an id never counts")
+def test_ledger_row_without_id_skipped(metered_root: Path) -> None:
+    now = datetime.now(UTC).isoformat()
+    spend_log_path().write_text(
+        json.dumps({"kind": "reserve", "ts": now, "est_usd": 9.0}) + "\n",
+        encoding="utf-8",
+    )
+    assert ledger_spend_usd() == 0.0
+
+
+@allure.title("settled rows outside the since window do not count")
+def test_ledger_settle_outside_window(metered_root: Path) -> None:
+    old = (datetime.now(UTC) - timedelta(days=3)).isoformat()
+    spend_log_path().write_text(
+        json.dumps({"kind": "reserve", "id": "w1", "ts": old, "est_usd": 1.0}) + "\n"
+        + json.dumps({"kind": "settle", "id": "w1", "ts": old, "cost_usd": 1.0}) + "\n",
+        encoding="utf-8",
+    )
+    since = datetime.now(UTC) - timedelta(hours=1)
+    assert ledger_spend_usd(since=since) == 0.0
+
+
+@allure.title("two settled calls in one tier accumulate, not overwrite")
+def test_ledger_settles_accumulate(metered_root: Path) -> None:
+    reserve_spend(reservation_id="a1", model_id="m", est_usd=0.1)
+    settle_spend("a1", cost_usd=0.1)
+    reserve_spend(reservation_id="a2", model_id="m", est_usd=0.2)
+    settle_spend("a2", cost_usd=0.2)
+    assert ledger_spend_usd() == pytest.approx(0.3)
+
+
+@allure.title("include_pending=False still scans every later settled row")
+def test_ledger_include_pending_false_scans_all(metered_root: Path) -> None:
+    now = datetime.now(UTC).isoformat()
+    spend_log_path().write_text(
+        json.dumps({"kind": "reserve", "id": "pend", "ts": now, "est_usd": 9.0}) + "\n"
+        + json.dumps({"kind": "reserve", "id": "done", "ts": now, "est_usd": 0.5}) + "\n"
+        + json.dumps({"kind": "settle", "id": "done", "ts": now, "cost_usd": 0.5}) + "\n",
+        encoding="utf-8",
+    )
+    assert ledger_spend_usd(include_pending=False) == pytest.approx(0.5)
+
+
+@allure.title("a pending reservation exactly at the TTL boundary still counts")
+def test_ledger_pending_at_ttl_boundary(
+    metered_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("GREEDY_SPEND_RESERVATION_TTL_SEC", "600")
+    fixed = datetime(2026, 2, 1, 12, 0, 0, tzinfo=UTC)
+
+    class _FrozenDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return fixed
+
+    monkeypatch.setattr(spend_ledger, "datetime", _FrozenDatetime)
+    boundary = (fixed - timedelta(seconds=600)).isoformat()
+    spend_log_path().write_text(
+        json.dumps({"kind": "reserve", "id": "edge", "ts": boundary, "est_usd": 2.0})
+        + "\n",
+        encoding="utf-8",
+    )
+    # `> ttl` keeps the row, `>= ttl` drops it.
+    assert ledger_spend_usd() == pytest.approx(2.0)
+
+
+@allure.title("pending reservations count in metered_spend_usd by default")
+def test_metered_spend_default_counts_pending(metered_root: Path) -> None:
+    reserve_spend(reservation_id="mp", model_id="bulk", est_usd=0.4)
+    assert metered_spend_usd() == pytest.approx(0.4)
+
+
+@allure.title("metered spend applies the since window to the ledger side too")
+def test_metered_spend_since_window(metered_root: Path) -> None:
+    old = (datetime.now(UTC) - timedelta(days=3)).isoformat()
+    spend_log_path().write_text(
+        json.dumps({"kind": "reserve", "id": "ms", "ts": old, "est_usd": 1.0}) + "\n"
+        + json.dumps({"kind": "settle", "id": "ms", "ts": old, "cost_usd": 1.0}) + "\n",
+        encoding="utf-8",
+    )
+    since = datetime.now(UTC) - timedelta(hours=1)
+    assert metered_spend_usd(since=since) == 0.0
+
+
+@allure.title("include_pending=False drops pending rows entirely")
+def test_ledger_spend_usd_exclude_pending(metered_root: Path) -> None:
+    reserve_spend(reservation_id="xp", model_id="bulk", est_usd=7.0)
+    assert ledger_spend_usd(include_pending=False) == 0.0
+
+
+@allure.title("non-finite ledger amounts contribute zero, not inf")
+def test_ledger_ignores_infinite_amounts(metered_root: Path) -> None:
+    now = datetime.now(UTC).isoformat()
+    spend_log_path().write_text(
+        '{"kind": "reserve", "id": "inf", "ts": "' + now + '", "est_usd": Infinity}\n'
+        + '{"kind": "reserve", "id": "inf2", "ts": "' + now + '", "est_usd": 1.0}\n'
+        + '{"kind": "settle", "id": "inf2", "ts": "' + now + '", "cost_usd": Infinity}\n',
+        encoding="utf-8",
+    )
+    assert ledger_spend_usd() == 0.0
+
+
+@allure.title("a lowercase-z timestamp is rejected, not silently parsed")
+def test_ledger_lowercase_z_ts_rejected(metered_root: Path) -> None:
+    # Fresh ts: the row must clear the TTL filter and die on `_parse_ts` alone —
+    # a stale row would be skipped for a different reason and miss the mutant.
+    fresh_z = datetime.now(UTC).isoformat().replace("+00:00", "z")
+    spend_log_path().write_text(
+        json.dumps({"kind": "reserve", "id": "lz", "ts": fresh_z, "est_usd": 9.0})
+        + "\n",
+        encoding="utf-8",
+    )
+    assert ledger_spend_usd() == 0.0
+
+
+@allure.title("metered_spend_usd honours include_pending=False")
+def test_metered_spend_excludes_pending(metered_root: Path) -> None:
+    reserve_spend(reservation_id="mpf", model_id="bulk", est_usd=6.0)
+    assert metered_spend_usd(include_pending=False) == 0.0

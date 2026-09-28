@@ -738,6 +738,49 @@ def test_list_sessions_scoped(hub_home: Path) -> None:
     assert [s["session_id"] for s in result] == ["beta", "alpha"]
 
 
+@allure.title("_event_session_id also honours session ids nested under tags")
+def test_event_session_id_from_tags() -> None:
+    assert sessions._event_session_id({"tags": {"session_id": "s-tag"}}) == "s-tag"
+    # A miss on the first key must not end the scan — "sid" is still found.
+    assert sessions._event_session_id({"tags": {"sid": "s2"}}) == "s2"
+    # Non-string and empty values are not ids.
+    assert sessions._event_session_id({"tags": {"session_id": 5}}) == ""
+    assert sessions._event_session_id({"tags": {"session_id": ""}}) == ""
+    assert sessions._event_session_id({}) == ""
+    # Top-level keys still win over tags.
+    assert sessions._event_session_id(
+        {"session_id": "top", "tags": {"session_id": "nested"}}
+    ) == "top"
+
+
+@allure.title("_aggregate attributes tag-carried session ids like top-level ones")
+def test_aggregate_session_id_in_tags() -> None:
+    from datetime import UTC, datetime
+
+    events = [
+        {"ts": "2026-07-15T12:00:00Z", "tags": {"sid": "tagged"}, "cursor_saved": 11},
+        {"ts": "2026-07-15T12:05:00Z", "tags": {"sid": "other"}, "cursor_saved": 999},
+    ]
+    out = sessions._aggregate(
+        events,
+        session_id="tagged",
+        since=datetime(2026, 1, 1, tzinfo=UTC),
+        until=None,
+    )
+    assert out["saved_vs_cursor"] == 11
+
+
+@allure.title("_aggregate_window drops events older than the since bound, keeps the rest")
+def test_aggregate_window_since() -> None:
+    events = [
+        {"ts": "2020-01-01T00:00:00Z", "cursor_saved": 999, "est_tokens": 9},
+        {"ts": "2026-07-15T12:00:00Z", "cursor_saved": 10, "est_tokens": 5},
+    ]
+    out = sessions._aggregate_window(events, since=datetime(2026, 1, 1, tzinfo=UTC))
+    assert out["saved_vs_cursor"] == 10
+    assert out["est_tokens"] == 5
+
+
 # ---------------------------------------------------------------- providers
 
 

@@ -297,3 +297,777 @@ equivalents:
       replaces it with bind_verified_argv's tuple first. For non-manifest
       execution both None and () omit the pass_fds subprocess keyword.
     pragma: true
+
+  - module: spend_ledger.py
+    symbol: reservation_ttl_sec
+    reason: >-
+      a "XXXX" env-get default and `if raw or True` both still route an
+      unset/empty env through float("") → ValueError → default TTL — the
+      except branch makes them unobservable.
+    proof: >-
+      With the env unset, "" and a junk default are both fed to float(),
+      which raises ValueError → the except branch returns the default TTL;
+      `if raw or True` likewise pushes "" into float("") → ValueError → the
+      same branch. Either mutation yields the identical return value.
+    pragma: false
+
+  - module: spend_ledger.py
+    symbol: _parse_ts
+    reason: >-
+      a junk replace pattern ("XXZXX") never matches, and Python ≥3.12
+      (pinned requires-python) parses the "Z" suffix natively — skipping the
+      replace leaves timestamps identical.
+    proof: >-
+      datetime.fromisoformat accepts a trailing "Z" natively since Python
+      3.11, and requires-python is >=3.12, so `raw.replace("XXZXX", ...)`
+      (a no-op) feeds the same "…Z" string to a parser that handles it
+      directly — the result is the same tz-aware datetime. Verified under
+      CPython 3.14.
+    pragma: false
+
+  - module: spend_ledger.py
+    symbol: _finite
+    reason: >-
+      `> 0` vs `>= 0` differ only at cost == 0, where returning cost and
+      returning 0.0 are the same value.
+    proof: >-
+      The comparison flips only when cost == 0; there the true branch returns
+      cost (0.0) and the else branch returns 0.0 — identical, so the
+      mutation is unobservable.
+    pragma: false
+
+  - module: spend_ledger.py
+    symbol: _append_spend_record
+    reason: >-
+      a codec-name case-flip ("UTF-8") is the same codec on every host
+      (codecs.lookup normalizes case).  A dropped/defaulted encoding is NOT
+      equivalent — killed by tests/test_portability.py's ASCII-locale child,
+      which mutmut cannot attribute to this function (subprocess coverage),
+      so the mutant reports survived.  newline=None vs "" is equivalent on
+      the POSIX hosts where campaigns run — both translate to the same \n
+      bytes; only Windows (never mutated on) diverges.
+    proof: >-
+      codecs.lookup() normalizes case, so "UTF-8" is byte-identical to
+      "utf-8".  encoding=None under LC_ALL=C writes Cyrillic via ASCII →
+      UnicodeEncodeError — proven by test_spend_ledger_utf8_on_ascii_locale
+      (mutmut reports survived because trampoline coverage does not cross
+      the subprocess boundary, so the killing test is not in the mutant's
+      associated set).  For newline: os.linesep is "\n" on POSIX, so
+      newline=None and newline="" write identical bytes; the CRLF divergence
+      exists only on Windows, which the campaign never runs on.
+    pragma: false
+
+  - module: spend_ledger.py
+    symbol: release_spend
+    reason: >-
+      a release outcome is only gated on kind == "settle" in
+      ledger_spend_by_tier — its ts key is never parsed, so renaming it
+      changes nothing observable.
+    proof: >-
+      outcomes[rid] is consulted solely inside `if outcome.get("kind") ==
+      "settle"` — for kind == "release" the branch is skipped before ts is
+      read, so a "ts"/"XXtsXX"/"TS" key mutation is invisible to every
+      consumer.
+    pragma: false
+
+  - module: spend_ledger.py
+    symbol: _iter_spend_records
+    reason: >-
+      a codec-name case-flip ("UTF-8") is the same codec on every host
+      (codecs.lookup normalizes case).  A dropped/defaulted encoding is NOT
+      equivalent — killed by tests/test_portability.py's ASCII-locale child,
+      which mutmut cannot attribute to this function (subprocess coverage),
+      so the mutant reports survived.
+    proof: >-
+      codecs.lookup() normalizes case, so "UTF-8" is byte-identical to
+      "utf-8".  encoding=None under LC_ALL=C decodes UTF-8 Cyrillic via
+      ASCII → UnicodeDecodeError — proven by
+      test_spend_ledger_utf8_on_ascii_locale (mutmut reports survived because
+      trampoline coverage does not cross the subprocess boundary).
+    pragma: false
+
+  - module: spend_ledger.py
+    symbol: _append_spend_record
+    reason: >-
+      ensure_ascii=None is falsy, so json.dumps takes the same non-escaping
+      path as ensure_ascii=False.
+    proof: >-
+      The json encoder gates escaping on a truthiness check (`if
+      ensure_ascii:`), so None and False select the identical code path —
+      the emitted line is byte-identical.
+    pragma: false
+  - module: llm_invoke.py
+    symbol: _should_escalate
+    reason: >-
+      re.I makes the alternation case-insensitive, so uppercasing the word
+      list cannot change what it matches.
+    proof: >-
+      The pattern is compiled with re.I; (UNSURE|UNKNOWN|CANNOT DETERMINE)
+      with re.I matches exactly the same strings as the lowercase variant —
+      no observable difference in any input.
+    pragma: false
+
+  - module: llm_invoke.py
+    symbol: _log_invoke_events
+    reason: >-
+      falsy-for-falsy arg variants (started / result_status / tier / ok →
+      None) produce an identical observable gate verdict — `result_status or
+      RESULT_NOT_EVALUATED` normalizes None, `tier` and `continue_chain` are
+      stored on GateDecision but never consumed by the event builders, and
+      `not ok` treats None as False anyway.
+    proof: >-
+      evaluate_result_gate reads `not started`, `result_status or
+      RESULT_NOT_EVALUATED`, `tier in CONTRACT_TIERS`, and `if not ok`; a
+      None arg is falsy exactly like False/"" here, and the surviving
+      GateDecision fields the events actually serialize (result_status,
+      action, reason, savings_*, outcome) are unchanged.
+    pragma: false
+
+  - module: llm_invoke.py
+    symbol: _log_invoke_events
+    reason: >-
+      dropping/None-ing `est_tokens_override` or the decision's est_tokens
+      arg is unobservable here — the override mirrors
+      decision.est_tokens=prompt_tokens, so build_route_event falls back to
+      the same value either way.
+    proof: >-
+      build_route_event computes `est_tokens_override if it is not None else
+      decision.est_tokens`; both are prompt_tokens at this site, so any
+      mutation dropping either argument yields the identical est_tokens.
+    pragma: false
+
+  - module: llm_invoke.py
+    symbol: _log_invoke_events
+    reason: >-
+      falsy-for-falsy gate args (result_status / tier → None) are
+      unobservable — the status normalizes via `or` and the tier is stored
+      on GateDecision without event consumers.
+    proof: >-
+      `result_status or RESULT_NOT_EVALUATED` turns None into the same
+      status, and GateDecision.tier is never serialized by the route/outcome
+      event builders — the emitted JSON is identical.
+    pragma: false
+
+  - module: llm_invoke.py
+    symbol: _log_invoke_events
+    reason: >-
+      the est/flag variants inside this call are unobservable —
+      est_tokens_override mirrors decision.est_tokens, and
+      execution_requested only affects the phase when `executed` is False,
+      which never happens for completed calls.
+    proof: >-
+      This branch only runs for calls that returned a response, so
+      executed=True → PHASE_EXECUTED regardless of execution_requested; and
+      est_tokens_override=None falls back to decision.est_tokens=est — the
+      same number.
+    pragma: false
+
+  - module: llm_invoke.py
+    symbol: _log_invoke_events
+    reason: >-
+      the outcome event hardcodes est_tokens=0, so the third
+      _invoke_decision argument is never read here.
+    proof: >-
+      build_outcome_event writes "est_tokens": 0 unconditionally; mutating
+      the est_tokens argument passed to _invoke_decision cannot reach the
+      emitted event.
+    pragma: false
+
+  - module: llm_invoke.py
+    symbol: invoke_profile
+    reason: >-
+      last_error is rewritten on every loop iteration that fails to
+      deliver, and `or` treats any falsy initial value identically — the ""
+      initial value is never read while falsy-behavior differs.
+    proof: >-
+      candidates always holds at least the resolved model; every iteration
+      either delivers (no read of last_error afterwards) or assigns
+      last_error before the raise — so the initial value, falsy or junk,
+      cannot reach the RuntimeError message.
+    pragma: false
+
+  - module: llm_invoke.py
+    symbol: invoke_profile
+    reason: >-
+      text is reassigned from every llm_chat return before any read (the
+      weak-output check and InvokeResult both see the provider's value),
+      and the raise path never reads it — a None/"XXXX" default is
+      unobservable.
+    proof: >-
+      `text` is only read after llm_chat assigns it inside the loop, or not
+      at all on the raise path — the initialized value never flows to any
+      consumer.
+    pragma: false
+
+  - module: llm_invoke.py
+    symbol: invoke_profile
+    reason: >-
+      eval_tokens is reassigned from every llm_chat return before
+      InvokeResult reads it; on the failure path RuntimeError is raised
+      without ever reading the initial value.
+    proof: >-
+      InvokeResult is built only after a successful call that sets
+      eval_tokens; the failure branch raises before constructing the result.
+    pragma: false
+
+  - module: llm_invoke.py
+    symbol: invoke_profile
+    reason: >-
+      `used` is reassigned to the serving candidate on the only path that
+      builds InvokeResult; a None default cannot surface.
+    proof: >-
+      `used = candidate` runs before InvokeResult is constructed on every
+      delivered path; the non-delivered path raises instead.
+    pragma: false
+
+  - module: llm_invoke.py
+    symbol: invoke_profile
+    reason: >-
+      `delivered` is read only through `if not delivered` truthiness, so a
+      None initial value behaves identically to False.
+    proof: >-
+      The only reads are truthiness checks (`if not delivered:`) and the
+      flag is assigned True on delivery — None and False are both falsy.
+    pragma: false
+
+  - module: llm_invoke.py
+    symbol: invoke_profile
+    reason: >-
+      this call's `served` stays False forever, so the gate's `served and
+      useful` is False no matter what useful holds — None/True/dropped are
+      all unobservable.
+    proof: >-
+      _ProviderCall.served defaults False and is only set to True on the
+      serving path, which this MalformedResponseError branch never reaches;
+      `call.served and call.useful` short-circuits to False for any value
+      of useful.
+    pragma: false
+
+  - module: llm_invoke.py
+    symbol: invoke_profile
+    reason: >-
+      every loop exit that reaches this line leaves last_error non-empty
+      (denied reservation, provider error, rejected output), so the
+      or-default literal is unreachable dead code.
+    proof: >-
+      Reaching the raise requires `not delivered`; each such path assigns
+      last_error (reservation.reason, redacted exception text, or the
+      rejected-output message) before breaking, so `last_error or <lit>`
+      never selects the literal.
+    pragma: false
+  - module: budget.py
+    symbol: format_spent_line
+    reason: >-
+      spent_hint returns "" for any unlisted tier, so a "XXXX" default
+      renders identically to "".
+    proof: >-
+      spent_hint only produces text for the tool/python/ollama/rag/cursor
+      tiers; both "" and the mutated "XXXX" fall through to `return ""`, so
+      the rendered spent line is byte-identical.
+    pragma: false
+
+  - module: budget.py
+    symbol: format_savings_lines
+    reason: >-
+      spent_hint returns "" for any unlisted tier, so a "XXXX" default
+      renders identically to "".
+    proof: >-
+      Same as format_spent_line — the tier default is only consulted by
+      spent_hint, which returns "" for both "" and "XXXX".
+    pragma: false
+
+  - module: budget.py
+    symbol: format_savings_lines
+    reason: >-
+      format_spent_line defaults indent to the same "  ".
+    proof: >-
+      Dropping `indent="  "` reaches format_spent_line's declared default
+      `indent: str = "  "`, so the call is unchanged.
+    pragma: false
+
+  - module: budget.py
+    symbol: _format_tier_alternatives
+    reason: >-
+      route_task_all_tiers only yields tiers that are all TIER_LABELS keys,
+      so the `tier` fallback default is unreachable.
+    proof: >-
+      The tier scan iterates the fixed tool/python/ollama/rag/cursor set and
+      every one of those names is a key in TIER_LABELS, so .get never falls
+      back to the raw tier name regardless of what the default is.
+    pragma: false
+
+  - module: budget.py
+    symbol: _cheap_billing_note
+    reason: >-
+      a "XXXX" fallback matches no registry model just like "" —
+      billing_note_for_model returns "local free" either way.
+    proof: >-
+      billing_note_for_model only returns "metered" for a registry match;
+      "XXXX" is not a configured model id, so it takes the same "local free"
+      path as the empty string.
+    pragma: false
+
+  - module: budget.py
+    symbol: _billing_short
+    reason: >-
+      `if model_id` treats a None fallback identically to "" — the label
+      prefix stays empty in both cases.
+    proof: >-
+      The env-var fallback is only consumed by `f"{model_id}/" if model_id
+      else ""`; None and "" are both falsy, so the label is "" either way.
+    pragma: false
+
+  - module: budget.py
+    symbol: _build_tool_footer_context
+    reason: >-
+      the only caller (format_tool_footer) always forwards route_id
+      explicitly, so this default is unreachable.
+    proof: >-
+      format_tool_footer passes `route_id=route_id` unconditionally, so the
+      "XXXX" default mutation can never be observed through the public API.
+    pragma: false
+
+  - module: budget.py
+    symbol: _build_tool_footer_context
+    reason: >-
+      format_tool_footer always forwards executed explicitly, so this
+      default is unreachable.
+    proof: >-
+      format_tool_footer passes `executed=executed` unconditionally, so
+      flipping the default to False never reaches ToolFooterContext.
+    pragma: false
+
+  - module: budget.py
+    symbol: _build_tool_footer_context
+    reason: >-
+      ctx.task_success is recorded for callers/debugging, but no renderer
+      reads it — a None/omitted mutation is unobservable.
+    proof: >-
+      _format_tool_footer_compact/_markdown/_full never reference
+      ctx.task_success; the stored field only documents intent, so mutating
+      the forwarded value changes nothing rendered.
+    pragma: false
+
+  - module: budget.py
+    symbol: _format_tool_footer_full
+    reason: >-
+      format_spent_line defaults indent to the same "  ".
+    proof: >-
+      Dropping `indent="  "` reaches format_spent_line's declared default
+      `indent: str = "  "`, so the call is unchanged.
+    pragma: false
+
+  - module: budget.py
+    symbol: _format_tool_footer_full
+    reason: >-
+      breakdown.source already is get_baseline_settings().source — the same
+      value format_savings_lines falls back to when source is None.
+    proof: >-
+      cursor_baseline_breakdown sets .source from get_baseline_settings()
+      and format_savings_lines replaces a None source with
+      baseline_source(), the same getter — so dropping/None-ing the arg is
+      unobservable.
+    pragma: false
+
+  - module: usage.py
+    symbol: logging_enabled
+    reason: >-
+      a "XXXX" env-get default reaches the same branch — "" and "XXXX" are
+      both absent from the off-word tuple, so logging stays enabled.
+    proof: >-
+      When GREEDY_TOKEN_LOG is unset, both "" and the mutated "XXXX" default
+      strip/lower to a string that is not in ("0","false","off","no"), so the
+      function returns True either way; an explicitly set env value bypasses
+      the default entirely.
+    pragma: false
+
+  - module: usage.py
+    symbol: build_route_event
+    reason: >-
+      `exclusion` is only ever truthiness-tested (`if exclusion` /
+      `not exclusion`) or emitted as a string — a None init routes identically.
+    proof: >-
+      Every read of `exclusion` is a truthiness check (`not executed_fact`
+      branches reassign it, and `0 if exclusion` / `if potential_saved` / the
+      `saved_ms is not None and not exclusion` guard treat "" and None the
+      same), so mutating the "" initialiser to None changes no branch.
+    pragma: false
+
+  - module: usage.py
+    symbol: build_route_event
+    reason: >-
+      RouteDecision is a dataclass that always carries calibration_segment
+      (default "") — the getattr default is unreachable, so mutating it to
+      None/"XXXX"/missing changes nothing.
+    proof: >-
+      RouteDecision declares `calibration_segment: str = ""`, so
+      getattr(decision, "calibration_segment", <default>) never evaluates the
+      default for contract inputs; mutating the default (None, dropped,
+      "XXXX") is unobservable.
+    pragma: false
+
+  - module: usage.py
+    symbol: build_route_event
+    reason: >-
+      RouteDecision always carries shadow_route_id (default None), so
+      mutating the getattr default is unreachable dead code.
+    proof: >-
+      RouteDecision declares `shadow_route_id: str | None = None`; the
+      getattr(…, None) default is never consulted, so dropping it or
+      mutating it cannot change whether the shadow fields are emitted.
+    pragma: false
+
+  - module: usage.py
+    symbol: build_script_event
+    reason: >-
+      `exclusion` is only ever truthiness-tested or emitted — a None init
+      routes identically to "".
+    proof: >-
+      `exclusion` feeds only truthiness guards (`0 if exclusion`,
+      `if exclusion`, `saved_ms is not None and not exclusion`) and the
+      savings_exclusion write guarded by `if exclusion:` — falsy "" and falsy
+      None behave identically on every path.
+    pragma: false
+
+  - module: usage.py
+    symbol: build_outcome_event
+    reason: >-
+      RouteDecision always carries calibration_segment, so the getattr
+      default is unreachable; mutating it cannot change behavior.
+    proof: >-
+      RouteDecision declares `calibration_segment: str = ""`; the getattr
+      default expression is never evaluated, so mutating it to None,
+      dropping it, or replacing it with "XXXX" cannot affect the event.
+    pragma: false
+
+  - module: usage.py
+    symbol: find_prior_cheap_hit
+    reason: >-
+      a missing selected_tier only needs any non-cheap value — "", None,
+      "XXXX" all fail `tier in CHEAP_TIERS` the same.
+    proof: >-
+      The row is skipped iff `tier not in CHEAP_TIERS`; every mutated
+      default (None, missing, "XXXX") still lands outside CHEAP_TIERS, so the
+      row is skipped identically.
+    pragma: false
+
+  - module: usage.py
+    symbol: maybe_emit_auto_script_override
+    reason: >-
+      dropping window_sec reverts to the same default — find_prior_cheap_hit
+      declares window_sec=OVERRIDE_WINDOW_SEC itself.
+    proof: >-
+      find_prior_cheap_hit's signature is
+      `window_sec: int = OVERRIDE_WINDOW_SEC`; dropping the explicit kwarg
+      produces the exact same call, so the mutation is unobservable.
+    pragma: false
+
+  - module: usage.py
+    symbol: maybe_emit_auto_script_override
+    reason: >-
+      find_prior_cheap_hit only returns rows whose selected_tier is in
+      CHEAP_TIERS, so the `or "python"` fallback is unreachable — any mutated
+      fallback string is dead.
+    proof: >-
+      `prior` is only non-None when the row passed the `tier in CHEAP_TIERS`
+      filter, which requires a truthy cheap selected_tier; the
+      `or "python"` fallback can never fire, so mutating it is unobservable.
+    pragma: false
+
+  - module: usage.py
+    symbol: maybe_emit_auto_script_override
+    reason: >-
+      emit_auto_override=None is falsy like False; =True only re-enters
+      maybe_emit_auto_script_override on the override event itself, which
+      early-returns on event=="script_override" — no observable change.
+    proof: >-
+      append_event consumes emit_auto_override purely as a flag. None takes
+      the same skip branch as False; True triggers a nested maybe_emit call
+      whose first check (`event.get("event") == "script_override"`) returns
+      immediately, so no second write ever occurs.
+    pragma: false
+
+  - module: usage.py
+    symbol: max_log_bytes
+    reason: >-
+      a "XXXX" env-get default still fails .isdigit() like "" — both fall
+      through to DEFAULT_MAX_LOG_BYTES when the var is unset.
+    proof: >-
+      The default only feeds `raw.isdigit()`; "" and "XXXX" are both
+      non-digit strings, so the env-missing path returns the same constant.
+    pragma: false
+
+  - module: usage.py
+    symbol: max_rotated_files
+    reason: >-
+      a "XXXX" env-get default still fails .isdigit() like "" — both fall
+      through to DEFAULT_MAX_ROTATED when the var is unset.
+    proof: >-
+      The default only feeds `raw.isdigit()`; "" and "XXXX" are both
+      non-digit strings, so the env-missing path returns the same constant.
+    pragma: false
+
+  - module: usage.py
+    symbol: session_id
+    reason: >-
+      only element [0] is read, and maxsplit never affects the first split
+      element — dropping it or raising it to 2 is unobservable.
+    proof: >-
+      `raw.split("\n", n)[0]` equals everything before the first newline for
+      any n >= 1 as well as for the default unlimited split; only a reverse
+      split changes [0], and that mutation is killed by the three-line test.
+    pragma: false
+
+  - module: usage.py
+    symbol: maybe_append_event
+    reason: >-
+      getattr default False vs None are both falsy — no_log only feeds
+      `if no_log`, so the mutated default routes identically.
+    proof: >-
+      When args lacks no_log, getattr returns the default; both False and
+      None are falsy, so `logging_enabled(no_log=…)` takes the same branch.
+    pragma: false
+
+  - module: usage.py
+    symbol: parse_since
+    reason: >-
+      `value` was lowercased above, so the "Z" tuple member is dead —
+      mutating it cannot change the endswith result.
+    proof: >-
+      `value = value.strip().lower()` runs before the check, so a real "Z"
+      arrives as "z" and endswith's second tuple member can never match;
+      mutating it to "XXZXX" or "z" is unobservable.
+    pragma: false
+
+  - module: usage.py
+    symbol: _parse_event_ts
+    reason: >-
+      any default here lands on `if not ts_raw: return None` (for falsy
+      values) or on the except-ValueError path (for junk like "XXXX") —
+      every mutation of the default returns None for a missing "ts".
+    proof: >-
+      Missing key → falsy defaults (None, "") hit the early return; a truthy
+      junk default ("XXXX") fails datetime.fromisoformat and the ValueError
+      handler returns None — identical to the unmutated "" path.
+    pragma: false
+
+  - module: usage.py
+    symbol: _parse_event_ts
+    reason: >-
+      on Python >=3.11 fromisoformat parses a trailing "Z" natively, so
+      rewriting the replace pattern ("Z"→"XXZXX" or "z") never changes the
+      parse result for real inputs.
+    proof: >-
+      datetime.fromisoformat accepts a trailing "Z" without the replace on
+      all supported interpreters; mutating the pattern to "XXZXX" is a
+      no-op, and mutating it to "z" is still unobservable for valid input —
+      lowercase-z input is separately pinned to return None by test.
+    pragma: false
+
+  - module: usage.py
+    symbol: quality_metrics
+    reason: >-
+      `outcome` is only compared against "success" and "failure" — every
+      other fallback string lands in the same "other" bucket, so mutating
+      the literal is unobservable.
+    proof: >-
+      The fallback value is never emitted or used as a key; it only decides
+      between the success/failure/other counters, and "unknown", "XXunknownXX",
+      and "UNKNOWN" all route to `other` identically.
+    pragma: false
+
+  - module: usage.py
+    symbol: quality_metrics
+    reason: >-
+      a missing selected_tier only needs any value outside CHEAP_TIERS —
+      "", None, and "XXXX" all take the same skip branch.
+    proof: >-
+      The variable feeds exactly one check, `tier in CHEAP_TIERS`; every
+      mutated default still evaluates to False there, so the event is skipped
+      identically.
+    pragma: false
+
+  - module: usage.py
+    symbol: quality_metrics
+    reason: >-
+      override_rate was already rounded to 4 decimals, so 1.0 - rate never
+      needs a 5th decimal — round(…, 5) is identical output.
+    proof: >-
+      cheap_hold_rate = round(max(0.0, 1.0 - round(overrides/max(1,hits),4)), 4);
+      the inner round to 4 decimals means the subtraction result already has
+      at most 4 decimals, so a mutated 5-decimal outer round is unobservable.
+    pragma: false
+
+  - module: usage.py
+    symbol: append_event
+    reason: >-
+      json treats ensure_ascii=None as falsy → the same non-escaping UTF-8
+      path as False; only a truthy value would escape.
+    proof: >-
+      json.dumps checks `if ensure_ascii:` truthiness; None selects the same
+      non-escaping branch as False, so the mutation emits identical bytes.
+      True/"XX"-style truthy mutations are killed by the non-ASCII write test.
+    pragma: false
+
+  - module: advisory.py
+    symbol: advisory_enabled
+    reason: >-
+      a "XX1XX"-style env-get default is no off-word either — an unset var
+      keeps advisory enabled identically.
+    proof: >-
+      When GREEDY_ADVISORY is unset both "1" and the mutated "XX1XX" land
+      outside ("0","false","off","no") after strip/lower, so the function
+      returns True; a set env value bypasses the default entirely.
+    pragma: false
+
+  - module: advisory.py
+    symbol: overkill_gate_enabled
+    reason: >-
+      a "XXXX" env-get default is no on-word either — an unset var keeps the
+      gate disabled identically.
+    proof: >-
+      With GREEDY_OVERKILL_GATE unset both "" and "XXXX" are absent from
+      ("1","true","yes","on"), so the gate stays disabled; a set env value
+      bypasses the default.
+    pragma: false
+
+  - module: advisory.py
+    symbol: overkill_attachment_threshold
+    reason: >-
+      a "XX3XX" env-get default fails int() → the same except branch returns
+      3 either way.
+    proof: >-
+      The default only feeds int(raw) inside try/except ValueError; "XX3XX"
+      raises like any junk value, so the mutated default returns 3 — the
+      same number the "3" default parses to.
+    pragma: false
+
+  - module: advisory.py
+    symbol: hook_min_confidence
+    reason: >-
+      a "XXXX" env-get default is truthy but fails float() → the same
+      except-pass → enforce/legacy defaults apply identically.
+    proof: >-
+      "" skips the `if raw` block while "XXXX" enters it and raises inside
+      float() which is swallowed by `except ValueError: pass`; both paths
+      fall through to the mode-based default unchanged.
+    pragma: false
+
+  - module: advisory.py
+    symbol: is_overkill
+    reason: >-
+      mutating this early return (==/XX-literals) is unobservable — an
+      EDIT_VERBS prompt is never question-like, so the next check returns
+      the same False on every path.
+    proof: >-
+      Whatever the mutated condition decides, a prompt containing an edit
+      verb fails is_question_like (which requires NOT EDIT_VERBS), and every
+      later branch also returns False; a non-verb prompt fails both
+      conditions identically — so all mutant variants return the same value.
+    pragma: false
+
+  - module: advisory.py
+    symbol: append_event
+    reason: >-
+      newline=None/dropped selects default newline handling, which on POSIX
+      writes the same LF bytes the write below already produces.
+    proof: >-
+      The payload contains only "\n"; on POSIX universal-newline mode with
+      newline=None writes it as "\n" unchanged — CRLF translation is
+      Windows-specific and covered by the explicit "" pin as a portability
+      contract, not a POSIX-observable difference.
+    pragma: false
+
+  - module: advisory.py
+    symbol: append_event
+    reason: >-
+      ensure_ascii=None is falsy like False → the same non-escaping path;
+      truthy mutations are killed by the bytes test.
+    proof: >-
+      json.dumps checks `if ensure_ascii:` truthiness; None selects the same
+      branch as False so Cyrillic output is identical. True/dropped
+      (default True) variants escape non-ASCII and are killed by the
+      exact-bytes assertion.
+    pragma: false
+
+  - module: advisory.py
+    symbol: watch_events
+    reason: >-
+      `size < seen_pos` instead of <= only differs at size == seen_pos — a
+      re-read then yields b"" so `pending` splits to the same buffered
+      fragment and nothing is emitted either way.
+    proof: >-
+      When size == seen_pos the mutated guard falls through to fh.seek
+      (seen_pos)+read() → b""; chunk becomes `pending + b""` whose split
+      puts it back into `pending` verbatim — no complete lines, no output.
+      The size < seen_pos truncation case is handled by the earlier block
+      identically.
+    pragma: false
+
+  - module: advisory.py
+    symbol: watch_events
+    reason: >-
+      a dropped/renamed encoding arg keeps utf-8 — decode() defaults to
+      "utf-8" and codec names are case-insensitive; only errors-handler
+      mutations diverge.
+    proof: >-
+      bytes.decode() defaults to encoding="utf-8" and "UTF-8" resolves to
+      the same codec; both mutations emit identical strings. errors=
+      mutations (dropped → strict, or junk handler names) raise on invalid
+      bytes and are killed by the bad-bytes test.
+    pragma: false
+
+  - module: advisory.py
+    symbol: watch_events
+    reason: >-
+      ensure_ascii=None is falsy like False → same non-escaping output;
+      truthy mutations die on Cyrillic rows.
+    proof: >-
+      json.dumps treats None as falsy → same branch as False → the "привет"
+      row prints identically. True/dropped variants escape to \u0410-sequences
+      and fail the unicode-output assert.
+    pragma: false
+
+  - module: advisory.py
+    symbol: format_overkill_user_message
+    reason: >-
+      overkill_recommendations never reads its prompt param — passing None
+      instead is unobservable.
+    proof: >-
+      The callee builds its list from est_tokens/route_id/attachment_count
+      only; `prompt` is accepted but unused, so mutating the kwarg to None
+      cannot change the returned recommendations or the toast text.
+    pragma: false
+
+  - module: advisory.py
+    symbol: format_overkill_user_message
+    reason: >-
+      dropping the limit arg restores _truncate's declared default
+      limit=TASK_MAX_LEN — the same call.
+    proof: >-
+      _truncate's signature is `limit: int = TASK_MAX_LEN`; omitting the
+      positional arg produces the identical invocation, so the mutation is
+      unobservable.
+    pragma: false
+
+  - module: advisory.py
+    symbol: format_gate_user_message
+    reason: >-
+      a dropped limit arg re-enters _truncate with its own TASK_MAX_LEN
+      default — identical output.
+    proof: >-
+      _truncate declares `limit: int = TASK_MAX_LEN`; the mutated call
+      `_truncate(prompt)` passes exactly that default, so preview text is
+      unchanged.
+    pragma: false
+
+  - module: advisory.py
+    symbol: event_from_dict
+    reason: >-
+      bool(None) == bool(missing) == False — the mutated default lands on
+      the same falsy outcome.
+    proof: >-
+      For a row lacking "blocked", bool() of any of False/None/(missing
+      default False) returns False; a present truthy/falsy value bypasses
+      the default entirely.
+    pragma: false

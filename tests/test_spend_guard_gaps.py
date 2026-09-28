@@ -300,3 +300,14 @@ def test_estimate_cost_usd_edges() -> None:
     # cost_per_1m == 0 -> 0.0 (kills `<= 0 -> <= 1` which would compute for cost=1).
     assert spend_guard.estimate_cost_usd(_spec(cost=1.0), 1_000_000) == pytest.approx(1.0)
     assert spend_guard.estimate_cost_usd(_spec(cost=0.5), 1_000_000) == pytest.approx(0.5)
+
+
+@allure.title("_price_missing is inert for non-metered specs, denies unpriced metered ones")
+def test_price_missing_billing_gate() -> None:
+    # Both public callers pre-filter on billing=="metered"; the guard also has
+    # to hold when called directly on a free spec.
+    assert spend_guard._price_missing(_spec(tier="cheap")) is None  # billing="free"
+    assert spend_guard._price_missing(_spec(tier="cheap", cost=None)) is None
+    denied = spend_guard._price_missing(_spec(cost=None))
+    assert denied is not None and denied.allowed is False
+    assert "no usable price" in denied.reason
