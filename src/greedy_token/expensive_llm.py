@@ -6,7 +6,7 @@ import json
 import urllib.error
 import urllib.request
 
-from greedy_token.cheap_llm import _chat_openai_compat
+from greedy_token.cheap_llm import MalformedResponseError, _chat_openai_compat
 from greedy_token.model_select import ModelSpec, ResolvedModel
 
 
@@ -32,6 +32,10 @@ def yandex_gpt_chat(
                 user=user,
                 timeout=timeout,
             )
+        except MalformedResponseError:
+            # A response arrived — tokens may already be billed — so this is a
+            # structured provider failure, not a reason to retry elsewhere.
+            raise
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError, ValueError, KeyError):
             pass
 
@@ -80,12 +84,19 @@ def _chat_yandex_native(
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         data = json.load(resp)
     result = data.get("result") or {}
-    alts = result.get("alternatives") or []
-    if not alts:
-        raise ValueError("YandexGPT returned no alternatives")
-    content = (alts[0].get("message") or {}).get("text", "").strip()
     usage = result.get("usage") or {}
     eval_tokens = usage.get("completionTokens") or usage.get("totalTokens")
+    alts = result.get("alternatives") or []
+    if not alts:
+        raise MalformedResponseError(
+            "YandexGPT returned no alternatives", eval_tokens=eval_tokens
+        )
+    message = alts[0].get("message") if isinstance(alts[0], dict) else None
+    if not isinstance(message, dict) or message.get("text") is None:
+        raise MalformedResponseError(
+            "YandexGPT alternative has no message text", eval_tokens=eval_tokens
+        )
+    content = str(message["text"]).strip()
     return content, eval_tokens
 
 

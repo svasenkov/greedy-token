@@ -17,7 +17,7 @@ from greedy_token.llm_invoke import (
     invoke_profile,
     invoke_result_to_dict,
 )
-from greedy_token.spend_guard import SpendDecision
+from greedy_token.spend_guard import SpendReservation
 
 pytestmark = pytest.mark.unit
 
@@ -133,7 +133,8 @@ def test_invoke_expensive_blocked(cheap_root: Path, monkeypatch: pytest.MonkeyPa
         }
     })
     monkeypatch.setattr(
-        llm_invoke, "check_metered_allowed", lambda *a, **k: SpendDecision(allowed=False, reason="capped")
+        llm_invoke, "reserve_metered_call",
+        lambda *a, **k: SpendReservation(allowed=False, reason="capped"),
     )
     monkeypatch.setattr(llm_invoke, "llm_chat", lambda *a, **k: ("should not be called", 1))
     with pytest.raises(RuntimeError, match="capped"):
@@ -154,7 +155,8 @@ def test_invoke_expensive_allowed(cheap_root: Path, monkeypatch: pytest.MonkeyPa
         }
     })
     monkeypatch.setattr(
-        llm_invoke, "check_metered_allowed", lambda *a, **k: SpendDecision(allowed=True)
+        llm_invoke, "reserve_metered_call",
+        lambda *a, **k: SpendReservation(allowed=True),
     )
     monkeypatch.setattr(llm_invoke, "llm_chat", lambda *a, **k: ("expensive strong answer", 20))
     result = invoke_profile(
@@ -348,3 +350,147 @@ def test_invoke_no_completed_call_logged(
     outcome = next(row for row in rows if row.get("event") == "route_outcome")
     assert outcome["outcome"] == "failure"
     assert outcome["operation_id"] == req[0]["operation_id"]
+
+
+@allure.title("intra-chain cap: settled spend of call one blocks candidate two")
+def test_invoke_chain_respects_spend_cap(cheap_root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression: the spend guard used to read persisted telemetry only after
+    the whole chain, so both calls passed a cap their sum exceeded."""
+    _write_cfg(cheap_root, {
+        "llm": {
+            "metered": {"opt_in": True},
+            "expensive": {"daily_cap_usd": 0.1},
+            "cheap": {
+                "models": [
+                    {"id": "fast", "enabled": True, "model": "m7", "profiles": ["p"],
+                     "billing": "metered", "cost_per_1m_usd": 0.2},
+                    {"id": "big", "enabled": True, "model": "m70", "profiles": ["p"],
+                     "billing": "metered", "cost_per_1m_usd": 0.2},
+                ]
+            },
+            "escalation": {"enabled": True, "chain": ["fast", "big"],
+                           "triggers": ["empty_output"], "max_steps": 2},
+        }
+    })
+    calls: list[str] = []
+    seq = iter([("", 500_000), ("a full strong answer here", 10)])
+
+    def chat(model, **k):
+        calls.append(model.model_id)
+        return next(seq)
+
+    monkeypatch.setattr(llm_invoke, "llm_chat", chat)
+    with pytest.raises(RuntimeError, match="cap"):
+        invoke_profile("p", system="s", user="u", root=cheap_root, log=False, allow_escalate=True)
+    # fast paid 500_000 × $0.2/1M = $0.10 and settled it immediately — the
+    # cap check for big saw it and the second provider call never happened.
+    assert calls == ["fast"]
+    from greedy_token.spend_ledger import ledger_spend_usd
+
+    assert ledger_spend_usd() == pytest.approx(0.1)
+
+
+@allure.title("weak output on the last candidate is a failure, not a saved success")
+def test_invoke_weak_final_output_fails(cheap_root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression: an empty final response used to be marked success and
+    credited savings. Now it is a failed operation with no savings."""
+    import json
+
+    _write_cfg(cheap_root, {
+        "llm": {
+            "cheap": {
+                "models": [
+                    {"id": "fast", "enabled": True, "model": "m7", "profiles": ["p"]},
+                    {"id": "big", "enabled": True, "model": "m70", "profiles": ["p"]},
+                ]
+            },
+            "escalation": {"enabled": True, "chain": ["fast", "big"],
+                           "triggers": ["empty_output"], "max_steps": 2},
+        }
+    })
+    seq = iter([("x", 1), ("", 2)])
+    monkeypatch.setattr(llm_invoke, "llm_chat", lambda *a, **k: next(seq))
+    with pytest.raises(RuntimeError, match="rejected"):
+        invoke_profile("p", system="s", user="u", root=cheap_root, log=True, allow_escalate=True)
+    rows = [
+        json.loads(line)
+        for line in (cheap_root / "usage.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    req = [row for row in rows if row.get("cmd") == "llm"]
+    assert len(req) == 2
+    assert req[1]["gate_reason"] == "output_empty"
+    assert req[1]["cursor_saved"] == 0
+    outcome = next(row for row in rows if row.get("event") == "route_outcome")
+    assert outcome["outcome"] == "failure"
+
+
+@allure.title("malformed provider response records a structured failed call with spend")
+def test_invoke_malformed_response(cheap_root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression: choices:[] used to escape as IndexError and lose all
+    telemetry for a paid call. Now it is a structured failure whose cost
+    still reaches the spend ledger."""
+    import json
+
+    from greedy_token.cheap_llm import MalformedResponseError
+
+    _write_cfg(cheap_root, {
+        "llm": {
+            "metered": {"opt_in": True},
+            "cheap": {
+                "models": [
+                    {"id": "bulk", "enabled": True, "model": "m", "profiles": ["p"],
+                     "billing": "metered", "cost_per_1m_usd": 0.2},
+                ]
+            },
+            "escalation": {"enabled": False},
+        }
+    })
+
+    def bad(*a, **k):
+        raise MalformedResponseError("openai_compat response has no choices", eval_tokens=500)
+
+    monkeypatch.setattr(llm_invoke, "llm_chat", bad)
+    with pytest.raises(RuntimeError, match="no choices"):
+        invoke_profile("p", system="s", user="u", root=cheap_root, log=True, allow_escalate=False)
+    rows = [
+        json.loads(line)
+        for line in (cheap_root / "usage.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    req = [row for row in rows if row.get("cmd") == "llm"]
+    assert len(req) == 1
+    assert req[0]["phase"] == "executed"
+    assert req[0]["cost_usd"] == pytest.approx(500 * 0.2 / 1_000_000)
+    assert req[0]["cursor_saved"] == 0
+    outcome = next(row for row in rows if row.get("event") == "route_outcome")
+    assert outcome["outcome"] == "failure"
+
+    from greedy_token.spend_ledger import ledger_spend_usd
+
+    assert ledger_spend_usd() == pytest.approx(0.0001)
+
+
+@allure.title("served-but-weak output claims no savings even without escalation")
+def test_invoke_weak_served_output_no_savings(cheap_root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import json
+
+    _write_cfg(cheap_root, {
+        "llm": {
+            "cheap": {"models": [{"id": "fast", "enabled": True, "model": "m7", "profiles": ["p"]}]},
+            "escalation": {"enabled": False},
+        }
+    })
+    monkeypatch.setattr(llm_invoke, "llm_chat", lambda *a, **k: ("", 5))
+    result = invoke_profile("p", system="s", user="u", root=cheap_root, log=True, allow_escalate=False)
+    # The text is still returned to the caller — but the gate no longer
+    # lets an empty answer claim savings.
+    assert result.text == ""
+    rows = [
+        json.loads(line)
+        for line in (cheap_root / "usage.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    req = [row for row in rows if row.get("cmd") == "llm"]
+    assert req[0]["savings_exclusion"] == "empty_result"
+    assert req[0]["cursor_saved"] == 0

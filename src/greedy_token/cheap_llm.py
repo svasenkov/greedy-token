@@ -20,6 +20,20 @@ _LOOPBACK_HOSTS = frozenset({"", "localhost", "127.0.0.1", "::1"})
 _cheap_llm_probe_cache: dict[str, tuple[float, CheapLlmProbe]] = {}
 
 
+class MalformedResponseError(ValueError):
+    """The provider answered with a payload that does not fit its API shape.
+
+    Unlike a transport error the HTTP exchange completed — tokens may already
+    be billed — so the invoke path records the attempt (and its cost) as a
+    structured failure instead of crashing on IndexError/KeyError.  Any usage
+    counts the response did carry ride along for spend accounting.
+    """
+
+    def __init__(self, message: str, *, eval_tokens: int | None = None) -> None:
+        super().__init__(message)
+        self.eval_tokens = eval_tokens
+
+
 @dataclass(frozen=True)
 class CheapLlmProbe:
     """Outcome of a cheap-LLM health probe.
@@ -225,8 +239,13 @@ def _chat_ollama(
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         data = json.load(resp)
-    content = data["message"]["content"].strip()
-    eval_tokens = data.get("eval_count")
+    eval_tokens = data.get("eval_count") if isinstance(data, dict) else None
+    message = data.get("message") if isinstance(data, dict) else None
+    if not isinstance(message, dict) or message.get("content") is None:
+        raise MalformedResponseError(
+            "ollama response has no message content", eval_tokens=eval_tokens
+        )
+    content = str(message["content"]).strip()
     return content, eval_tokens
 
 
@@ -256,9 +275,19 @@ def _chat_openai_compat(
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         data = json.load(resp)
-    content = data["choices"][0]["message"]["content"].strip()
-    usage = data.get("usage") or {}
-    eval_tokens = usage.get("completion_tokens")
+    usage = data.get("usage") if isinstance(data, dict) else None
+    eval_tokens = (usage or {}).get("completion_tokens")
+    choices = data.get("choices") if isinstance(data, dict) else None
+    if not choices:
+        raise MalformedResponseError(
+            "openai_compat response has no choices", eval_tokens=eval_tokens
+        )
+    message = choices[0].get("message") if isinstance(choices[0], dict) else None
+    if not isinstance(message, dict) or message.get("content") is None:
+        raise MalformedResponseError(
+            "openai_compat response has no message content", eval_tokens=eval_tokens
+        )
+    content = str(message["content"]).strip()
     return content, eval_tokens
 
 

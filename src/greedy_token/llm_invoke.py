@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 import time
 from dataclasses import dataclass, field
@@ -10,8 +11,10 @@ from pathlib import Path
 from typing import Any
 
 from greedy_token.calibration import SOURCE_FIXED
+from greedy_token.cheap_llm import MalformedResponseError
 from greedy_token.expensive_llm import llm_chat
 from greedy_token.model_select import (
+    ModelSpec,
     ResolvedModel,
     apply_model_env,
     escalation_chain_from,
@@ -21,7 +24,11 @@ from greedy_token.model_select import (
 from greedy_token.result_contract import RESULT_NOT_EVALUATED
 from greedy_token.result_gate import evaluate_result_gate
 from greedy_token.router import RouteDecision
-from greedy_token.spend_guard import check_metered_allowed, estimate_cost_usd
+from greedy_token.spend_guard import (
+    SpendReservation,
+    estimate_cost_usd,
+    reserve_metered_call,
+)
 from greedy_token.tokens import count_tokens
 from greedy_token.usage import (
     append_event,
@@ -52,6 +59,8 @@ class _ProviderCall:
     cost_usd: float
     duration_ms: int
     served: bool = False
+    useful: bool = True
+    spend_ref: str = ""
 
 
 def _output_weak(text: str, *, min_len: int = 8) -> bool:
@@ -61,6 +70,32 @@ def _output_weak(text: str, *, min_len: int = 8) -> bool:
     if stripped.lower() in ("null", "none", "n/a", "error"):
         return True
     return False
+
+
+# Provider error text can echo request secrets back — it must never reach the
+# public RuntimeError or telemetry verbatim.
+_REDACT_URL_USERINFO = re.compile(r"(https?://)[^/@\s:]+(:[^/@\s]*)?@")
+_REDACT_AUTH_HEADER = re.compile(
+    r"(?i)\b(authorization|proxy-authorization)([\"']?\s*[:=]\s*[\"']?)"
+    r"(basic|bearer|token)?\s*[^\s\"'&,;]+"
+)
+_REDACT_KEY_FIELD = re.compile(
+    r"(?i)\b(api[_-]?key|apikey|access[_-]?token|secret|password|passwd)"
+    r"([\"']?\s*[=:]\s*[\"']?)[^\s\"'&,;]+"
+)
+_REDACT_KEY_TOKEN = re.compile(r"\bsk-[A-Za-z0-9_\-]{4,}\b")
+
+
+def _redact_error(text: str, *, secrets: tuple[str, ...] = ()) -> str:
+    """Strip credentials a provider error may echo before it is surfaced."""
+    for secret in secrets:
+        if secret and secret in text:
+            text = text.replace(secret, "<redacted>")
+    text = _REDACT_URL_USERINFO.sub(r"\1<redacted>@", text)
+    text = _REDACT_AUTH_HEADER.sub(r"\1\2<redacted>", text)
+    text = _REDACT_KEY_FIELD.sub(r"\1\2<redacted>", text)
+    text = _REDACT_KEY_TOKEN.sub("<redacted>", text)
+    return text
 
 
 def _json_parse_fail(text: str) -> bool:
@@ -96,6 +131,26 @@ def _invoke_tier(resolved: ResolvedModel) -> str:
     return "ollama" if resolved.billing_tier == "cheap" else "cursor"
 
 
+def _settle_call_cost(
+    spec: ModelSpec,
+    reservation: SpendReservation | None,
+    eval_tokens: int | None,
+) -> float:
+    """Actual cost of a completed call, then close the reservation with it.
+
+    Usage the provider did not report still owes the estimate the reservation
+    was made for — a paid call never records zero spend.
+    """
+    cost = estimate_cost_usd(spec, eval_tokens)
+    if not math.isfinite(cost):
+        cost = 0.0
+    if reservation is not None:
+        if eval_tokens is None:
+            cost = max(cost, reservation.est_usd)
+        reservation.settle(cost)
+    return cost
+
+
 def _invoke_decision(profile: str, tier: str, est_tokens: int) -> RouteDecision:
     return RouteDecision(
         target=tier,
@@ -123,7 +178,6 @@ def _log_invoke_events(
     attempts: list[str],
     calls: list[_ProviderCall],
     duration_ms: int,
-    succeeded: bool,
 ) -> None:
     """Usage records for one invoke operation.
 
@@ -164,6 +218,7 @@ def _log_invoke_events(
                 operation_id=operation_id,
                 parent_operation_id=parent_operation_id,
                 gate=gate,
+                input_tokens=prompt_tokens,
             )
         )
     else:
@@ -176,7 +231,7 @@ def _log_invoke_events(
                 result_status=RESULT_NOT_EVALUATED,
                 tier=tier,
                 ok=True,
-                output_useful=call.served,
+                output_useful=call.served and call.useful,
             )
             append_event(
                 build_route_event(
@@ -201,6 +256,8 @@ def _log_invoke_events(
                     operation_id=operation_id,
                     parent_operation_id=parent_operation_id,
                     gate=gate,
+                    spend_ref=call.spend_ref or None,
+                    input_tokens=prompt_tokens,
                 )
             )
     outcome_tier = _invoke_tier(calls[-1].model if calls else first)
@@ -209,7 +266,10 @@ def _log_invoke_events(
             task=task,
             root=effective_root,
             decision=_invoke_decision(profile, outcome_tier, 0),
-            outcome="success" if succeeded else "failure",
+            # The serving call's gate rules the outcome: a delivered response
+            # whose output was rejected (empty/weak) is a failure, not a
+            # success — "delivered" only means a provider answered.
+            outcome=gate.outcome,
             layer="executor",
             duration_ms=duration_ms,
             attempts=len(attempts),
@@ -260,25 +320,30 @@ def invoke_profile(
     # served — an escalated-away attempt still consumed tokens.
     cost = 0.0
     calls: list[_ProviderCall] = []
+    delivered = False
 
-    for candidate in candidates:
+    for index, candidate in enumerate(candidates):
         attempts.append(candidate.model_id)
+        reservation: SpendReservation | None = None
         if candidate.spec.billing == "metered":
             # ADR-0002: every metered call is spend-guarded — expensive tier
             # keeps the expensive opt-in path, metered cheap needs the
-            # metered opt-in; both share the daily/monthly caps.
+            # metered opt-in; both share the daily/monthly caps. Check and
+            # reservation are atomic, so this call's estimated spend is
+            # already visible to the next candidate and concurrent invokes.
             est = estimate_cost_usd(
                 candidate.spec,
                 count_tokens(user).tokens + count_tokens(system).tokens,
             )
-            decision = check_metered_allowed(
+            reservation = reserve_metered_call(
                 candidate.spec,
                 root=root,
                 cli_allow=allow_expensive,
                 est_cost_usd=est,
+                operation_id=operation_id,
             )
-            if not decision.allowed:
-                last_error = decision.reason
+            if not reservation.allowed:
+                last_error = reservation.reason
                 continue
 
         apply_model_env(candidate)
@@ -290,11 +355,37 @@ def invoke_profile(
                 user=user,
                 timeout=timeout,
             )
+        except MalformedResponseError as exc:
+            # A response did arrive — tokens may already be billed — so the
+            # attempt is recorded as a structured failure (spend included),
+            # not silently swallowed like a transport error.
+            call_ms = int((time.perf_counter() - call_t0) * 1000)
+            call_cost = _settle_call_cost(candidate.spec, reservation, exc.eval_tokens)
+            cost += call_cost
+            calls.append(
+                _ProviderCall(
+                    model=candidate,
+                    eval_tokens=exc.eval_tokens,
+                    cost_usd=call_cost,
+                    duration_ms=call_ms,
+                    useful=False,
+                    spend_ref=reservation.reservation_id if reservation else "",
+                )
+            )
+            last_error = _redact_error(
+                str(exc), secrets=(candidate.spec.api_key, candidate.spec.url)
+            )
+            continue
         except (OSError, RuntimeError, ValueError, TimeoutError) as exc:
-            last_error = str(exc)
+            # No billable response observed — free the reservation.
+            if reservation is not None:
+                reservation.release()
+            last_error = _redact_error(
+                str(exc), secrets=(candidate.spec.api_key, candidate.spec.url)
+            )
             continue
         call_ms = int((time.perf_counter() - call_t0) * 1000)
-        call_cost = estimate_cost_usd(candidate.spec, eval_tokens)
+        call_cost = _settle_call_cost(candidate.spec, reservation, eval_tokens)
         cost += call_cost
         calls.append(
             _ProviderCall(
@@ -302,6 +393,8 @@ def invoke_profile(
                 eval_tokens=eval_tokens,
                 cost_usd=call_cost,
                 duration_ms=call_ms,
+                useful=not _output_weak(text),
+                spend_ref=reservation.reservation_id if reservation else "",
             )
         )
 
@@ -310,15 +403,27 @@ def invoke_profile(
             escalated_from = current.model_id
 
         registry = get_llm_registry(root)
-        if allow_escalate and candidate == current and _should_escalate(
+        wants_more = allow_escalate and _should_escalate(
             text,
             profile=profile,
             triggers=registry.escalation.triggers,
-        ):
+        )
+        if wants_more and index + 1 < len(candidates):
             continue
+        if wants_more and not profile.endswith(":escalate"):
+            # The final candidate's output was rejected by the configured
+            # triggers and no model is left — a weak answer is a failed
+            # operation, not a success that earns savings.
+            last_error = (
+                f"final model {candidate.model_id} output rejected "
+                "by escalation triggers"
+            )
+            break
         calls[-1].served = True
+        delivered = True
         break
-    else:
+
+    if not delivered:
         duration_ms = int((time.perf_counter() - t0) * 1000)
         msg = last_error or "all models in escalation chain failed"
         if log:
@@ -334,7 +439,6 @@ def invoke_profile(
                 attempts=attempts,
                 calls=calls,
                 duration_ms=duration_ms,
-                succeeded=False,
             )
         raise RuntimeError(f"LLM invoke failed for profile {profile!r}: {msg}")
 
@@ -365,7 +469,6 @@ def invoke_profile(
             attempts=attempts,
             calls=calls,
             duration_ms=duration_ms,
-            succeeded=True,
         )
     return result
 

@@ -424,3 +424,48 @@ def test_probe_auth_and_empty_catalog(monkeypatch: pytest.MonkeyPatch) -> None:
     assert served_models({"models": []}) == ()
     assert served_models({"data": [{"id": "m"}]}) == ("m",)
 
+
+
+@allure.story("Malformed responses")
+@allure.title("ollama response without message content is a structured error, not KeyError")
+def test_chat_ollama_malformed(monkeypatch: pytest.MonkeyPatch) -> None:
+    import io
+    import json as _json
+    from contextlib import contextmanager
+
+    from greedy_token.cheap_llm import MalformedResponseError, _chat_ollama
+
+    @contextmanager
+    def _fake(payload: dict):
+        yield io.BytesIO(_json.dumps(payload).encode("utf-8"))
+
+    monkeypatch.setattr(
+        "urllib.request.urlopen", lambda *a, **k: _fake({"eval_count": 11})
+    )
+    settings = CheapLlmSettings(provider="ollama", url="http://x", model="m", source="t")
+    with pytest.raises(MalformedResponseError, match="message content") as err:
+        _chat_ollama(settings, system="s", user="u", timeout=1.0)
+    assert err.value.eval_tokens == 11
+
+
+@allure.story("Malformed responses")
+@allure.title("openai_compat response with empty choices is a structured error, not IndexError")
+def test_chat_openai_compat_malformed(monkeypatch: pytest.MonkeyPatch) -> None:
+    import io
+    import json as _json
+    from contextlib import contextmanager
+
+    from greedy_token.cheap_llm import MalformedResponseError, _chat_openai_compat
+
+    @contextmanager
+    def _fake(payload: dict):
+        yield io.BytesIO(_json.dumps(payload).encode("utf-8"))
+
+    monkeypatch.setattr(
+        "urllib.request.urlopen",
+        lambda *a, **k: _fake({"choices": [], "usage": {"completion_tokens": 7}}),
+    )
+    settings = CheapLlmSettings(provider="openai_compat", url="http://x/v1", model="m", source="t")
+    with pytest.raises(MalformedResponseError, match="no choices") as err:
+        _chat_openai_compat(settings, system="s", user="u", timeout=1.0)
+    assert err.value.eval_tokens == 7

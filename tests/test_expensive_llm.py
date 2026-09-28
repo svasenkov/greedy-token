@@ -127,3 +127,49 @@ def test_llm_chat_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(cheap, "cheap_llm_chat", lambda *a, **k: ("cheap", 2))
     resolved = _resolved(provider="openai_compat", url="http://x")
     assert expensive_llm.llm_chat(resolved, system="s", user="u") == ("cheap", 2)
+
+
+@allure.title("malformed native response is a structured failure — not a fallback retry")
+def test_yandex_malformed_no_compat_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression: MalformedResponseError is a ValueError — the fallback catch
+    used to swallow it, hiding the paid call's failure and retrying spend
+    against the compat endpoint."""
+    from greedy_token.cheap_llm import MalformedResponseError
+
+    monkeypatch.setenv("YANDEX_FOLDER_ID", "fold")
+    monkeypatch.setattr(
+        expensive_llm.urllib.request,
+        "urlopen",
+        lambda *a, **k: _fake_urlopen({"result": {"alternatives": []}}),
+    )
+    compat_called: list[bool] = []
+    monkeypatch.setattr(
+        expensive_llm,
+        "_chat_openai_compat",
+        lambda *a, **k: compat_called.append(True) or ("fallback", None),
+    )
+    with pytest.raises(MalformedResponseError, match="no alternatives"):
+        expensive_llm.yandex_gpt_chat(
+            _resolved(provider="yandex_gpt", url="http://compat", api_key="key"),
+            system="s",
+            user="u",
+        )
+    assert compat_called == []
+
+
+@allure.title("malformed native response preserves billed tokens")
+def test_yandex_malformed_keeps_eval_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
+    from greedy_token.cheap_llm import MalformedResponseError
+
+    monkeypatch.setattr(
+        expensive_llm.urllib.request,
+        "urlopen",
+        lambda *a, **k: _fake_urlopen(
+            {"result": {"alternatives": [{"status": "PARTIAL"}], "usage": {"completionTokens": 9}}}
+        ),
+    )
+    with pytest.raises(MalformedResponseError, match="no message text") as err:
+        expensive_llm._chat_yandex_native(
+            api_key="k", folder_id="f", model="m", system="s", user="u", timeout=1.0
+        )
+    assert err.value.eval_tokens == 9
