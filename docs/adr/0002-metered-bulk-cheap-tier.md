@@ -83,6 +83,11 @@ check only `billing_tier == "expensive"`).
 
 ## Consequences
 
+- The atomic check+reserve relies on an OS file lock per platform:
+  `fcntl.flock` on POSIX, a one-byte `msvcrt.locking` claim on Windows.
+  A platform with neither keeps only the in-process lock — cross-process cap
+  enforcement there is best-effort, not a hard cap. A lock acquisition failure
+  (e.g. Windows `LK_LOCK` timeout) denies the metered call — fail closed.
 - Bulk work no longer falls through to the expensive agent path just because
   Ollama is down — but only with an explicit, capped opt-in.
 - Supersedes the ADR-0001 consequence "sub-threshold metered spend is

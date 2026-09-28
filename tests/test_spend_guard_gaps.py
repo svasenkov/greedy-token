@@ -194,7 +194,9 @@ def test_load_today_spend_skips_before_counting(
     )
     missing = tmp_path / "does-not-exist.jsonl"
     # Missing archive first: a `continue -> break` on `not is_file` would skip `real`.
-    monkeypatch.setattr(spend_guard, "log_archive_paths", lambda path: [missing, real])
+    monkeypatch.setattr(
+        "greedy_token.usage.log_archive_paths", lambda path: [missing, real]
+    )
     # cost_usd=0 must contribute exactly 0 (kills `or 0 -> or 1`): total is 2.0, not 3.0.
     assert spend_guard._load_today_spend() == pytest.approx(2.0)
 
@@ -264,8 +266,10 @@ def test_check_expensive_allowed_metered_boundaries(monkeypatch: pytest.MonkeyPa
 
 
 @allure.title("check_expensive_allowed threads root into registry, opt-in and headroom")
-def test_check_expensive_allowed_passes_root(monkeypatch: pytest.MonkeyPatch) -> None:
-    sentinel = Path("/tmp/greedy-token-sentinel-root")
+def test_check_expensive_allowed_passes_root(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    sentinel = tmp_path / "sentinel-root"
     seen: dict[str, object] = {}
 
     def fake_registry(root):

@@ -59,7 +59,10 @@ def _parse_budget(budget_cfg: dict[str, Any], *, source: str) -> BudgetSettings:
 
     return BudgetSettings(
         metered_monthly_cap_usd=_float(metered.get("monthly_cap_usd"), 50.0),
-        metered_daily_cap_usd=_float(metered.get("daily_cap_usd"), 5.0),
+        # 0 = unset: the spend guard then falls back to the registry's
+        # llm.expensive.daily_cap_usd — a configured value only ever tightens
+        # the effective daily cap (spend_guard._daily_cap_usd).
+        metered_daily_cap_usd=_float(metered.get("daily_cap_usd"), 0.0),
         cursor_monthly_estimate_cap_usd=_float(cursor.get("monthly_estimate_cap_usd"), 30.0),
         cursor_usd_per_1m_tokens=_float(cursor.get("usd_per_1m_tokens"), 15.0),
         show_both=bool(display.get("show_both", True)),

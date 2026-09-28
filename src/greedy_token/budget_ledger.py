@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import json
+import math
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -73,16 +73,20 @@ def _billing_tier_from_event(event: dict) -> BillingTier:
 
 def _cost_from_event(event: dict, *, cursor_rate: float) -> float:
     billing = event.get("billing")
-    if isinstance(billing, dict) and billing.get("cost_usd") is not None:
+    for raw in (
+        billing.get("cost_usd") if isinstance(billing, dict) else None,
+        event.get("cost_usd"),
+    ):
+        if raw is None:
+            continue
         try:
-            return float(billing["cost_usd"])
+            cost = float(raw)
         except (TypeError, ValueError):
-            pass
-    if event.get("cost_usd") is not None:
-        try:
-            return float(event["cost_usd"])
-        except (TypeError, ValueError):
-            pass
+            continue
+        # A poisoned record (NaN/inf) must not poison the budget — NaN would
+        # propagate into the monthly sum and defeat every cap comparison.
+        if math.isfinite(cost):
+            return cost
 
     tier = _billing_tier_from_event(event)
     if tier == "cursor_estimate":
@@ -91,31 +95,36 @@ def _cost_from_event(event: dict, *, cursor_rate: float) -> float:
     return 0.0
 
 
+def _midnight_utc() -> datetime:
+    return datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+
+
 def _today_utc() -> str:
     return datetime.now(UTC).strftime("%Y-%m-%d")
 
 
+def cursor_estimate_spend_usd(events: list[dict], *, cursor_rate: float) -> float:
+    """Cursor-estimate spend inside an already window-filtered event list —
+    the window counterpart of ``aggregate_budget``'s period-scoped figure."""
+    return sum(
+        _cost_from_event(event, cursor_rate=cursor_rate)
+        for event in events
+        if _billing_tier_from_event(event) == "cursor_estimate"
+    )
+
+
 def metered_spent_today(path: Path | None = None) -> float:
-    log = path or log_path()
-    if not log.is_file():
-        return 0.0
-    day = _today_utc()
-    total = 0.0
-    for line in log.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            event = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        ts = str(event.get("ts", ""))
-        if not ts.startswith(day):
-            continue
-        if _billing_tier_from_event(event) != "metered":
-            continue
-        total += _cost_from_event(event, cursor_rate=0.0)
-    return total
+    # Same accounting source the spend guard uses: durable ledger rows plus
+    # usage events that predate it. *path* narrows the usage side for tests.
+    from greedy_token.spend_ledger import metered_spend_usd, usage_metered_spend_usd
+
+    if path is not None:
+        from greedy_token.spend_ledger import ledger_spend_usd
+
+        return ledger_spend_usd(since=_midnight_utc()) + usage_metered_spend_usd(
+            since=_midnight_utc(), log=path
+        )
+    return metered_spend_usd(since=_midnight_utc())
 
 
 def aggregate_budget(
@@ -138,6 +147,10 @@ def aggregate_budget(
         tier = _billing_tier_from_event(event)
         cost = _cost_from_event(event, cursor_rate=settings.cursor_usd_per_1m_tokens)
         if tier == "metered":
+            # Events carrying spend_ref are already accounted in the spend
+            # ledger — counting them here would double the spend.
+            if event.get("spend_ref"):
+                continue
             metered_spent += cost
             # ADR-0002: split by derived tier — metered cheap bulk vs expensive.
             if event.get("billing_tier") == "cheap":
@@ -146,6 +159,15 @@ def aggregate_budget(
                 metered_expensive += cost
         elif tier == "cursor_estimate":
             cursor_est_spent += cost
+
+    # Durable spend ledger: calls accounted there (incl. calls made while
+    # telemetry was off) join the usage-log pre-ledger spend above.
+    from greedy_token.spend_ledger import ledger_spend_by_tier
+
+    ledger_split = ledger_spend_by_tier(since=since)
+    metered_spent += ledger_split["cheap"] + ledger_split["expensive"]
+    metered_cheap += ledger_split["cheap"]
+    metered_expensive += ledger_split["expensive"]
 
     metered_cap = settings.metered_monthly_cap_usd
     cursor_cap = settings.cursor_monthly_estimate_cap_usd

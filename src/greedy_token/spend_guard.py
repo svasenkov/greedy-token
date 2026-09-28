@@ -2,15 +2,24 @@
 
 from __future__ import annotations
 
-import json
+import math
 import os
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from uuid import uuid4
 
+from greedy_token.budget_config import get_budget_settings
 from greedy_token.budget_ledger import headroom
-from greedy_token.model_select import ModelSpec, get_llm_registry
-from greedy_token.usage import log_archive_paths, log_path
+from greedy_token.model_select import LlmRegistry, ModelSpec, get_llm_registry
+from greedy_token.spend_ledger import (
+    is_metered_spend_event,
+    metered_spend_usd,
+    release_spend,
+    reserve_spend,
+    settle_spend,
+    spend_lock,
+)
 
 SPEND_ENV = "GREEDY_EXPENSIVE_LLM"
 ALLOW_EXPENSIVE_ENV = "GREEDY_ALLOW_EXPENSIVE"
@@ -19,6 +28,8 @@ METERED_ENV = "GREEDY_METERED_LLM"
 
 _TRUTHY = ("1", "true", "yes", "on")
 
+_is_metered_event = is_metered_spend_event
+
 
 @dataclass(frozen=True)
 class SpendDecision:
@@ -26,52 +37,63 @@ class SpendDecision:
     reason: str = ""
 
 
+@dataclass
+class SpendReservation:
+    """One metered provider call's hold on the budget (ADR-0002 hard cap).
+
+    Created by ``reserve_metered_call`` atomically with the cap check:
+    ``settle`` records the actual spend once the response is in, ``release``
+    frees the estimate when no billable response arrived.  A denied or
+    free-model reservation has an empty id and its methods are no-ops.
+    """
+
+    allowed: bool
+    reason: str = ""
+    reservation_id: str = ""
+    est_usd: float = 0.0
+
+    def settle(self, cost_usd: float) -> None:
+        if self.reservation_id:
+            settle_spend(self.reservation_id, cost_usd=cost_usd)
+
+    def release(self) -> None:
+        if self.reservation_id:
+            release_spend(self.reservation_id)
+
+
 def _today_utc() -> str:
     return datetime.now(UTC).strftime("%Y-%m-%d")
 
 
-def _is_metered_event(event: dict) -> bool:
-    """Metered spend event: v2 billing block tier "metered" (ADR-0002 — set
-    for every metered call, cheap or expensive derived tier) or the legacy
-    marker billing_tier == "expensive" (pre-v2 events had no block)."""
-    billing = event.get("billing")
-    # equivalent: default "" vs None/dropped/"XXXX" only when tier key is absent;
-    # str(...) of any default never equals "metered" → same False branch.
-    if isinstance(billing, dict) and str(billing.get("tier", "")).strip().lower() == "metered":
-        return True
-    return event.get("billing_tier") == "expensive"
+def _midnight_utc() -> datetime:
+    return datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def _daily_cap_usd(registry: LlmRegistry, *, root: Path | None = None) -> float:
+    """Effective daily cap: the tightest of the configured caps.
+
+    ADR-0002 documents one daily cap covering all metered spend, read from
+    ``llm.expensive.daily_cap_usd``.  ``budget.metered.daily_cap_usd`` is an
+    additional billing-side guardrail — configured (> 0) it can only tighten
+    the daily cap, never loosen what the model registry allows.  Both at 0
+    means no daily cap."""
+    caps = [
+        cap
+        for cap in (
+            registry.daily_cap_usd,
+            get_budget_settings(root).metered_daily_cap_usd,
+        )
+        if cap > 0
+    ]
+    return min(caps) if caps else 0.0
 
 
 def _load_today_spend() -> float:
-    # A mid-day log rotation moves earlier events into usage.jsonl.1, .2, …
-    # Reading only the active file would undercount today's spend and let the
-    # daily cap be bypassed, so scan the active log plus every rotated archive.
-    day = _today_utc()
-    total = 0.0
-    for path in log_archive_paths(log_path()):
-        if not path.is_file():
-            continue
-        # equivalent: encoding=None/"UTF-8" decode identically on UTF-8 locale.
-        for line in path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                event = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            # equivalent: default "" vs None/dropped/"XXXX" only when ts key is absent;
-            # str(...) still won't start with today's date → same skip branch.
-            ts = str(event.get("ts", ""))
-            if not ts.startswith(day):
-                continue
-            if not _is_metered_event(event):
-                continue
-            try:
-                total += float(event.get("cost_usd") or 0)
-            except (TypeError, ValueError):
-                pass
-    return total
+    # Spend is read from the durable ledger (which survives telemetry opt-out
+    # and rotation) plus pre-ledger usage events — not from telemetry alone.
+    # Fresh pending reservations count, so an in-flight paid call is visible
+    # to the next check in this or another process.
+    return metered_spend_usd(since=_midnight_utc(), include_pending=True)
 
 
 def expensive_opt_in(*, root: Path | None = None, cli_flag: bool = False) -> bool:
@@ -104,6 +126,25 @@ def metered_opt_in(*, root: Path | None = None, cli_flag: bool = False) -> bool:
     return env in _TRUTHY
 
 
+def _price_missing(spec: ModelSpec) -> SpendDecision | None:
+    """A metered model with no usable price cannot be capped — a zero or
+    missing ``cost_per_1m_usd`` would bill at recorded $0 forever.  ADR-0001
+    already derives such a model into the expensive tier; the gate must not
+    let it through on an unknown price at all."""
+    if spec.billing != "metered":
+        return None
+    cost = spec.cost_per_1m_usd
+    if cost is None or not math.isfinite(cost) or cost <= 0:
+        return SpendDecision(
+            allowed=False,
+            reason=(
+                f"metered model {spec.id} has no usable price "
+                "(set cost_per_1m_usd) — billing cannot be capped"
+            ),
+        )
+    return None
+
+
 def check_expensive_allowed(
     spec: ModelSpec,
     *,
@@ -124,8 +165,11 @@ def check_expensive_allowed(
             allowed=False,
             reason=f"expensive LLM opt-in required — set {SPEND_ENV}=1 or --allow-expensive",
         )
+    missing = _price_missing(spec)
+    if missing is not None:
+        return missing
     spent = _load_today_spend()
-    cap = registry.daily_cap_usd
+    cap = _daily_cap_usd(registry, root=root)
     if cap > 0 and spent + est_cost_usd > cap:
         return SpendDecision(
             allowed=False,
@@ -182,8 +226,11 @@ def check_metered_allowed(
                 f"or {METERED_ENV}=1"
             ),
         )
+    missing = _price_missing(spec)
+    if missing is not None:
+        return missing
     spent = _load_today_spend()
-    cap = registry.daily_cap_usd
+    cap = _daily_cap_usd(registry, root=root)
     if cap > 0 and spent + est_cost_usd > cap:
         return SpendDecision(
             allowed=False,
@@ -207,3 +254,57 @@ def estimate_cost_usd(spec: ModelSpec, eval_tokens: int | None) -> float:
     if eval_tokens is None or cost is None or cost <= 0:
         return 0.0
     return (eval_tokens / 1_000_000) * cost
+
+
+def reserve_metered_call(
+    spec: ModelSpec,
+    *,
+    root: Path | None = None,
+    cli_allow: bool = False,
+    est_cost_usd: float = 0.0,
+    operation_id: str = "",
+) -> SpendReservation:
+    """Cap check + spend reservation as one atomic step (ADR-0002 hard cap).
+
+    The decision and the reservation row happen under the spend ledger's
+    cross-process lock, so a concurrent invoke — or the next candidate of the
+    same escalation chain — counts this call's estimated spend before its own
+    check.  The caller must ``settle(actual_cost)`` once the provider answers
+    or ``release()`` when the call never produced a billable response.
+    """
+    if spec.billing != "metered":
+        return SpendReservation(allowed=True)
+    try:
+        with spend_lock():
+            decision = check_metered_allowed(
+                spec,
+                root=root,
+                cli_allow=cli_allow,
+                est_cost_usd=est_cost_usd,
+            )
+            if not decision.allowed:
+                return SpendReservation(allowed=False, reason=decision.reason)
+            reservation_id = uuid4().hex
+            try:
+                reserve_spend(
+                    reservation_id=reservation_id,
+                    model_id=spec.id,
+                    est_usd=est_cost_usd,
+                    operation_id=operation_id,
+                    billing_tier=get_llm_registry(root).tier_of(spec),
+                )
+            except OSError as exc:
+                # A reservation we cannot persist is a check we cannot trust —
+                # fail closed rather than run an unaccounted paid call.
+                return SpendReservation(
+                    allowed=False, reason=f"spend ledger write failed: {exc}"
+                )
+    except OSError as exc:
+        # A lock we cannot take is a cap check we cannot trust — same
+        # fail-closed stance as an unwritable ledger.
+        return SpendReservation(allowed=False, reason=f"spend lock failed: {exc}")
+    return SpendReservation(
+        allowed=True,
+        reservation_id=reservation_id,
+        est_usd=est_cost_usd if math.isfinite(est_cost_usd) and est_cost_usd > 0 else 0.0,
+    )

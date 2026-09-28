@@ -218,12 +218,14 @@ def test_check_metered_allowed_caps(
 
 @allure.story("Spend gate")
 @allure.title("check_metered_allowed: expensive delegation forwards exact args")
-def test_check_metered_allowed_delegation_args(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_check_metered_allowed_delegation_args(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     pricey = ModelSpec(
         id="p", enabled=True, provider="openai_compat", url="https://x", model="m",
         profiles=("*",), locality="remote", billing="metered", cost_per_1m_usd=5.0,
     )
-    sentinel_root = Path("/tmp/greedy-token-metered-root")
+    sentinel_root = tmp_path / "metered-root"
     seen: dict[str, object] = {}
 
     def recorder(spec, *, root=None, cli_allow=False, est_cost_usd=0.0):
