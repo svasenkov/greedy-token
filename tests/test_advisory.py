@@ -188,6 +188,14 @@ def test_write_tty(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.delenv("GREEDY_TOKEN_TTY", raising=False)
     advisory.write_tty(event)  # no tty → no-op
 
+    # Success path: the terminal block is written verbatim.
+    tty = tmp_path / "tty.txt"
+    monkeypatch.setenv("GREEDY_TOKEN_TTY", str(tty))
+    advisory.write_tty(event)
+    written = tty.read_text(encoding="utf-8")
+    assert written == advisory.format_terminal_block(event)
+    assert "BYPASS" in written
+
     # OSError path: tty points at a directory → open("w") raises, swallowed
     a_dir = tmp_path / "dir-tty"
     a_dir.mkdir()
@@ -342,3 +350,63 @@ def test_watch_follow_loop(advisory_log: Path, monkeypatch: pytest.MonkeyPatch, 
     monkeypatch.setattr(advisory.time, "sleep", fake_sleep)
     assert advisory.watch_events(follow=True, from_start=False, json_out=True) == 0
     assert calls["n"] >= 3
+
+
+@allure.title("watch_events: partial final line is buffered until the newline arrives")
+def test_watch_partial_line_buffered(
+    advisory_log: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    # An event written in two writes (split mid-record, no trailing newline in
+    # the first write) must be emitted once — when the record completes, and
+    # its Z-suffixed ISO timestamp must survive verbatim.
+    row = {
+        "ts": "2026-09-27T12:00:00Z",
+        "kind": advisory.KIND_PASS,
+        "action": "pass",
+        "prompt": "split-write event",
+        "target": "cursor",
+        "route_id": "r",
+        "confidence": 0.5,
+        "est_tokens": 1,
+    }
+    payload = json.dumps(row) + "\n"
+    cut = len(payload) // 2
+    advisory_log.write_text(payload[:cut], encoding="utf-8")
+
+    calls = {"n": 0}
+
+    def fake_sleep(_seconds: float) -> None:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            with advisory_log.open("a", encoding="utf-8") as stream:
+                stream.write(payload[cut:])
+        else:
+            raise KeyboardInterrupt
+
+    monkeypatch.setattr(advisory.time, "sleep", fake_sleep)
+    assert advisory.watch_events(follow=True, from_start=True, json_out=True) == 0
+    out = capsys.readouterr().out
+    assert "split-write event" in out
+    assert out.count('"prompt"') == 1  # emitted once, never as fragments
+    assert "2026-09-27T12:00:00Z" in out  # Z-suffixed ts retained
+
+
+@allure.title("watch_events: incomplete tail is not emitted in once mode, complete rows are")
+def test_watch_once_ignores_partial_tail(advisory_log: Path, capsys) -> None:
+    row = {
+        "ts": "2026-09-27T12:00:00Z",
+        "kind": advisory.KIND_PASS,
+        "action": "pass",
+        "prompt": "complete row",
+        "target": "cursor",
+        "route_id": "r",
+        "confidence": 0.5,
+        "est_tokens": 1,
+    }
+    advisory_log.write_text(
+        json.dumps(row) + "\n" + '{"unterminated', encoding="utf-8"
+    )
+    assert advisory.watch_events(follow=False, from_start=True, json_out=True) == 0
+    out = capsys.readouterr().out
+    assert "complete row" in out
+    assert "unterminated" not in out

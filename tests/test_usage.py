@@ -81,7 +81,7 @@ def test_env_tag_truncates(monkeypatch: pytest.MonkeyPatch) -> None:
     from greedy_token.usage import TAG_MAX_LEN, env_tag
 
     monkeypatch.setenv("GREEDY_TOKEN_TAG", "L" * 80)
-    assert len(env_tag()) == TAG_MAX_LEN
+    assert env_tag() == "L" * TAG_MAX_LEN
 
 
 @allure.story("Event logging")

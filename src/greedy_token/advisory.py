@@ -209,7 +209,8 @@ def append_event(event: AdvisoryEvent) -> None:
         return
     path = advisory_log_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as fh:
+    # newline="" pins LF bytes — text mode would translate to CRLF on Windows.
+    with path.open("a", encoding="utf-8", newline="") as fh:
         fh.write(json.dumps(event.to_dict(), ensure_ascii=False) + "\n")
 
 
@@ -356,22 +357,27 @@ def watch_events(
         path.touch()
 
     seen_pos = 0 if from_start else path.stat().st_size
+    pending = b""  # unconsumed tail of an unfinished JSON line
 
     def drain() -> None:
-        nonlocal seen_pos
+        nonlocal seen_pos, pending
         if not path.is_file():
             return
         size = path.stat().st_size
         if size < seen_pos:
             seen_pos = 0
+            pending = b""
         if size <= seen_pos:
             return
-        with path.open(encoding="utf-8") as fh:
+        with path.open("rb") as fh:
             fh.seek(seen_pos)
-            chunk = fh.read()
+            chunk = pending + fh.read()
             seen_pos = fh.tell()
-        for line in chunk.splitlines():
-            line = line.strip()
+        # Only newline-terminated bytes are parsed; the trailing fragment stays
+        # buffered so a record written across several writes is never dropped.
+        *complete, pending = chunk.split(b"\n")
+        for raw in complete:
+            line = raw.decode("utf-8", errors="replace").strip()
             if not line:
                 continue
             try:

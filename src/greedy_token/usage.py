@@ -226,6 +226,8 @@ def build_route_event(
     parent_operation_id: str | None = None,
     result_status: str | None = None,
     gate: GateDecision | None = None,
+    spend_ref: str | None = None,
+    input_tokens: int | None = None,
 ) -> dict:
     baseline = cursor_baseline(root, task)
     est_tokens = est_tokens_override if est_tokens_override is not None else decision.est_tokens
@@ -328,6 +330,10 @@ def build_route_event(
         event["billing_tier"] = billing_tier
     if cost_usd is not None:
         event["cost_usd"] = round(cost_usd, 6)
+    if input_tokens is not None:
+        # ADR-0001: billing counts output only, but the prompt side is logged
+        # for observability — this is the counted estimate, not a provider figure.
+        event["input_tokens"] = int(input_tokens)
     if llm_attempts:
         # Every attempted model id, in order — escalation honesty means the
         # log shows all tries, not just the model that served.
@@ -339,6 +345,10 @@ def build_route_event(
             # Kept visible as an estimate of what running it could save — never
             # summed as earned savings.
             event["cursor_saved_potential"] = potential_saved
+    if spend_ref:
+        # This call's spend is booked in the spend ledger under this id —
+        # spend readers skip the event so it is never counted twice.
+        event["spend_ref"] = spend_ref
     if llm_tags:
         event["tags"] = dict(llm_tags)
 
@@ -773,7 +783,8 @@ def append_event(
         _ensure_log_dir(target)
         rotate_log_if_needed(target)
         line = json.dumps(event, ensure_ascii=False, separators=(",", ":"))
-        with target.open("a", encoding="utf-8") as fh:
+        # newline="" pins LF bytes — text mode would translate to CRLF on Windows.
+        with target.open("a", encoding="utf-8", newline="") as fh:
             fh.write(line + "\n")
     except OSError as exc:
         print(f"greedy-token: usage log write failed: {exc}", file=sys.stderr)
@@ -807,7 +818,10 @@ def parse_since(value: str | None) -> datetime | None:
     if value.endswith("m") and value[:-1].isdigit():
         return now - timedelta(minutes=int(value[:-1]))
     try:
-        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        # The value was lowercased for the shorthands — the ISO "Z" suffix
+        # arrived as "z", so normalize the suffix case-insensitively.
+        raw = value[:-1] + "+00:00" if value.endswith(("z", "Z")) else value
+        dt = datetime.fromisoformat(raw)
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=UTC)
         return dt
@@ -1064,7 +1078,28 @@ def count_operations(events: list[dict]) -> int:
     return len(ids) + unlabelled
 
 
+def _dedupe_identical_events(events: list[dict]) -> list[dict]:
+    """Drop byte-identical duplicate records (a replayed/duplicated log line is
+    a telemetry artifact, not another operation).  Two real calls always
+    differ — timestamp, duration, eval tokens — so only an exact copy is
+    counted once."""
+    seen: set[str] = set()
+    unique: list[dict] = []
+    for event in events:
+        try:
+            key = json.dumps(event, sort_keys=True, default=str)
+        except (TypeError, ValueError):
+            unique.append(event)
+            continue
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(event)
+    return unique
+
+
 def aggregate_events(events: list[dict], *, since_label: str | None = None) -> ReportSummary:
+    events = _dedupe_identical_events(events)
     summary = ReportSummary(events=len(events), since=since_label)
     summary.operations = count_operations(events)
     summary.outcome_records = sum(
