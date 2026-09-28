@@ -366,7 +366,9 @@ def test_run_micro_benchmark_cache_scoped_to_endpoint(
         )
         miss = rp.run_micro_benchmark("m", quick=True, use_cache=True)
         assert called == [True]  # availability probe ran → real miss
-        assert miss.ok is True and miss.eval_tokens == 9 and miss.latency_ms != 42
+        # latency_ms is wall-clock — only eval_tokens distinguishes miss
+        # from the cached entry (a real timing could land on any value).
+        assert miss.ok is True and miss.eval_tokens == 9
 
 
 @allure.title("run_micro_benchmark: remote endpoint is spend-guarded, fails closed")
