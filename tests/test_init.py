@@ -35,8 +35,10 @@ def test_resolve_version_uses_pyproject_in_source_tree() -> None:
 
 @allure.story("Version")
 @allure.title("resolve_version honors GREEDY_TOKEN_RELEASE_VERSION without pyproject or metadata")
-def test_resolve_version_release_env_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
-    fake_root = Path("/tmp/greedy-token-version-fallback-root")
+def test_resolve_version_release_env_fallback(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    fake_root = tmp_path / "version-fallback-root"
     monkeypatch.setattr("greedy_token.version.repo_root", lambda: fake_root)
     monkeypatch.setattr(
         "greedy_token.version.metadata_version",
@@ -55,8 +57,10 @@ def test_metadata_version_reads_installed_distribution(monkeypatch: pytest.Monke
 
 @allure.story("Version")
 @allure.title("resolve_version uses metadata outside source checkout")
-def test_resolve_version_uses_metadata_outside_source_tree(monkeypatch: pytest.MonkeyPatch) -> None:
-    fake_root = Path("/tmp/greedy-token-version-metadata-root")
+def test_resolve_version_uses_metadata_outside_source_tree(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    fake_root = tmp_path / "version-metadata-root"
     monkeypatch.setattr("greedy_token.version.repo_root", lambda: fake_root)
     monkeypatch.setattr("greedy_token.version.metadata_version", lambda: "1.0.0")
     assert resolve_version() == "1.0.0"
@@ -64,8 +68,10 @@ def test_resolve_version_uses_metadata_outside_source_tree(monkeypatch: pytest.M
 
 @allure.story("Version")
 @allure.title("resolve_version raises when version cannot be resolved")
-def test_resolve_version_raises_when_unresolvable(monkeypatch: pytest.MonkeyPatch) -> None:
-    fake_root = Path("/tmp/greedy-token-version-unresolvable-root")
+def test_resolve_version_raises_when_unresolvable(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    fake_root = tmp_path / "version-unresolvable-root"
     monkeypatch.setattr("greedy_token.version.repo_root", lambda: fake_root)
     monkeypatch.setattr(
         "greedy_token.version.metadata_version",

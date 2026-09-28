@@ -51,11 +51,15 @@ def test_find_workspace_root_walks_parents(minimal_workspace: Path, monkeypatch:
 
 @allure.story("Discovery")
 @allure.title("find_workspace_root exits when markers are absent")
-def test_find_workspace_root_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_find_workspace_root_not_found(
+    monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFactory
+) -> None:
     monkeypatch.delenv("GREEDY_TOKEN_ROOT", raising=False)
-    isolated = Path("/tmp/greedy_token_root_isolated")
-    empty = isolated / "empty"
-    empty.mkdir(parents=True, exist_ok=True)
+    # Must sit outside this test's tmp_path: the autouse minimal_workspace
+    # fixture plants workspace markers in tmp_path, so any child path
+    # resolves to it. A factory-minted sibling has no markers up-tree.
+    empty = tmp_path_factory.mktemp("root-isolated") / "empty"
+    empty.mkdir(parents=True)
     with allure.step("Resolve root without markers"):
         with pytest.raises(SystemExit, match="Cannot find workspace root"):
             find_workspace_root(empty)

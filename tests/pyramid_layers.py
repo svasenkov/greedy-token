@@ -39,6 +39,8 @@ LAYER_BY_MODULE: dict[str, str] = {
     "test_router_gaps": "unit",
     "test_trust_cut": "unit",
     "test_result_contract": "unit",
+    "test_ci_install_profile": "unit",
+    "test_hub_static": "unit",
     # component — the pure gate matrix is unit-level, but pipeline/log tests
     # use minimal_workspace fixtures; keep the file at the heavier layer.
     "test_result_gate": "component",
@@ -83,6 +85,9 @@ LAYER_BY_MODULE: dict[str, str] = {
     "test_usage_gaps": "component",
     "test_coverage_gaps_v2": "component",
     "test_metered_bulk": "component",
+    "test_portability": "component",
+    "test_spend_ledger": "component",
+    "test_accounting_gaps": "component",
     "test_agent_host": "component",
     "test_capabilities": "component",
     # integration — subprocess CLI, real rg, workspace checkout

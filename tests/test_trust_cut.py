@@ -179,4 +179,6 @@ def test_mcp_fastmcp_importable() -> None:
     pytest.importorskip("mcp")
     from mcp.server.fastmcp import FastMCP
 
-    assert FastMCP is not None
+    server = FastMCP("import-probe")
+    assert callable(server.tool)
+    assert callable(server.run)

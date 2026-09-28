@@ -291,15 +291,11 @@ def test_code_search_resolve_edges(
 
 
 @allure.title("context_audit skips directories and empty rules table")
-def test_context_audit_empty_rules(minimal_workspace: Path) -> None:
+def test_context_audit_empty_rules(minimal_workspace: Path, tmp_path: Path) -> None:
     from greedy_token.context_audit import audit_context, render_audit
 
-    isolated = Path("/tmp/greedy_token_audit_empty")
+    isolated = tmp_path / "isolated"
     rules = isolated / ".cursor" / "rules"
-    if rules.exists():
-        import shutil
-
-        shutil.rmtree(isolated)
     rules.mkdir(parents=True)
     (rules / "placeholder").mkdir()
     out = render_audit(audit_context(isolated))

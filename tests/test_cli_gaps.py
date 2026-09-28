@@ -155,7 +155,9 @@ def _report() -> DoctorReport:
 
 
 @allure.title("cmd_doctor: text, json, apply ok, apply error, no workspace")
-def test_cmd_doctor(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+def test_cmd_doctor(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch, capsys, tmp_path: Path
+) -> None:
     monkeypatch.setattr("greedy_token.resource_probe.run_doctor", lambda **k: _report())
     monkeypatch.setattr("greedy_token.resource_probe.format_doctor_report", lambda r, include_paid=False: "DOCTOR TEXT")
 
@@ -175,7 +177,7 @@ def test_cmd_doctor(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch, ca
     assert code_jm == 0 and "benchmark" not in data_m and "paid_recommendations" not in data_m
 
     # apply success
-    monkeypatch.setattr("greedy_token.resource_probe.apply_doctor_config", lambda force: Path("/tmp/cfg.yaml"))
+    monkeypatch.setattr("greedy_token.resource_probe.apply_doctor_config", lambda force: tmp_path / "cfg.yaml")
     code_a = cli.cmd_doctor(_ns(apply=True, force=True, benchmark=False, paid=False, json=False))
     assert code_a == 0 and "Updated" in capsys.readouterr().out
 

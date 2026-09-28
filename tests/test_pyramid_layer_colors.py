@@ -70,7 +70,15 @@ def test_palette_a_unique_per_layer() -> None:
             };
             """
         )
-        attach_json("palette A", json.loads(raw))
+        palette = json.loads(raw)
+        attach_json("palette A", palette)
+        # Direct assertion — do not rely solely on the node-side assert.
+        for theme, pairs in palette.items():
+            hexes = [color for _, color in pairs]
+            assert all(h.startswith("#") for h in hexes)
+            assert len(hexes) == len(set(hexes)), (
+                f"{theme} palette assigns the same color to different layers"
+            )
 
 
 @allure.story("Name-based mapping")
