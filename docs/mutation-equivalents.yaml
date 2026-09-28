@@ -249,6 +249,16 @@ equivalents:
       product is also 0.0, so `<= 0` vs `< 0` returns the same value.
     pragma: false
 
+  - module: spend_guard.py
+    symbol: reserve_metered_call
+    reason: >-
+      est > 0 vs >= 0 — est==0 stores 0.0 on either branch.
+    proof: >-
+      With est_cost_usd == 0 the sanitized branch yields 0.0 and the mutated
+      `>= 0` branch stores the raw est, which is also 0.0, so the reservation
+      field is identical either way.
+    pragma: false
+
   - module: trust.py
     symbol: _read_entries
     reason: >-

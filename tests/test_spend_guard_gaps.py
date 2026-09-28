@@ -37,7 +37,9 @@ def _spec(tier: str = "expensive", cost: float | None = 10.0) -> ModelSpec:
     )
 
 
-def _registry(*, opt_in: bool = True, daily_cap: float = 5.0) -> LlmRegistry:
+def _registry(
+    *, opt_in: bool = True, daily_cap: float = 5.0, metered_opt_in: bool = False
+) -> LlmRegistry:
     return LlmRegistry(
         policy="auto",
         cheap_selection="fixed",
@@ -49,6 +51,23 @@ def _registry(*, opt_in: bool = True, daily_cap: float = 5.0) -> LlmRegistry:
         escalation=EscalationConfig(enabled=True, chain=(), triggers=(), max_steps=2),
         models=(_spec(),),
         source="test",
+        metered_opt_in=metered_opt_in,
+    )
+
+
+def _metered_cheap_spec(cost: float | None = 0.1) -> ModelSpec:
+    # Metered billing below the cheap-cost threshold → derived "cheap" tier,
+    # so check_metered_allowed exercises the cheap-metered opt-in path.
+    return ModelSpec(
+        id="metered-cheap",
+        enabled=True,
+        provider="yandex_gpt",  # type: ignore[arg-type]
+        url="",
+        model="m",
+        profiles=("*",),
+        locality="remote",
+        billing="metered",
+        cost_per_1m_usd=cost,
     )
 
 
@@ -311,3 +330,226 @@ def test_price_missing_billing_gate() -> None:
     denied = spend_guard._price_missing(_spec(cost=None))
     assert denied is not None and denied.allowed is False
     assert "no usable price" in denied.reason
+
+
+@allure.title("_midnight_utc zeroes every time field below the day")
+def test_midnight_utc_zeroes_time_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    frozen = datetime(2024, 6, 2, 15, 42, 37, 123456, tzinfo=UTC)
+
+    class FakeDatetime:
+        UTC = UTC
+
+        @staticmethod
+        def now(tz=None):
+            return frozen if tz is UTC else frozen.replace(tzinfo=None)
+
+    monkeypatch.setattr(spend_guard, "datetime", FakeDatetime)
+    assert spend_guard._midnight_utc() == datetime(2024, 6, 2, tzinfo=UTC)
+
+
+@allure.title("_daily_cap_usd threads root into the budget settings lookup")
+def test_daily_cap_usd_threads_root(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    sentinel = tmp_path / "sentinel-root"
+    seen: dict[str, object] = {}
+
+    def fake_settings(root=None):
+        seen["root"] = root
+        return SimpleNamespace(metered_daily_cap_usd=0.0)
+
+    monkeypatch.setattr(spend_guard, "get_budget_settings", fake_settings)
+    spend_guard._daily_cap_usd(_registry(daily_cap=0.0), root=sentinel)
+    assert seen["root"] == sentinel
+
+
+@allure.title("_load_today_spend counts fresh pending reservations")
+def test_load_today_spend_includes_pending(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: dict[str, object] = {}
+
+    def fake_spend(*, since=None, include_pending=False):
+        seen["since"] = since
+        seen["include_pending"] = include_pending
+        return 0.0
+
+    monkeypatch.setattr(spend_guard, "metered_spend_usd", fake_spend)
+    spend_guard._load_today_spend()
+    assert seen["include_pending"] is True
+    assert isinstance(seen["since"], datetime)
+
+
+@allure.title("_price_missing reason is an exact billing-cap contract string")
+def test_price_missing_reason_exact() -> None:
+    denied = spend_guard._price_missing(_spec(cost=None))
+    assert denied is not None
+    assert denied.reason == (
+        "metered model yandex-lite has no usable price "
+        "(set cost_per_1m_usd) — billing cannot be capped"
+    )
+
+
+def _allow_metered_call(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, **captured: object
+) -> dict[str, object]:
+    monkeypatch.setenv("GREEDY_TOKEN_SPEND_LOG", str(tmp_path / "spend.jsonl"))
+    monkeypatch.setenv("GREEDY_TOKEN_LOG", str(tmp_path / "usage.jsonl"))
+    for env in (
+        spend_guard.METERED_ENV,
+        spend_guard.SPEND_ENV,
+        spend_guard.ALLOW_EXPENSIVE_ENV,
+    ):
+        monkeypatch.delenv(env, raising=False)
+    monkeypatch.setattr(
+        spend_guard, "get_llm_registry", lambda root=None: _registry(opt_in=True)
+    )
+    monkeypatch.setattr(spend_guard, "_load_today_spend", lambda: 0.0)
+    monkeypatch.setattr(spend_guard, "headroom", lambda root=None: _snap(cap=0.0))
+    calls: dict[str, object] = {}
+
+    def fake_reserve(**kwargs):
+        calls.update(kwargs)
+
+    monkeypatch.setattr(spend_guard, "reserve_spend", fake_reserve)
+    return calls
+
+
+@allure.title("reserve_metered_call: bare call denies when the metered opt-in is absent")
+def test_reserve_bare_call_denied(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _allow_metered_call(monkeypatch, tmp_path)
+    # No cli_allow: the default must stay False — a mutant flipping it would
+    # grant the opt-in and reserve instead of denying.
+    res = spend_guard.reserve_metered_call(_metered_cheap_spec())
+    assert res.allowed is False
+    assert res.reservation_id == ""
+    assert "opt-in required" in res.reason
+
+
+@allure.title("reserve_metered_call forwards cli_allow into the metered opt-in check")
+def test_reserve_cli_allow_grants_opt_in(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _allow_metered_call(monkeypatch, tmp_path)
+    res = spend_guard.reserve_metered_call(_metered_cheap_spec(), cli_allow=True)
+    assert res.allowed is True
+    assert res.reservation_id != ""
+
+
+@allure.title("reserve_metered_call passes model, operation, est and billing_tier to the ledger")
+def test_reserve_allowed_writes_exact_fields(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    calls = _allow_metered_call(monkeypatch, tmp_path)
+    spec = _metered_cheap_spec()
+    res = spend_guard.reserve_metered_call(
+        spec, cli_allow=True, est_cost_usd=5.0, operation_id="op-42"
+    )
+    assert res.allowed is True
+    assert calls["model_id"] == spec.id
+    assert calls["est_usd"] == 5.0
+    assert calls["operation_id"] == "op-42"
+    assert calls["billing_tier"] == "cheap"
+    assert res.reservation_id == calls["reservation_id"]
+    assert res.est_usd == 5.0
+
+    # Bare call: operation_id defaults to "", est defaults to 0.0.
+    calls.clear()
+    res2 = spend_guard.reserve_metered_call(spec, cli_allow=True)
+    assert calls["operation_id"] == ""
+    assert res2.est_usd == 0.0
+
+
+@allure.title("reserve_metered_call threads root into every registry lookup")
+def test_reserve_threads_root(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    sentinel = tmp_path / "sentinel-root"
+    calls: list[object] = []
+    monkeypatch.setenv("GREEDY_TOKEN_SPEND_LOG", str(tmp_path / "spend.jsonl"))
+    monkeypatch.delenv(spend_guard.METERED_ENV, raising=False)
+
+    def fake_registry(root=None):
+        calls.append(root)
+        return _registry(opt_in=True)
+
+    monkeypatch.setattr(spend_guard, "get_llm_registry", fake_registry)
+    monkeypatch.setattr(spend_guard, "_load_today_spend", lambda: 0.0)
+    monkeypatch.setattr(spend_guard, "headroom", lambda root=None: _snap(cap=0.0))
+    monkeypatch.setattr(spend_guard, "reserve_spend", lambda **kw: None)
+
+    spend_guard.reserve_metered_call(_metered_cheap_spec(), root=sentinel, cli_allow=True)
+    assert calls and all(c == sentinel for c in calls)
+
+
+@allure.title("reserve_metered_call fails closed when the ledger write raises OSError")
+def test_reserve_fail_closed_on_write_error(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _allow_metered_call(monkeypatch, tmp_path)
+
+    def bad_reserve(**kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(spend_guard, "reserve_spend", bad_reserve)
+    res = spend_guard.reserve_metered_call(_metered_cheap_spec(), cli_allow=True)
+    assert res.allowed is False
+    assert "spend ledger write failed" in res.reason
+    assert res.reservation_id == ""
+
+
+@allure.title("reserve_metered_call fails closed when the spend lock raises OSError")
+def test_reserve_fail_closed_on_lock_error(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _allow_metered_call(monkeypatch, tmp_path)
+
+    import contextlib
+
+    @contextlib.contextmanager
+    def bad_lock():
+        raise OSError("no lock")
+        yield
+
+    monkeypatch.setattr(spend_guard, "spend_lock", bad_lock)
+    res = spend_guard.reserve_metered_call(_metered_cheap_spec(), cli_allow=True)
+    assert res.allowed is False
+    assert "spend lock failed" in res.reason
+
+
+@allure.title("reserve_metered_call sanitizes non-finite / non-positive est into 0.0")
+@pytest.mark.parametrize(
+    ("est", "expected"), [(-1.0, 0.0), (0.5, 0.5), (float("nan"), 0.0), (5.0, 5.0)]
+)
+def test_reserve_est_usd_sanitized(
+    est: float, expected: float, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _allow_metered_call(monkeypatch, tmp_path)
+    res = spend_guard.reserve_metered_call(
+        _metered_cheap_spec(), cli_allow=True, est_cost_usd=est
+    )
+    assert res.allowed is True
+    assert res.est_usd == expected
+
+
+@allure.title("check_*_allowed thread root into _daily_cap_usd")
+def test_checks_thread_root_into_daily_cap(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    sentinel = tmp_path / "sentinel-root"
+    seen: list[object] = []
+
+    def fake_cap(registry, *, root=None):
+        seen.append(root)
+        return 0.0
+
+    monkeypatch.setattr(
+        spend_guard, "get_llm_registry", lambda root=None: _registry(opt_in=True)
+    )
+    monkeypatch.setattr(spend_guard, "_daily_cap_usd", fake_cap)
+    monkeypatch.setattr(spend_guard, "_load_today_spend", lambda: 0.0)
+    monkeypatch.setattr(spend_guard, "headroom", lambda root=None: _snap(cap=0.0))
+
+    spend_guard.check_expensive_allowed(_spec(), root=sentinel, cli_allow=True)
+    spend_guard.check_metered_allowed(_metered_cheap_spec(), root=sentinel, cli_allow=True)
+    assert seen == [sentinel, sentinel]

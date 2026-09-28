@@ -303,6 +303,7 @@ def reserve_metered_call(
         # A lock we cannot take is a cap check we cannot trust — same
         # fail-closed stance as an unwritable ledger.
         return SpendReservation(allowed=False, reason=f"spend lock failed: {exc}")
+    # equivalent: est > 0 vs >= 0 — est==0 stores 0.0 on either branch.
     return SpendReservation(
         allowed=True,
         reservation_id=reservation_id,
