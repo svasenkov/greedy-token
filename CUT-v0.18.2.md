@@ -1,7 +1,8 @@
 # Cut checklist — greedy-token v0.18.2
 
-**Status:** ALIGNED + GATE GREEN. Version pins are `0.18.2`. Push / tag /
-`gh release` require explicit user confirmation — see the commands block.
+**Status:** RELEASED 2026-09-30. Version pins are `0.18.2`; tag
+`v0.18.2` lives on `4a94c546c` (matrix gate green), GitHub Release +
+PyPI publish done.
 
 Patch release after v0.18.1: mutation-testing campaign on the hot modules —
 kill tests plus a proven-equivalent registry, 100% line+branch coverage, one
@@ -46,14 +47,19 @@ flaky timing assert removed. No schema break — usage events stay `v:2`.
 The local macOS/Python 3.14 release gate on 2026-09-30 passed
 (`./scripts/release-gate.sh 0.18.2` via `projects/greedy-token-home/greedy-token/.venv`):
 
-- coverage run: 2031 passed (plus 1 skipped in the plain suite run);
+- coverage run: 2032 collected (plus 1 skipped in the plain suite run);
   100% branch coverage across 9671 statements and 3386 branches;
 - explicit `0.18.2` release-version gate (1 passed);
-- workflows match `_ethalon`; Allure `minTestsCount` synced to 2031
+- workflows match `_ethalon`; Allure `minTestsCount` synced to 2032
   (pytest collected);
 - `uv build` produced `dist/greedy_token-0.18.2.tar.gz` +
   `greedy_token-0.18.2-py3-none-any.whl`; clean-venv smoke install
   reports `__version__ == "0.18.2"`.
+
+CI/released: Test workflow `required matrix gate` green on `4a94c546c`
+(three fix iterations: Windows/POSIX test portability, pathspec in the
+minimum dep profile, minTestsCount resync). Tag `v0.18.2` pushed on that
+commit, GitHub Release published, `greedy-token==0.18.2` on PyPI.
 
 ## Contract evidence
 
