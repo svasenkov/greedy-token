@@ -9,6 +9,19 @@ flaky timing assert removed. No schema break — usage events stay `v:2`.
 
 ## Summary
 
+- **Focused-review fixes:** malformed provider responses (Ollama /
+  OpenAI-compatible / Yandex) now raise `MalformedResponseError`;
+  `.ignore` fallback moved to `pathspec` GitIgnoreSpec (rg parity:
+  anchors, `**/`, `[!x]`, ancestor files, literal unclosed `[`);
+  symlink-safe traversal confined to root; `path:line:content` parsing
+  tolerates `:` in filenames; hub summary dedupes byte-identical events;
+  spend ledger starts a new line after a torn tail; benchmark cache key
+  includes `YANDEX_FOLDER_ID`; `-uall` guards nested untracked `tests/`
+  dirs; `rag_fts` over-fetches so stale rows can't starve `LIMIT`.
+- **Router/crystallize refactor:** tier constants and the ISO timestamp
+  parser are SSOT in `usage.py`; `first_matching_route_id` gives a
+  match-only fast path; `rank_candidates` splits into passes with an
+  early exit (snapshot-identical output verified).
 - **Coverage closed:** every previously uncovered line/branch in
   `spend_ledger`, `llm_invoke`, `usage`, `budget`, `budget_ledger`,
   `budget_policy`, `advisory` is exercised — 100.00% with zero pragmas.
@@ -30,13 +43,14 @@ flaky timing assert removed. No schema break — usage events stay `v:2`.
 
 ## Honest evidence
 
-The local macOS/Python 3.14 release gate on 2026-09-28 passed
+The local macOS/Python 3.14 release gate on 2026-09-30 passed
 (`./scripts/release-gate.sh 0.18.2` via `projects/greedy-token-home/greedy-token/.venv`):
 
-- coverage run: 1763 passed; 100% branch coverage across 9646
-  statements and 3366 branches;
-- explicit `0.18.2` release-version gate (1 passed, 1762 deselected);
-- Allure `minTestsCount` synced to 1763 (pytest collected);
+- coverage run: 2031 passed (plus 1 skipped in the plain suite run);
+  100% branch coverage across 9671 statements and 3386 branches;
+- explicit `0.18.2` release-version gate (1 passed);
+- workflows match `_ethalon`; Allure `minTestsCount` synced to 2031
+  (pytest collected);
 - `uv build` produced `dist/greedy_token-0.18.2.tar.gz` +
   `greedy_token-0.18.2-py3-none-any.whl`; clean-venv smoke install
   reports `__version__ == "0.18.2"`.
