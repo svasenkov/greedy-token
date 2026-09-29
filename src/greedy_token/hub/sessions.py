@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 
 from greedy_token.hub.paths import sessions_dir
 from greedy_token.usage import (
@@ -8,20 +8,9 @@ from greedy_token.usage import (
     count_operations,
     load_events,
     log_path,
+    parse_iso_ts,
     parse_since,
 )
-
-
-def _parse_ts(raw: str) -> datetime | None:
-    if not raw:
-        return None
-    try:
-        ts = datetime.fromisoformat(raw.replace("Z", "+00:00"))
-        if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=UTC)
-        return ts
-    except ValueError:
-        return None
 
 
 def _event_session_id(event: dict) -> str:
@@ -48,7 +37,7 @@ def list_sessions(*, since: str | None = "7d") -> list[dict]:
         for path in session_dir.glob("*.since"):
             session_id = path.stem
             since_raw = path.read_text(encoding="utf-8").strip()
-            since_ts = _parse_ts(since_raw)
+            since_ts = parse_iso_ts(since_raw)
             if since_ts is None:
                 continue
             if since_dt and since_ts < since_dt:
@@ -109,7 +98,9 @@ def _aggregate(
             if event_sid != session_id:
                 continue
         else:
-            ts = _parse_ts(event.get("ts", ""))
+            # equivalent: any non-str or unparsable "ts" default (None,
+            # absent, "XXXX") parses to None like "" — same `continue` runs.
+            ts = parse_iso_ts(event.get("ts", ""))
             if ts is None or ts < since:
                 continue
             if until is not None and ts >= until:
@@ -129,7 +120,9 @@ def _aggregate_window(events: list[dict], *, since: datetime | None) -> dict:
     filtered = []
     saved = spent = 0
     for event in events:
-        ts = _parse_ts(event.get("ts", ""))
+        # equivalent: any non-str or unparsable "ts" default (None, absent,
+        # "XXXX") parses to None like "" — the same append path runs.
+        ts = parse_iso_ts(event.get("ts", ""))
         if since and ts and ts < since:
             continue
         filtered.append(event)

@@ -1697,3 +1697,144 @@ def test_format_decision_argv_no_cwd(tmp_path: Path) -> None:
     )
     out = router.format_decision(dec, "task", tmp_path)
     assert "Command: run tests" in out
+
+
+# --- first_matching_route_id: match-only counterpart of route_task_all_tiers ---
+
+
+@allure.title("first_matching_route_id == first non-cursor match of route_task_all_tiers")
+def test_first_matching_route_id_parity(minimal_workspace: Path) -> None:
+    tasks = [
+        "what changed in recent commits",  # python → python-git-recent
+        "find the base url config",  # tool → tool-rg-search
+        "parse json phase-manifest json",  # tool → tool-jq-manifest
+        "audit skill configurator boolean",  # ollama → ollama-audit-skill
+        "расскажи про baseurl настройку",  # rag → rag-ru-lookup (best score)
+        "implement new feature",  # cursor-wiring only → None
+        "xyzzy quux coracle nothing",  # no route at all → None
+    ]
+    for task in tasks:
+        expected = next(
+            (
+                decision.route_id
+                for tier, decision in router.route_task_all_tiers(
+                    task, minimal_workspace
+                )
+                if tier != "cursor" and decision.matched
+            ),
+            None,
+        )
+        assert router.first_matching_route_id(task, minimal_workspace) == expected
+
+
+@allure.title("first_matching_route_id: tier order, tool gate, active filter, no-match")
+def test_first_matching_route_id_custom_config(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = {
+        "routes": [
+            # no "patterns" key — must never match, must not raise
+            {"id": "python-patternless", "target": "python"},
+            # matches but would fail argv build (missing json_path) — match-only
+            # coverage does not validate execution config
+            {
+                "id": "tool-broken",
+                "target": "tool",
+                "tool": "jq",
+                "patterns": ["lookup-thing"],
+                "json_path": "missing/x.json",
+            },
+            {"id": "python-alt", "target": "python", "patterns": ["lookup-thing"]},
+            {"id": "python-tie-a", "target": "python", "patterns": ["tie-thing"]},
+            {"id": "python-tie-b", "target": "python", "patterns": ["tie-thing"]},
+            {
+                "id": "python-disabled",
+                "target": "python",
+                "enabled": False,
+                "patterns": ["disabled-thing"],
+            },
+            {"id": "cursor-only", "target": "cursor", "patterns": ["cursor-thing"]},
+        ]
+    }
+    monkeypatch.setattr(router, "load_routes_config", lambda root=None: cfg)
+    # tool gate blocks the tool tier on a non-lookup task → python tier wins
+    assert router.first_matching_route_id("please lookup-thing now") == "python-alt"
+    # read-only lookup → tool tier is first in TIER_ORDER
+    assert router.first_matching_route_id("find lookup-thing") == "tool-broken"
+    # equal score → first route in the list wins (`>` keeps the incumbent)
+    assert router.first_matching_route_id("tie-thing now") == "python-tie-a"
+    # disabled/shadow routes are not coverage
+    assert router.first_matching_route_id("disabled-thing here") is None
+    # cursor tier never counts as coverage
+    assert router.first_matching_route_id("cursor-thing here") is None
+    assert router.first_matching_route_id("nothing matches at all") is None
+
+
+@allure.title("first_matching_route_id honors an explicit root over the env one")
+def test_first_matching_route_id_explicit_root(tmp_path: Path) -> None:
+    ws = tmp_path / "ws2"
+    ws.mkdir()
+    (ws / ".greedy-token.yaml").write_text(
+        "routes:\n"
+        "  - id: custom-xyz\n"
+        "    target: python\n"
+        "    patterns: [uniquething]\n"
+        "    command: python x.py\n",
+        encoding="utf-8",
+    )
+    assert router.first_matching_route_id("do uniquething now", ws) == "custom-xyz"
+
+
+@allure.title("first_matching_route_id resolves GREEDY_TOKEN_ROOT when root=None")
+def test_first_matching_route_id_env_root(minimal_workspace: Path) -> None:
+    # autouse fixture points GREEDY_TOKEN_ROOT at minimal_workspace
+    assert (
+        router.first_matching_route_id("what changed in recent commits")
+        == "python-git-recent"
+    )
+
+
+@allure.title("first_matching_route_id: a config without a routes key yields None")
+def test_first_matching_route_id_no_routes_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(router, "load_routes_config", lambda root=None: {})
+    assert router.first_matching_route_id("anything at all", Path("/x")) is None
+
+
+@allure.title("first_matching_route_id: an empty pattern still scores a match")
+def test_first_matching_route_id_empty_pattern(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = {
+        "routes": [
+            {"id": "python-empty", "target": "python", "patterns": [""]},
+        ]
+    }
+    monkeypatch.setattr(router, "load_routes_config", lambda root=None: cfg)
+    # an empty pattern matches with score exactly 1.0 — still > 0.0
+    assert (
+        router.first_matching_route_id("whatever task", Path("/x")) == "python-empty"
+    )
+
+
+@allure.title("first_matching_route_id: an inactive first row does not end the scan")
+def test_first_matching_route_id_inactive_first(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = {
+        "routes": [
+            {
+                "id": "python-dead",
+                "target": "python",
+                "enabled": False,
+                "patterns": ["probe-me"],
+            },
+            {"id": "python-live", "target": "python", "patterns": ["probe-me"]},
+        ]
+    }
+    monkeypatch.setattr(router, "load_routes_config", lambda root=None: cfg)
+    assert (
+        router.first_matching_route_id("please probe-me now", Path("/x"))
+        == "python-live"
+    )

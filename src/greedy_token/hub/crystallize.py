@@ -14,15 +14,17 @@ from greedy_token.hub.paths import inbox_path, lifecycle_path, watch_state_path
 from greedy_token.paths import find_workspace_root
 from greedy_token.usage import (
     CHEAP_TIERS,
+    LLM_TIERS,
+    OVERRIDE_EVENT,
+    SCRIPT_TIERS,
+    SESSION_KEYS,
     load_events,
     log_path,
     normalize_task,
+    parse_iso_ts,
     parse_since,
 )
 
-SCRIPT_TIERS = frozenset({"tool", "python", "script", "rag"})
-LLM_TIERS = frozenset({"ollama", "cursor"})
-OVERRIDE_EVENT = "script_override"
 PROMOTE_MIN_HITS = 3
 # Sessionization fallback: usage events carry no session_id, so >30min of
 # silence between any events splits a work session (web-analytics convention).
@@ -153,21 +155,9 @@ def crystal_contour(entry: dict) -> str:
     return "workspace"
 
 
-def parse_iso_ts(value: object) -> datetime | None:
-    if not isinstance(value, str) or not value.strip():
-        return None
-    try:
-        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=UTC)
-    return dt
-
-
 def _session_id(row: dict) -> str | None:
     tags = row.get("tags") if isinstance(row.get("tags"), dict) else {}
-    for key in ("session_id", "session", "sid"):
+    for key in SESSION_KEYS:
         val = row.get(key) or tags.get(key)
         if val:
             return str(val)
@@ -259,20 +249,19 @@ def inbox_is_fresh(
 def covered_route_id(task: str, root: Path | None = None) -> str | None:
     """Active non-cursor route already matching ``task``, else None.
 
-    Fail-open: a missing workspace, a broken overlay, or any router error
-    returns None — coverage suppression must never hide evidence on failure.
-    Lazy router import keeps the hub free of router→usage import cycles.
+    Match-only check via ``first_matching_route_id``: no token estimates,
+    decision construction or wrapper resolution.  Fail-open: a missing
+    workspace, a broken overlay, or any router error returns None — coverage
+    suppression must never hide evidence on failure.  Lazy router import
+    keeps the hub free of router→usage import cycles.
     """
     try:
         root = find_workspace_root() if root is None else Path(root)
-        from greedy_token.router import route_task_all_tiers
+        from greedy_token.router import first_matching_route_id
 
-        for tier, decision in route_task_all_tiers(task, root):
-            if tier != "cursor" and decision.matched:
-                return decision.route_id
+        return first_matching_route_id(task, root)
     except (Exception, SystemExit):
         return None
-    return None
 
 
 def rank_candidates(
@@ -417,10 +406,20 @@ def rank_candidates(
     covered: list[dict] = []
     sandbox_skipped = 0
     ordered = sorted(merged.values(), key=lambda c: (-c["hits"], c["crystal_id"]))
+    # Cheap first pass: the sandbox filter needs no routing probe and must see
+    # every ordered row, so sandbox_skipped stays an exact count of the whole
+    # merged set even when the coverage pass below exits early.
+    surviving: list[dict] = []
     for row in ordered:
         if not ws_is_sandbox and is_sandbox_roots(row["roots"]):
             sandbox_skipped += 1
             continue
+        surviving.append(row)
+    # Expensive pass: stop probing once both lists are full — further matches
+    # would land past the [:top] truncation either way.
+    for row in surviving:
+        if len(candidates) >= top and len(covered) >= top:
+            break
         route_id = covered_route_id(row["pattern"], ws_root)
         if route_id:
             row["covered_by"] = route_id
@@ -664,9 +663,14 @@ def list_crystals(*, since: str | None = "7d", include_hidden: bool = False) -> 
         }
 
     if inbox_fresh:
+        # Resolve the workspace once — a per-item lookup repeated the walk.
+        try:
+            ws_root = find_workspace_root()
+        except SystemExit:
+            ws_root = None
         for item in inbox.get("new_candidates", []):
             cid = crystal_id_for_pattern(item["pattern"])
-            if covered_route_id(item["pattern"]):
+            if covered_route_id(item["pattern"], ws_root):
                 continue
             entry = crystals.setdefault(
                 cid,

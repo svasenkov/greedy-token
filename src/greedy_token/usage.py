@@ -58,6 +58,14 @@ CHEAP_TIERS = frozenset({"tool", "python", "ollama", "rag", "script"})
 # Legacy subset: python/script were the only attributed tiers before cheap-tier
 # attribution landed. Kept for callers that still reference the script subset.
 SCRIPT_HIT_TIERS = frozenset({"python", "script"})
+# Telemetry slot ids, not provider names: usage.jsonl's selected_tier stores
+# these slots and llm_invoke maps billing_tier back to them (settings.py,
+# ADR-0001 keeps the schema backwards-compatible).
+LLM_TIERS = frozenset({"ollama", "cursor"})
+# Cheap-execution coverage vocabulary: SCRIPT_TIERS == CHEAP_TIERS minus the
+# "ollama" LLM slot.  Distinct from SCRIPT_HIT_TIERS — the legacy python/script
+# attribution subset above kept for older callers.
+SCRIPT_TIERS = frozenset({"tool", "python", "script", "rag"})
 OVERRIDE_EVENT = "script_override"
 # Matched pattern strings are logged on route events, capped so a noisy route
 # cannot bloat the JSONL row.
@@ -884,6 +892,26 @@ def _parse_event_ts(event: dict) -> datetime | None:
         return ts
     except ValueError:
         return None
+
+
+def parse_iso_ts(value: object) -> datetime | None:
+    """Shared ISO-8601 timestamp parser for hub/crystallize reads.
+
+    Only non-empty str input parses (event ``ts``, inbox ``updated_at``,
+    ``*.since`` files); anything else → None.  Naive values are read as UTC.
+    """
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        # equivalent: on Python >=3.11 fromisoformat parses a trailing "Z"
+        # natively, so rewriting the replace pattern ("Z"→"XXZXX" or "z")
+        # never changes the parse result for real inputs.
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
+    return dt
 
 
 def load_events(

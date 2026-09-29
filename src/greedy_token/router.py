@@ -629,6 +629,44 @@ def _with_shadow(decision: RouteDecision, shadow_route_id: str | None) -> RouteD
     return replace(decision, shadow_route_id=shadow_route_id)
 
 
+def first_matching_route_id(task: str, root: Path | None = None) -> str | None:
+    """Id of the route the first matching non-cursor tier picks, else None.
+
+    Match-only counterpart of :func:`route_task_all_tiers` for coverage
+    checks: same active-route and read-only-tool gates and the same
+    best-score selection as :func:`_best_in_tier`, but skips decision
+    construction — no token estimates, calibration, argv or wrapper
+    resolution.
+    """
+    root = root or find_workspace_root()
+    cfg = load_routes_config(root)
+    text = _normalize(task)
+    all_routes = cfg.get("routes", [])
+    tool_intent = is_read_only_tool_intent(task)
+    # cursor is the escalation target, never a coverage target — a task that
+    # only a cursor route matches is still uncrystallized work.
+    for tier in (t for t in TIER_ORDER if t != "cursor"):
+        best_id: str | None = None
+        best_score = 0.0
+        for route in all_routes:
+            if route.get("target") != tier:
+                continue
+            if not _route_active(route):
+                continue
+            if tier == "tool" and not tool_intent:
+                # equivalent: tool_intent is loop-invariant, so the gate drops
+                # every tool-tier row alike — a `break` would skip only rows
+                # this `continue` rejects anyway.
+                continue
+            score, _matched = _score_patterns(text, route.get("patterns", []))
+            if score > best_score:
+                best_score = score
+                best_id = route["id"]
+        if best_id is not None:
+            return best_id
+    return None
+
+
 def route_task_all_tiers(task: str, root: Path | None = None) -> list[tuple[str, RouteDecision]]:
     root = root or find_workspace_root()
     cfg = load_routes_config(root)

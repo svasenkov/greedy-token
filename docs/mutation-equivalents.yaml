@@ -2006,3 +2006,52 @@ equivalents:
       the confinement check, so trusted_script_invocation always receives the
       workspace root as cwd.
     pragma: false
+
+  - module: usage.py
+    symbol: parse_iso_ts
+    reason: >-
+      on Python >=3.11 fromisoformat parses a trailing "Z" natively, so
+      rewriting the replace pattern ("Z"→"XXZXX" or "z") never changes the
+      parse result for real inputs.
+    proof: >-
+      datetime.fromisoformat accepts a trailing "Z" natively since Python
+      3.11 and requires-python is >=3.12, so a mutated replace pattern is a
+      no-op — the same "…Z" string reaches a parser that handles it directly.
+      Same argument as spend_ledger.py::_parse_ts.
+    pragma: false
+
+  - module: hub/sessions.py
+    symbol: _aggregate
+    reason: >-
+      any non-str or unparsable "ts" default (None, absent, "XXXX") parses to
+      None like "" — same `continue` runs.
+    proof: >-
+      parse_iso_ts returns None for every non-str input (isinstance guard)
+      and for unparsable strings (ValueError catch), identical to the ""
+      default; the mutated defaults only feed the `ts is None` skip branch.
+    pragma: false
+
+  - module: hub/sessions.py
+    symbol: _aggregate_window
+    reason: >-
+      any non-str or unparsable "ts" default (None, absent, "XXXX") parses
+      to None like "" — the same append path runs.
+    proof: >-
+      parse_iso_ts returns None for every non-str input (isinstance guard)
+      and for unparsable strings (ValueError catch), identical to the ""
+      default; a None ts only fails the `since and ts and ts < since` guard,
+      so the event is appended either way.
+    pragma: false
+
+  - module: router.py
+    symbol: first_matching_route_id
+    reason: >-
+      tool_intent is loop-invariant, so the gate drops every tool-tier row
+      alike — a `break` would skip only rows this `continue` rejects anyway.
+    proof: >-
+      For tier == "tool" the condition `not tool_intent` is identical for
+      every route (tool_intent is fixed before the loop), and rows with other
+      targets are already skipped by the `route.get("target") != tier` check,
+      so replacing `continue` with `break` cannot change which route id (if
+      any) the tier yields.
+    pragma: false

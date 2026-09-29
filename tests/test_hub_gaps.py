@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 import allure
+from greedy_token import usage
 from greedy_token.hub import api as hub_api
 from greedy_token.hub import crystallize, paths, providers, sessions
 
@@ -657,12 +658,147 @@ def test_list_crystals_splits_lesson(hub_home: Path) -> None:
 # ---------------------------------------------------------------- sessions
 
 
-@allure.title("_parse_ts branches: empty, naive, invalid")
+@allure.title("tier vocabulary + ISO parser live in usage.py (SSOT)")
+def test_tier_vocabulary_is_usage_ssot() -> None:
+    assert crystallize.LLM_TIERS is usage.LLM_TIERS
+    assert crystallize.SCRIPT_TIERS is usage.SCRIPT_TIERS
+    assert crystallize.OVERRIDE_EVENT is usage.OVERRIDE_EVENT
+    assert crystallize.parse_iso_ts is usage.parse_iso_ts
+    assert sessions.parse_iso_ts is usage.parse_iso_ts
+    assert usage.LLM_TIERS == frozenset({"ollama", "cursor"})
+    assert usage.SCRIPT_TIERS == frozenset({"tool", "python", "script", "rag"})
+    # CHEAP_TIERS minus the cheap-LLM slot; SCRIPT_HIT_TIERS is a strict
+    # legacy subset, not the same vocabulary.
+    assert usage.SCRIPT_TIERS == usage.CHEAP_TIERS - {"ollama"}
+    assert usage.SCRIPT_HIT_TIERS < usage.SCRIPT_TIERS
+
+
+@allure.title("_session_id reads top-level then tags in SESSION_KEYS order")
+def test_session_id_keys() -> None:
+    assert crystallize._session_id({"session_id": "top"}) == "top"
+    assert crystallize._session_id({"tags": {"session_id": "tagged"}}) == "tagged"
+    # key order is session_id → session → sid; each key checks row then tags
+    row = {"sid": "s", "session": "se", "tags": {"sid": "t", "session_id": "ti"}}
+    assert crystallize._session_id(row) == "ti"
+    assert crystallize._session_id({"sid": "s", "session": "se"}) == "se"
+    assert crystallize._session_id({"tags": {"sid": "y"}}) == "y"
+    assert crystallize._session_id({}) is None
+    assert crystallize._session_id({"tags": "not-a-dict"}) is None
+
+
+@allure.title("parse_iso_ts: non-str/empty/invalid → None, naive → UTC, offset kept")
 def test_parse_ts() -> None:
-    assert sessions._parse_ts("") is None
-    assert sessions._parse_ts("not-a-date") is None
-    ts = sessions._parse_ts("2026-07-15T12:00:00")
-    assert ts is not None and ts.tzinfo is not None
+    assert usage.parse_iso_ts("") is None
+    assert usage.parse_iso_ts("   ") is None
+    assert usage.parse_iso_ts("not-a-date") is None
+    assert usage.parse_iso_ts(123) is None
+    assert usage.parse_iso_ts(None) is None
+    naive = usage.parse_iso_ts("2026-07-15T12:00:00")
+    assert naive is not None and naive.tzinfo is UTC
+    zulu = usage.parse_iso_ts("2026-07-15T12:00:00Z")
+    assert zulu is not None and zulu.utcoffset() == timedelta(0)
+    offset = usage.parse_iso_ts("2026-07-15T12:00:00+05:00")
+    assert offset is not None and offset.utcoffset() == timedelta(hours=5)
+
+
+@allure.title("rank_candidates stops coverage probes once candidates+covered reach `top`")
+def test_rank_candidates_coverage_early_exit(
+    hub_home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    log = hub_home / "usage.jsonl"
+    rows = []
+    for task, hits in (
+        ("uncovered alpha task one", 3),
+        ("covered beta task two", 2),
+        ("covered delta task four", 1),
+        ("uncovered gamma task three", 1),
+    ):
+        for i in range(hits):
+            rows.append(
+                {
+                    "ts": f"2026-09-01T10:0{i}:00Z",
+                    "selected_tier": "cursor",
+                    "task": task,
+                }
+            )
+    log.write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
+
+    probes: list[str] = []
+    monkeypatch.setattr(
+        crystallize,
+        "covered_route_id",
+        lambda task, root=None: probes.append(task) or (
+            "python-stub" if task.startswith("covered") else None
+        ),
+    )
+    report = crystallize.rank_candidates(since=None, top=1, usage_path=log)
+    # ordered by (-hits, crystal_id): alpha(3) → beta(2) → delta(1) → gamma(1);
+    # after beta both lists hold `top` rows, so delta/gamma are never probed.
+    assert probes == ["uncovered alpha task one", "covered beta task two"]
+    assert [c["pattern"] for c in report["candidates"]] == ["uncovered alpha task one"]
+    assert [c["pattern"] for c in report["covered"]] == ["covered beta task two"]
+
+
+@allure.title("list_crystals resolves the workspace root once for the whole inbox")
+def test_list_crystals_resolves_workspace_once(
+    hub_home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    now = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    log = hub_home / "usage.jsonl"
+    log.write_text(
+        json.dumps(
+            {"ts": now, "selected_tier": "cursor", "task": "one uncovered candidate task"}
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (hub_home / "crystallize-inbox.json").write_text(
+        json.dumps(
+            {
+                "updated_at": now,
+                "new_candidates": [
+                    {"pattern": "first uncovered inbox pattern", "hits": 2},
+                    {"pattern": "second uncovered inbox pattern", "hits": 1},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    calls = 0
+    real = crystallize.find_workspace_root
+
+    def spy(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(crystallize, "find_workspace_root", spy)
+    data = crystallize.list_crystals(since="7d")
+    # One resolve in rank_candidates + one for the whole inbox loop —
+    # per-item resolution would give 1 + len(new_candidates).
+    assert calls == 2
+    ids = {c["crystal_id"] for c in data["crystals"]}
+    assert any("first-uncovered" in cid for cid in ids)
+    assert any("second-uncovered" in cid for cid in ids)
+
+
+@allure.title("list_crystals inbox stays fail-open when the workspace is missing")
+def test_list_crystals_inbox_fail_open_on_missing_root(
+    hub_home: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("GREEDY_TOKEN_ROOT", str(tmp_path / "missing"))
+    now = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    (hub_home / "crystallize-inbox.json").write_text(
+        json.dumps(
+            {
+                "updated_at": now,
+                "new_candidates": [{"pattern": "uncovered inbox pattern", "hits": 1}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    data = crystallize.list_crystals(since="7d")
+    assert any("uncovered-inbox" in c["crystal_id"] for c in data["crystals"])
 
 
 @allure.title("list_sessions reads .since files and filters")
@@ -984,3 +1120,138 @@ def test_summary_metrics_window_scoped(hub_home: Path, monkeypatch: pytest.Monke
     metrics = payload["metrics"]
     assert metrics["cost_per_task_usd"] == pytest.approx(0.5)
     assert metrics["metered_cost_per_task_usd"] == pytest.approx(0.0)
+
+
+@allure.title("rank_candidates: an invalid crystal id skips only that task")
+def test_rank_candidates_invalid_cid_continues(hub_home: Path) -> None:
+    log = hub_home / "usage.jsonl"
+    rows = [
+        {"selected_tier": "cursor", "task": "python-python-double"},
+        {"selected_tier": "cursor", "task": "python-python-double"},
+        {"selected_tier": "cursor", "task": "write poem about distributed systems"},
+    ]
+    log.write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+    report = crystallize.rank_candidates(since=None)
+    merged = [c["pattern"] for c in report["candidates"] + report["covered"]]
+    # "python-python-double" derives a doubled-prefix id — dropped; the lower-
+    # hit valid task must still be merged (continue, not break).
+    assert "write poem about distributed systems" in merged
+    assert "python-python-double" not in merged
+
+
+@allure.title("covered_route_id: explicit root survives a broken workspace lookup")
+def test_covered_route_id_explicit_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    (ws / ".greedy-token.yaml").write_text(
+        "routes:\n"
+        "  - id: python-custom-probe\n"
+        "    target: python\n"
+        "    patterns: [customprobe]\n",
+        encoding="utf-8",
+    )
+
+    def _boom(*_a: object, **_k: object) -> Path:
+        raise SystemExit(1)
+
+    # The router resolves a workspace only when root is None — an explicit
+    # root must be honoured without any lookup.
+    monkeypatch.setattr("greedy_token.router.find_workspace_root", _boom)
+    assert (
+        crystallize.covered_route_id("run customprobe please", ws)
+        == "python-custom-probe"
+    )
+
+
+@allure.title("list_crystals: dead workspace lookup keeps uncovered inbox items")
+def test_list_crystals_inbox_no_workspace(
+    hub_home: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    def _boom(*_a: object, **_k: object) -> Path:
+        raise SystemExit(1)
+
+    monkeypatch.setattr(crystallize, "find_workspace_root", _boom)
+    monkeypatch.chdir(tmp_path)  # keep "." free of a real workspace overlay
+    now = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    (hub_home / "crystallize-inbox.json").write_text(
+        json.dumps(
+            {
+                "updated_at": now,
+                "new_candidates": [
+                    {"pattern": "what changed in recent commits", "hits": 3},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    data = crystallize.list_crystals(since="7d")
+    # fail-open: no workspace root → no coverage probe → item stays visible
+    assert any("what-changed" in c["crystal_id"] for c in data["crystals"])
+
+
+@allure.title("list_crystals: fresh inbox without new_candidates is not an error")
+def test_list_crystals_inbox_missing_candidates(hub_home: Path) -> None:
+    now = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    (hub_home / "crystallize-inbox.json").write_text(
+        json.dumps({"updated_at": now}), encoding="utf-8"
+    )
+    data = crystallize.list_crystals(since="7d")
+    assert data["crystals"] == []
+
+
+@allure.title("list_crystals: a cid-less lifecycle row does not drop later events")
+def test_list_crystals_lifecycle_cidless_row(hub_home: Path) -> None:
+    now = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    (hub_home / "crystallize-lifecycle.jsonl").write_text(
+        json.dumps({"stage": "watch", "ts": now})
+        + "\n"
+        + json.dumps({"crystal_id": "python-late-ev", "stage": "promote", "ts": now})
+        + "\n",
+        encoding="utf-8",
+    )
+    data = crystallize.list_crystals(since="7d")
+    assert any(
+        c["crystal_id"] == "python-late-ev" and c["latest_stage"] == "promote"
+        for c in data["crystals"]
+    )
+
+
+@allure.title("list_crystals: a stale lifecycle row does not stop the merge")
+def test_list_crystals_lifecycle_stale_row(hub_home: Path) -> None:
+    now = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    (hub_home / "crystallize-lifecycle.jsonl").write_text(
+        json.dumps(
+            {"crystal_id": "python-stale-ev", "stage": "watch", "ts": "2020-01-01T00:00:00Z"}
+        )
+        + "\n"
+        + json.dumps({"crystal_id": "python-fresh-ev", "stage": "promote", "ts": now})
+        + "\n",
+        encoding="utf-8",
+    )
+    data = crystallize.list_crystals(since="7d")
+    cids = {c["crystal_id"] for c in data["crystals"]}
+    assert "python-fresh-ev" in cids
+    assert "python-stale-ev" not in cids
+
+
+@allure.title("list_crystals: a fixture inbox row does not hide later rows")
+def test_list_crystals_fixture_then_visible(hub_home: Path) -> None:
+    now = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    (hub_home / "crystallize-inbox.json").write_text(
+        json.dumps(
+            {
+                "updated_at": now,
+                "new_candidates": [
+                    {"pattern": "alpha :: beta", "hits": 5},
+                    {"pattern": "real uncovered inbox task", "hits": 2},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    data = crystallize.list_crystals(since="7d")
+    patterns = {c["pattern"] for c in data["crystals"]}
+    assert "real uncovered inbox task" in patterns
+    assert "alpha :: beta" not in patterns
