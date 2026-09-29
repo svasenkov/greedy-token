@@ -8,6 +8,7 @@ import sys
 MCP_LOWEST = "1.15.0"
 MINIMUM = [
     "PyYAML==6.0.1",
+    "pathspec==1.1.1",
     "tiktoken==0.7.0",
     "pytest==8.0.0",
     # pyproject addopts passes -n auto unconditionally — xdist is not optional.

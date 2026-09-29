@@ -22,6 +22,7 @@ def main() -> int:
     if profile == "minimum":
         expected = {
             "PyYAML": "6.0.1",
+            "pathspec": "1.1.1",
             "tiktoken": "0.7.0",
             "pytest": "8.0.0",
             "allure-pytest": "2.16.0",

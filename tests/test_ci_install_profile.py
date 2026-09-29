@@ -29,6 +29,25 @@ def test_pyproject_still_uses_xdist() -> None:
     assert "pytest-xdist" in src
 
 
+@allure.title("every pyproject runtime dep is pinned in the minimum profile")
+def test_minimum_profile_covers_runtime_deps() -> None:
+    import tomllib
+
+    pyproject = tomllib.loads((_REPO / "pyproject.toml").read_text(encoding="utf-8"))
+    runtime = {
+        re.match(r"[A-Za-z0-9_.-]+", dep).group(0)  # type: ignore[union-attr]
+        for dep in pyproject["project"]["dependencies"]
+    }
+    src = (_REPO / "scripts" / "ci" / "install_profile.py").read_text(encoding="utf-8")
+    minimum = re.search(r"MINIMUM\s*=\s*\[(.*?)\]", src, re.S)
+    assert minimum, "MINIMUM list not found"
+    pins = set(re.findall(r'"([A-Za-z0-9_.-]+)==', minimum.group(1)))
+    missing = runtime - pins
+    assert not missing, (
+        f"runtime deps absent from the minimum CI profile: {sorted(missing)}"
+    )
+
+
 # ---------------------------------------------------------------------------
 # sdist hygiene: untracked tests/*.py would silently ship (MANIFEST can't see
 # git status) — the release guard lives in scripts/ci/build_smoke.py.
