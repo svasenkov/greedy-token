@@ -72,11 +72,10 @@ def workspace_root(monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 # Workspace routes overlay — merged over bundled routes.yaml via .greedy-token.yaml.
+# Synthetic fixture catalog (tests/fixtures/) — the examples/ file mirrors the
+# live catalog; the fixture keeps retired ids tests still exercise.
 WORKSPACE_ROUTES_EXAMPLE = (
-    Path(__file__).resolve().parents[1]
-    / "examples"
-    / "routes"
-    / "workspace-routes.yaml"
+    Path(__file__).resolve().parent / "fixtures" / "workspace-routes.yaml"
 )
 
 

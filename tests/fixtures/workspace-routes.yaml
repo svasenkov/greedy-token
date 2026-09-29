@@ -1,3 +1,6 @@
+# Synthetic fixture catalog for tests — NOT a live-catalog mirror.
+# Ops here are stubs exercised via minimal_workspace; ids may be retired live.
+
 # Workspace routes overlay — merge over bundled src/greedy_token/config/routes.yaml.
 #
 # Wire it up via $GREEDY_TOKEN_ROOT/.greedy-token.yaml:
@@ -101,6 +104,17 @@ routes:
       - projects/autotests-ai-multistack-home/autotests-ai-multistack-app/_contract
     command: python scripts/openapi-diff.py
     note: "contract_lint gate — crystallized script tier, 0 LLM"
+
+  - id: python-java-matrix-plan
+    target: python
+    read_only: true
+    patterns:
+      - java matrix fanout
+      - java matrix plan
+      - selenium variant plan
+    command: python scripts/java-matrix-plan.py --source gradle-junit5-selenide --dry-run
+    params: [args]
+    note: "java-matrix-fanout plan — ethalon-anchor default; args override --source/--targets/--refs-root"
 
   - id: python-sonar-gate-wait
     target: python
