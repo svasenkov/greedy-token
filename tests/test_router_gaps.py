@@ -1369,7 +1369,6 @@ def test_build_tool_argv_max_count_bounds(minimal_workspace: Path) -> None:
 def test_decision_from_route_calibration_args(
     minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from greedy_token.router import _decision_from_route
 
     seen: dict = {}
     lang_seen: dict = {}
@@ -1409,7 +1408,6 @@ def test_decision_from_route_calibration_args(
 def test_decision_from_route_calibration_segment(
     minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from greedy_token.router import _decision_from_route
 
     monkeypatch.setattr(
         router, "confidence_for_outcome",
@@ -1428,7 +1426,6 @@ def test_decision_from_route_calibration_segment(
 def test_decision_from_route_command_authority(
     minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from greedy_token.router import _decision_from_route
 
     with allure.step("no command → argv/cwd stay None (kills '' init mutants)"):
         dec = router._decision_from_route(
@@ -1655,3 +1652,48 @@ def test_route_task_tier_loop_escalation_root(
     assert dec.route_id == "cursor-edit-escalate"
     assert seen["roots"]
     assert all(root == minimal_workspace for root in seen["roots"])
+
+
+@allure.title("_split_search_paths validates list type and workspace confinement")
+def test_split_search_paths_validation(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="search_paths must be a list"):
+        router._split_search_paths({"search_paths": "src"}, tmp_path)
+    with pytest.raises(ValueError, match="search_paths must be a workspace-relative"):
+        router._split_search_paths({"search_paths": ["/abs"]}, tmp_path)
+    with pytest.raises(ValueError, match="search_paths escapes workspace root"):
+        router._split_search_paths({"search_paths": ["../out"]}, tmp_path)
+
+
+@allure.title("_escalate_edit_from_cheap propagates the recomputed est_tokens")
+def test_escalate_edit_est_tokens(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        router, "_token_estimate_for_route",
+        lambda *a, **k: ("medium", 4321, "sized"),
+    )
+    dec = _rich_decision(target="rag", confidence=0.9)
+    out = router._escalate_edit_from_cheap(dec, "fix the bug now", tmp_path)
+    assert out.est_tokens == 4321
+
+
+@allure.title("route_task lookup+mutating escalation carries est_tokens through")
+def test_route_task_lookup_escalate_est_tokens(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        router, "_token_estimate_for_route",
+        lambda *a, **k: ("high", 7777, "why"),
+    )
+    dec = router.route_task("find the config file and delete it", minimal_workspace)
+    assert dec.route_id == "cursor-edit-escalate"
+    assert dec.est_tokens == 7777
+
+
+@allure.title("format_decision falls back to raw command when argv lacks cwd")
+def test_format_decision_argv_no_cwd(tmp_path: Path) -> None:
+    dec = _decision(
+        command="run tests", command_argv=("run", "tests"), command_cwd=None
+    )
+    out = router.format_decision(dec, "task", tmp_path)
+    assert "Command: run tests" in out

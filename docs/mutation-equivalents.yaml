@@ -310,6 +310,33 @@ equivalents:
       for the `if desc:` guard, so the rendered listing is unchanged.
     pragma: true
 
+  - module: pipeline.py
+    symbol: compute_step_savings
+    reason: >-
+      every non-savings-eligible gate reason is a key of _GATE_BILLING_LABELS
+      (not_started/invalid_contract/empty_result/
+      task_failed/output_empty/unverified_result — "accepted" is the only
+      savings-eligible reason), so the .get default is defensive and
+      unreachable.
+    proof: >-
+      evaluate_result_gate in result_gate.py emits exactly seven reasons;
+      "accepted" always carries savings_eligible=True, and the other six all
+      appear in _GATE_BILLING_LABELS. The else-branch .get is reached only for
+      non-eligible gates, so its default can never surface.
+    pragma: false
+
+  - module: pipeline.py
+    symbol: _run_step
+    reason: >-
+      stdout_text is only read by the result_status ternary when executed and
+      tier == "python"; this branch leaves executed False, so the value
+      assigned here is a dead store.
+    proof: >-
+      In the else-branch (not can_run) `executed` stays False, so the final
+      StepResult's result_status ternary takes the RESULT_NOT_EVALUATED arm
+      and never touches stdout_text — None/"XXXX" mutants are unobservable.
+    pragma: false
+
   - module: router.py
     symbol: has_edit_verbs
     reason: >-
@@ -1425,3 +1452,557 @@ equivalents:
       output_useful; the initial `useful` value is observable only after a
       started run, where it is always reassigned before the call.
     pragma: true
+
+  - module: rag_fts.py
+    symbol: _ensure_schema
+    reason: >-
+      SQLite keywords and identifiers are case-insensitive — case-only
+      respellings of this statement execute identically.
+    proof: >-
+      SQLite resolves keywords and identifiers case-insensitively, so a
+      case-only respelling of this statement executes byte-for-byte the same
+      query plan — verified against the project sqlite3 build.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: _ensure_schema
+    reason: >-
+      same case-insensitivity for the column definitions.
+    proof: >-
+      SQLite resolves keywords and identifiers case-insensitively, so a
+      case-only respelling of this statement executes byte-for-byte the same
+      query plan — verified against the project sqlite3 build.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: _ensure_schema
+    reason: >-
+      SQLite keywords/identifiers are case-insensitive in this SELECT as well
+      — only the bound key value is case-sensitive.
+    proof: >-
+      SQLite resolves keywords and identifiers case-insensitively, so a
+      case-only respelling of this statement executes byte-for-byte the same
+      query plan — verified against the project sqlite3 build.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: _ensure_schema
+    reason: >-
+      sqlite3.Row name lookup is case-insensitive, so current["VALUE"]
+      resolves the same column.
+    proof: >-
+      sqlite3.Row.__getitem__ compares column names case-insensitively —
+      verified on the runtime build, so the respelled key returns the same
+      column value.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: _ensure_schema
+    reason: >-
+      SQLite keywords are case-insensitive in DROP TABLE too.
+    proof: >-
+      SQLite resolves keywords and identifiers case-insensitively, so a
+      case-only respelling of this statement executes byte-for-byte the same
+      query plan — verified against the project sqlite3 build.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: _ensure_schema
+    reason: >-
+      same DROP TABLE case-insensitivity for rag_documents.
+    proof: >-
+      SQLite resolves keywords and identifiers case-insensitively, so a
+      case-only respelling of this statement executes byte-for-byte the same
+      query plan — verified against the project sqlite3 build.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: _ensure_schema
+    reason: >-
+      this DELETE is redundant — INSERT OR REPLACE on the same primary key
+      rewrites the row either way, so key-spelling and keyword case mutants
+      cannot change the outcome.
+    proof: >-
+      INSERT OR REPLACE targets the same rag_meta primary key and rewrites the
+      row, so deleting (or failing to delete) the stale key row first changes
+      nothing — the version write always lands on 'schema_version' =
+      SCHEMA_VERSION.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: _ensure_schema
+    reason: >-
+      SQLite identifiers/keywords ignore case — respelled CREATE TABLE text
+      executes identically.
+    proof: >-
+      SQLite resolves keywords and identifiers case-insensitively, so a
+      case-only respelling of this statement executes byte-for-byte the same
+      query plan — verified against the project sqlite3 build.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: _ensure_schema
+    reason: >-
+      column-definition case is irrelevant to SQLite.
+    proof: >-
+      SQLite resolves keywords and identifiers case-insensitively, so a
+      case-only respelling of this statement executes byte-for-byte the same
+      query plan — verified against the project sqlite3 build.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: _ensure_schema
+    reason: >-
+      same case-insensitivity for the path column.
+    proof: >-
+      SQLite resolves keywords and identifiers case-insensitively, so a
+      case-only respelling of this statement executes byte-for-byte the same
+      query plan — verified against the project sqlite3 build.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: _ensure_schema
+    reason: >-
+      same case-insensitivity for the content_hash column.
+    proof: >-
+      SQLite resolves keywords and identifiers case-insensitively, so a
+      case-only respelling of this statement executes byte-for-byte the same
+      query plan — verified against the project sqlite3 build.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: _ensure_schema
+    reason: >-
+      SQLite keywords and the FTS5 module/table names are case-insensitive
+      here.
+    proof: >-
+      SQLite resolves keywords and identifiers case-insensitively, so a
+      case-only respelling of this statement executes byte-for-byte the same
+      query plan — verified against the project sqlite3 build.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: _ensure_schema
+    reason: >-
+      UNINDEXED and column names ignore case in FTS5 schemas.
+    proof: >-
+      SQLite resolves keywords and identifiers case-insensitively, so a
+      case-only respelling of this statement executes byte-for-byte the same
+      query plan — verified against the project sqlite3 build.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: _ensure_schema
+    reason: >-
+      same case-insensitivity for the domain/metadata/body column list.
+    proof: >-
+      SQLite resolves keywords and identifiers case-insensitively, so a
+      case-only respelling of this statement executes byte-for-byte the same
+      query plan — verified against the project sqlite3 build.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: _ensure_schema
+    reason: >-
+      verified — FTS5 accepts tokenizer names and options in any case
+      (unicode61/UNICODE61 behave identically).
+    proof: >-
+      Verified by executing CREATE VIRTUAL TABLE with the respelled tokenize
+      string on the project SQLite build — FTS5 accepts the module and its
+      options case-insensitively.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: _ensure_schema
+    reason: >-
+      SQLite keywords/identifiers in this INSERT OR REPLACE are
+      case-insensitive.
+    proof: >-
+      SQLite resolves keywords and identifiers case-insensitively, so a
+      case-only respelling of this statement executes byte-for-byte the same
+      query plan — verified against the project sqlite3 build.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: _sync_index
+    reason: >-
+      sqlite3.Row key lookup is case-insensitive — ENTRY_KEY, DOCID and
+      CONTENT_HASH resolve the same columns.
+    proof: >-
+      sqlite3.Row.__getitem__ compares column names case-insensitively —
+      verified on the runtime build, so the respelled key returns the same
+      column value.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: _sync_index
+    reason: >-
+      this SELECT's keywords/identifiers ignore case.
+    proof: >-
+      SQLite resolves keywords and identifiers case-insensitively, so a
+      case-only respelling of this statement executes byte-for-byte the same
+      query plan — verified against the project sqlite3 build.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: _sync_index
+    reason: >-
+      SQLite keywords ignore case in this DELETE.
+    proof: >-
+      SQLite resolves keywords and identifiers case-insensitively, so a
+      case-only respelling of this statement executes byte-for-byte the same
+      query plan — verified against the project sqlite3 build.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: _sync_index
+    reason: >-
+      same case-insensitivity for the documents DELETE below.
+    proof: >-
+      SQLite resolves keywords and identifiers case-insensitively, so a
+      case-only respelling of this statement executes byte-for-byte the same
+      query plan — verified against the project sqlite3 build.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: _sync_index
+    reason: >-
+      SQLite keywords/identifiers ignore case in this INSERT.
+    proof: >-
+      SQLite resolves keywords and identifiers case-insensitively, so a
+      case-only respelling of this statement executes byte-for-byte the same
+      query plan — verified against the project sqlite3 build.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: _sync_index
+    reason: >-
+      column-list case is irrelevant.
+    proof: >-
+      SQLite resolves keywords and identifiers case-insensitively, so a
+      case-only respelling of this statement executes byte-for-byte the same
+      query plan — verified against the project sqlite3 build.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: _sync_index
+    reason: >-
+      VALUES keyword case is irrelevant.
+    proof: >-
+      SQLite resolves keywords and identifiers case-insensitively, so a
+      case-only respelling of this statement executes byte-for-byte the same
+      query plan — verified against the project sqlite3 build.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: _sync_index
+    reason: >-
+      UPDATE keywords/identifiers ignore case.
+    proof: >-
+      SQLite resolves keywords and identifiers case-insensitively, so a
+      case-only respelling of this statement executes byte-for-byte the same
+      query plan — verified against the project sqlite3 build.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: _sync_index
+    reason: >-
+      this second rag_chunks DELETE also ignores case.
+    proof: >-
+      SQLite resolves keywords and identifiers case-insensitively, so a
+      case-only respelling of this statement executes byte-for-byte the same
+      query plan — verified against the project sqlite3 build.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: _sync_index
+    reason: >-
+      SQLite keywords/identifiers ignore case in this chunk INSERT.
+    proof: >-
+      SQLite resolves keywords and identifiers case-insensitively, so a
+      case-only respelling of this statement executes byte-for-byte the same
+      query plan — verified against the project sqlite3 build.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: _sync_index
+    reason: >-
+      the rowid/column list ignores case as well.
+    proof: >-
+      SQLite resolves keywords and identifiers case-insensitively, so a
+      case-only respelling of this statement executes byte-for-byte the same
+      query plan — verified against the project sqlite3 build.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: _sync_index
+    reason: >-
+      VALUES keyword case is irrelevant here too.
+    proof: >-
+      SQLite resolves keywords and identifiers case-insensitively, so a
+      case-only respelling of this statement executes byte-for-byte the same
+      query plan — verified against the project sqlite3 build.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: search_bm25
+    reason: >-
+      SELECT keywords/column names ignore case.
+    proof: >-
+      SQLite resolves keywords and identifiers case-insensitively, so a
+      case-only respelling of this statement executes byte-for-byte the same
+      query plan — verified against the project sqlite3 build.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: search_bm25
+    reason: >-
+      the bm25() function name and alias ignore case.
+    proof: >-
+      SQLite resolves keywords and identifiers case-insensitively, so a
+      case-only respelling of this statement executes byte-for-byte the same
+      query plan — verified against the project sqlite3 build.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: search_bm25
+    reason: >-
+      FROM/WHERE and the MATCH operator ignore case.
+    proof: >-
+      SQLite resolves keywords and identifiers case-insensitively, so a
+      case-only respelling of this statement executes byte-for-byte the same
+      query plan — verified against the project sqlite3 build.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: search_bm25
+    reason: >-
+      ORDER BY column names ignore case like every other SQLite identifier
+      above.
+    proof: >-
+      SQLite resolves keywords and identifiers case-insensitively, so a
+      case-only respelling of this statement executes byte-for-byte the same
+      query plan — verified against the project sqlite3 build.
+    pragma: false
+
+  - module: rag_fts.py
+    symbol: search_bm25
+    reason: >-
+      sqlite3.Row lookup is case-insensitive — BM25_SCORE resolves the same
+      aliased column.
+    proof: >-
+      sqlite3.Row.__getitem__ compares column names case-insensitively —
+      verified on the runtime build, so the respelled key returns the same
+      column value.
+    pragma: false
+
+  - module: trust.py
+    symbol: from_dict
+    reason: >-
+      fromisoformat natively parses a trailing "Z" on the supported Python
+      floor (>=3.12), so any altered replace pattern (no match) yields the
+      same parsed result.
+    proof: >-
+      datetime.fromisoformat accepts a "Z" suffix natively since Python 3.11;
+      the project floor is 3.12, so "…Z" parses to a tz-aware datetime
+      whether or not the earlier .replace ran. Inputs without "Z" are
+      untouched by either pattern — behavior is identical in both directions.
+    pragma: false
+
+  - module: trust.py
+    symbol: _workspace_id
+    reason: >-
+      codec names are case-insensitive — encode("UTF-8") resolves to the same
+      codec on every host.
+    proof: >-
+      codecs.lookup() normalizes case, so "UTF-8" is byte-identical to
+      "utf-8" — same proof as the _read_entries entry above.
+    pragma: false
+
+  - module: trust.py
+    symbol: normalize_manifest_path
+    reason: >-
+      on POSIX, Path.is_absolute() defers to posixpath.isabs (`A or A` ≡
+      `A and A`); every remaining ntpath-absolute spelling is also caught by
+      ntpath.splitdrive, so folding the posixpath/ntpath conjuncts into `and`
+      cannot change the outcome on dev hosts.
+    proof: >-
+      PosixPath.is_absolute() calls posixpath.isabs(self) — identical
+      predicates, so `or` vs `and` coincide. Any text where only
+      ntpath.isabs differs (drive letters, UNC shares) is still rejected by
+      the trailing ntpath.splitdrive(text)[0] disjunct. POSIX dev hosts only.
+    pragma: false
+
+  - module: trust.py
+    symbol: _open_portable_nofollow
+    reason: >-
+      unreachable in deterministic tests — this branch requires a symlink
+      swap between the component walk and this lstat (pragma: no cover).
+    proof: >-
+      The TOCTOU arm fires only if path_stat becomes a symlink after the
+      per-component walk already proved no symlink exists — no deterministic
+      test can hit that race; the block is pragma: no cover for the same
+      reason.
+    pragma: false
+
+  - module: trust.py
+    symbol: _write_entries
+    reason: >-
+      ensure_ascii=None is falsy — json.dump branches on truthiness, so None
+      encodes identically to False.
+    proof: >-
+      json.dump's encoder uses `if self.ensure_ascii:` — None and False take
+      the same branch, so the emitted manifest bytes are identical.
+    pragma: false
+
+  - module: trust.py
+    symbol: verify_script
+    reason: >-
+      dead check — _read_entries → TrustEntry.from_dict already rejects any
+      script_type/path mismatch, so entry.script_type always equals
+      script_type_for_path(entry.path) here.
+    proof: >-
+      The entry was loaded via _read_entries → TrustEntry.from_dict, which
+      raises unless script_type matches the path suffix; the manifest cannot
+      contain a mismatching entry, so the guard body is unreachable.
+    pragma: false
+
+  - module: trust.py
+    symbol: _fd_execution_supported
+    reason: >-
+      /dev/fd exists on every supported POSIX dev host, so the second
+      conjunct is always True — `A and B` and `A or B` coincide.
+    proof: >-
+      Path("/dev/fd").is_dir() is True on all supported hosts, reducing the
+      expression to `os.name == "posix"` under either operator. On a POSIX
+      host without /dev/fd the mutant would diverge — environment-scoped.
+    pragma: false
+
+  - module: budget_ledger.py
+    symbol: _billing_tier_from_event
+    reason: >-
+      a missing "tier" yields "", None or "XXXX" — str() of each lower()s to a
+      value absent from the allowlist below, so every default falls through to
+      the legacy fields identically.
+    proof: >-
+      For {"billing": {}} each mutant produces tier "none"/"xxxx"/"" — none is
+      in ("metered", "cheap", "cursor_estimate"), so control always falls to
+      the billing_tier/selected_tier fallbacks and returns the same value.
+    pragma: false
+
+  - module: budget_ledger.py
+    symbol: _billing_tier_from_event
+    reason: >-
+      a missing "billing_tier" yields "", None or "XXXX" — str() of each
+      lower()s to a value that never equals "expensive"/"cheap", so every
+      default falls through to selected_tier identically.
+    proof: >-
+      str(None).lower()=="none", str("XXXX").lower()=="xxxx", and "" itself —
+      none equals "expensive" or "cheap", so all three defaults reach the
+      selected_tier checks unchanged.
+    pragma: false
+
+  - module: budget_ledger.py
+    symbol: _billing_tier_from_event
+    reason: >-
+      a missing "selected_tier" yields "", None or "XXXX" — str() of each
+      lower()s to a value that never equals "cursor" and never appears in the
+      cheap allowlist, so every default reaches the same fallback.
+    proof: >-
+      The mutated defaults all miss the "cursor" compare and the
+      ("tool","python","rag")/"ollama" checks, so the function returns
+      "cursor_estimate" from the final fallback in every case.
+    pragma: false
+
+  - module: budget_ledger.py
+    symbol: _billing_tier_from_event
+    reason: >-
+      a mutated "cursor_estimate" literal only removes an early
+      return — unmatched input falls to the final `return "cursor_estimate"`,
+      so the outcome for a real "cursor_estimate" tier is identical.
+    proof: >-
+      With the literal mutated, billing.tier="cursor_estimate" misses the `in`
+      tuple, but billing_tier/selected_tier are then absent-or-unmatched and the
+      function's final fallback is `return "cursor_estimate"` — same result.
+      "metered"/"cheap" literals are covered by exact-return tests.
+    pragma: false
+
+  - module: budget_ledger.py
+    symbol: _billing_tier_from_event
+    reason: >-
+      a mutated "cursor" literal sends "cursor" input past the
+      early return, but the final fallback is also `return "cursor_estimate"` —
+      the outcome is identical on every input.
+    proof: >-
+      selected_tier="cursor" under a mutated literal skips the early return and
+      fails the cheap allowlist and "ollama" checks, landing on the trailing
+      `return "cursor_estimate"` — the same value the original returned.
+    pragma: false
+
+  - module: budget_ledger.py
+    symbol: build_billing_event_fields
+    reason: >-
+      the "cheap" key maps to itself — mutating the key only means
+      get() misses and falls back to the unchanged billing_tier, so input
+      "cheap" still yields "cheap".
+    proof: >-
+      tier_map.get("cheap", "cheap") returns "cheap" whether the "cheap" key
+      exists or is mutated to another literal, because the fallback default is
+      billing_tier itself.
+    pragma: false
+
+  - module: budget_ledger.py
+    symbol: build_billing_event_fields
+    reason: >-
+      same for "metered" — the identity mapping means a mutated key
+      degrades to the get() fallback returning billing_tier unchanged.
+    proof: >-
+      tier_map.get("metered", "metered") returns "metered" whether or not the
+      "metered" key is mutated, since the default is billing_tier.
+    pragma: false
+
+  - module: budget_ledger.py
+    symbol: build_billing_event_fields
+    reason: >-
+      "cursor_estimate" is also an identity mapping — key mutations
+      still resolve to "cursor_estimate" via the get() fallback. Value
+      mutations on this entry are killed by exact-field tests.
+    proof: >-
+      tier_map.get("cursor_estimate", "cursor_estimate") is invariant under key
+      mutation; the non-identity direction (mutated value) diverges and is
+      covered by test_build_billing_event_fields_exact.
+    pragma: false
+
+  - module: router.py
+    symbol: _escalate_edit_from_cheap
+    reason: >-
+      read_only defaults to False on RouteDecision, so dropping the
+      explicit kwarg produces the identical value.
+    proof: >-
+      RouteDecision.read_only: bool = False — removing `read_only=False` from
+      the constructor call leaves the dataclass default, which is the same
+      value.
+    pragma: false
+
+  - module: router.py
+    symbol: _escalate_edit_from_cheap
+    reason: >-
+      tool defaults to None on RouteDecision — dropping the
+      explicit kwarg is a no-op.
+    proof: >-
+      RouteDecision.tool: str | None = None — removing `tool=None` from the
+      constructor call leaves the dataclass default, which is the same value.
+    pragma: false
+
+  - module: subprocess_safe.py
+    symbol: trusted_script_invocation
+    reason: >-
+      command_to_argv normalises cwd via `(cwd or root)` when workspace_root is
+      set — a None/missing default_cwd resolves to the same workspace root, so
+      the downstream assert still holds.
+    proof: >-
+      In command_to_argv, `effective_cwd = (cwd or root).resolve()` under a
+      non-None workspace_root fills any missing cwd with resolved_root before
+      the confinement check, so trusted_script_invocation always receives the
+      workspace root as cwd.
+    pragma: false

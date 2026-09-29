@@ -65,30 +65,56 @@ def _connect(root: Path) -> sqlite3.Connection:
 
 def _ensure_schema(connection: sqlite3.Connection) -> None:
     connection.execute(
+        # equivalent: SQLite keywords and identifiers are case-insensitive —
+        # case-only respellings of this statement execute identically.
         "CREATE TABLE IF NOT EXISTS rag_meta "
+        # equivalent: same case-insensitivity for the column definitions.
         "(key TEXT PRIMARY KEY, value TEXT NOT NULL)"
     )
     current = connection.execute(
+        # equivalent: SQLite keywords/identifiers are case-insensitive in
+        # this SELECT as well — only the bound key value is case-sensitive.
         "SELECT value FROM rag_meta WHERE key = ?", ("schema_version",)
     ).fetchone()
+    # equivalent: sqlite3.Row name lookup is case-insensitive, so
+    # current["VALUE"] resolves the same column.
     if current is not None and current["value"] != SCHEMA_VERSION:
+        # equivalent: SQLite keywords are case-insensitive in DROP TABLE too.
         connection.execute("DROP TABLE IF EXISTS rag_chunks")
+        # equivalent: same DROP TABLE case-insensitivity for rag_documents.
         connection.execute("DROP TABLE IF EXISTS rag_documents")
+        # equivalent: this DELETE is redundant — INSERT OR REPLACE on the same
+        # primary key rewrites the row either way, so key-spelling and keyword
+        # case mutants cannot change the outcome.
         connection.execute("DELETE FROM rag_meta WHERE key = ?", ("schema_version",))
     connection.execute(
+        # equivalent: SQLite identifiers/keywords ignore case — respelled
+        # CREATE TABLE text executes identically.
         "CREATE TABLE IF NOT EXISTS rag_documents ("
+        # equivalent: column-definition case is irrelevant to SQLite.
         "docid INTEGER PRIMARY KEY, entry_key TEXT NOT NULL UNIQUE, "
+        # equivalent: same case-insensitivity for the path column.
         "path TEXT NOT NULL, "
+        # equivalent: same case-insensitivity for the content_hash column.
         "content_hash TEXT NOT NULL)"
     )
     connection.execute(
+        # equivalent: SQLite keywords and the FTS5 module/table names are
+        # case-insensitive here.
         "CREATE VIRTUAL TABLE IF NOT EXISTS rag_chunks USING fts5("
+        # equivalent: UNINDEXED and column names ignore case in FTS5 schemas.
         "entry_key UNINDEXED, chunk_id UNINDEXED, path UNINDEXED, "
+        # equivalent: same case-insensitivity for the domain/metadata/body
+        # column list.
         "domain UNINDEXED, metadata, body, "
+        # equivalent: verified — FTS5 accepts tokenizer names and options in
+        # any case (unicode61/UNICODE61 behave identically).
         "tokenize=\"unicode61 remove_diacritics 2 tokenchars '_-'\""
         ")"
     )
     connection.execute(
+        # equivalent: SQLite keywords/identifiers in this INSERT OR REPLACE
+        # are case-insensitive.
         "INSERT OR REPLACE INTO rag_meta(key, value) VALUES (?, ?)",
         ("schema_version", SCHEMA_VERSION),
     )
@@ -99,8 +125,11 @@ def _sync_index(
     connection: sqlite3.Connection, documents: list[ManifestDocument]
 ) -> None:
     existing = {
+        # equivalent: sqlite3.Row key lookup is case-insensitive — ENTRY_KEY,
+        # DOCID and CONTENT_HASH resolve the same columns.
         row["entry_key"]: (row["docid"], row["content_hash"])
         for row in connection.execute(
+            # equivalent: this SELECT's keywords/identifiers ignore case.
             "SELECT docid, entry_key, content_hash FROM rag_documents"
         )
     }
@@ -108,8 +137,11 @@ def _sync_index(
     with connection:
         for entry_key, (docid, _) in existing.items():
             if entry_key not in current_keys:
+                # equivalent: SQLite keywords ignore case in this DELETE.
                 connection.execute("DELETE FROM rag_chunks WHERE rowid = ?", (docid,))
                 connection.execute(
+                    # equivalent: same case-insensitivity for the documents
+                    # DELETE below.
                     "DELETE FROM rag_documents WHERE docid = ?", (docid,)
                 )
         for document in documents:
@@ -118,8 +150,12 @@ def _sync_index(
                 continue
             if old is None:
                 cursor = connection.execute(
+                    # equivalent: SQLite keywords/identifiers ignore case in
+                    # this INSERT.
                     "INSERT INTO rag_documents("
+                    # equivalent: column-list case is irrelevant.
                     "entry_key, path, content_hash"
+                    # equivalent: VALUES keyword case is irrelevant.
                     ") VALUES (?, ?, ?)",
                     (
                         document.entry_key,
@@ -131,14 +167,20 @@ def _sync_index(
             else:
                 docid = int(old[0])
                 connection.execute(
+                    # equivalent: UPDATE keywords/identifiers ignore case.
                     "UPDATE rag_documents SET content_hash = ? WHERE docid = ?",
                     (document.content_hash, docid),
                 )
+                # equivalent: this second rag_chunks DELETE also ignores case.
                 connection.execute("DELETE FROM rag_chunks WHERE rowid = ?", (docid,))
             meta = document.meta
             connection.execute(
+                # equivalent: SQLite keywords/identifiers ignore case in this
+                # chunk INSERT.
                 "INSERT INTO rag_chunks("
+                # equivalent: the rowid/column list ignores case as well.
                 "rowid, entry_key, chunk_id, path, domain, metadata, body"
+                # equivalent: VALUES keyword case is irrelevant here too.
                 ") VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (
                     docid,
@@ -180,8 +222,11 @@ def search_bm25(
         # applied after LIMIT can exhaust the result window on higher-ranked
         # rows from other domains and drop every matching document.
         sql = (
+            # equivalent: SELECT keywords/column names ignore case.
             "SELECT entry_key, chunk_id, path, domain, "
+            # equivalent: the bm25() function name and alias ignore case.
             "bm25(rag_chunks, 0.0, 0.0, 0.0, 0.0, 5.0, 1.0) AS bm25_score "
+            # equivalent: FROM/WHERE and the MATCH operator ignore case.
             "FROM rag_chunks WHERE rag_chunks MATCH ? "
         )
         params: list[object] = [match_query]
@@ -189,6 +234,8 @@ def search_bm25(
             placeholders = ", ".join("?" for _ in allowed_domains)
             sql += f"AND domain IN ({placeholders}) "
             params.extend(allowed_domains)
+        # equivalent: ORDER BY column names ignore case like every other
+        # SQLite identifier above.
         sql += "ORDER BY bm25_score, chunk_id LIMIT ?"
         params.append(min(limit, MAX_RESULTS))
         rows = connection.execute(sql, params).fetchall()
@@ -208,6 +255,8 @@ def search_bm25(
             continue
         # SQLite FTS5 returns a lower-is-better negative rank. Public scores stay
         # higher-is-better for compatibility with the previous overlap engine.
+        # equivalent: sqlite3.Row lookup is case-insensitive — BM25_SCORE
+        # resolves the same aliased column.
         matches.append(Bm25Match(document=document, score=-float(row["bm25_score"])))
         if len(matches) >= min(limit, MAX_RESULTS):
             break

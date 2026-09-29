@@ -214,6 +214,11 @@ def compute_step_savings(result: PipelineResult, root: Path) -> list[StepSavings
                 # A refused step is "not executed", not a dry-run plan.
                 billing = "not executed — no savings claimed"
             else:
+                # equivalent: every non-savings-eligible gate reason is a key of
+                # _GATE_BILLING_LABELS (not_started/invalid_contract/empty_result/
+                # task_failed/output_empty/unverified_result — "accepted" is the
+                # only savings-eligible reason), so the .get default is defensive
+                # and unreachable.
                 billing = _GATE_BILLING_LABELS.get(
                     gate.reason, "not savings-eligible — no savings claimed"
                 )
@@ -924,6 +929,9 @@ def _run_step(
         exit_code = proc.returncode
         executed = True
     else:
+        # equivalent: stdout_text is only read by the result_status ternary
+        # when executed and tier == "python"; this branch leaves executed
+        # False, so the value assigned here is a dead store.
         stdout_text = ""
         output = f"(dry-run) {step.command}"
         exit_code = 0

@@ -720,7 +720,11 @@ def _escalate_edit_from_cheap(
         complexity=complexity,
         est_tokens=est_tokens,
         rationale=f"{why} {cursor_rationale}".strip(),
+        # equivalent: read_only defaults to False on RouteDecision, so dropping
+        # the explicit kwarg produces the identical value.
         read_only=False,
+        # equivalent: tool defaults to None on RouteDecision — dropping the
+        # explicit kwarg is a no-op.
         tool=None,
         shadow_route_id=decision.shadow_route_id,
         raw_score=decision.raw_score,

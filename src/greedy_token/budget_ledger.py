@@ -51,17 +51,32 @@ def _period_label(settings: BudgetSettings) -> str:
 def _billing_tier_from_event(event: dict) -> BillingTier:
     billing = event.get("billing")
     if isinstance(billing, dict):
+        # equivalent: a missing "tier" yields "", None or "XXXX" — str() of each
+        # lower()s to a value absent from the allowlist below, so every default
+        # falls through to the legacy fields identically.
         tier = str(billing.get("tier", "")).strip().lower()
+        # equivalent: a mutated "cursor_estimate" literal only removes an early
+        # return — unmatched input falls to the final `return "cursor_estimate"`,
+        # so the outcome for a real "cursor_estimate" tier is identical.
         if tier in ("metered", "cheap", "cursor_estimate"):
             return tier  # type: ignore[return-value]
 
+    # equivalent: a missing "billing_tier" yields "", None or "XXXX" — str() of
+    # each lower()s to a value that never equals "expensive"/"cheap", so every
+    # default falls through to selected_tier identically.
     billing_tier = str(event.get("billing_tier", "")).strip().lower()
     if billing_tier == "expensive":
         return "metered"
     if billing_tier == "cheap":
         return "cheap"
 
+    # equivalent: a missing "selected_tier" yields "", None or "XXXX" — str() of
+    # each lower()s to a value that never equals "cursor" and never appears in
+    # the cheap allowlist, so every default reaches the same fallback.
     selected = str(event.get("selected_tier", "")).strip().lower()
+    # equivalent: a mutated "cursor" literal sends "cursor" input past the early
+    # return, but the final fallback is also `return "cursor_estimate"` — the
+    # outcome is identical on every input.
     if selected == "cursor":
         return "cursor_estimate"
     if selected in ("tool", "python", "rag"):
@@ -261,9 +276,17 @@ def build_billing_event_fields(
     """v2 billing block for usage events."""
     tier_map = {
         "expensive": "metered",
+        # equivalent: the "cheap" key maps to itself — mutating the key only
+        # means get() misses and falls back to the unchanged billing_tier, so
+        # input "cheap" still yields "cheap".
         "cheap": "cheap",
         "cursor": "cursor_estimate",
+        # equivalent: same for "metered" — the identity mapping means a mutated
+        # key degrades to the get() fallback returning billing_tier unchanged.
         "metered": "metered",
+        # equivalent: "cursor_estimate" is also an identity mapping — key
+        # mutations still resolve to "cursor_estimate" via the get() fallback.
+        # Value mutations on this entry are killed by exact-field tests.
         "cursor_estimate": "cursor_estimate",
     }
     tier = tier_map.get(billing_tier, billing_tier)

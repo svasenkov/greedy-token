@@ -362,6 +362,9 @@ def trusted_script_invocation(
     resolved_root = root.resolve()
     cwd, argv = command_to_argv(
         command,
+        # equivalent: command_to_argv normalises cwd via `(cwd or root)` when
+        # workspace_root is set — a None/missing default_cwd resolves to the
+        # same workspace root, so the downstream assert still holds.
         default_cwd=resolved_root,
         workspace_root=resolved_root,
     )

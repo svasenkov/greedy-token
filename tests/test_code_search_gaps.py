@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+import signal
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -1237,9 +1239,6 @@ def test_mcp_search_empty_result(
 
 # --- mutation kill-tests: glob/ignore plumbing, rg interpretation, budgets ---
 
-import re
-import signal
-
 
 def _bounded(fn, *args, seconds=2, **kwargs):
     """Call fn(); TimeoutError if it does not return (infinite-loop mutants)."""
@@ -1564,7 +1563,7 @@ def test_search_code_file_python_display_path(
 
 
 @allure.title("search_code file scope: unrunnable rg still reports engine rg")
-def test_search_code_file_no_match_engine(
+def test_search_code_file_engine_rg_unrunnable(
     minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _rg_stub(monkeypatch, 126, "cannot execute")
@@ -1597,3 +1596,10 @@ def test_search_code_workspace_no_match_engine(
     monkeypatch.setattr(cs, "_python_search_tree", lambda *a, **k: [])
     res = cs.search_code("zzz", minimal_workspace, context="none")
     assert res.engine == "rg"
+
+
+@allure.title("_cap_hit_lines honours zero and positive limits exactly")
+def test_cap_hit_lines_limits() -> None:
+    body = "foo\nsrc/a.py:12:hit one\nsrc/b.py:34:hit two"
+    assert cs._cap_hit_lines(body, 0) == ""
+    assert cs._cap_hit_lines(body, 1) == "foo\nsrc/a.py:12:hit one"

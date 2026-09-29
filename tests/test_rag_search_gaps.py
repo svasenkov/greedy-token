@@ -5,8 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 import allure
 from greedy_token.rag_fts import Bm25Match, Fts5Unavailable
 from greedy_token.rag_index import IndexedChunk, ManifestDocument

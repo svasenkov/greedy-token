@@ -5,9 +5,9 @@ import sqlite3
 from pathlib import Path
 from types import SimpleNamespace
 
-import allure
 import pytest
 
+import allure
 import greedy_token.rag_fts as fts
 from greedy_token.rag_index import ManifestDocument
 

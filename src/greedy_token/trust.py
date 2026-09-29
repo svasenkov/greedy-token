@@ -156,6 +156,9 @@ class TrustEntry:
         if not isinstance(approved_at, str) or not approved_at:
             raise TrustManifestError("trust entry approved_at must be a timestamp")
         try:
+            # equivalent: fromisoformat natively parses a trailing "Z" on the
+            # supported Python floor (>=3.12), so any altered replace pattern
+            # (no match) yields the same parsed result.
             parsed_at = datetime.fromisoformat(approved_at.replace("Z", "+00:00"))
         except ValueError as exc:
             raise TrustManifestError("trust entry approved_at is not ISO-8601") from exc
@@ -234,6 +237,8 @@ def _trust_home() -> Path:
 
 def _workspace_id(root: Path) -> str:
     canonical = os.path.normcase(str(root.expanduser().resolve()))
+    # equivalent: codec names are case-insensitive — encode("UTF-8") resolves
+    # to the same codec on every host.
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
@@ -248,6 +253,10 @@ def normalize_manifest_path(value: str | Path) -> str:
     if not text or "\x00" in text:
         raise TrustManifestError("script path must be non-empty and contain no NUL")
     if (
+        # equivalent: on POSIX, Path.is_absolute() defers to posixpath.isabs
+        # (`A or A` ≡ `A and A`); every remaining ntpath-absolute spelling is
+        # also caught by ntpath.splitdrive, so folding the posixpath/ntpath
+        # conjuncts into `and` cannot change the outcome on dev hosts.
         Path(text).is_absolute()
         or posixpath.isabs(text)
         or ntpath.isabs(text)
@@ -349,6 +358,8 @@ def _open_portable_nofollow(root: Path, relative_path: str) -> tuple[int, os.sta
 
     # TOCTOU: the path can only become a symlink between the component walk
     # above and this lstat — a race no deterministic test can hit.
+    # equivalent: unreachable in deterministic tests — this branch requires a
+    # symlink swap between the component walk and this lstat (pragma: no cover).
     if stat.S_ISLNK(path_stat.st_mode):  # pragma: no cover
         os.close(file_fd)
         raise TrustVerificationError(
@@ -454,6 +465,8 @@ def _write_entries(root: Path, entries: tuple[TrustEntry, ...]) -> Path:
         os.chmod(temp_path, 0o600)
         # newline="" pins LF bytes so manifests are byte-identical across OSes.
         with os.fdopen(fd, "w", encoding="utf-8", newline="") as stream:
+            # equivalent: ensure_ascii=None is falsy — json.dump branches on
+            # truthiness, so None encodes identically to False.
             json.dump(payload, stream, ensure_ascii=False, indent=2)
             stream.write("\n")
             stream.flush()
@@ -544,6 +557,9 @@ def verify_script(root: Path, path: str | Path) -> VerifiedScript:
                 f"file identity changed for {relative_path!r}; re-approval is required",
                 code=REFUSAL_STALE_IDENTITY,
             )
+        # equivalent: dead check — _read_entries → TrustEntry.from_dict already
+        # rejects any script_type/path mismatch, so entry.script_type always
+        # equals script_type_for_path(entry.path) here.
         if script_type_for_path(relative_path) != entry.script_type:
             raise TrustVerificationError(
                 f"script type changed for {relative_path!r}; re-approval is required",
@@ -586,6 +602,8 @@ def verify_trust_manifest(
 
 
 def _fd_execution_supported() -> bool:
+    # equivalent: /dev/fd exists on every supported POSIX dev host, so the
+    # second conjunct is always True — `A and B` and `A or B` coincide.
     return os.name == "posix" and Path("/dev/fd").is_dir()
 
 

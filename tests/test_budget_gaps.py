@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -1286,3 +1287,589 @@ def test_full_footer_tier_scan_root(
         executor_sub="rg", style="full",
     )
     assert seen == [footer_env]
+
+
+# ---------------------------------------------------------------------------
+# Mutation-gap coverage: exact BudgetSnapshot / formatting / tier contracts
+# ---------------------------------------------------------------------------
+
+
+class _FixedDT(datetime):
+    @classmethod
+    def now(cls, tz=None):
+        calls.append(tz)
+        return cls(2025, 7, 15, 10, 30, 45, tzinfo=UTC)
+
+
+calls: list = []
+
+
+def _pin_clock(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls.clear()
+    monkeypatch.setattr(bl, "datetime", _FixedDT)
+
+
+@allure.title("_period_start honours the calendar-month fields and rolling window")
+def test_period_start_exact(monkeypatch: pytest.MonkeyPatch) -> None:
+    _pin_clock(monkeypatch)
+    cal = bl._period_start(_settings(period="calendar_month"))
+    assert cal == datetime(2025, 7, 1, 0, 0, 0, tzinfo=UTC)
+    roll = bl._period_start(_settings(period="rolling_30d"))
+    assert roll == datetime(2025, 6, 15, 10, 30, 45, tzinfo=UTC)
+    assert calls == [UTC, UTC]
+
+
+@allure.title("_period_label renders '30d' or the UTC month abbreviation")
+def test_period_label_exact(monkeypatch: pytest.MonkeyPatch) -> None:
+    _pin_clock(monkeypatch)
+    assert bl._period_label(_settings(period="rolling_30d")) == "30d"
+    assert bl._period_label(_settings()) == "Jul"
+    assert calls[-1] is UTC
+
+
+@allure.title("_today_utc and _midnight_utc are anchored to UTC now")
+def test_today_and_midnight(monkeypatch: pytest.MonkeyPatch) -> None:
+    _pin_clock(monkeypatch)
+    assert bl._today_utc() == "2025-07-15"
+    assert bl._midnight_utc() == datetime(2025, 7, 15, 0, 0, 0, tzinfo=UTC)
+    assert calls == [UTC, UTC]
+
+
+@allure.title("_billing_tier_from_event maps every spelling to its tier")
+def test_billing_tier_all_branches() -> None:
+    assert bl._billing_tier_from_event({"billing": {"tier": "metered"}}) == "metered"
+    assert bl._billing_tier_from_event({"billing": {"tier": "cheap"}}) == "cheap"
+    assert bl._billing_tier_from_event(
+        {"billing": {"tier": "cursor_estimate"}}
+    ) == "cursor_estimate"
+    # Non-dict billing falls through to legacy fields.
+    assert bl._billing_tier_from_event(
+        {"billing": "x", "billing_tier": "expensive"}
+    ) == "metered"
+    assert bl._billing_tier_from_event({"selected_tier": "cursor"}) == "cursor_estimate"
+    assert bl._billing_tier_from_event({"selected_tier": "tool"}) == "cheap"
+    assert bl._billing_tier_from_event({"selected_tier": "rag"}) == "cheap"
+    assert bl._billing_tier_from_event({"selected_tier": "python"}) == "cheap"
+    assert bl._billing_tier_from_event({"selected_tier": "ollama"}) == "cheap"
+    assert bl._billing_tier_from_event({"selected_tier": "zzz"}) == "cursor_estimate"
+
+
+@allure.title("_cost_from_event prefers explicit cost, survives malformed first field")
+def test_cost_from_event_precedence() -> None:
+    assert bl._cost_from_event(
+        {"billing": {"cost_usd": "bad"}, "cost_usd": 2.5, "selected_tier": "python"},
+        cursor_rate=15.0,
+    ) == 2.5
+    assert bl._cost_from_event(
+        {"billing": {"cost_usd": 0.25}, "cost_usd": 9.9}, cursor_rate=15.0
+    ) == 0.25
+    # cursor_estimate without explicit cost derives from the baseline.
+    ev = {"selected_tier": "cursor", "cursor_baseline": 2_000_000}
+    assert bl._cost_from_event(ev, cursor_rate=15.0) == pytest.approx(30.0)
+    ev0 = {"selected_tier": "cursor"}
+    assert bl._cost_from_event(ev0, cursor_rate=15.0) == 0.0
+
+
+@allure.title("aggregate_budget: every snapshot field is exact with crafted events")
+def test_aggregate_budget_exact_fields(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import greedy_token.spend_ledger as sl
+
+    events = [
+        # spend_ref first: a `break` mutant would drop everything after it.
+        {"billing": {"tier": "metered", "cost_usd": 9.0}, "spend_ref": "r"},
+        {"billing": {"tier": "metered", "cost_usd": 0.123456789}, "billing_tier": "cheap"},
+        {"billing": {"tier": "metered", "cost_usd": 0.5}, "billing_tier": "cheap"},
+        {"billing": {"tier": "metered", "cost_usd": 1.25}},
+        {"billing": {"tier": "metered", "cost_usd": 2.5}},
+        {"billing": {"tier": "cursor_estimate", "cost_usd": 0.123456}},
+        {"billing": {"tier": "cursor_estimate", "cost_usd": 0.2}},
+        {"billing": {"tier": "cheap", "cost_usd": 7.0}},  # cheap: not counted
+    ]
+    load_calls: dict = {}
+    monkeypatch.setattr(
+        bl, "load_events",
+        lambda log, since=None: load_calls.update(log=log, since=since) or (events, None),
+    )
+    ledger_calls: dict = {}
+    monkeypatch.setattr(
+        sl, "ledger_spend_by_tier",
+        lambda since=None: ledger_calls.update(since=since)
+        or {"cheap": 1.00007, "expensive": 2.0},
+    )
+    _pin_clock(monkeypatch)
+    settings = _settings()
+    snap = bl.aggregate_budget(path=tmp_path / "u.jsonl", settings=settings)
+
+    assert load_calls["since"] == datetime(2025, 7, 1, tzinfo=UTC)
+    assert ledger_calls["since"] == datetime(2025, 7, 1, tzinfo=UTC)
+    # metered = 0.623456789 + 3.75 + ledger 3.00007 = 7.373526789
+    assert snap.metered_spent_usd == pytest.approx(7.3735)
+    assert snap.metered_cap_usd == 50.0
+    assert snap.metered_remaining_usd == pytest.approx(42.6265)
+    assert snap.metered_pct == pytest.approx(14.7)
+    assert snap.metered_cheap_spent_usd == pytest.approx(1.6235)
+    assert snap.metered_expensive_spent_usd == pytest.approx(5.75)
+    assert snap.cursor_est_spent_usd == pytest.approx(0.32)
+    assert snap.cursor_est_cap_usd == 30.0
+    assert snap.cursor_est_remaining_usd == pytest.approx(29.68)
+    assert snap.cursor_est_pct == pytest.approx(1.1)
+    assert snap.mode == "normal"
+    assert snap.period_label == "Jul"
+    assert snap.show_both is True
+    assert snap.warn_at_pct == 80.0
+
+
+@allure.title("aggregate_budget mode edges: cap=0, exact cap, boundary warn")
+def test_aggregate_budget_mode_edges(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import greedy_token.spend_ledger as sl
+
+    def snap_for(events, ledger, **kw):
+        monkeypatch.setattr(bl, "load_events", lambda *a, **k: (events, None))
+        monkeypatch.setattr(sl, "ledger_spend_by_tier", lambda **k: ledger)
+        return bl.aggregate_budget(path=tmp_path / "u", settings=_settings(**kw))
+
+    def metered(usd):
+        return {"billing": {"tier": "metered", "cost_usd": usd}}
+    with allure.step("zero cap → pct 0 and mode normal, never exhausted"):
+        s = snap_for([metered(5.0)], {"cheap": 0, "expensive": 0},
+                     metered_monthly_cap_usd=0.0, cursor_monthly_estimate_cap_usd=0.0)
+        assert s.metered_pct == 0.0 and s.cursor_est_pct == 0.0
+        assert s.mode == "normal"
+    with allure.step("sub-dollar cap: spent >= cap → exhausted"):
+        s = snap_for([metered(0.6)], {"cheap": 0, "expensive": 0},
+                     metered_monthly_cap_usd=0.5)
+        assert s.mode == "exhausted"
+    with allure.step("spent == cap exactly → exhausted (>= not >)"):
+        s = snap_for([metered(50.0)], {"cheap": 0, "expensive": 0})
+        assert s.mode == "exhausted"
+    with allure.step("only metered at warn threshold → warn (or, not and)"):
+        s = snap_for([metered(40.0)], {"cheap": 0, "expensive": 0})
+        assert s.metered_pct == 80.0 and s.mode == "warn"
+    with allure.step("only cursor at warn threshold → warn"):
+        ev = [{"billing": {"tier": "cursor_estimate", "cost_usd": 24.0}}]
+        s = snap_for(ev, {"cheap": 0, "expensive": 0})
+        assert s.cursor_est_pct == 80.0 and s.mode == "warn"
+
+
+@allure.title("headroom/metered_budget_exhausted/cursor_budget_warn thread root + edges")
+def test_budget_query_helpers(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    seen: dict = {}
+    monkeypatch.setattr(
+        bl, "aggregate_budget",
+        lambda **k: seen.update(k) or _snap(),
+    )
+    bl.headroom(root=tmp_path)
+    assert seen == {"root": tmp_path}
+
+    monkeypatch.setattr(bl, "headroom", lambda **k: seen.update(k) or _snap(
+        metered_cap_usd=50.0, metered_spent_usd=50.0,
+        cursor_est_cap_usd=30.0, cursor_est_pct=80.0,
+    ))
+    assert bl.metered_budget_exhausted(root=tmp_path) is True
+    assert bl.cursor_budget_warn(root=tmp_path) is True
+    assert seen == {"root": tmp_path}
+
+    monkeypatch.setattr(bl, "headroom", lambda **k: _snap(
+        metered_cap_usd=0.0, metered_spent_usd=9.0,
+        cursor_est_cap_usd=0.0, cursor_est_pct=99.0,
+    ))
+    # Zero caps must never claim exhaustion/warn.
+    assert bl.metered_budget_exhausted() is False
+    assert bl.cursor_budget_warn() is False
+
+    monkeypatch.setattr(bl, "headroom", lambda **k: _snap(
+        metered_cap_usd=0.5, metered_spent_usd=0.6,
+        cursor_est_cap_usd=30.0, cursor_est_pct=79.0,
+    ))
+    # Fractional cap still counts; strict > on pct must not fire.
+    assert bl.metered_budget_exhausted() is True
+    assert bl.cursor_budget_warn() is False
+
+
+@allure.title("metered_spent_today sums ledger + usage sources with midnight cutoff")
+def test_metered_spent_today_sources(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import greedy_token.spend_ledger as sl
+
+    _pin_clock(monkeypatch)
+    midnight = datetime(2025, 7, 15, tzinfo=UTC)
+    ledger_args: dict = {}
+    usage_args: dict = {}
+    metered_args: dict = {}
+    monkeypatch.setattr(
+        sl, "ledger_spend_usd",
+        lambda since=None: ledger_args.update(since=since) or 1.5,
+    )
+    monkeypatch.setattr(
+        sl, "usage_metered_spend_usd",
+        lambda since=None, log=None: usage_args.update(since=since, log=log) or 0.25,
+    )
+    monkeypatch.setattr(
+        sl, "metered_spend_usd",
+        lambda since=None: metered_args.update(since=since) or 3.0,
+    )
+    log = tmp_path / "u.jsonl"
+    assert bl.metered_spent_today(log) == pytest.approx(1.75)
+    assert ledger_args["since"] == midnight
+    assert usage_args == {"since": midnight, "log": log}
+    assert metered_args == {}, "path=None source must not run when path is given"
+    assert bl.metered_spent_today() == pytest.approx(3.0)
+    assert metered_args["since"] == midnight
+
+
+@allure.title("format_budget_line renders exact compact/verbose output per mode")
+def test_format_budget_line_exact(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    seen: dict = {}
+    snap = _snap(
+        metered_spent_usd=7.3735, metered_cap_usd=50.0, metered_remaining_usd=42.6,
+        metered_pct=14.7, cursor_est_spent_usd=0.32, cursor_est_cap_usd=30.0,
+        cursor_est_remaining_usd=29.68, cursor_est_pct=1.1, period_label="Jul",
+        mode="normal",
+    )
+    monkeypatch.setattr(bl, "headroom", lambda **k: seen.update(k) or snap)
+    with allure.step("compact default, normal → no warning marker"):
+        assert bl.format_budget_line(root=tmp_path) == (
+            "Budget (Jul): metered $7.37/$50 (15%) · "
+            "cursor est. ~$0/$30 (1%)"
+        )
+        assert seen == {"root": tmp_path}
+    with allure.step("compact + warn/exhausted append ' ⚠'"):
+        for mode in ("warn", "exhausted"):
+            monkeypatch.setattr(
+                bl, "headroom", lambda _m=mode, **k: _snap(mode=_m)
+            )
+            assert bl.format_budget_line().endswith(" ⚠")
+    with allure.step("verbose exhausted/warn status lines are exact"):
+        monkeypatch.setattr(bl, "headroom", lambda **k: _snap(mode="exhausted"))
+        out = bl.format_budget_line(compact=False)
+        assert "  Status: metered budget exhausted — escalation blocked" in out
+        monkeypatch.setattr(bl, "headroom", lambda **k: _snap(mode="warn", warn_at_pct=80.0))
+        out = bl.format_budget_line(compact=False)
+        assert "  Status: approaching cap (warn at 80%)" in out
+
+
+@allure.title("format_budget_statusline renders the compact M/C pair exactly")
+def test_format_budget_statusline_exact(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    seen: dict = {}
+    monkeypatch.setattr(
+        bl, "headroom",
+        lambda **k: seen.update(k) or _snap(
+            metered_spent_usd=7.5, metered_cap_usd=50.0,
+            cursor_est_spent_usd=2.4, cursor_est_cap_usd=30.0, mode="normal",
+        ),
+    )
+    assert bl.format_budget_statusline(root=tmp_path) == "M:$8/$50 C:~$2/$30"
+    assert seen == {"root": tmp_path}
+    monkeypatch.setattr(bl, "headroom", lambda **k: _snap(
+        metered_spent_usd=7.5, metered_cap_usd=50.0,
+        cursor_est_spent_usd=2.4, cursor_est_cap_usd=30.0, mode="warn",
+    ))
+    assert bl.format_budget_statusline() == "M:$8/$50 C:~$2/$30⚠"
+
+
+@allure.title("build_billing_event_fields maps tiers, rounds cost, passes model")
+def test_build_billing_event_fields_exact() -> None:
+    for tier in ("expensive", "cheap", "cursor", "metered", "cursor_estimate"):
+        out = bl.build_billing_event_fields(billing_tier=tier)
+        assert out["v"] == 2
+        expected = {"expensive": "metered", "cursor": "cursor_estimate"}.get(tier, tier)
+        assert out["billing"]["tier"] == expected
+    with allure.step("unknown tier passes through verbatim"):
+        assert bl.build_billing_event_fields(billing_tier="zzz")["billing"]["tier"] == "zzz"
+    with allure.step("cost rounds to 6 decimals; model_id optional"):
+        out = bl.build_billing_event_fields(
+            billing_tier="cheap", cost_usd=1.234567891, model_id="m9"
+        )
+        assert out["billing"] == {"tier": "cheap", "cost_usd": 1.234568, "model_id": "m9"}
+        bare = bl.build_billing_event_fields(billing_tier="cheap")
+        assert bare["billing"] == {"tier": "cheap"}
+
+
+# ---------------------------------------------------------------------------
+# Mutation-gap coverage: apply_budget_policy plumbing and exact annotations
+# ---------------------------------------------------------------------------
+
+
+@allure.title("apply_budget_policy resolves policy through the registry, threading root")
+def test_policy_registry_called_with_root(
+    policy_env, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from types import SimpleNamespace
+
+    calls: list = []
+    monkeypatch.setattr(
+        "greedy_token.model_select.get_llm_registry",
+        lambda root: calls.append(root) or SimpleNamespace(policy="hybrid"),
+    )
+    bp.apply_budget_policy(_decision(), "task", tmp_path, policy=None)
+    assert calls == [tmp_path]
+
+
+@allure.title("resolved registry policy drives the hybrid escalation block")
+def test_policy_registry_value_used(
+    policy_env, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        "greedy_token.model_select.get_llm_registry",
+        lambda root: SimpleNamespace(policy="hybrid"),
+    )
+    monkeypatch.setattr(bp, "metered_budget_exhausted", lambda **k: True)
+    ollama_alt = _decision(target="ollama", matched=["o"], rationale="r")
+    monkeypatch.setattr(bp, "route_task_all_tiers", lambda *a, **k: [(1.0, ollama_alt)])
+    out = bp.apply_budget_policy(
+        _decision(complexity="high"), "please escalate", tmp_path, policy=None
+    )
+    assert out.target == "ollama" and out.note == "budget_policy: hybrid"
+
+
+@allure.title("registry failure falls back to policy 'auto'")
+def test_policy_registry_fallback_auto(
+    policy_env, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        "greedy_token.model_select.get_llm_registry",
+        lambda root: (_ for _ in ()).throw(ValueError("no reg")),
+    )
+    monkeypatch.setattr(bp, "metered_budget_exhausted", lambda **k: True)
+    ollama_alt = _decision(target="ollama", matched=["o"], rationale="r")
+    monkeypatch.setattr(bp, "route_task_all_tiers", lambda *a, **k: [(1.0, ollama_alt)])
+    out = bp.apply_budget_policy(
+        _decision(complexity="high"), "please escalate", tmp_path, policy=None
+    )
+    # "auto" is inside the hybrid-policy allowlist — the fallback must produce it.
+    assert out.target == "ollama" and out.note == "budget_policy: hybrid"
+
+
+@allure.title("headroom and budget queries thread the workspace root")
+def test_policy_snapshot_root(
+    policy_env, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    roots: dict = {}
+    monkeypatch.setattr(
+        bp, "headroom", lambda **k: roots.update(headroom=k["root"]) or _snap()
+    )
+    monkeypatch.setattr(
+        bp, "metered_budget_exhausted",
+        lambda **k: roots.update(metered=k["root"]) or False,
+    )
+    monkeypatch.setattr(
+        bp, "cursor_budget_warn", lambda **k: roots.update(cursor=k["root"]) or False
+    )
+    bp.apply_budget_policy(_decision(), "task", tmp_path, policy="auto")
+    assert roots == {"headroom": tmp_path, "metered": tmp_path, "cursor": tmp_path}
+
+
+@allure.title("metered exhausted selects each fallback tier in order, threading args")
+def test_policy_metered_tier_order(
+    policy_env, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(bp, "metered_budget_exhausted", lambda **k: True)
+    seen: list = []
+    python_alt = _decision(target="python", matched=["p"], confidence=0.5, rationale="rp")
+    tool_alt = _decision(target="tool", matched=["t"], confidence=0.5, rationale="rt")
+    monkeypatch.setattr(
+        bp, "route_task_all_tiers",
+        lambda task, root: seen.append((task, root)) or [(1.0, python_alt), (1.0, tool_alt)],
+    )
+    with allure.step("no ollama/rag alts → first match wins: python"):
+        out = bp.apply_budget_policy(
+            _decision(complexity="medium"), "my task", tmp_path, policy="auto"
+        )
+        assert out.target == "python"
+        assert out.note == "budget_policy: metered exhausted"
+        assert out.rationale == "rp Budget: metered cap reached — prefer python."
+        # Called once per candidate tier (ollama, rag, python) until a match.
+        assert seen == [("my task", tmp_path)] * 3
+    with allure.step("python absent → tool selected"):
+        seen.clear()
+        monkeypatch.setattr(
+            bp, "route_task_all_tiers", lambda *a, **k: [(1.0, tool_alt)]
+        )
+        out = bp.apply_budget_policy(
+            _decision(complexity="medium"), "my task", tmp_path, policy="auto"
+        )
+        assert out.target == "tool"
+        assert out.rationale == "rt Budget: metered cap reached — prefer tool."
+
+
+@allure.title("metered exhausted requires positive confidence and match")
+def test_policy_metered_alt_gates(
+    policy_env, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(bp, "metered_budget_exhausted", lambda **k: True)
+    zero_conf = _decision(target="python", matched=["p"], confidence=0.0)
+    unmatched = _decision(target="rag", matched=[], confidence=0.9)
+    monkeypatch.setattr(
+        bp, "route_task_all_tiers", lambda *a, **k: [(1.0, zero_conf), (1.0, unmatched)]
+    )
+    out = bp.apply_budget_policy(
+        _decision(complexity="medium"), "task", tmp_path, policy="auto"
+    )
+    assert out.target == "cursor"
+
+
+@allure.title("unavailable ollama alt does not stop the scan of later alts")
+def test_policy_metered_ollama_continue(
+    policy_env, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(bp, "metered_budget_exhausted", lambda **k: True)
+    o1 = _decision(target="ollama", matched=["o1"], rationale="r1")
+    o2 = _decision(target="ollama", matched=["o2"], rationale="r2")
+    monkeypatch.setattr(bp, "route_task_all_tiers", lambda *a, **k: [(1.0, o1), (1.0, o2)])
+    availability = iter([False, True])
+    monkeypatch.setattr(
+        "greedy_token.wrappers.ollama_available", lambda: next(availability)
+    )
+    out = bp.apply_budget_policy(
+        _decision(complexity="medium"), "task", tmp_path, policy="auto"
+    )
+    # continue, not break: the second ollama candidate is still reachable.
+    assert out.target == "ollama" and out.matched == ["o2"]
+
+
+@allure.title("cursor warn biases only a medium cursor decision, threading args")
+def test_policy_cursor_warn_gates(
+    policy_env, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(bp, "cursor_budget_warn", lambda **k: True)
+    ollama_alt = _decision(target="ollama", matched=["o"], rationale="ro")
+    seen: list = []
+    monkeypatch.setattr(
+        bp, "route_task_all_tiers",
+        lambda task, root: seen.append((task, root)) or [(1.0, ollama_alt)],
+    )
+    with allure.step("medium cursor → biased to ollama with exact note/rationale"):
+        out = bp.apply_budget_policy(
+            _decision(complexity="medium"), "t2", tmp_path, policy="auto"
+        )
+        assert out.target == "ollama"
+        assert out.note == "budget_policy: cursor warn"
+        assert out.rationale == "ro Budget: cursor est. high — prefer local LLM."
+        assert seen == [("t2", tmp_path)]
+    with allure.step("non-cursor decision → warn block never fires"):
+        seen.clear()
+        out = bp.apply_budget_policy(
+            _decision(target="rag", complexity="medium"), "t2", tmp_path, policy="auto"
+        )
+        assert out.target == "rag" and seen == []
+
+
+@allure.title("hybrid policy reroutes cursor escalation only when metered is out")
+def test_policy_hybrid_gates(
+    policy_env, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    ollama_alt = _decision(target="ollama", matched=["o"], rationale="rh")
+    monkeypatch.setattr(bp, "route_task_all_tiers", lambda *a, **k: [(1.0, ollama_alt)])
+    monkeypatch.setattr(bp, "metered_budget_exhausted", lambda **k: False)
+    with allure.step("metered has headroom → no hybrid reroute"):
+        out = bp.apply_budget_policy(
+            _decision(complexity="high"), "please escalate", tmp_path, policy="hybrid"
+        )
+        assert out.target == "cursor"
+    with allure.step("each allowlisted policy fires; 'zzz' does not"):
+        monkeypatch.setattr(bp, "metered_budget_exhausted", lambda **k: True)
+        for pol in ("hybrid", "auto", "cheap_only"):
+            out = bp.apply_budget_policy(
+                _decision(complexity="high"), "please escalate", tmp_path, policy=pol
+            )
+            assert out.target == "ollama", pol
+            assert out.rationale == "rh Budget: no metered headroom for escalation."
+        out = bp.apply_budget_policy(
+            _decision(complexity="high"), "please escalate", tmp_path, policy="zzz"
+        )
+        assert out.target == "cursor"
+    with allure.step("non-escalate task → hybrid block skips"):
+        out = bp.apply_budget_policy(
+            _decision(complexity="high"), "plain task", tmp_path, policy="hybrid"
+        )
+        assert out.target == "cursor"
+    with allure.step("non-cursor decision → hybrid block skips"):
+        out = bp.apply_budget_policy(
+            _decision(target="python", complexity="high"), "please escalate",
+            tmp_path, policy="hybrid",
+        )
+        assert out.target == "python"
+
+
+@allure.title("hybrid reroute requires an ollama-target alt that matched")
+def test_policy_hybrid_alt_gate(
+    policy_env, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(bp, "metered_budget_exhausted", lambda **k: True)
+    non_ollama = _decision(target="rag", matched=["r"])
+    ollama_unmatched = _decision(target="ollama", matched=[])
+    monkeypatch.setattr(
+        bp, "route_task_all_tiers",
+        lambda *a, **k: [(1.0, non_ollama), (1.0, ollama_unmatched)],
+    )
+    out = bp.apply_budget_policy(
+        _decision(complexity="high"), "please escalate", tmp_path, policy="hybrid"
+    )
+    assert out.target == "cursor"
+
+
+@allure.title("run_doctor is probed with quick=True; deprecated hint uses first rec")
+def test_policy_doctor_contract(
+    policy_env, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    calls: list = []
+    monkeypatch.setattr(
+        bp, "run_doctor", lambda **k: calls.append(k) or _rep(deprecated=True)
+    )
+    out = bp.apply_budget_policy(
+        _decision(target="ollama", rationale="base"), "task", tmp_path, policy="auto"
+    )
+    assert calls == [{"quick": True}]
+    assert out.rationale == "base Local: deprecated model — consider ollama pull qwen2.5-coder:7b."
+    with allure.step("deprecated list but non-ollama target → rationale untouched"):
+        out = bp.apply_budget_policy(
+            _decision(target="python", rationale="base"), "task", tmp_path, policy="auto"
+        )
+        assert out.rationale == "base"
+    with allure.step("empty recommended list renders the bare hint"):
+        rep = _rep(deprecated=True)
+        rep.recommended.clear()
+        monkeypatch.setattr(bp, "run_doctor", lambda **k: rep)
+        out = bp.apply_budget_policy(
+            _decision(target="ollama", rationale="base"), "task", tmp_path, policy="auto"
+        )
+        assert out.rationale == "base Local: deprecated model — consider ollama pull ."
+
+
+@allure.title("exhausted snapshot appends the budget note exactly once")
+def test_policy_exhausted_note(
+    policy_env, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(bp, "headroom", lambda **k: _snap(mode="exhausted"))
+    with allure.step("clean note gets the marker appended"):
+        out = bp.apply_budget_policy(
+            _decision(note="base note"), "task", tmp_path, policy="auto"
+        )
+        assert out.note == "base note budget: metered exhausted"
+    with allure.step("policy note is not duplicated"):
+        out = bp.apply_budget_policy(
+            _decision(note="budget_policy: metered exhausted"), "task", tmp_path,
+            policy="auto",
+        )
+        assert out.note == "budget_policy: metered exhausted"
+
+
+@allure.title("policy_footer_extras threads root and compact flag, swallows errors")
+def test_policy_footer_extras_contract(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    seen: dict = {}
+    monkeypatch.setattr(
+        "greedy_token.budget_ledger.format_budget_line",
+        lambda **k: seen.update(k) or "budget line",
+    )
+    monkeypatch.setattr(bp, "local_health_line", lambda: "health")
+    assert bp.policy_footer_extras(root=tmp_path) == ["budget line", "health"]
+    assert seen == {"root": tmp_path, "compact": True}

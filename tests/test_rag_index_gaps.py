@@ -7,8 +7,6 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 import allure
 from greedy_token.rag_index import (
     _cache,

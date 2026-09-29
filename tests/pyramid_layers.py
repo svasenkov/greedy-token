@@ -74,6 +74,7 @@ LAYER_BY_MODULE: dict[str, str] = {
     "test_search_enrich": "component",
     "test_security": "component",
     "test_subprocess_safe_gaps": "component",
+    "test_trust_gaps": "unit",
     "test_trust": "component",
     "test_tool_paths": "component",
     "test_usage": "component",

@@ -349,3 +349,4 @@ def test_run_command_forwards_kwargs(
     assert calls[1][1]["capture_output"] is False
     assert calls[1][1]["text"] is False
     assert calls[1][1]["check"] is True
+

@@ -1264,3 +1264,602 @@ def test_step_savings_empty_result(minimal_workspace: Path) -> None:
         PipelineResult(task="t", steps=[sr]), minimal_workspace
     )
     assert "EMPTY" in footer
+
+
+# ---------------------------------------------------------------------------
+# Mutation-gap coverage: exact contracts the earlier tests left unobserved
+# ---------------------------------------------------------------------------
+
+
+@allure.title("read-hits: result_status is EMPTY on refusal branches, PRODUCED on enrich")
+def test_read_hits_result_status(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    step = _step("read-hits", tier="tool")
+    monkeypatch.setattr(pl.time, "perf_counter", Mock(side_effect=[5.0, 7.0] * 4))
+
+    with allure.step("no prior output → RESULT_EMPTY"):
+        none = pl._run_read_hits(step, tmp_path, prior_search_output=None, execute=True)
+        assert none.result_status == pl.RESULT_EMPTY
+    with allure.step("unparseable prior output → RESULT_EMPTY"):
+        empty = pl._run_read_hits(
+            step, tmp_path, prior_search_output="no hits here", execute=True
+        )
+        assert empty.result_status == pl.RESULT_EMPTY
+    with allure.step("successful enrichment → RESULT_PRODUCED"):
+        target = tmp_path / "hit.txt"
+        target.write_text("alpha\nbeta\n", encoding="utf-8")
+        ok = pl._run_read_hits(
+            step, tmp_path, prior_search_output="hit.txt:1:alpha", execute=True
+        )
+        assert ok.result_status == pl.RESULT_PRODUCED
+
+
+@allure.title("_run_step rag: dry-run keeps NOT_EVALUATED and never estimates tokens")
+def test_run_step_rag_dry_status(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    step = _step("rag", tier="rag", args="baseUrl")
+    est_calls: list = []
+    monkeypatch.setattr(pl, "_estimate_step_tokens", lambda *a: est_calls.append(a) or 9)
+    _fixed_time(monkeypatch)
+    sr = pl._run_step(step, minimal_workspace, execute=False)
+    assert sr.result_status == pl.RESULT_NOT_EVALUATED
+    assert sr.est_tokens == 0
+    assert est_calls == [], "dry-run must not estimate rag tokens"
+
+
+@allure.title("_run_step rag: executed step reports PRODUCED on hits, EMPTY on none")
+def test_run_step_rag_exec_status(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    step = _step("rag", tier="rag", args="baseUrl")
+    monkeypatch.setattr(pl, "search_rag", lambda q, r, limit: ["hit"])
+    monkeypatch.setattr(pl, "format_hits", lambda q, h: "HITS")
+    monkeypatch.setattr(pl, "_estimate_step_tokens", lambda *a: 0)
+    sr = pl._run_step(step, minimal_workspace, execute=True)
+    assert sr.result_status == pl.RESULT_PRODUCED
+
+    monkeypatch.setattr(pl, "search_rag", lambda q, r, limit: [])
+    monkeypatch.setattr(pl, "format_hits", lambda q, h: "none")
+    sr_empty = pl._run_step(step, minimal_workspace, execute=True)
+    assert sr_empty.result_status == pl.RESULT_EMPTY
+
+
+@allure.title("_run_step: route lookup threads the workspace root")
+def test_run_step_route_lookup_root(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: dict = {}
+    monkeypatch.setattr(
+        pl,
+        "_route_for_step_id",
+        lambda step_id, root=None: calls.update(step_id=step_id, root=root),
+    )
+    step = _step("route-only", tier="python", command=None)
+    _fixed_time(monkeypatch)
+    with pytest.raises(ValueError, match="No command for step route-only"):
+        pl._run_step(step, minimal_workspace, execute=False)
+    assert calls == {"step_id": "route-only", "root": minimal_workspace}
+
+
+@allure.title("_run_step: route-only step skip output is built against the real root")
+def test_run_step_route_skip_root(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: dict = {}
+    monkeypatch.setattr(
+        pl, "_route_for_step_id", lambda step_id, root=None: {"target": "python"}
+    )
+    monkeypatch.setattr(
+        pl,
+        "_route_skip_output",
+        lambda step, root: calls.update(root=root) or "SKIP-TEXT",
+    )
+    step = _step("route-only", tier="python", command=None)
+    _fixed_time(monkeypatch)
+    sr = pl._run_step(step, minimal_workspace, execute=True)
+    assert calls == {"root": minimal_workspace}
+    assert sr.output == "SKIP-TEXT"
+    assert sr.ok is False
+    assert sr.exit_code == 1
+    assert sr.est_tokens == 0
+    assert sr.executed is False
+    assert sr.duration_ms == 2000
+
+
+@allure.title("_run_step: allowlisted step without command is refused with exact fields")
+def test_run_step_no_command_refusal(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        pl, "_route_for_step_id", lambda step_id, root=None: {"target": "python"}
+    )
+    step = _step("check-meta-sync", tier="python", command=None)
+    _fixed_time(monkeypatch)
+    sr = pl._run_step(step, minimal_workspace, execute=True)
+    assert sr.step is step
+    assert sr.ok is False
+    assert sr.exit_code == 1
+    assert sr.output == (
+        "(skipped) check-meta-sync: route has no deterministic command (tier python)"
+    )
+    assert sr.duration_ms == 2000
+    assert sr.est_tokens == 0
+    assert sr.executed is False
+
+
+@allure.title("_run_step: any missing argv/cwd/authorization refuses the structured command")
+def test_run_step_missing_argv_refusal(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def check(**kw) -> StepResult:
+        step = _step("check-meta-sync", tier="python", command="scripts/x.py", **kw)
+        monkeypatch.setattr(pl.time, "perf_counter", Mock(side_effect=[5.0, 7.0]))
+        sr = pl._run_step(step, minimal_workspace, execute=True)
+        assert sr.ok is False
+        assert sr.exit_code == 1
+        assert sr.output == (
+            "Refusing unsafe command: structured trusted argv is missing"
+        )
+        assert sr.duration_ms == 2000
+        assert sr.est_tokens == 0
+        assert sr.executed is False
+        return sr
+
+    base = dict(argv=("python", "x.py"), cwd=minimal_workspace, authorization="ok")
+    with allure.step("argv missing → refused"):
+        check(**{**base, "argv": None})
+    with allure.step("cwd missing → refused"):
+        check(**{**base, "cwd": None})
+    with allure.step("authorization empty → refused"):
+        check(**{**base, "authorization": ""})
+
+
+@allure.title("_run_step: non-wrapper auto-run id refuses as unregistered wrapper")
+def test_run_step_unregistered_wrapper(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(pl, "PIPELINE_AUTO_RUN", pl.PIPELINE_AUTO_RUN | {"zzz-step"})
+    step = _step(
+        "zzz-step",
+        tier="python",
+        command="scripts/x.py",
+        argv=("python", "x.py"),
+        cwd=minimal_workspace,
+        authorization="ok",
+    )
+    _fixed_time(monkeypatch)
+    sr = pl._run_step(step, minimal_workspace, execute=True)
+    assert sr.ok is False
+    assert sr.exit_code == 1
+    assert sr.output == (
+        "Refusing unsafe command: pipeline step is not a registered wrapper"
+    )
+    assert sr.duration_ms == 2000
+    assert sr.est_tokens == 0
+    assert sr.executed is False
+
+
+@allure.title("_run_step: UnsafeCommandError surfaces its reason with exact fields")
+def test_run_step_unsafe_command_refusal(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    step = _step(
+        "check-meta-sync",
+        tier="python",
+        command="scripts/x.py",
+        argv=("python", "x.py"),
+        cwd=minimal_workspace,
+        authorization="ok",
+    )
+    monkeypatch.setattr(
+        pl,
+        "trusted_script_argv",
+        lambda *a, **k: (_ for _ in ()).throw(
+            pl.UnsafeCommandError("BADCMD")
+        ),
+    )
+    _fixed_time(monkeypatch)
+    sr = pl._run_step(step, minimal_workspace, execute=True)
+    assert sr.step is step
+    assert sr.ok is False
+    assert sr.exit_code == 1
+    assert sr.output == "Refusing unsafe command: BADCMD"
+    assert sr.duration_ms == 2000
+    assert sr.est_tokens == 0
+    assert sr.executed is False
+
+
+def _trusted_env(monkeypatch: pytest.MonkeyPatch, root: Path):
+    """Pin the trusted-subprocess plumbing; returns the subprocess.run spy."""
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        pl,
+        "trusted_script_argv",
+        lambda *a, **k: SimpleNamespace(argv=("runme", "a"), cwd=str(root)),
+    )
+    run = Mock(return_value=SimpleNamespace(stdout="OUT", stderr="ERR", returncode=0))
+    monkeypatch.setattr(pl.subprocess, "run", run)
+    return run
+
+
+def _trusted_step(root: Path, **kw) -> PipelineStep:
+    return _step(
+        "check-meta-sync",
+        tier="python",
+        command="scripts/x.py",
+        argv=("python", "x.py"),
+        cwd=root,
+        authorization="ok",
+        **kw,
+    )
+
+
+@allure.title("_run_step: trusted argv runs with shell=False and exact subprocess kwargs")
+def test_run_step_subprocess_kwargs(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run = _trusted_env(monkeypatch, minimal_workspace)
+    step = _trusted_step(minimal_workspace)
+    _fixed_time(monkeypatch)
+    sr = pl._run_step(step, minimal_workspace, execute=True)
+    args, kwargs = run.call_args
+    assert args == (["runme", "a"],)
+    assert kwargs["shell"] is False
+    assert kwargs["capture_output"] is True
+    assert kwargs["text"] is True
+    assert kwargs["cwd"] == str(minimal_workspace)
+    assert kwargs["timeout"] == pl.SCRIPT_TIMEOUT
+    assert sr.output == "OUTERR"
+    assert sr.executed is True
+
+
+@allure.title("_run_step: FileNotFoundError → exit 127, not executed")
+def test_run_step_missing_executable(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _trusted_env(monkeypatch, minimal_workspace)
+    monkeypatch.setattr(
+        pl.subprocess, "run", Mock(side_effect=FileNotFoundError("gone"))
+    )
+    step = _trusted_step(minimal_workspace)
+    _fixed_time(monkeypatch)
+    sr = pl._run_step(step, minimal_workspace, execute=True)
+    assert sr.step is step
+    assert sr.ok is False
+    assert sr.exit_code == 127
+    assert sr.output == "Executable not found: gone"
+    assert sr.duration_ms == 2000
+    assert sr.est_tokens == 0
+    assert sr.executed is False
+
+
+@allure.title("_run_step: generic OSError → exit 126, not executed")
+def test_run_step_os_error(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _trusted_env(monkeypatch, minimal_workspace)
+    monkeypatch.setattr(pl.subprocess, "run", Mock(side_effect=OSError("denied")))
+    step = _trusted_step(minimal_workspace)
+    _fixed_time(monkeypatch)
+    sr = pl._run_step(step, minimal_workspace, execute=True)
+    assert sr.step is step
+    assert sr.ok is False
+    assert sr.exit_code == 126
+    assert sr.output == "Cannot execute command: denied"
+    assert sr.duration_ms == 2000
+    assert sr.est_tokens == 0
+    assert sr.executed is False
+
+
+@allure.title("_run_step: executed non-python tier stays NOT_EVALUATED")
+def test_run_step_result_status_only_python(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    step = _step(
+        "audit-skill",
+        tier="ollama",
+        command="scripts/x.sh",
+        argv=("bash", "x.sh"),
+        cwd=minimal_workspace,
+        authorization="ok",
+    )
+    monkeypatch.setattr(pl, "apply_cheap_llm_env", lambda *a, **k: None)
+    monkeypatch.setattr(pl, "ollama_available", lambda: True)
+    _trusted_env(monkeypatch, minimal_workspace)
+    monkeypatch.setattr(pl, "evaluate_script_result", lambda *a: "SENTINEL")
+    monkeypatch.setattr(pl, "_estimate_step_tokens", lambda *a: 0)
+    sr = pl._run_step(step, minimal_workspace, execute=True)
+    assert sr.executed is True
+    assert sr.result_status == pl.RESULT_NOT_EVALUATED
+
+
+@allure.title("_route_skip_output: exact refusal text for every readiness")
+def test_route_skip_output_text(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from types import SimpleNamespace
+
+    import greedy_token.capabilities as caps
+
+    step = _step("python-foo", tier="python", command=None)
+
+    with allure.step("unknown capability → 'unknown' readiness + no-command line"):
+        calls: dict = {}
+        monkeypatch.setattr(
+            caps,
+            "capability_by_id",
+            lambda root, op_id: calls.update(root=root, op_id=op_id) or None,
+        )
+        out = pl._route_skip_output(step, tmp_path)
+        assert calls == {"root": tmp_path, "op_id": "python-foo"}
+        assert out == (
+            "(skipped) python-foo not in pipeline auto-run allowlist "
+            "(route readiness: unknown).\n"
+            "Command: (no deterministic command)"
+        )
+
+    with allure.step("non-invocable capability → no invoke hint"):
+        monkeypatch.setattr(
+            caps,
+            "capability_by_id",
+            lambda root, op_id: SimpleNamespace(readiness="blocked", invocable=False),
+        )
+        out = pl._route_skip_output(step, tmp_path)
+        assert "route readiness: blocked" in out
+        assert "Invoke directly" not in out
+
+    with allure.step("invocable capability + real command → invoke hint appended"):
+        step_cmd = _step("python-foo", tier="python", command="echo x")
+        monkeypatch.setattr(
+            caps,
+            "capability_by_id",
+            lambda root, op_id: SimpleNamespace(readiness="ready", invocable=True),
+        )
+        out = pl._route_skip_output(step_cmd, tmp_path)
+        assert out == (
+            "(skipped) python-foo not in pipeline auto-run allowlist "
+            "(route readiness: ready).\n"
+            "Command: echo x\n"
+            "Invoke directly: greedy-token capabilities invoke python-foo"
+        )
+
+
+@allure.title("_log_pipeline threads root, timing, exit code and parent operation id")
+def test_log_pipeline_fields(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    route_kwargs: dict = {}
+    outcome_kwargs: dict = {}
+    appended: list = []
+    monkeypatch.setattr(
+        pl, "build_route_event", lambda **k: route_kwargs.update(k) or "ROUTE"
+    )
+    monkeypatch.setattr(
+        pl, "build_outcome_event", lambda **k: outcome_kwargs.update(k) or "OUTCOME"
+    )
+    monkeypatch.setattr(pl, "append_event", appended.append)
+
+    step = _step("check-meta-sync", tier="python", command="scripts/x.py")
+    sr = StepResult(
+        step=step, ok=True, exit_code=0, output="out", duration_ms=42,
+        est_tokens=7, executed=True,
+    )
+    pl._log_pipeline(
+        PipelineResult(task="task-x", steps=[sr]),
+        tmp_path,
+        parent_operation_id="PARENT-1",
+    )
+    assert appended == ["ROUTE", "OUTCOME"]
+    decision = route_kwargs["decision"]
+    assert decision.confidence_source == pl.SOURCE_FIXED
+    assert decision.confidence == 1.0
+    assert route_kwargs["cmd"] == "pipeline"
+    assert route_kwargs["root"] is tmp_path
+    assert route_kwargs["duration_ms"] == 42
+    assert route_kwargs["parent_operation_id"] == "PARENT-1"
+    assert outcome_kwargs["root"] is tmp_path
+    assert outcome_kwargs["layer"] == "pipeline"
+    assert outcome_kwargs["duration_ms"] == 42
+    assert outcome_kwargs["exit_code"] == 0
+    assert outcome_kwargs["parent_operation_id"] == "PARENT-1"
+    assert outcome_kwargs["task"] == "task-x :: check-meta-sync"
+
+
+@allure.title("_parse_segment: route id yields exact step fields incl. fallback tier")
+def test_parse_segment_route_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        pl, "_route_for_step_id",
+        lambda step_id: {"target": "ollama", "command": "run-it"},
+    )
+    step = pl._parse_segment("myroute a b", profile="p")
+    assert step.step_id == "myroute"
+    assert step.tier == "ollama"
+    assert step.label == "myroute a b"
+    assert step.command == "run-it"
+    assert step.args == "a b"
+    assert step.profile == "p"
+
+    monkeypatch.setattr(pl, "_route_for_step_id", lambda step_id: {"command": "c"})
+    step = pl._parse_segment("myroute", profile="")
+    assert step.tier == "python"
+    assert step.label == "myroute"
+
+
+@allure.title("_parse_segment: empty resolved args produce empty extra_args tuple")
+def test_parse_segment_extra_args(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from types import SimpleNamespace
+
+    seen: dict = {}
+    monkeypatch.setattr(pl, "find_workspace_root", lambda: minimal_workspace)
+    monkeypatch.setattr(
+        pl,
+        "resolve_wrapper_invocation",
+        lambda step_id, root, extra_args: seen.update(
+            step_id=step_id, root=root, extra_args=extra_args
+        )
+        or SimpleNamespace(argv=("python", "x.py"), cwd=minimal_workspace, authorization=""),
+    )
+    monkeypatch.setattr(pl, "format_invocation", lambda argv, cwd: "cmd")
+    pl._parse_segment("check-meta-sync")
+    assert seen["extra_args"] == ()
+    pl._parse_segment("check-meta-sync extra")
+    assert seen["extra_args"] == ("extra",)
+
+
+@allure.title("_route_for_step_id: root resolution and routes-list handling")
+def test_route_for_step_id_semantics(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import greedy_token.paths as paths
+
+    lrc_calls: list = []
+    fwr_calls: list = []
+    monkeypatch.setattr(
+        paths,
+        "load_routes_config",
+        lambda root: lrc_calls.append(root)
+        or {"routes": [{"id": "x", "target": "python"}]},
+    )
+    monkeypatch.setattr(pl, "find_workspace_root", lambda: fwr_calls.append(1) or tmp_path)
+
+    with allure.step("explicit root is threaded through, no fallback lookup"):
+        route = pl._route_for_step_id("x", root=tmp_path)
+        assert route == {"id": "x", "target": "python"}
+        assert lrc_calls == [tmp_path]
+        assert fwr_calls == []
+
+    with allure.step("root=None falls back to find_workspace_root()"):
+        route = pl._route_for_step_id("x", root=None)
+        assert route == {"id": "x", "target": "python"}
+        assert fwr_calls == [1]
+        assert lrc_calls[-1] == tmp_path
+
+    with allure.step("missing 'routes' key yields None, not a crash"):
+        monkeypatch.setattr(paths, "load_routes_config", lambda root: {"other": []})
+        assert pl._route_for_step_id("x", root=tmp_path) is None
+
+
+@allure.title("_resolve_wrapper_args resolves host against the real workspace root")
+def test_resolve_wrapper_args_host_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: dict = {}
+    monkeypatch.setattr(pl, "find_workspace_root", lambda: tmp_path)
+    monkeypatch.setattr(
+        pl, "resolve_host", lambda root: seen.update(root=root) or "host-x"
+    )
+    monkeypatch.setattr(pl, "HOST_SKILLS_DIR", {"host-x": "skills"})
+    skill = tmp_path / "skills" / "myskill" / "SKILL.md"
+    skill.parent.mkdir(parents=True)
+    skill.write_text("# skill", encoding="utf-8")
+    out = pl._resolve_wrapper_args("audit-skill", "myskill")
+    assert seen == {"root": tmp_path}
+    assert out == "skills/myskill/SKILL.md"
+
+
+@allure.title("_estimate_step_tokens pins skill reads to encoding='utf-8'")
+def test_estimate_step_tokens_encoding(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    skill = tmp_path / "SKILL.md"
+    skill.write_text("skill body", encoding="utf-8")
+    seen: dict = {}
+    orig_read_text = Path.read_text
+
+    def spy(self, *a, **k):
+        if self == skill:
+            seen["encoding"] = k.get("encoding", "<defaulted>")
+        return orig_read_text(self, *a, **k)
+
+    monkeypatch.setattr(Path, "read_text", spy)
+    monkeypatch.setattr(pl, "count_tokens", lambda t: Mock(tokens=1))
+    step = _step("audit-skill", tier="ollama", args="SKILL.md")
+    pl._estimate_step_tokens(step, "out", tmp_path)
+    assert seen == {"encoding": "utf-8"}
+
+
+@allure.title("_load_pipelines_config pins the YAML open to encoding='utf-8'")
+def test_load_pipelines_config_encoding(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: dict = {}
+    orig_open = Path.open
+
+    def spy(self, *a, **k):
+        if self.name == "pipelines.yaml":
+            seen["encoding"] = k.get("encoding", "<defaulted>")
+        return orig_open(self, *a, **k)
+
+    monkeypatch.setattr(Path, "open", spy)
+    cfg = pl._load_pipelines_config()
+    assert isinstance(cfg, dict)
+    assert seen == {"encoding": "utf-8"}
+
+
+def _savings_row(**kw) -> pl.StepSavingsRow:
+    base = dict(
+        index=1, step_id="s", tier="python", duration_ms=1,
+        spent=0, baseline=100, saved=0, billing="b", executor_sub="",
+    )
+    base.update(kw)
+    return pl.StepSavingsRow(**base)
+
+
+@allure.title("executor summary: unknown executors fall back to their own label")
+def test_executor_summary_unknown_and_default(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    rows = [
+        _savings_row(tier="tool", executor_sub=None, spent=1, saved=2),
+        _savings_row(tier="cursor", spent=3, saved=4),
+        _savings_row(tier="tool", executor_sub="aax", spent=5, saved=6),
+    ]
+    lines = pl.format_executor_savings_summary(rows)
+    # "aax" sorts before the canonical tail: the displaced cursor must come last.
+    assert lines[1] == f"  {'rg (disk search)':<28} steps=1  spent ~1  saved ~2"
+    assert lines[2] == f"  {'cursor (expensive LLM)':<28} steps=1  spent ~3  saved ~4"
+    assert lines[3] == f"  {'aax':<28} steps=1  spent ~5  saved ~6"
+    assert len(lines) == 4
+
+
+@allure.title("footer: empty pipeline claims saved=0, not the baseline")
+def test_footer_empty_steps_saved_zero(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patch_footer_helpers(monkeypatch, savings=None)
+    out = pl.format_pipeline_footer(
+        PipelineResult(task="t", steps=[]), minimal_workspace
+    )
+    saved_line = next(x for x in out.splitlines() if "Saved:" in x)
+    assert "~0" in saved_line
+    assert "~1" not in saved_line
+
+
+@allure.title("footer spent-by-executor keeps canonical order ahead of extras")
+def test_footer_spent_executor_order(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patch_footer_helpers(monkeypatch, savings=None)
+
+    def mk(step_id: str, tier: str, engine: str = "") -> StepResult:
+        return StepResult(
+            step=_step(step_id, tier=tier, command="c"),
+            ok=True, exit_code=0, output="o", duration_ms=1,
+            est_tokens=10, executed=True, engine=engine,
+        )
+
+    result = PipelineResult(
+        task="t",
+        steps=[
+            mk("search", "tool", engine="rg"),
+            mk("s1", "python"), mk("s2", "ollama"), mk("s3", "rag"),
+            mk("s4", "cursor"), mk("search", "tool", engine="aax"),
+        ],
+    )
+    out = pl.format_pipeline_footer(result, minimal_workspace)
+    spent = out.split("Spent by executor:")[1]
+    order = [
+        spent.index("rg (disk search)"),
+        spent.index("python (script)"),
+        spent.index("ollama"),
+        spent.index("rag"),
+        spent.index("cursor"),
+        spent.index("aax"),
+    ]
+    assert order == sorted(order)
+    assert "aax" in spent and "None" not in spent
