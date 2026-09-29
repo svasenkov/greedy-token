@@ -1,0 +1,1 @@
+{"id":"1bc273eff6697b4a99af55a08dfa4d14","fullName":"tests.test_subprocess_safe_gaps#test_trusted_tool_invocation_exact_messages","name":"empty argv / cwd mismatch messages are exact","status":"passed","testResultsByEnv":{"default":"3ce782de7fb63d80f635437b1a7ef74c"}}

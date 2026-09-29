@@ -1,0 +1,1 @@
+{"id":"e150471a818bff142a0ffb1634cd4f8c","fullName":"tests.test_budget_gaps#test_wrap_mcp_response_body_strip","name":"wrap_mcp_response strips only trailing body whitespace","status":"passed","testResultsByEnv":{"default":"d7359ad4922795b6a57af3c8e71270f8"}}

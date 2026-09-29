@@ -1,0 +1,1 @@
+{"id":"c4e274affa016aef6e614409839220a4","fullName":"tests.test_rag_search_gaps#test_score_indexed_id_bonus_exact","name":"id-token bonus is exactly +2.0 per matching token","status":"passed","testResultsByEnv":{"default":"b2133dc76b5aa24e57c7057804a84a39"}}

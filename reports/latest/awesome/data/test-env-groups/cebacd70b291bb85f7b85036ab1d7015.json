@@ -1,0 +1,1 @@
+{"id":"cebacd70b291bb85f7b85036ab1d7015","fullName":"tests.test_hub_gaps#test_rank_candidates_invalid_cid_continues","name":"rank_candidates: an invalid crystal id skips only that task","status":"passed","testResultsByEnv":{"default":"2613549a918d8cd1f23954bddd1bd9d0"}}

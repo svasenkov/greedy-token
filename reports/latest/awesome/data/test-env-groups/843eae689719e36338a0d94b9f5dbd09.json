@@ -1,0 +1,1 @@
+{"id":"843eae689719e36338a0d94b9f5dbd09","fullName":"tests.test_executors_gaps#test_plan_run_script_uncoded_oserror","name":"plan_run script tier: an uncoded OSError leaves refusal_code empty","status":"passed","testResultsByEnv":{"default":"59175438f536669a59a1a3155997083d"}}

@@ -1,0 +1,1 @@
+{"id":"54d9db6a53f445844bf4130100235a8d","fullName":"tests.test_spend_ledger#test_ledger_pending_at_ttl_boundary","name":"a pending reservation exactly at the TTL boundary still counts","status":"passed","testResultsByEnv":{"default":"45e8f94bffc3f0c5568d41ebf1579a73"}}

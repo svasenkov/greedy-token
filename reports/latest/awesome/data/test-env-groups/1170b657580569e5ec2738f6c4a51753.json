@@ -1,0 +1,1 @@
+{"id":"1170b657580569e5ec2738f6c4a51753","fullName":"tests.test_router_gaps#test_format_decision_argv_no_cwd","name":"format_decision falls back to raw command when argv lacks cwd","status":"passed","testResultsByEnv":{"default":"bed157ea9e68d5a33c25b20dfa263b9a"}}

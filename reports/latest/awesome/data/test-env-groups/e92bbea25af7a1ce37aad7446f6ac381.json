@@ -1,0 +1,1 @@
+{"id":"e92bbea25af7a1ce37aad7446f6ac381","fullName":"tests.test_llm_invoke_gaps#test_invoke_resolves_by_profile","name":"profile resolution honours the model's profile match","status":"passed","testResultsByEnv":{"default":"9c3b99bb29eccb7ea12a2b6a168086bd"}}

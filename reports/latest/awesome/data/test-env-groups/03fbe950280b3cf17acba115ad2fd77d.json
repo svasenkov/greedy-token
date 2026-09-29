@@ -1,0 +1,1 @@
+{"id":"03fbe950280b3cf17acba115ad2fd77d","fullName":"tests.test_budget_gaps#test_format_budget_line_exact","name":"format_budget_line renders exact compact/verbose output per mode","status":"passed","testResultsByEnv":{"default":"6e9d7e6a1520f21c5989d9a60d5ea839"}}

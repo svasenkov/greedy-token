@@ -1,0 +1,1 @@
+{"id":"4da0e0877d4bcdacb2bb4052684c6f7c","fullName":"tests.test_rag_index_gaps#test_read_text_chunk_size_boundary","name":"file of exactly MAX_CHUNK_BYTES still reads (>, not >=)","status":"passed","testResultsByEnv":{"default":"331a0cfb82239990d515de69fade3aa9"}}

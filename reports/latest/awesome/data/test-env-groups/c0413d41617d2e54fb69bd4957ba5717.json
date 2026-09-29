@@ -1,0 +1,1 @@
+{"id":"c0413d41617d2e54fb69bd4957ba5717","fullName":"tests.test_resource_probe_gaps#test_run_micro_benchmark_cache_scoped_to_endpoint","name":"run_micro_benchmark: a cached result is scoped to its endpoint","status":"passed","testResultsByEnv":{"default":"3a315eafcfa3f0b783ea10e8d6941bc1"}}

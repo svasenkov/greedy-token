@@ -1,0 +1,1 @@
+{"id":"7e4be96ce10171cfc4f7236e61cfe1b1","fullName":"tests.test_rag_fts_gaps#test_ensure_schema_version_mismatch","name":"_ensure_schema: version mismatch drops stale tables","status":"passed","testResultsByEnv":{"default":"9df72343e3e90f4f78e200d9e697d081"}}

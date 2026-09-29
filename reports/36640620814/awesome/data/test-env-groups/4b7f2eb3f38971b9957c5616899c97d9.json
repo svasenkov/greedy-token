@@ -1,0 +1,1 @@
+{"id":"4b7f2eb3f38971b9957c5616899c97d9","fullName":"tests.test_spend_ledger#test_spend_log_path_full_default","name":"no env vars at all → ~/.greedy-token/spend.jsonl","status":"passed","testResultsByEnv":{"default":"8c78b9b5b7df9a707914b90241d43157"}}

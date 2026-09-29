@@ -1,0 +1,1 @@
+{"id":"070279a2b25b30e7da5b87a36a03289f","fullName":"tests.test_portability#test_spend_lock_windows_degrades_without_msvcrt","name":"Windows without msvcrt: documented degrade still works","status":"passed","testResultsByEnv":{"default":"117fb359e2ce1d80e1d04fd0360924a9"}}

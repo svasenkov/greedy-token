@@ -1,0 +1,1 @@
+{"id":"be223089d2545708854188a4230737b0","fullName":"tests.test_cheap_llm#test_chat_ollama_malformed","name":"ollama response without message content is a structured error, not KeyError","status":"passed","testResultsByEnv":{"default":"aa3212bffca0e000f3593df586b1448f"}}

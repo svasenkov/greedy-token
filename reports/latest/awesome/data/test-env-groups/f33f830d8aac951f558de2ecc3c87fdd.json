@@ -1,0 +1,1 @@
+{"id":"f33f830d8aac951f558de2ecc3c87fdd","fullName":"tests.test_hub_static#test_app_js_escapes_telemetry","name":"app.js escapes telemetry before it reaches innerHTML","status":"passed","testResultsByEnv":{"default":"56c14519a41a5aa5035e70c3119c1718"}}

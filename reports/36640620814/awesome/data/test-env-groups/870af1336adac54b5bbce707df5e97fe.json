@@ -1,0 +1,1 @@
+{"id":"870af1336adac54b5bbce707df5e97fe","fullName":"tests.test_rag_index_gaps#test_meta_blob_missing_keys","name":"missing keys produce empty segments, never None/crash","status":"passed","testResultsByEnv":{"default":"b9cc8415acf79adb0351ea8516a2285c"}}

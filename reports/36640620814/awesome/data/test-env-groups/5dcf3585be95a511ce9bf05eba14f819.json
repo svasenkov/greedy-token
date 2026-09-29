@@ -1,0 +1,1 @@
+{"id":"5dcf3585be95a511ce9bf05eba14f819","fullName":"tests.test_pipeline_gaps#test_run_step_missing_argv_refusal","name":"_run_step: any missing argv/cwd/authorization refuses the structured command","status":"passed","testResultsByEnv":{"default":"1bf55d1167d855a66bdf295c82a7328c"}}

@@ -1,0 +1,1 @@
+{"id":"f08707792f48dd383dbfd84ca0195e91","fullName":"tests.test_spend_ledger#test_unknown_price_denied","name":"unknown or non-finite price is denied before opt-in","status":"passed","testResultsByEnv":{"default":"2bcf93526d470fad8713a3c5cf7d74e4"}}

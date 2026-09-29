@@ -1,0 +1,1 @@
+{"id":"0c3c287c74b638aa81d1840ada05b63c","fullName":"tests.test_spend_ledger#test_ledger_lowercase_z_ts_rejected","name":"a lowercase-z timestamp is rejected, not silently parsed","status":"passed","testResultsByEnv":{"default":"7a42eca410e16c8f27b010f2de2074d2"}}

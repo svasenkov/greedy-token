@@ -1,0 +1,1 @@
+{"id":"a34ccba872a3c0b14662b71a087b7cc4","fullName":"tests.test_subprocess_safe_gaps#test_format_invocation_unicode_exact","name":"unicode cwd/argv render verbatim (ensure_ascii=False)","status":"passed","testResultsByEnv":{"default":"a3da48eba1b05c6b84956cb5b5fc3054"}}

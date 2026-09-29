@@ -1,0 +1,1 @@
+{"id":"8cf9671993c753e690127711f6350da6","fullName":"tests.test_trust_gaps#test_verify_trust_manifest_entry_kept","name":"verify_trust_manifest: failed checks keep the entry reference","status":"passed","testResultsByEnv":{"default":"146084dd5e0a8a8794424519310e831c"}}

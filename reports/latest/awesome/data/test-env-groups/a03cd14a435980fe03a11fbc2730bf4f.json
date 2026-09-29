@@ -1,0 +1,1 @@
+{"id":"a03cd14a435980fe03a11fbc2730bf4f","fullName":"tests.test_spend_ledger#test_reserve_settle_once","name":"reserve→settle counts actual cost once; pending counts the estimate","status":"passed","testResultsByEnv":{"default":"6ed4ec777344c06e224094dc022ab4f5"}}

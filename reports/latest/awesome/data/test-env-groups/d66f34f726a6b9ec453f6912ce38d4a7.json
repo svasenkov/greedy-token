@@ -1,0 +1,1 @@
+{"id":"d66f34f726a6b9ec453f6912ce38d4a7","fullName":"tests.test_code_search_gaps#test_search_code_rg_global_limit_capped","name":"search_code: rg multi-file output is capped to the global limit","status":"passed","testResultsByEnv":{"default":"db366114e37f4982b7f2d9eb79bb93df"}}

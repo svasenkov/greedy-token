@@ -1,0 +1,1 @@
+{"id":"bcaceb7c7ed4a0e862ea79e44ddc3187","fullName":"tests.test_advisory#test_watch_json_out_unicode","name":"watch_events json_out keeps non-ASCII unescaped","status":"passed","testResultsByEnv":{"default":"fe375e90bad5b08d3c452bbd6c91b3ef"}}

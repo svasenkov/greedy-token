@@ -1,0 +1,1 @@
+{"id":"e16ba684b5f2efb9f9d91c4a9a775960","fullName":"tests.test_subprocess_safe_gaps#test_workspace_script_path_untrusted_type_code","name":"non-regular suffixed path raises code=untrusted_type","status":"passed","testResultsByEnv":{"default":"daa181fefaa0e1b4bbbfe200fb1cb5d3"}}

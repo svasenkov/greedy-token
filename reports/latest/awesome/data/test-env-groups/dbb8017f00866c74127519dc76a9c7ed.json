@@ -1,0 +1,1 @@
+{"id":"dbb8017f00866c74127519dc76a9c7ed","fullName":"tests.test_llm_invoke_gaps#test_invoke_malformed_mid_chain_keeps_prior_cost","name":"malformed mid-chain: earlier spend survives the failed call","status":"passed","testResultsByEnv":{"default":"43294588dc67759dd1214876271dff0e"}}

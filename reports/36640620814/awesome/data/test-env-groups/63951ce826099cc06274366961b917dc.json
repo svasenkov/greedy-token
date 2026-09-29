@@ -1,0 +1,1 @@
+{"id":"63951ce826099cc06274366961b917dc","fullName":"tests.test_capabilities#test_tool_unavailable_binary_missing","name":"Missing tool binary is tool_unavailable — reason names the env override","status":"passed","testResultsByEnv":{"default":"cd5330287a41bdfc25d91b8e2a890148"}}

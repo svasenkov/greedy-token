@@ -1,0 +1,1 @@
+{"id":"f1faaf45d13707d46bf7ea99e6529a22","fullName":"tests.test_code_search_gaps#test_enrich_first_file_unfittable","name":"enrich_search_hits emits the budget marker when even a row cannot fit","status":"passed","testResultsByEnv":{"default":"95f7f13ba794f9530046d1357b42c7fb"}}

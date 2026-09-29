@@ -1,0 +1,1 @@
+{"id":"796d714a30083a11d4751a034fad8c02","fullName":"tests.test_budget_gaps#test_format_budget_statusline_exact","name":"format_budget_statusline renders the compact M/C pair exactly","status":"passed","testResultsByEnv":{"default":"9c4113f7ae271e9700d4a84da386e3e8"}}

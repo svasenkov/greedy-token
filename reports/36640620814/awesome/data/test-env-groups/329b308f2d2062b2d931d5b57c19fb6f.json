@@ -1,0 +1,1 @@
+{"id":"329b308f2d2062b2d931d5b57c19fb6f","fullName":"tests.test_advisory#test_watch_events_default_follows","name":"watch_events bare call defaults to follow mode","status":"passed","testResultsByEnv":{"default":"75f3092c1ac0b75f155e1b05203c1ad3"}}

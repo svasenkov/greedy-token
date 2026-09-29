@@ -1,0 +1,1 @@
+{"id":"1a4525bb0c5dea4c2ab98bc134ae373d","fullName":"tests.test_budget_gaps#test_metered_spent_today_sources","name":"metered_spent_today sums ledger + usage sources with midnight cutoff","status":"passed","testResultsByEnv":{"default":"9e1f2925ec0bfbf2f74cbce9311257a0"}}

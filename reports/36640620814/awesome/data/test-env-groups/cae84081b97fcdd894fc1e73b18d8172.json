@@ -1,0 +1,1 @@
+{"id":"cae84081b97fcdd894fc1e73b18d8172","fullName":"tests.test_code_search_gaps#test_python_search_tree_symlinked_scope_confined","name":"_python_search_tree confines a symlinked scope dir to the root","status":"passed","testResultsByEnv":{"default":"7e4ee86128d9948fac133cb2d42f143a"}}

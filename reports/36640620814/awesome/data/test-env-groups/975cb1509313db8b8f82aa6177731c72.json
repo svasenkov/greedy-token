@@ -1,0 +1,1 @@
+{"id":"975cb1509313db8b8f82aa6177731c72","fullName":"tests.test_usage_gaps#test_build_script_event_golden","name":"build_script_event emits the exact schema incl. exclusions","status":"passed","testResultsByEnv":{"default":"211b9ad3d57a2501c06fc25ceed740c9"}}

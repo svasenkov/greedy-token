@@ -1,0 +1,1 @@
+{"id":"6eee7e7723ce8e0a287cfcc8c593603d","fullName":"tests.test_spend_ledger#test_spend_ledger_survives_telemetry_off","name":"metered accounting persists when GREEDY_TOKEN_LOG=0","status":"passed","testResultsByEnv":{"default":"079c61cb6afae106dd6e378a0aa1b800"}}

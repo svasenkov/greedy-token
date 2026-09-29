@@ -1,0 +1,1 @@
+{"id":"5d3281979a9c8498807b974f6e4357d1","fullName":"tests.test_spend_guard_gaps#test_reserve_bare_call_denied","name":"reserve_metered_call: bare call denies when the metered opt-in is absent","status":"passed","testResultsByEnv":{"default":"2fbf87f7cc0d02b898a605829da8db36"}}

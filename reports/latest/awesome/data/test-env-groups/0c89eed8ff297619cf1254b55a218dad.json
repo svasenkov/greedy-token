@@ -1,0 +1,1 @@
+{"id":"0c89eed8ff297619cf1254b55a218dad","fullName":"tests.test_subprocess_safe_gaps#test_trusted_tool_invocation_jq_last_operand_only","name":"jq checks only the LAST argv operand as a workspace path","status":"passed","testResultsByEnv":{"default":"91332543c75e177838f4a9f1afdac4dc"}}

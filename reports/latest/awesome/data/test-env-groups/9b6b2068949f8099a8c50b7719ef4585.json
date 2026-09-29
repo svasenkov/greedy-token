@@ -1,0 +1,1 @@
+{"id":"9b6b2068949f8099a8c50b7719ef4585","fullName":"tests.test_code_search_gaps#test_search_scope_paths_excludes_escaping_symlinks","name":"search_scope_paths drops root-level entries that escape the workspace","status":"passed","testResultsByEnv":{"default":"00e4a09adc6a515eb79faa86f37b543a"}}

@@ -1,0 +1,1 @@
+{"id":"14b011f73592fea572847a488c14b5ae","fullName":"tests.test_advisory#test_overkill_gate_words","name":"overkill_gate_enabled: only explicit on-words enable","status":"passed","testResultsByEnv":{"default":"2bc53a78104f38d851bee0f09a48ca64"}}

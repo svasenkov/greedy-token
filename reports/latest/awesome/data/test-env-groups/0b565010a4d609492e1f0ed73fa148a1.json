@@ -1,0 +1,1 @@
+{"id":"0b565010a4d609492e1f0ed73fa148a1","fullName":"tests.test_pipeline_gaps#test_run_step_unsafe_command_refusal","name":"_run_step: UnsafeCommandError surfaces its reason with exact fields","status":"passed","testResultsByEnv":{"default":"ee6f0b018393349c4c7ffd5828fa88f4"}}

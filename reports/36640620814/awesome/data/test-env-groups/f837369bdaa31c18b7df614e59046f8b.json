@@ -1,0 +1,1 @@
+{"id":"f837369bdaa31c18b7df614e59046f8b","fullName":"tests.test_portability#test_spend_lock_degrades_without_fcntl","name":"no fcntl: in-process lock still serializes, no sidecar created","status":"passed","testResultsByEnv":{"default":"75c7bc27f1fa015fe4d7ce8854c03fdb"}}

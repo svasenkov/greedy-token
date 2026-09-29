@@ -1,0 +1,1 @@
+{"id":"4fd08ec29e56748adc393bf15d38be71","fullName":"tests.test_portability#test_script_args_reject_windows_absolute","name":"Windows absolute and UNC script args are refused on any host","status":"passed","testResultsByEnv":{"default":"61911786c0144e27db21692961f80c38"}}

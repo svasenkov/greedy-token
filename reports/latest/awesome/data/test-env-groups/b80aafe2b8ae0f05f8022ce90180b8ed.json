@@ -1,0 +1,1 @@
+{"id":"b80aafe2b8ae0f05f8022ce90180b8ed","fullName":"tests.test_portability#test_spend_ledger_reads_crlf_lines","name":"spend reader parses CRLF files and \\r inside JSON strings","status":"passed","testResultsByEnv":{"default":"2a12ff51d33df09568af468df4f0e791"}}

@@ -1,0 +1,1 @@
+{"id":"43b0afb71429bf534784f54d79df2660","fullName":"tests.test_portability#test_usage_metered_spend_utf8_on_ascii_locale","name":"usage_metered_spend_usd reads UTF-8 under an ASCII locale","status":"passed","testResultsByEnv":{"default":"a9f68aafa75e300f97077beb7d6d589b"}}

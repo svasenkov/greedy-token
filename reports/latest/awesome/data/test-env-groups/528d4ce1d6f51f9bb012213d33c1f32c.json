@@ -1,0 +1,1 @@
+{"id":"528d4ce1d6f51f9bb012213d33c1f32c","fullName":"tests.test_budget_gaps#test_policy_registry_fallback_auto","name":"registry failure falls back to policy 'auto'","status":"passed","testResultsByEnv":{"default":"9b58218e6d81a175186b69078e7c1c4b"}}

@@ -1,0 +1,1 @@
+{"id":"eaf98604f0f55894bbd5168893eeca38","fullName":"tests.test_spend_ledger#test_iter_spend_records_skips_junk","name":"the ledger reader skips junk rows and still counts the valid tail","status":"passed","testResultsByEnv":{"default":"b556b1d73e330bbad918681d179af576"}}

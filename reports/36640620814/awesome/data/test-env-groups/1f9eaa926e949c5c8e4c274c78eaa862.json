@@ -1,0 +1,1 @@
+{"id":"1f9eaa926e949c5c8e4c274c78eaa862","fullName":"tests.test_portability#test_reserve_denied_when_lock_fails","name":"lock acquisition failure denies the metered call (fail closed)","status":"passed","testResultsByEnv":{"default":"cc9f49dc1bcc713c949422a32be9193f"}}

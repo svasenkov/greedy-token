@@ -1,0 +1,1 @@
+{"id":"e671884661362ca80fdc9926dfbafb85","fullName":"tests.test_accounting_gaps#test_non_finite_spend_is_sanitized","name":"non-finite logged costs cannot poison daily or monthly spend","status":"passed","testResultsByEnv":{"default":"a358ec751f59dd8ba68a59b806e31b4d"}}

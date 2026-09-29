@@ -1,0 +1,1 @@
+{"id":"b4e400f6b05fb1974c1dd823232a5465","fullName":"tests.test_llm_invoke_gaps#test_invoke_env_root_event","name":"invoke with root=None resolves through env and logs '.' root","status":"passed","testResultsByEnv":{"default":"e2625718d24848ba96ea7c4d22047df8"}}

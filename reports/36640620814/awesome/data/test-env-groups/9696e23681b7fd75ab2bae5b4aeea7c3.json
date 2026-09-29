@@ -1,0 +1,1 @@
+{"id":"9696e23681b7fd75ab2bae5b4aeea7c3","fullName":"tests.test_budget_gaps#test_aggregate_budget_exact_fields","name":"aggregate_budget: every snapshot field is exact with crafted events","status":"passed","testResultsByEnv":{"default":"9a293c05bc0332162bb2168aba6df21a"}}

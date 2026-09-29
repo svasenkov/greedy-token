@@ -1,0 +1,1 @@
+{"id":"c001ba39e22d5ca5ed6474b8ee37aadb","fullName":"tests.test_trust_gaps#test_trust_entry_structural_guards","name":"TrustEntry.from_dict: object/missing/unknown guards are exact","status":"passed","testResultsByEnv":{"default":"bdb36f91d27ce1ccfc6e333103e85d80"}}

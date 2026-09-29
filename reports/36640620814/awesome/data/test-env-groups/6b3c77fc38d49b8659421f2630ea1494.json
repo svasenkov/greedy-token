@@ -1,0 +1,1 @@
+{"id":"6b3c77fc38d49b8659421f2630ea1494","fullName":"tests.test_spend_ledger#test_settled_spend_blocks_next_call","name":"settled spend of the first call blocks the next candidate","status":"passed","testResultsByEnv":{"default":"0fdfd5ff5f3eb29774deeeffefa483a2"}}

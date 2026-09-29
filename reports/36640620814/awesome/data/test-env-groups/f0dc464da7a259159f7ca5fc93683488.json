@@ -1,0 +1,1 @@
+{"id":"f0dc464da7a259159f7ca5fc93683488","fullName":"tests.test_trust_gaps#test_normalize_manifest_path_drive_letter","name":"normalize_manifest_path: drive-letter paths count as absolute","status":"passed","testResultsByEnv":{"default":"eb6589f1495df85b3a69374c2540b26d"}}

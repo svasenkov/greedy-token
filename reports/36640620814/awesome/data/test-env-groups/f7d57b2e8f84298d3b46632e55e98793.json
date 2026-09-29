@@ -1,0 +1,1 @@
+{"id":"f7d57b2e8f84298d3b46632e55e98793","fullName":"tests.test_advisory#test_parse_attachments_continues","name":"parse_attachments skips non-dict items but keeps scanning","status":"passed","testResultsByEnv":{"default":"b793f99d152ea0486a5e8935f1360cea"}}

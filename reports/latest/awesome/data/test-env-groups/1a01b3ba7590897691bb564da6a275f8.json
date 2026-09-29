@@ -1,0 +1,1 @@
+{"id":"1a01b3ba7590897691bb564da6a275f8","fullName":"tests.test_usage_gaps#test_report_summary_to_dict","name":"ReportSummary.to_dict emits the exact report schema","status":"passed","testResultsByEnv":{"default":"000f384c99b5fdcb5f07825ba4d659fd"}}

@@ -1,0 +1,1 @@
+{"id":"4d566a08eebf84c2a91bea55d0ac9fee","fullName":"tests.test_hub_static#test_static_assets_present","name":"all hub static files exist where the server mounts them","status":"passed","testResultsByEnv":{"default":"9d479825c418c70073053affb4984016"}}

@@ -1,0 +1,1 @@
+{"id":"fb27c8bd3939917d2248988595dba35a","fullName":"tests.test_spend_ledger#test_reserve_creates_missing_parents","name":"a nested missing GREEDY_TOKEN_HOME is created for the ledger","status":"passed","testResultsByEnv":{"default":"150da301c12c809e7cc7b7ac9afd5865"}}

@@ -1,0 +1,1 @@
+{"id":"d9ef1f6bde9db352f995a4cb51a78fa3","fullName":"tests.test_budget_gaps#test_policy_hybrid_gates","name":"hybrid policy reroutes cursor escalation only when metered is out","status":"passed","testResultsByEnv":{"default":"2522643f50764c7e7f02b2ff993026ab"}}

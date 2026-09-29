@@ -1,0 +1,1 @@
+{"id":"1fe773382002140eb8e366a67d6fbcce","fullName":"tests.test_code_search_gaps#test_python_search_tree_skips_symlinked_files","name":"_python_search_tree skips symlinked files like rg --no-follow","status":"passed","testResultsByEnv":{"default":"83f4561c832f5f282d7d6278b15c850a"}}

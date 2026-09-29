@@ -1,0 +1,1 @@
+{"id":"534ee181653db3c8aeb106d03552f4d1","fullName":"tests.test_portability#test_spend_lock_windows_uses_msvcrt","name":"Windows branch: msvcrt.locking wraps the critical section","status":"passed","testResultsByEnv":{"default":"a4891abee6963082a4fc0dd2eb7eb3bf"}}

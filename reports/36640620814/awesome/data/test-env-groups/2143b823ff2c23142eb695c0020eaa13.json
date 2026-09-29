@@ -1,0 +1,1 @@
+{"id":"2143b823ff2c23142eb695c0020eaa13","fullName":"tests.test_rag_search_gaps#test_search_rag_limit_zero_short_circuit","name":"limit=0 exits before bm25 (<= 0 guard, not < 0)","status":"passed","testResultsByEnv":{"default":"3804c234c38484f71f106962da4ea4fd"}}

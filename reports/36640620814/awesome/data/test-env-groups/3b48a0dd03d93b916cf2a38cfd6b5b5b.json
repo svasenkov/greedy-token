@@ -1,0 +1,1 @@
+{"id":"3b48a0dd03d93b916cf2a38cfd6b5b5b","fullName":"tests.test_budget_gaps#test_policy_registry_called_with_root","name":"apply_budget_policy resolves policy through the registry, threading root","status":"passed","testResultsByEnv":{"default":"3fdd2c2d1195ede28973739b57ff4cf7"}}

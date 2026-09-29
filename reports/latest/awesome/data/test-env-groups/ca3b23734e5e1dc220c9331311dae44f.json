@@ -1,0 +1,1 @@
+{"id":"ca3b23734e5e1dc220c9331311dae44f","fullName":"tests.test_portability#test_tool_lookup_finds_exe_on_windows","name":"PATH scan finds rg.exe/jq.exe under win32 PATHEXT","status":"passed","testResultsByEnv":{"default":"1215ddd40e427a9bd55558c8ee6ec786"}}

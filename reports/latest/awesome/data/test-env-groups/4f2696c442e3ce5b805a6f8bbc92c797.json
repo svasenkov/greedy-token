@@ -1,0 +1,1 @@
+{"id":"4f2696c442e3ce5b805a6f8bbc92c797","fullName":"tests.test_budget_gaps#test_policy_metered_ollama_continue","name":"unavailable ollama alt does not stop the scan of later alts","status":"passed","testResultsByEnv":{"default":"2050e32db81e39a65d360e8da33b0fb3"}}

@@ -1,0 +1,1 @@
+{"id":"1c5ccfc16fc5337091905f08e073d419","fullName":"tests.test_budget_gaps#test_today_and_midnight","name":"_today_utc and _midnight_utc are anchored to UTC now","status":"passed","testResultsByEnv":{"default":"7722e3189acc168750fda8d00d09933a"}}

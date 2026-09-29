@@ -1,0 +1,1 @@
+{"id":"ed61582276cbfc4f273245b4a9dab2c8","fullName":"tests.test_code_search_gaps#test_ignore_specs_deeper_wins","name":"deeper .ignore rules win over shallower ones on conflict","status":"passed","testResultsByEnv":{"default":"75e7fa1376667df56d243bcbdd2a3737"}}

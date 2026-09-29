@@ -1,0 +1,1 @@
+{"id":"d2c90f2f11a94861816722be21605ce7","fullName":"tests.test_code_search_gaps#test_load_ignore_specs_hidden_ancestor","name":"_load_ignore_specs: .ignore under a hidden ancestor is skipped","status":"passed","testResultsByEnv":{"default":"7e6039273d285e82a0991621959e160d"}}

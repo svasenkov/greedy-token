@@ -1,0 +1,1 @@
+{"id":"2c3e50c846baef9b6b03d6c78878e0e2","fullName":"tests.test_code_search#test_search_limit_is_global","name":"search_code: limit is a global hit cap, not per-file, on every engine","status":"passed","testResultsByEnv":{"default":"8195a95e1666118121f776f561bb25db"}}

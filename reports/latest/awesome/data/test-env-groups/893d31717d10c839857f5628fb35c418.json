@@ -1,0 +1,1 @@
+{"id":"893d31717d10c839857f5628fb35c418","fullName":"tests.test_cheap_llm#test_chat_openai_compat_no_message_content","name":"openai_compat choice without message content is a structured error, not TypeError","status":"passed","testResultsByEnv":{"default":"c3296f659873f4eff69060bb8b5f12b7"}}

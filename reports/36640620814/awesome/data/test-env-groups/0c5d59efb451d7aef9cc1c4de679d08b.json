@@ -1,0 +1,1 @@
+{"id":"0c5d59efb451d7aef9cc1c4de679d08b","fullName":"tests.test_llm_invoke_gaps#test_invoke_event_schema","name":"logged invoke emits full-field request and outcome events","status":"passed","testResultsByEnv":{"default":"5eb24750a10bcf6328d2acf60ca7f8e0"}}

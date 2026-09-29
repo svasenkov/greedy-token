@@ -1,0 +1,1 @@
+{"id":"1eb549c91064e96c1ae08898cf0a3d64","fullName":"tests.test_pipeline_gaps#test_footer_empty_steps_saved_zero","name":"footer: empty pipeline claims saved=0, not the baseline","status":"passed","testResultsByEnv":{"default":"65fe647abba91c56f565bbbfff940d1d"}}

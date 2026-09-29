@@ -1,0 +1,1 @@
+{"id":"0b95773a175d2b065cc915eff29e7a9e","fullName":"tests.test_hub_gaps#test_list_sessions_scoped","name":"a session bucket counts only its own events — not later sessions'","status":"passed","testResultsByEnv":{"default":"4d5a86bec44d2f72d12c36d9b226a2b7"}}

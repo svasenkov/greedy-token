@@ -1,0 +1,1 @@
+{"id":"412062f2ca51c41d0f32381eaee31dbc","fullName":"tests.test_advisory#test_append_event_open_args","name":"append_event opens the log with utf-8 + pinned LF newline","status":"passed","testResultsByEnv":{"default":"172eecbe4aa3fa3959cab4f7ade98628"}}

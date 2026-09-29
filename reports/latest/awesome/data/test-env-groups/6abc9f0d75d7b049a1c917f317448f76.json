@@ -1,0 +1,1 @@
+{"id":"6abc9f0d75d7b049a1c917f317448f76","fullName":"tests.test_budget_gaps#test_footer_markdown_no_duration","name":"markdown footer: missing duration renders em-dash cells","status":"passed","testResultsByEnv":{"default":"384e19917ad52813beb6b15d248c1f51"}}

@@ -1,0 +1,1 @@
+{"id":"e326fc298d2fefe0fb8b4254dd2f980d","fullName":"tests.test_usage_gaps#test_build_outcome_event_golden","name":"build_outcome_event emits the full exact schema and validates args","status":"passed","testResultsByEnv":{"default":"35ee89c626781b28e0358c8f86beef4c"}}

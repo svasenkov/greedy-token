@@ -1,0 +1,1 @@
+{"id":"a2882ef9d88d77f2d7520e36a6515801","fullName":"tests.test_subprocess_safe_gaps#test_trusted_tool_invocation_rg_separator_strips_pattern","name":"rg '--' separator strips the pattern operand before confinement","status":"passed","testResultsByEnv":{"default":"937d7e15fe3ea8dc68fd9eb38dcf8400"}}

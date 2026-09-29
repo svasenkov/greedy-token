@@ -1,0 +1,1 @@
+{"id":"4cd25f9661c25afc6636a8f184a8fa8f","fullName":"tests.test_code_search_gaps#test_ignore_specs_nested_and_vendor_skipped","name":"nested .ignore anchors to its dir; vendor/hidden .ignore files are skipped","status":"passed","testResultsByEnv":{"default":"27e43a2e6cc7f485f25fab9bda719be2"}}

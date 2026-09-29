@@ -1,0 +1,1 @@
+{"id":"f9819b82393274c67af45605af93be71","fullName":"tests.test_llm_invoke_gaps#test_invoke_free_model_malformed","name":"malformed response on a free model records no spend_ref","status":"passed","testResultsByEnv":{"default":"7526cd62bcf85120be3ddfe323b22d61"}}

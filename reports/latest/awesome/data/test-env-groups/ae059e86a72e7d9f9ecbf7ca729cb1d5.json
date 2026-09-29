@@ -1,0 +1,1 @@
+{"id":"ae059e86a72e7d9f9ecbf7ca729cb1d5","fullName":"tests.test_spend_ledger#test_reserve_record_schema","name":"reserve rows carry UTC-aware ts and the full key schema","status":"passed","testResultsByEnv":{"default":"db673e1d060bc17cdffcf24826687956"}}

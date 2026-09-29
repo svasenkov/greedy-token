@@ -1,0 +1,1 @@
+{"id":"7227f1b5d824f5af6c180fbd65005f14","fullName":"tests.test_portability#test_trust_manifest_utf8_on_ascii_locale","name":"trust manifest reads UTF-8 under an ASCII locale","status":"failed","testResultsByEnv":{"default":"030026bc7d1559fa4cf57bad155ee343"}}

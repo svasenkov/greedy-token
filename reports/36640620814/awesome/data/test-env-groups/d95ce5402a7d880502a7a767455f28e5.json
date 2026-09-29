@@ -1,0 +1,1 @@
+{"id":"d95ce5402a7d880502a7a767455f28e5","fullName":"tests.test_llm_invoke_gaps#test_invoke_resolved_override","name":"explicit resolved model bypasses profile resolution","status":"passed","testResultsByEnv":{"default":"85f6f1bf2f94cff326f04d886b476c0f"}}

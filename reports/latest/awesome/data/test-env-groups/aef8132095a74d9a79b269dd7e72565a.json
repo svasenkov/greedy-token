@@ -1,0 +1,1 @@
+{"id":"aef8132095a74d9a79b269dd7e72565a","fullName":"tests.test_spend_ledger#test_pending_reserve_outside_since_window","name":"a fresh pending reservation outside the since window does not count","status":"passed","testResultsByEnv":{"default":"cd3f09d8bf7d9976f556080549b41913"}}

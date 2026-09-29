@@ -1,0 +1,1 @@
+{"id":"1ad43b189af4513e5b6fdccc373f0c3c","fullName":"tests.test_code_search_gaps#test_load_ignore_specs_comment_lines","name":"_load_ignore_specs: comments and blanks never become patterns","status":"passed","testResultsByEnv":{"default":"44f5bf9fe469a542a3412545cdb4bb96"}}
