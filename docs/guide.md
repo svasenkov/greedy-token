@@ -202,7 +202,7 @@ Telemetry stays compatible: the `cursor_baseline` field and the `cursor` tier id
 | `greedy_token_capabilities` | Derived op inventory + readiness (JSON, no execution) |
 | `greedy_token_invoke` | Invoke a ready read-only op by stable id |
 
-**Footers:** `route` / `search` / `rag` / `pipeline` / `invoke` append the full **Greedy token** block (This call → Tier alternatives → Saved). `usage` appends **Session totals** (not the full single-tool footer). `pipeline: list`, `greedy_token_crystallize` and `greedy_token_capabilities` return plain text/JSON only — no economy footer.
+**Footers:** `route` / `search` / `rag` / `pipeline` / `invoke` append a **Greedy token** footer — `compact` by default (a two-line blockquote: executor · saved · spent vs naive · billing). `footer.style: markdown` renders a small table, `footer.style: full` the full block (This call → Tier alternatives → Saved). `usage` appends **Session totals** (not the single-tool footer). `pipeline: list`, `greedy_token_crystallize` and `greedy_token_capabilities` return plain text/JSON only — no economy footer.
 
 ### Pipeline (multi-step)
 
@@ -306,7 +306,7 @@ npx --yes allure@3.13.0 generate build/allure-results --config allurerc.mjs -o b
 
 **Coverage:** `branch = true` and `fail_under = 100` on `src/greedy_token/` (see `[tool.coverage.run]` / `[tool.coverage.report]` in `pyproject.toml`). CI runs `pytest --cov` (pytest-cov) + `coverage report` on every push/PR. 100% is reached without the optional `stacks/java-spring/` checkout.
 
-**Parallel:** the suite runs under pytest-xdist via `addopts = ["-n", "auto"]` — all cores locally, 4 workers on GitHub runners. Bare `coverage run -m pytest` does not see xdist workers; use `pytest --cov` (or `-n0` to run serial).
+**Parallel:** the suite runs under pytest-xdist via `addopts = ["-n", "auto"]` — all cores locally, 4 workers on GitHub runners. pytest-xdist is a **hard requirement**, not optional: `-n` is passed unconditionally, so without the plugin pytest exits rc=4 at arg parsing. It is pinned in both `pip install -e ".[dev,mcp]"` and the CI `minimum` profile (`scripts/ci/install_profile.py`). Serial fallback for debugging: `-n0` or `-p no:xdist` (xdist still installed). Bare `coverage run -m pytest` does not see xdist workers; use `pytest --cov`.
 
 **Pinned CI deps:** `constraints-ci.txt` (generated: `uv pip compile pyproject.toml --extra dev --extra mcp --python-version 3.12 -o constraints-ci.txt`) pins the full resolved tree for the `test` / `evidence` / `tests` gate jobs via `pip install -e ".[dev,mcp]" -c constraints-ci.txt`. The `portability` / `integration` / `dependencies` jobs stay unconstrained on purpose — their job is to catch incompatibilities with newer releases.
 
@@ -371,7 +371,7 @@ greedy-token report --since 7d
 
 ### Footer
 
-`route` / `search` / `rag` / `pipeline` responses include:
+`route` / `search` / `rag` / `pipeline` / `invoke` responses end with a **Greedy token** footer. Style: `footer.style` in `~/.greedy-token/config.yaml` or workspace `.greedy-token.yaml` (env `GREEDY_TOKEN_FOOTER_STYLE` wins) — `compact` | `markdown` | `full`. Default `compact` is a two-line blockquote (`Greedy token · rg · 42ms · saved ~6,008 (baseline: …)` + `spent ~… · naive ~… · billing`); `markdown` is a spent/naive/saved table with time. The `full` block spells out:
 
 - **This call** — executor, spent, billing (cheap vs expensive LLM)
 - **Cursor baseline** — rules + task + agent overhead (see [Baseline calibration](#baseline-calibration))

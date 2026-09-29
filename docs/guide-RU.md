@@ -202,7 +202,7 @@ Cursor — хост по умолчанию, но stdio MCP-сервер и ау
 | `greedy_token_capabilities` | Derived инвентарь операций + readiness (JSON, без выполнения) |
 | `greedy_token_invoke` | Invoke готовой read-only операции по stable id |
 
-**Footers:** `route` / `search` / `rag` / `pipeline` / `invoke` — полный блок **Greedy token** (This call → Tier alternatives → Saved). `usage` — **Session totals** (не полный single-tool footer). `pipeline: list`, `greedy_token_crystallize` и `greedy_token_capabilities` — только plain text/JSON, без economy footer.
+**Footers:** `route` / `search` / `rag` / `pipeline` / `invoke` — footer **Greedy token**, по умолчанию `compact` (две строки blockquote: executor · saved · spent vs naive · billing). `footer.style: markdown` рисует небольшую таблицу, `footer.style: full` — полный блок (This call → Tier alternatives → Saved). `usage` — **Session totals** (не single-tool footer). `pipeline: list`, `greedy_token_crystallize` и `greedy_token_capabilities` — только plain text/JSON, без economy footer.
 
 ### Pipeline (несколько шагов)
 
@@ -308,7 +308,7 @@ npx --yes allure@3.13.0 generate build/allure-results --config allurerc.mjs -o b
 
 **Coverage:** `branch = true` и `fail_under = 100` для `src/greedy_token/` (`pyproject.toml`). CI: `pytest --cov` (pytest-cov) + `coverage report` (lines + branches). 100% достигается без опционального checkout `stacks/java-spring/`.
 
-**Параллель:** suite работает под pytest-xdist через `addopts = ["-n", "auto"]` — все ядра локально, 4 workers на GitHub-раннерах. Голый `coverage run -m pytest` не видит xdist-workers; используйте `pytest --cov` (или `-n0` для последовательного прогона).
+**Параллель:** suite работает под pytest-xdist через `addopts = ["-n", "auto"]` — все ядра локально, 4 workers на GitHub-раннерах. pytest-xdist — **обязательная** зависимость, не опция: `-n` передаётся безусловно, без плагина pytest падает на разборе аргументов (rc=4). Пинится в `pip install -e ".[dev,mcp]"` и CI-профиле `minimum` (`scripts/ci/install_profile.py`). Последовательный прогон для отладки: `-n0` или `-p no:xdist` (xdist при этом установлен). Голый `coverage run -m pytest` не видит xdist-workers; используйте `pytest --cov`.
 
 **Пины CI:** `constraints-ci.txt` (генерация: `uv pip compile pyproject.toml --extra dev --extra mcp --python-version 3.12 -o constraints-ci.txt`) фиксирует всё дерево для гейт-джоб `test` / `evidence` / `tests` через `pip install -e ".[dev,mcp]" -c constraints-ci.txt`. Джобы `portability` / `integration` / `dependencies` остаются без constraints намеренно — их роль ловить несовместимости с новыми релизами.
 
@@ -372,6 +372,8 @@ greedy-token report --since 7d
 ## Token economy
 
 ### Footer — что значит «сэкономили»
+
+Каждый ответ `route` / `search` / `rag` / `pipeline` / `invoke` заканчивается footer **Greedy token**. Стиль: `footer.style` в `~/.greedy-token/config.yaml` или `.greedy-token.yaml` в корне workspace (env `GREEDY_TOKEN_FOOTER_STYLE` перекрывает) — `compact` | `markdown` | `full`. По умолчанию `compact` — две строки blockquote; `markdown` — таблица spent/naive/saved; `full` — развёрнутый блок ниже.
 
 - **Executor (rg/python/rag)** — free tier, 0 LLM spend на этот шаг (`search` в pipeline → `rg`)
 - **Executor (ollama)** — cheap LLM
