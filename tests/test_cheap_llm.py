@@ -507,3 +507,25 @@ def test_chat_openai_compat_no_message_content(monkeypatch: pytest.MonkeyPatch) 
     )
     with pytest.raises(MalformedResponseError, match="no message content"):
         _chat_openai_compat(settings, system="s", user="u", timeout=1.0)
+
+
+@allure.story("Malformed responses")
+@allure.title("openai_compat non-object usage is a structured error, not AttributeError")
+def test_chat_openai_compat_usage_not_dict(monkeypatch: pytest.MonkeyPatch) -> None:
+    import io
+    import json as _json
+    from contextlib import contextmanager
+
+    from greedy_token.cheap_llm import MalformedResponseError, _chat_openai_compat
+
+    @contextmanager
+    def _fake(payload: dict):
+        yield io.BytesIO(_json.dumps(payload).encode("utf-8"))
+
+    monkeypatch.setattr(
+        "urllib.request.urlopen",
+        lambda *a, **k: _fake({"usage": "junk", "choices": []}),
+    )
+    settings = CheapLlmSettings(provider="openai_compat", url="http://x/v1", model="m", source="t")
+    with pytest.raises(MalformedResponseError, match="usage is not an object"):
+        _chat_openai_compat(settings, system="s", user="u", timeout=1.0)

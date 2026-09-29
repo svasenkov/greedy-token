@@ -237,7 +237,7 @@ def search_bm25(
         # equivalent: ORDER BY column names ignore case like every other
         # SQLite identifier above.
         sql += "ORDER BY bm25_score, chunk_id LIMIT ?"
-        params.append(min(limit, MAX_RESULTS))
+        params.append(MAX_RESULTS)
         rows = connection.execute(sql, params).fetchall()
     except sqlite3.OperationalError as exc:
         if "fts5" in str(exc).casefold():

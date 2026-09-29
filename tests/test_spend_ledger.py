@@ -537,3 +537,22 @@ def test_ledger_lowercase_z_ts_rejected(metered_root: Path) -> None:
 def test_metered_spend_excludes_pending(metered_root: Path) -> None:
     reserve_spend(reservation_id="mpf", model_id="bulk", est_usd=6.0)
     assert metered_spend_usd(include_pending=False) == 0.0
+
+
+@allure.title("a crashed writer's partial tail never swallows the next record")
+def test_append_after_partial_tail(metered_root: Path) -> None:
+    # A torn last line (crash mid-write) must not merge with the next record —
+    # the appender starts a fresh line, keeping both rows readable.
+    target = spend_log_path()
+    target.write_text('{"kind": "reserve", "id": "cut', encoding="utf-8")
+    reserve_spend(reservation_id="r2", model_id="bulk", est_usd=1.5)
+    lines = target.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 2
+    assert lines[0].endswith('"cut')
+    assert ledger_spend_usd() == pytest.approx(1.5)
+
+
+@allure.title("_tail_is_partial returns False when the path is unopenable")
+def test_tail_is_partial_oserror(tmp_path: Path) -> None:
+    assert spend_ledger._tail_is_partial(tmp_path) is False  # directory → OSError
+    assert spend_ledger._tail_is_partial(tmp_path / "missing") is False

@@ -6,15 +6,18 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
+from pathspec import GitIgnoreSpec
+
 from greedy_token.paths import find_workspace_root
 from greedy_token.tool_output import filter_tool_output
 from greedy_token.tool_paths import RG_TIMEOUT, resolve_rg
 
 SearchContextMode = Literal["none", "snippet", "file"]
 
-_HIT_LINE_RE = re.compile(
-    r"^((?:[A-Za-z]:)?[^:\n]+|\.?/?[\w./+-]+):(\d+):(.*)$"
-)
+# ``path:line:content`` — the path may itself contain ":" (POSIX filenames),
+# so the line-number anchor (a digit run between the last two colons of the
+# path:line pair) is what identifies the split, not the first colon.
+_HIT_LINE_RE = re.compile(r"^(.+?):(\d+):(.*)$")
 
 DEFAULT_GLOBS = [
     "!.git/**",
@@ -48,9 +51,9 @@ def search_scope_paths(root: Path) -> list[str]:
     files = sorted(
         p.name
         for p in root.iterdir()
-        if p.is_file() and not p.name.startswith(".")
+        if p.is_file() and not p.name.startswith(".") and _under_root(p, root)
     )
-    return dirs + files
+    return [d for d in dirs if _under_root(root / d, root)] + files
 
 SKIP_DIR_NAMES = {".git", "node_modules", "build", ".venv", "__pycache__", "dist", ".tox"}
 
@@ -262,143 +265,100 @@ def _python_search_file(
     return hits
 
 
-@dataclass(frozen=True)
-class _IgnoreRule:
-    """One parsed .ignore line, anchored to the directory holding the file."""
-
-    base_dir: str  # workspace-relative dir containing the .ignore ("" = root)
-    regex: re.Pattern[str]
-    anchored: bool  # pattern contains "/" → anchored to base_dir, not a basename
-    dir_only: bool  # trailing "/" — matches directories only
-    negated: bool  # leading "!"
-
-    def matches(self, rel: str) -> bool:
-        if self.base_dir:
-            if rel != self.base_dir and not rel.startswith(self.base_dir + "/"):
-                return False
-            local = rel[len(self.base_dir) + 1 :]
-        else:
-            local = rel
-        parts = local.split("/")
-        # A directory-only rule can match proper ancestors of the file, never
-        # the file itself; other rules also ignore everything below a match.
-        depth = len(parts) - (1 if self.dir_only else 0)
-        if self.anchored:
-            return any(
-                self.regex.fullmatch("/".join(parts[:i]))
-                # equivalent: i<2 candidates ("" or a single segment) contain
-                # no "/", and an anchored glob's regex always has a literal
-                # one — range(0, …) and range(2, …) match identically.
-                for i in range(1, depth + 1)
-            )
-        return any(self.regex.fullmatch(p) for p in parts[:depth])
-
-
-def _glob_to_regex(pattern: str) -> re.Pattern[str]:
-    """Translate an ignore glob where ``*`` never crosses ``/`` and ``**`` does."""
+def _escape_literal_brackets(line: str) -> str:
     out: list[str] = []
-    i = 0
-    while i < len(pattern):
-        if pattern[i : i + 2] == "**":
-            out.append(".*")
-            i += 2
-        elif pattern[i] == "*":
-            out.append("[^/]*")
-            i += 1
-        elif pattern[i] == "?":
-            out.append("[^/]")
-            i += 1
-        elif pattern[i] == "[":
-            end = pattern.find("]", i + 1)
-            if end == -1:
-                out.append(re.escape("["))
-                i += 1
-            else:
-                out.append(pattern[i : end + 1])
-                i = end + 1
+    for i, ch in enumerate(line):
+        if ch == "[" and "]" not in line[i + 1 :]:
+            backslashes = 0
+            j = i - 1
+            while j >= 0 and line[j] == "\\":
+                backslashes += 1
+                j -= 1
+            out.append("\\[" if backslashes % 2 == 0 else "[")
         else:
-            out.append(re.escape(pattern[i]))
-            i += 1
-    return re.compile("".join(out))
+            out.append(ch)
+    return "".join(out)
 
 
-def _ignore_rules_in(path: Path, base_dir: str) -> list[_IgnoreRule]:
-    rules: list[_IgnoreRule] = []
-    try:
-        # equivalent: encoding=None / a dropped encoding arg resolve to the
-        # platform default (UTF-8 on supported dev hosts); "UTF-8" is the
-        # same codec spelled case-insensitively.
-        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
-    except OSError:
-        return rules
-    for raw in lines:
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
-        negated = line.startswith("!")
-        pattern = line[1:] if negated else line
-        dir_only = pattern.endswith("/")
-        pattern = pattern.strip("/").strip()
-        if not pattern:
-            continue
-        rules.append(
-            _IgnoreRule(
-                base_dir=base_dir,
-                regex=_glob_to_regex(pattern),
-                anchored="/" in pattern,
-                dir_only=dir_only,
-                negated=negated,
-            )
-        )
-    return rules
+def _load_ignore_specs(
+    root: Path, scope_dirs: list[Path]
+) -> list[tuple[str, GitIgnoreSpec]]:
+    """Collect ``.ignore`` specs the fallback must honor, mirroring rg.
 
-
-def _load_ignore_rules(root: Path, scope_dirs: list[Path]) -> list[_IgnoreRule]:
-    """Collect .ignore rules the fallback must honor, mirroring rg semantics.
-
-    The root ``.ignore`` applies workspace-wide; nested ``.ignore`` files are
-    anchored to their directory (deeper rules win — they sort last).  Files
-    passed explicitly as scope operands bypass ignore rules, like rg.
+    The root ``.ignore`` applies workspace-wide; ``.ignore`` files in scope
+    ancestors load like rg's parent-dir handling, and nested ``.ignore``
+    files anchor to their own directory — deeper specs sort last so their
+    rules win on conflict.  Files passed explicitly as scope operands bypass
+    ignore rules, like rg.
     """
-    ignore_files: list[Path] = []
-    # equivalent: ".IGNORE" resolves to the same file on the case-insensitive
-    # filesystems of supported dev hosts (APFS, NTFS).
+    ignore_files: set[Path] = set()
     if (root / ".ignore").is_file():
-        # equivalent: appending ".IGNORE" names the same file there too.
-        ignore_files.append(root / ".ignore")
+        ignore_files.add(root / ".ignore")
     for base in scope_dirs:
         if not base.is_dir():
             continue
-        # equivalent: rglob(".IGNORE") matches the same entries there.
+        try:
+            ancestor = root
+            for part in base.relative_to(root).parts:
+                ancestor = ancestor / part
+                if (ancestor / ".ignore").is_file():
+                    ignore_files.add(ancestor / ".ignore")
+        except ValueError:
+            pass
         for ignore in base.rglob(".ignore"):
             if any(
                 part in SKIP_DIR_NAMES or part.startswith(".")
                 for part in ignore.relative_to(base).parts[:-1]
             ):
                 continue
-            ignore_files.append(ignore)
-    # Deeper directories sort later so their rules win on conflict.
-    ignore_files.sort(key=lambda p: len(p.parts))
-    rules: list[_IgnoreRule] = []
-    for ignore in ignore_files:
+            ignore_files.add(ignore)
+    specs: list[tuple[str, GitIgnoreSpec]] = []
+    for ignore in sorted(ignore_files, key=lambda p: len(p.parts)):
         try:
             base_dir = ignore.parent.relative_to(root).as_posix()
         except ValueError:
-            # equivalent: base_dir is only truthiness-tested by _IgnoreRule —
-            # None and "" select the same branch.
             base_dir = ""
         if base_dir == ".":
             base_dir = ""
-        rules.extend(_ignore_rules_in(ignore, base_dir))
-    return rules
+        try:
+            lines = ignore.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            continue
+        specs.append(
+            (base_dir, GitIgnoreSpec.from_lines(map(_escape_literal_brackets, lines)))
+        )
+    return specs
 
 
-def _is_ignored(rel: str, rules: list[_IgnoreRule]) -> bool:
+def _specs_include(rel: str, specs: list[tuple[str, GitIgnoreSpec]]) -> bool:
+    """Last matching rule wins; deeper ``.ignore`` files sort later."""
     ignored = False
-    for rule in rules:
-        if rule.matches(rel):
-            ignored = not rule.negated
+    for base_dir, spec in specs:
+        if base_dir:
+            if not rel.startswith(base_dir + "/"):
+                continue
+            local = rel[len(base_dir) + 1 :]
+        else:
+            local = rel
+        result = spec.check_file(local)
+        if result.include is not None:
+            ignored = result.include
     return ignored
+
+
+def _is_ignored(rel: str, specs: list[tuple[str, GitIgnoreSpec]]) -> bool:
+    """Decide whether workspace-relative *rel* is ignored under *specs*.
+
+    Git prunes excluded directories: once a directory is ignored its whole
+    subtree is out of reach, so a negation can only re-include a path whose
+    ancestors are all un-excluded.
+    """
+    parts = rel.split("/")
+    for depth in range(1, len(parts)):
+        ancestor = "/".join(parts[:depth])
+        if _specs_include(f"{ancestor}/", specs):
+            return True
+    return _specs_include(rel, specs)
 
 
 def _python_search_tree(
@@ -410,7 +370,7 @@ def _python_search_tree(
     limit: int,
 ) -> list[str]:
     hits: list[str] = []
-    ignore_rules = _load_ignore_rules(root, scope_dirs)
+    specs = _load_ignore_specs(root, scope_dirs)
     for base in scope_dirs:
         # Explicit scope files are operands — like rg they bypass skip and
         # .ignore rules. Directory contents are traversed with the rules on.
@@ -423,6 +383,21 @@ def _python_search_tree(
             continue
         for path in entries:
             if not path.is_file():
+                continue
+            # rg never follows symlinks discovered during traversal; a
+            # lexically-inside path that resolves outside root escaped via a
+            # symlinked ancestor and stays confined like rg's --no-follow.
+            if not explicit and path.is_symlink():
+                continue
+            try:
+                lexical_rel = path.relative_to(root)
+            except ValueError:
+                lexical_rel = None
+            if (
+                not explicit
+                and lexical_rel is not None
+                and not _under_root(path, root)
+            ):
                 continue
             try:
                 # equivalent: path==base makes relative_to(base).parts == ()
@@ -437,17 +412,14 @@ def _python_search_tree(
                 continue
             if name_glob and not path.match(name_glob):
                 continue
-            try:
-                rel = path.relative_to(root).as_posix()
-            except ValueError:
-                rel = str(path)
-            if not explicit and ignore_rules and _is_ignored(rel, ignore_rules):
+            rel = lexical_rel.as_posix() if lexical_rel is not None else str(path)
+            if not explicit and specs and _is_ignored(rel, specs):
                 continue
             for line_no, line in enumerate(
                 # errors="replace" keeps non-UTF-8 files in the scan instead of
                 # raising UnicodeDecodeError on binary/badly-encoded sources.
                 # equivalent: encoding=None / dropped / "UTF-8" — same codec
-                # resolution as in _ignore_rules_in above.
+                # resolution as in _python_search_file above.
                 path.read_text(encoding="utf-8", errors="replace").splitlines(), 1
             ):
                 if query not in line:
@@ -726,9 +698,6 @@ def enrich_search_hits(
                 break
             # The very first file can exceed the whole budget: emit the largest
             # leading slice that fits instead of bypassing the limit.
-            # equivalent: the while-loop below trims `kept` down to the largest
-            # prefix that fits max_tokens — a different initial superset only
-            # changes the iteration count, never the surviving prefix.
             kept = _fit_rows_to_budget(
                 rows, max_tokens - count_tokens(header + "\n").tokens
             )

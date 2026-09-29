@@ -28,7 +28,7 @@ def _untracked_test_files(porcelain: str) -> list[str]:
         if not line.startswith("?? "):
             continue
         path = line[3:].strip().strip('"')
-        if path.startswith("tests/") and path.endswith(".py"):
+        if path.startswith("tests/") and (path.endswith(".py") or path.endswith("/")):
             flagged.append(path)
     return flagged
 
@@ -36,7 +36,7 @@ def _untracked_test_files(porcelain: str) -> list[str]:
 def _guard_clean_tests_checkout() -> None:
     try:
         status = subprocess.run(
-            ["git", "status", "--porcelain", "--", "tests/"],
+            ["git", "status", "--porcelain", "-uall", "--", "tests/"],
             cwd=ROOT,
             capture_output=True,
             text=True,

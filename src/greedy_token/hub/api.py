@@ -23,7 +23,13 @@ from greedy_token.hub.providers import catalog_payload, local_models_payload
 from greedy_token.hub.sessions import list_sessions
 from greedy_token.paths import find_workspace_root
 from greedy_token.spend_ledger import metered_spend_usd
-from greedy_token.usage import aggregate_events, load_events, log_path, parse_since
+from greedy_token.usage import (
+    _dedupe_identical_events,
+    aggregate_events,
+    load_events,
+    log_path,
+    parse_since,
+)
 
 
 def _query_since(path: str, default: str = "7d") -> str:
@@ -54,7 +60,9 @@ def handle_api(path: str) -> tuple[int, dict]:
     if route.startswith("/api/summary"):
         since, since_dt = _resolve_since(path)
         all_events, _ = load_events(log_path(), since=None)
+        all_events = _dedupe_identical_events(all_events)
         events, skipped = load_events(log_path(), since=since_dt)
+        events = _dedupe_identical_events(events)
         summary = aggregate_events(events, since_label=since)
         summary.skipped_lines = skipped
         report = rank_candidates(since=since)

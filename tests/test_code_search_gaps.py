@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 import signal
 from pathlib import Path
 from types import SimpleNamespace
@@ -88,41 +87,53 @@ def test_enrich_token_budget(tmp_path: Path) -> None:
     assert files == 0 and "stopped at token budget" in block
 
 
-@allure.title(".ignore glob translation: *, **, ?, char classes, comments, empty patterns")
-def test_ignore_rules_in_glob_variants(tmp_path: Path) -> None:
-    ignore = tmp_path / ".ignore"
-    ignore.write_text(
+@allure.title(".ignore specs: *, **, ?, char classes, comments, dir-only, negation")
+def test_ignore_specs_glob_variants(tmp_path: Path) -> None:
+    _write_ignore(
+        tmp_path / ".ignore",
         "# a comment line\n"
         "\n"
         "*.log\n"  # `*` never crosses "/"
         "**/cache/**\n"  # `**` crosses "/"
         "a?.txt\n"  # `?`
-        "c[ab].txt\n"  # closed char class passes through verbatim
-        "d[unclosed\n"  # unclosed `[` is a literal `[`
-        "/\n"  # dir-only marker strips to an empty pattern → skipped
-        "!\n"  # negation with an empty pattern → skipped
+        "c[ab].txt\n"  # closed char class
+        "d[unclosed\n"  # unclosed `[` — gitignore keeps it a non-matching line
         "build/\n"  # dir-only: matches proper ancestors, never the file itself
         "!keep.log\n",  # negation re-includes
-        encoding="utf-8",
     )
-    rules = cs._ignore_rules_in(ignore, "")
-    assert cs._is_ignored("x/app.log", rules) is True
-    assert cs._is_ignored("keep.log", rules) is False
-    assert cs._is_ignored("deep/a/cache/file", rules) is True
-    assert cs._is_ignored("a1.txt", rules) is True
-    assert cs._is_ignored("a12.txt", rules) is False
-    assert cs._is_ignored("ca.txt", rules) is True
-    assert cs._is_ignored("cc.txt", rules) is False
-    assert cs._is_ignored("d[unclosed", rules) is True
-    assert cs._is_ignored("dunclosed", rules) is False
-    assert cs._is_ignored("build/out.txt", rules) is True
+    specs = cs._load_ignore_specs(tmp_path, [tmp_path])
+    assert cs._is_ignored("x/app.log", specs) is True
+    assert cs._is_ignored("keep.log", specs) is False
+    assert cs._is_ignored("deep/a/cache/file", specs) is True
+    assert cs._is_ignored("a1.txt", specs) is True
+    assert cs._is_ignored("a12.txt", specs) is False
+    assert cs._is_ignored("ca.txt", specs) is True
+    assert cs._is_ignored("cc.txt", specs) is False
+    assert cs._is_ignored("d[unclosed", specs) is True
+    assert cs._is_ignored("dunclosed", specs) is False
+    assert cs._is_ignored("build/out.txt", specs) is True
     # A file literally named "build" is not a directory → the dir-only rule
-    # must not match it (kills the depth-off-by-one mutant).
-    assert cs._is_ignored("build", rules) is False
+    # must not match it.
+    assert cs._is_ignored("build", specs) is False
 
 
-@allure.title(".ignore read failure returns the rules parsed so far")
-def test_ignore_rules_in_unreadable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@allure.title("_escape_literal_brackets escapes only unescaped unclosed `[`")
+def test_escape_literal_brackets() -> None:
+    # An unclosed `[` is a literal in globset; pathspec would drop the line, so
+    # it is rewritten as an escaped `[` — unless already `\`-escaped.
+    assert cs._escape_literal_brackets("d[unclosed") == "d\\[unclosed"
+    assert cs._escape_literal_brackets("a[b]c[d") == "a[b]c\\[d"
+    assert cs._escape_literal_brackets("a\\[b") == "a\\[b"
+    assert cs._escape_literal_brackets("a\\\\[b") == "a\\\\\\[b"
+    assert cs._escape_literal_brackets("plain") == "plain"
+    assert cs._escape_literal_brackets("c[ab].txt") == "c[ab].txt"
+
+
+@allure.title("an unreadable .ignore is skipped, not fatal")
+def test_load_ignore_specs_unreadable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    _write_ignore(ws / ".ignore", "vendor/\n")
     real_read_text = Path.read_text
 
     def guarded(self: Path, *args: object, **kwargs: object) -> str:
@@ -131,40 +142,34 @@ def test_ignore_rules_in_unreadable(tmp_path: Path, monkeypatch: pytest.MonkeyPa
         return real_read_text(self, *args, **kwargs)
 
     monkeypatch.setattr(Path, "read_text", guarded)
-    assert cs._ignore_rules_in(tmp_path / ".ignore", "") == []
+    assert cs._load_ignore_specs(ws, [ws]) == []
+    assert cs._is_ignored("vendor/x.txt", []) is False
 
 
 @allure.title("nested .ignore anchors to its dir; vendor/hidden .ignore files are skipped")
-def test_ignore_rules_nested_and_vendor_skipped(tmp_path: Path) -> None:
+def test_ignore_specs_nested_and_vendor_skipped(tmp_path: Path) -> None:
     ws = tmp_path / "ws"
     base = ws / "proj"
     (base / "sub").mkdir(parents=True)
     (base / "node_modules").mkdir()
     (base / ".hidden").mkdir()
-    (base / "sub" / ".ignore").write_text(
-        "ignored.txt\ndocs/private.md\n", encoding="utf-8"
-    )
+    _write_ignore(base / "sub" / ".ignore", "ignored.txt\ndocs/private.md\n")
     # Nested inside a skipped dir / a dot-dir: discovered by rglob but dropped.
-    (base / "node_modules" / ".ignore").write_text("*\n", encoding="utf-8")
-    (base / ".hidden" / ".ignore").write_text("*\n", encoding="utf-8")
+    _write_ignore(base / "node_modules" / ".ignore", "*\n")
+    _write_ignore(base / ".hidden" / ".ignore", "*\n")
 
-    rules = cs._load_ignore_rules(ws, [base])
-    assert all(r.base_dir == "proj/sub" for r in rules)
-
-    by_pattern = {r.regex.pattern: r for r in rules}
-    unanchored = by_pattern["ignored\\.txt"]
-    assert not unanchored.anchored
-    # A path outside the rule's base_dir can never match it.
-    assert unanchored.matches("proj/other/ignored.txt") is False
-    assert unanchored.matches("proj/sub/ignored.txt") is True
-
-    anchored = by_pattern["docs/private\\.md"]
-    assert anchored.anchored
+    specs = cs._load_ignore_specs(ws, [base])
+    assert [base_dir for base_dir, _ in specs] == ["proj/sub"]
+    # A path outside the spec's base_dir can never match it.
+    assert cs._is_ignored("proj/other/ignored.txt", specs) is False
+    assert cs._is_ignored("proj/sub/ignored.txt", specs) is True
     # Anchored to the nested base_dir: only proj/sub/docs/private.md matches.
-    assert anchored.matches("proj/sub/docs/private.md") is True
-    assert anchored.matches("proj/sub/x/docs/private.md") is False
+    assert cs._is_ignored("proj/sub/docs/private.md", specs) is True
+    assert cs._is_ignored("proj/sub/x/docs/private.md", specs) is False
+    # A file named exactly like the spec's base dir is not under its scope.
+    assert cs._is_ignored("proj/sub", specs) is False
 
-    # The same rule set drives the python tree scan: ignored hits disappear.
+    # The same spec set drives the python tree scan: ignored hits disappear.
     (base / "sub" / "ignored.txt").write_text("NEEDLE\n", encoding="utf-8")
     (base / "sub" / "keep.txt").write_text("NEEDLE\n", encoding="utf-8")
     hits = cs._python_search_tree(ws, "NEEDLE", scope_dirs=[base], name_glob=None, limit=50)
@@ -173,16 +178,68 @@ def test_ignore_rules_nested_and_vendor_skipped(tmp_path: Path) -> None:
 
 
 @allure.title("an .ignore outside the workspace root still loads with a root anchor")
-def test_load_ignore_rules_outside_root(tmp_path: Path) -> None:
+def test_load_ignore_specs_outside_root(tmp_path: Path) -> None:
     root = tmp_path / "ws"
     root.mkdir()
     outside = tmp_path / "outside"
     (outside / "sub").mkdir(parents=True)
-    (outside / "sub" / ".ignore").write_text("*.log\n", encoding="utf-8")
-    rules = cs._load_ignore_rules(root, [outside])
+    _write_ignore(outside / "sub" / ".ignore", "*.log\n")
+    specs = cs._load_ignore_specs(root, [outside])
     # `ignore.parent.relative_to(root)` raised ValueError → base_dir "".
-    assert [r.base_dir for r in rules] == [""]
-    assert cs._is_ignored("anywhere/x.log", rules) is True
+    assert [base_dir for base_dir, _ in specs] == [""]
+    assert cs._is_ignored("anywhere/x.log", specs) is True
+
+
+@allure.title("scope ancestors' .ignore files apply, like rg parent-dir handling")
+def test_ignore_specs_scope_ancestors(tmp_path: Path) -> None:
+    ws = tmp_path / "ws"
+    deep = ws / "src" / "sub"
+    deep.mkdir(parents=True)
+    _write_ignore(ws / ".ignore", "*.gen\n")
+    _write_ignore(ws / "src" / ".ignore", "draft.txt\n")
+    specs = cs._load_ignore_specs(ws, [deep])
+    assert cs._is_ignored("src/sub/a.gen", specs) is True
+    assert cs._is_ignored("src/sub/draft.txt", specs) is True
+    assert cs._is_ignored("src/sub/keep.txt", specs) is False
+
+
+@allure.title("an excluded parent dir wins over a deeper negation (git pruning)")
+def test_is_ignored_parent_exclusion_prunes(tmp_path: Path) -> None:
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    _write_ignore(ws / ".ignore", "src/\n!src/keep/\n")
+    specs = cs._load_ignore_specs(ws, [ws])
+    # rg/git never descend into an excluded dir — the negation cannot
+    # re-include a path whose ancestor is excluded.
+    assert cs._is_ignored("src/keep/x.txt", specs) is True
+    assert cs._is_ignored("src/a.txt", specs) is True
+    assert cs._is_ignored("other/a.txt", specs) is False
+
+
+@allure.title("deeper .ignore rules win over shallower ones on conflict")
+def test_ignore_specs_deeper_wins(tmp_path: Path) -> None:
+    ws = tmp_path / "ws"
+    (ws / "a" / "b").mkdir(parents=True)
+    _write_ignore(ws / ".ignore", "x.txt\n")
+    _write_ignore(ws / "a" / ".ignore", "!x.txt\n")
+    specs = cs._load_ignore_specs(ws, [ws])
+    assert cs._is_ignored("a/x.txt", specs) is False
+    assert cs._is_ignored("a/b/x.txt", specs) is False
+    assert cs._is_ignored("x.txt", specs) is True
+
+
+@allure.title(".ignore rg parity: leading anchor, zero-dir globstar, negated class")
+def test_ignore_specs_rg_parity_edges(tmp_path: Path) -> None:
+    ws = tmp_path / "ws"
+    (ws / "src" / "sub").mkdir(parents=True)
+    _write_ignore(ws / ".ignore", "/root.txt\n**/gen.txt\n[!a].txt\n")
+    specs = cs._load_ignore_specs(ws, [ws])
+    assert cs._is_ignored("root.txt", specs) is True
+    assert cs._is_ignored("src/root.txt", specs) is False
+    assert cs._is_ignored("gen.txt", specs) is True
+    assert cs._is_ignored("src/sub/gen.txt", specs) is True
+    assert cs._is_ignored("src/sub/b.txt", specs) is True
+    assert cs._is_ignored("src/sub/a.txt", specs) is False
 
 
 @allure.title("_cap_hit_lines: limit<=0 empties the body; non-hit lines pass through")
@@ -1254,42 +1311,6 @@ def _bounded(fn, *args, seconds=2, **kwargs):
         signal.signal(signal.SIGALRM, prev)
 
 
-@allure.title("_glob_to_regex: index arithmetic terminates and translates exactly")
-def test_glob_to_regex_exact_and_bounded() -> None:
-    cases = {
-        "**ab": ".*ab",  # kills +=3 skip
-        "a*b": "a[^/]*b",  # kills =1/-=1 hangs and +=2 skip
-        "a?b": "a[^/]b",  # kills ? index mutants
-        "ab**": "ab.*",  # kills ** index mutants
-        "a[x": "a\\[x",  # kills ==+1/==-2/inverted end check and inner-i hangs
-        "a[b][c": "a[b]\\[c",  # kills find-from-0/i-1 hangs
-        "ab": "ab",  # kills literal-branch index hangs
-        "[a]b]": "[a]b\\]",  # kills rfind
-    }
-    for pattern, expected in cases.items():
-        with allure.step(f"glob {pattern!r}"):
-            rx = _bounded(cs._glob_to_regex, pattern)
-            assert rx.pattern == expected
-
-
-@allure.title("_glob_to_regex: an empty [] class still fails to compile")
-def test_glob_to_regex_empty_class_raises() -> None:
-    # find-from-i+2 skips the ']' and escapes '[' instead — the original raises.
-    with pytest.raises(re.error):
-        _bounded(cs._glob_to_regex, "[]x")
-
-
-@allure.title("_IgnoreRule.matches: dir_only anchored rule never matches the dir itself")
-def test_ignore_rule_anchored_dir_only_not_self() -> None:
-    rule = cs._IgnoreRule(
-        base_dir="", regex=cs._glob_to_regex("a/b"), anchored=True,
-        dir_only=True, negated=False,
-    )
-    # range(1, depth+2) would add the full path candidate and match.
-    assert rule.matches("a/b") is False
-    assert rule.matches("a/b/c.py") is True
-
-
 def _write_ignore(path: Path, body: bytes | str) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     if isinstance(body, bytes):
@@ -1299,70 +1320,43 @@ def _write_ignore(path: Path, body: bytes | str) -> Path:
     return path
 
 
-@allure.title("_ignore_rules_in: invalid UTF-8 bytes are replaced, never fatal")
-def test_ignore_rules_in_bad_encoding(minimal_workspace: Path) -> None:
-    ign = _write_ignore(minimal_workspace / ".ignore", b"vendor/\n\xff\xfe\n")
-    rules = cs._ignore_rules_in(ign, "")
+@allure.title("_load_ignore_specs: invalid UTF-8 bytes are replaced, never fatal")
+def test_load_ignore_specs_bad_encoding(minimal_workspace: Path) -> None:
+    _write_ignore(minimal_workspace / ".ignore", b"vendor/\n\xff\xfe\n")
+    specs = cs._load_ignore_specs(minimal_workspace, [minimal_workspace])
     # errors=None / dropped errors raise UnicodeDecodeError; "XXreplaceXX" and
     # "REPLACE" raise LookupError — only "replace" survives the bad bytes.
-    assert len(rules) == 2
-    assert rules[0].regex.pattern == "vendor"
+    assert cs._is_ignored("vendor/x.txt", specs) is True
+    assert cs._is_ignored("src/x.txt", specs) is False
 
 
-@allure.title("_ignore_rules_in: comments and blanks never become rules")
-def test_ignore_rules_in_comment_lines(minimal_workspace: Path) -> None:
-    ign = _write_ignore(minimal_workspace / ".ignore", "# note\n\n*.py\n")
-    rules = cs._ignore_rules_in(ign, "")
-    # `and` and "XX#XX" mutants would turn '# note' into a live rule.
-    assert len(rules) == 1
-    assert rules[0].regex.pattern == "[^/]*\\.py"
+@allure.title("_load_ignore_specs: comments and blanks never become patterns")
+def test_load_ignore_specs_comment_lines(minimal_workspace: Path) -> None:
+    _write_ignore(minimal_workspace / ".ignore", "# note\n\n*.py\n")
+    specs = cs._load_ignore_specs(minimal_workspace, [minimal_workspace])
+    assert cs._is_ignored("a.py", specs) is True
+    assert cs._is_ignored("note", specs) is False
+    assert cs._is_ignored("a.txt", specs) is False
 
 
-@allure.title("_ignore_rules_in: strip('/') strips exactly slashes")
-def test_ignore_rules_in_strip_charset(minimal_workspace: Path) -> None:
-    ign = _write_ignore(minimal_workspace / ".ignore", "Xabc/\n")
-    rules = cs._ignore_rules_in(ign, "")
-    assert len(rules) == 1
-    assert rules[0].dir_only is True
-    # strip("XX/XX") would also eat the leading X.
-    assert rules[0].regex.pattern == "Xabc"
-
-
-@allure.title("_load_ignore_rules: non-dir scope operand does not stop the scan")
-def test_load_ignore_rules_non_dir_continues(minimal_workspace: Path) -> None:
+@allure.title("_load_ignore_specs: a file scope operand does not stop the scan")
+def test_load_ignore_specs_non_dir_continues(minimal_workspace: Path) -> None:
     base = minimal_workspace / "pkg"
     _write_ignore(base / ".ignore", "vendor/\n")
     operand = minimal_workspace / "README-op.md"
     operand.write_text("x\n", encoding="utf-8")
-    rules = cs._load_ignore_rules(minimal_workspace, [operand, base])
-    # continue→break would drop the real dir's rules entirely.
-    assert len(rules) == 1
+    specs = cs._load_ignore_specs(minimal_workspace, [operand, base])
+    # continue→break would drop the real dir's spec entirely.
+    assert [base_dir for base_dir, _ in specs] == ["pkg"]
 
 
-@allure.title("_load_ignore_rules: .ignore under a hidden ancestor is skipped")
-def test_load_ignore_rules_hidden_ancestor(minimal_workspace: Path) -> None:
+@allure.title("_load_ignore_specs: .ignore under a hidden ancestor is skipped")
+def test_load_ignore_specs_hidden_ancestor(minimal_workspace: Path) -> None:
     base = minimal_workspace / "pkg"
     _write_ignore(base / "a" / ".hidden" / ".ignore", "vendor/\n")
-    rules = cs._load_ignore_rules(minimal_workspace, [base])
+    specs = cs._load_ignore_specs(minimal_workspace, [base])
     # parts[:+1] only inspects the first component and misses '.hidden'.
-    assert rules == []
-
-
-@allure.title("_load_ignore_rules: deeper .ignore files sort last")
-def test_load_ignore_rules_depth_sort(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    base = minimal_workspace / "pkg"
-    _write_ignore(base / "b" / ".ignore", "x\n")
-    _write_ignore(base / "a" / ".ignore", "x\n")
-    _write_ignore(base / "a" / "b" / ".ignore", "x\n")
-    seen: list[str] = []
-    monkeypatch.setattr(
-        cs, "_ignore_rules_in", lambda p, b: seen.append(str(p)) or []
-    )
-    cs._load_ignore_rules(minimal_workspace, [base])
-    rels = [str(Path(p).relative_to(base)) for p in seen]
-    # depth-sort must put the nested a/b/.ignore last; a lexical sort puts
-    # 'a/b' before 'b' and breaks deeper-wins ordering.
-    assert rels[-1] == str(Path("a/b/.ignore"))
+    assert specs == []
 
 
 @allure.title("_cap_hit_lines: limit/bare/overflow semantics are exact")
@@ -1603,3 +1597,116 @@ def test_cap_hit_lines_limits() -> None:
     body = "foo\nsrc/a.py:12:hit one\nsrc/b.py:34:hit two"
     assert cs._cap_hit_lines(body, 0) == ""
     assert cs._cap_hit_lines(body, 1) == "foo\nsrc/a.py:12:hit one"
+
+
+# --- Regression: colon-containing filenames in hit parsing/capping ---------
+
+
+@allure.title("_cap_hit_lines counts colon-named files as hits exactly")
+def test_cap_hit_lines_colon_paths() -> None:
+    body = "module:one.txt:5:capme\nmodule:two.txt:9:capme\nrg: warning here"
+    assert cs._cap_hit_lines(body, 1) == "module:one.txt:5:capme\nrg: warning here"
+    assert cs._cap_hit_lines(body, 2) == body
+    assert cs._cap_hit_lines(body, 0) == ""
+
+
+@allure.title("parse_hit_lines splits path:line:content on the digit anchor")
+def test_parse_hit_lines_colon_path() -> None:
+    hits = cs.parse_hit_lines("module:one.txt:12:hit")
+    assert hits == [("module:one.txt", 12, "hit")]
+    hits2 = cs.parse_hit_lines("a:b:c:d.txt:3:x")
+    assert hits2 == [("a:b:c:d.txt", 3, "x")]
+
+
+@allure.title("search_code: rg hits in colon-named files cap to the global limit")
+def test_search_code_colon_filename_limit(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _rg_present(
+        monkeypatch,
+        "projects/module:one.txt:1:capme\nprojects/module:two.txt:1:capme",
+    )
+    r = cs.search_code("capme", minimal_workspace, limit=1, context="none")
+    assert r.hit_count == 1
+    assert r.hit_paths == ["projects/module:one.txt"]
+
+
+# --- Regression: symlink escape + traversal confinement --------------------
+
+
+@allure.title("search_scope_paths drops root-level entries that escape the workspace")
+def test_search_scope_paths_excludes_escaping_symlinks(
+    minimal_workspace: Path, tmp_path: Path
+) -> None:
+    outside = tmp_path.parent / f"{tmp_path.name}-escape-target"
+    outside.mkdir(exist_ok=True)
+    (outside / "o.txt").write_text("x\n", encoding="utf-8")
+    outside_file = tmp_path.parent / f"{tmp_path.name}-escape.txt"
+    outside_file.write_text("x\n", encoding="utf-8")
+    (minimal_workspace / "escape-dir").symlink_to(outside, target_is_directory=True)
+    (minimal_workspace / "escape.txt").symlink_to(outside_file)
+    (minimal_workspace / "alias-sample.js").symlink_to(
+        minimal_workspace / "projects" / "sample.js"
+    )
+    scope = cs.search_scope_paths(minimal_workspace)
+    assert "escape-dir" not in scope
+    assert "escape.txt" not in scope
+    assert "alias-sample.js" in scope
+    assert "projects" in scope
+
+
+@allure.title("_python_search_tree skips symlinked files like rg --no-follow")
+def test_python_search_tree_skips_symlinked_files(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    scope = root / "src"
+    scope.mkdir(parents=True)
+    (scope / "real.txt").write_text("needle r\n", encoding="utf-8")
+    (scope / "alias.txt").symlink_to(tmp_path / "peer.txt")
+    (tmp_path / "peer.txt").write_text("needle o\n", encoding="utf-8")
+    hits = cs._python_search_tree(
+        root, "needle", scope_dirs=[scope], name_glob=None, limit=10
+    )
+    assert hits == ["src/real.txt:1:needle r"]
+
+
+@allure.title("_python_search_tree confines a symlinked scope dir to the root")
+def test_python_search_tree_symlinked_scope_confined(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "o.txt").write_text("needle out\n", encoding="utf-8")
+    link = root / "linkdir"
+    link.symlink_to(outside, target_is_directory=True)
+    hits = cs._python_search_tree(
+        root, "needle", scope_dirs=[link], name_glob=None, limit=10
+    )
+    assert hits == []
+
+
+# --- Mutation kill-test: enrich_search_hits first-file prefix fitting ------
+
+
+@allure.title("enrich_search_hits: oversized first file emits the fitting prefix + note")
+def test_enrich_first_file_fit_prefix(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import greedy_token.tokens as tk
+
+    monkeypatch.setattr(tk, "count_tokens", lambda s: SimpleNamespace(tokens=len(s)))
+    rows = ["HEAD_ROW", "MARKER_ROW", "", "", ""] + [
+        f"payload_{i:02d} " + "x" * 30 for i in range(10)
+    ]
+    (tmp_path / "f.txt").write_text("\n".join(rows) + "\n", encoding="utf-8")
+    # The file chunk exceeds the budget, so _fit_rows_to_budget picks the
+    # largest leading slice and the while-loop converges onto the fitting
+    # prefix — a wrong initial `kept` either over-emits the tail or collapses
+    # into the "stopped at token budget" marker.
+    block, done, _ = cs.enrich_search_hits(
+        tmp_path, [("f.txt", 2, "x")], mode="file", max_files=1, max_tokens=82,
+    )
+    assert done == 1
+    assert "… (truncated to token budget)" in block
+    assert "stopped at token budget" not in block
+    assert "HEAD_ROW" in block and "MARKER_ROW" in block
+    assert "payload_09" not in block

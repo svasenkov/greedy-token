@@ -241,12 +241,12 @@ def _chat_ollama(
         data = json.load(resp)
     eval_tokens = data.get("eval_count") if isinstance(data, dict) else None
     message = data.get("message") if isinstance(data, dict) else None
-    if not isinstance(message, dict) or message.get("content") is None:
+    content = message.get("content") if isinstance(message, dict) else None
+    if not isinstance(content, str):
         raise MalformedResponseError(
             "ollama response has no message content", eval_tokens=eval_tokens
         )
-    content = str(message["content"]).strip()
-    return content, eval_tokens
+    return content.strip(), eval_tokens
 
 
 def _chat_openai_compat(
@@ -276,19 +276,21 @@ def _chat_openai_compat(
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         data = json.load(resp)
     usage = data.get("usage") if isinstance(data, dict) else None
+    if usage is not None and not isinstance(usage, dict):
+        raise MalformedResponseError("openai_compat response usage is not an object")
     eval_tokens = (usage or {}).get("completion_tokens")
     choices = data.get("choices") if isinstance(data, dict) else None
-    if not choices:
+    if not isinstance(choices, list) or not choices:
         raise MalformedResponseError(
             "openai_compat response has no choices", eval_tokens=eval_tokens
         )
     message = choices[0].get("message") if isinstance(choices[0], dict) else None
-    if not isinstance(message, dict) or message.get("content") is None:
+    content = message.get("content") if isinstance(message, dict) else None
+    if not isinstance(content, str):
         raise MalformedResponseError(
             "openai_compat response has no message content", eval_tokens=eval_tokens
         )
-    content = str(message["content"]).strip()
-    return content, eval_tokens
+    return content.strip(), eval_tokens
 
 
 def cheap_llm_status_line(settings: CheapLlmSettings) -> str:

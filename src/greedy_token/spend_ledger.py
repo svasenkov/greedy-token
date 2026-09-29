@@ -142,6 +142,18 @@ def _finite(value: object) -> float:
     return cost if math.isfinite(cost) and cost > 0 else 0.0
 
 
+def _tail_is_partial(path: Path) -> bool:
+    """True when *path* exists, is non-empty, and does not end in ``\\n``."""
+    try:
+        with path.open("rb") as fh:
+            if fh.seek(0, os.SEEK_END) == 0:
+                return False
+            fh.seek(-1, os.SEEK_END)
+            return fh.read(1) != b"\n"
+    except OSError:
+        return False
+
+
 def _append_spend_record(record: dict) -> None:
     path = spend_log_path()
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -157,6 +169,8 @@ def _append_spend_record(record: dict) -> None:
     # equivalent on the POSIX hosts where campaigns run — both translate to
     # the same \n bytes; only Windows (never mutated on) diverges.
     with path.open("a", encoding="utf-8", newline="") as fh:
+        if _tail_is_partial(path):
+            fh.write("\n")
         fh.write(line + "\n")
 
 

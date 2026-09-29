@@ -353,12 +353,18 @@ def _benchmark_cache_key(
     """
     spec = resolved.spec
     system, user = _benchmark_prompts(catalog)
+    folder_id = ""
+    if spec.provider == "yandex_gpt":
+        from greedy_token.expensive_llm import _folder_from_env
+
+        folder_id = _folder_from_env(spec)
     identity = {
         "model": model,
         "spec_model": spec.model,
         "endpoint": spec.url,
         "provider": spec.provider,
         "billing": spec.billing,
+        "yandex_folder_id": folder_id,
         "api_key": (
             hashlib.sha256(spec.api_key.encode("utf-8")).hexdigest()[:16]
             if spec.api_key

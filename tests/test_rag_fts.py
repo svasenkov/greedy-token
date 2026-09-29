@@ -324,6 +324,50 @@ def test_search_ignores_stale_rows_and_filtered_domains(
         ) == []
 
 
+def test_search_overfetches_past_limit(minimal_workspace: Path) -> None:
+    document = load_manifest_documents(minimal_workspace)[0]
+
+    class LimitRows:
+        def __init__(self, rows: list[dict]) -> None:
+            self.rows = rows
+
+        def execute(self, sql, params):
+            if "LIMIT" in sql:
+                self.rows = self.rows[: int(params[-1])]
+            return self
+
+        def fetchall(self) -> list[dict]:
+            return self.rows
+
+        def close(self) -> None:
+            pass
+
+    stale = {
+        "entry_key": "removed",
+        "chunk_id": "gone",
+        "path": "gone",
+        "domain": "config",
+        "bm25_score": -9.0,
+    }
+    valid = {
+        "entry_key": document.entry_key,
+        "chunk_id": "test-baseurl",
+        "path": document.rel_path,
+        "domain": document.domain,
+        "bm25_score": -1.0,
+    }
+    with (
+        patch("greedy_token.rag_fts._sync_index"),
+        patch(
+            "greedy_token.rag_fts._connect", return_value=LimitRows([stale, valid])
+        ),
+    ):
+        # LIMIT `limit` would return only the stale row; the real code fetches
+        # MAX_RESULTS so the valid hit survives Python-side filtering.
+        hits = search_bm25("baseUrl", minimal_workspace, limit=1)
+    assert [hit.document.entry_key for hit in hits] == [document.entry_key]
+
+
 def test_overlap_fallback_preserves_public_api(minimal_workspace: Path) -> None:
     with patch(
         "greedy_token.rag_search.search_bm25",

@@ -173,3 +173,28 @@ def test_yandex_malformed_keeps_eval_tokens(monkeypatch: pytest.MonkeyPatch) -> 
             api_key="k", folder_id="f", model="m", system="s", user="u", timeout=1.0
         )
     assert err.value.eval_tokens == 9
+
+
+@allure.title("non-object result/usage payloads are structured errors, not AttributeError")
+def test_yandex_malformed_shapes(monkeypatch: pytest.MonkeyPatch) -> None:
+    from greedy_token.cheap_llm import MalformedResponseError
+
+    monkeypatch.setattr(
+        expensive_llm.urllib.request,
+        "urlopen",
+        lambda *a, **k: _fake_urlopen({"result": "junk"}),
+    )
+    with pytest.raises(MalformedResponseError, match="result is not an object"):
+        expensive_llm._chat_yandex_native(
+            api_key="k", folder_id="f", model="m", system="s", user="u", timeout=1.0
+        )
+
+    monkeypatch.setattr(
+        expensive_llm.urllib.request,
+        "urlopen",
+        lambda *a, **k: _fake_urlopen({"result": {"usage": "junk", "alternatives": []}}),
+    )
+    with pytest.raises(MalformedResponseError, match="usage is not an object"):
+        expensive_llm._chat_yandex_native(
+            api_key="k", folder_id="f", model="m", system="s", user="u", timeout=1.0
+        )

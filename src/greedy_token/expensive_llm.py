@@ -83,21 +83,26 @@ def _chat_yandex_native(
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         data = json.load(resp)
-    result = data.get("result") or {}
-    usage = result.get("usage") or {}
+    result = data.get("result") if isinstance(data, dict) else None
+    if result is not None and not isinstance(result, dict):
+        raise MalformedResponseError("YandexGPT result is not an object")
+    usage = (result or {}).get("usage")
+    if usage is not None and not isinstance(usage, dict):
+        raise MalformedResponseError("YandexGPT usage is not an object")
+    usage = usage or {}
     eval_tokens = usage.get("completionTokens") or usage.get("totalTokens")
-    alts = result.get("alternatives") or []
-    if not alts:
+    alts = (result or {}).get("alternatives")
+    if not isinstance(alts, list) or not alts:
         raise MalformedResponseError(
             "YandexGPT returned no alternatives", eval_tokens=eval_tokens
         )
     message = alts[0].get("message") if isinstance(alts[0], dict) else None
-    if not isinstance(message, dict) or message.get("text") is None:
+    content = message.get("text") if isinstance(message, dict) else None
+    if not isinstance(content, str):
         raise MalformedResponseError(
             "YandexGPT alternative has no message text", eval_tokens=eval_tokens
         )
-    content = str(message["text"]).strip()
-    return content, eval_tokens
+    return content.strip(), eval_tokens
 
 
 def llm_chat(

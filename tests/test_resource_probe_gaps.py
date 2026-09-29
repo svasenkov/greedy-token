@@ -328,6 +328,21 @@ def test_benchmark_cache_key_identity() -> None:
     assert len(distinct) == len(variants) - 1  # every dimension moves the key
 
 
+@allure.title("_benchmark_cache_key varies with YANDEX_FOLDER_ID")
+def test_benchmark_cache_key_yandex_folder(monkeypatch: pytest.MonkeyPatch) -> None:
+    resolved = _fake_resolved(
+        "https://llm.api.cloud.yandex.net/v1", provider="yandex_gpt"
+    )
+    monkeypatch.delenv("YANDEX_GPT_FOLDER_ID", raising=False)
+    monkeypatch.setenv("YANDEX_FOLDER_ID", "folder-a")
+    key_a = rp._benchmark_cache_key("m", resolved, quick=True, catalog={})
+    monkeypatch.setenv("YANDEX_FOLDER_ID", "folder-b")
+    key_b = rp._benchmark_cache_key("m", resolved, quick=True, catalog={})
+    monkeypatch.delenv("YANDEX_FOLDER_ID")
+    key_unset = rp._benchmark_cache_key("m", resolved, quick=True, catalog={})
+    assert len({key_a, key_b, key_unset}) == 3
+
+
 @allure.title("run_micro_benchmark: a cached result is scoped to its endpoint")
 def test_run_micro_benchmark_cache_scoped_to_endpoint(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path

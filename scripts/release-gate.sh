@@ -12,7 +12,7 @@ cd "$ROOT"
 # would silently ship — refuse a dirty tests/ tree at the gate.
 if command -v git >/dev/null 2>&1 \
   && git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  UNTRACKED="$(git -C "$ROOT" status --porcelain -- 'tests/*.py' | grep '^??' || true)"
+  UNTRACKED="$(git -C "$ROOT" status --porcelain -uall -- 'tests/*.py' | grep '^??' || true)"
   if [ -n "$UNTRACKED" ]; then
     printf 'untracked tests/*.py would silently enter the sdist:\n%s\n' "$UNTRACKED" >&2
     exit 1

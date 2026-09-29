@@ -65,6 +65,16 @@ def test_untracked_test_files_parsing() -> None:
     assert "src/greedy_token/new_module.py" not in flagged
 
 
+@allure.title("the untracked-tests guard expands nested directories (-uall)")
+def test_untracked_guard_recurse_flag() -> None:
+    # Without -uall `git status` collapses an untracked dir to `?? tests/x/`
+    # and nested .py files slip past the guard.
+    src = (_REPO / "scripts" / "ci" / "build_smoke.py").read_text(encoding="utf-8")
+    assert '"--porcelain", "-uall"' in src or "'-uall'" in src
+    gate = (_REPO / "scripts" / "release-gate.sh").read_text(encoding="utf-8")
+    assert "status --porcelain -uall" in gate
+
+
 @allure.title("release-gate.sh refuses a dirty tests/ tree before building")
 def test_release_gate_has_clean_checkout_guard() -> None:
     src = (_REPO / "scripts" / "release-gate.sh").read_text(encoding="utf-8")

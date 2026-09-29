@@ -27,19 +27,6 @@ equivalents:
     pragma: false
 
   - module: code_search.py
-    symbol: matches
-    reason: >-
-      i<2 candidates ("" or a single segment) contain no "/", and an anchored
-      glob's regex always has a literal one — range(0, …) and range(2, …)
-      match identically.
-    proof: >-
-      _ignore_rules_in sets anchored="/" in pattern after strip("/"), so an
-      anchored regex always embeds a literal "/". fullmatch against
-      "/".join(parts[:i]) can only succeed when the candidate contains "/",
-      which requires i>=2 — i=0 joins to "" and i=1 to one segment.
-    pragma: false
-
-  - module: code_search.py
     symbol: _python_search_file
     reason: >-
       encoding=None, a dropped encoding arg, and "UTF-8" all decode with the
@@ -50,57 +37,6 @@ equivalents:
       locale.getpreferredencoding(False), which is UTF-8 on supported
       macOS/Linux dev hosts; codecs.lookup normalizes case, so "UTF-8" is the
       same codec as "utf-8".
-    pragma: false
-
-  - module: code_search.py
-    symbol: _ignore_rules_in
-    reason: >-
-      encoding=None / a dropped encoding arg resolve to the platform default
-      (UTF-8 on supported dev hosts); "UTF-8" is the same codec spelled
-      case-insensitively.
-    proof: >-
-      Same codec resolution as _python_search_file: encoding=None resolves to
-      the platform default (UTF-8 here), and codecs.lookup is
-      case-insensitive for "UTF-8".
-    pragma: false
-
-  - module: code_search.py
-    symbol: _load_ignore_rules
-    reason: >-
-      ".IGNORE" resolves to the same file on the case-insensitive filesystems
-      of supported dev hosts (APFS, NTFS).
-    proof: >-
-      The development and test environment is a case-insensitive filesystem
-      (APFS default on macOS, NTFS on Windows), so `root / ".IGNORE"` names
-      the same path as `root / ".ignore"` and is_file() answers identically.
-    pragma: false
-
-  - module: code_search.py
-    symbol: _load_ignore_rules
-    reason: appending ".IGNORE" names the same file there too.
-    proof: >-
-      Same case-insensitive filesystem argument as the ".ignore" is_file
-      check above — the appended path resolves to the same directory entry.
-    pragma: false
-
-  - module: code_search.py
-    symbol: _load_ignore_rules
-    reason: rglob(".IGNORE") matches the same entries there.
-    proof: >-
-      On case-insensitive filesystems rglob(".IGNORE") yields the same
-      directory entries as rglob(".ignore"), so the collected ignore-file
-      set is identical.
-    pragma: false
-
-  - module: code_search.py
-    symbol: _load_ignore_rules
-    reason: >-
-      base_dir is only truthiness-tested by _IgnoreRule — None and "" select
-      the same branch.
-    proof: >-
-      The only consumer is `if self.base_dir:` inside _IgnoreRule.matches,
-      where None and "" are both falsy; no equality or string operation ever
-      reads the value before that guard.
     pragma: false
 
   - module: code_search.py
@@ -118,11 +54,11 @@ equivalents:
     symbol: _python_search_tree
     reason: >-
       encoding=None / dropped / "UTF-8" — same codec resolution as in
-      _ignore_rules_in above.
+      _python_search_file above.
     proof: >-
       encoding=None and a dropped encoding arg resolve to the platform
       default (UTF-8 on supported dev hosts), and codecs.lookup treats
-      "UTF-8" case-insensitively — same proof as _ignore_rules_in.
+      "UTF-8" case-insensitively — same proof as _python_search_file.
     pragma: false
 
   - module: code_search.py
@@ -167,20 +103,6 @@ equivalents:
       before the while-loop reads them; in file mode the loop's header
       rebuild is skipped (`if mode != "file"`), so neither initial value is
       ever read.
-    pragma: false
-
-  - module: code_search.py
-    symbol: enrich_search_hits
-    reason: >-
-      the while-loop below trims `kept` down to the largest prefix that fits
-      max_tokens — a different initial superset only changes the iteration
-      count, never the surviving prefix.
-    proof: >-
-      `while kept` removes one trailing row per iteration until
-      count_tokens(chunk) <= max_tokens or kept empties. Any initial kept
-      that covers the fitting prefix converges to the same maximal prefix;
-      a smaller initial kept is already at-or-below it, so the emitted block
-      is identical either way.
     pragma: false
 
   - module: code_search.py

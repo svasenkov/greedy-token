@@ -1122,6 +1122,37 @@ def test_summary_metrics_window_scoped(hub_home: Path, monkeypatch: pytest.Monke
     assert metrics["metered_cost_per_task_usd"] == pytest.approx(0.0)
 
 
+@allure.title("summary dedupes byte-identical event rows before totals, metrics and accumulated")
+def test_summary_dedupes_identical_events(
+    hub_home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A replayed log line is a telemetry artifact — it must not triple the
+    operation count, savings and cost the summary reports."""
+    now = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    row = json.dumps(
+        {
+            "ts": now,
+            "selected_tier": "cursor",
+            "task": "dup",
+            "cursor_saved": 10,
+            "est_tokens": 5,
+            "cost_usd": 0.25,
+        }
+    )
+    log = hub_home / "usage.jsonl"
+    log.write_text("".join(row + "\n" for _ in range(3)), encoding="utf-8")
+    monkeypatch.setattr(
+        hub_api, "find_workspace_root", lambda: (_ for _ in ()).throw(SystemExit(1))
+    )
+    status, payload = hub_api.handle_api("/api/summary?since=all")
+    assert status == 200
+    assert payload["events"] == 1
+    assert payload["totals"]["saved_vs_cursor"] == 10
+    assert payload["metrics"]["cost_per_task_usd"] == pytest.approx(0.25)
+    assert payload["metrics"]["saved_per_task_tokens"] == 10
+    assert payload["accumulated"]["events"] == 1
+
+
 @allure.title("rank_candidates: an invalid crystal id skips only that task")
 def test_rank_candidates_invalid_cid_continues(hub_home: Path) -> None:
     log = hub_home / "usage.jsonl"

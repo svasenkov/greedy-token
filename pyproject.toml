@@ -12,6 +12,7 @@ license = { text = "MIT" }
 authors = [{ name = "Stanislav Vasenkov" }]
 keywords = ["cli", "llm", "cursor", "claude", "chatgpt", "codex", "token-optimization", "rag", "ollama"]
 dependencies = [
+  "pathspec>=0.12",
   "PyYAML>=6.0.1",
   "tiktoken>=0.7",
 ]
