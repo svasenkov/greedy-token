@@ -794,7 +794,9 @@ def test_search_dot_ignore_parity(
     )
     for engine, res in results.items():
         with allure.step(f"{engine} engine excludes the ignored file"):
-            assert res.hit_paths == ["projects/visible.md"]  # type: ignore[attr-defined]
+            assert [p.replace("\\", "/") for p in res.hit_paths] == [  # type: ignore[attr-defined]
+                "projects/visible.md"
+            ]
     results2 = _run_both_engines(
         "only_here", minimal_workspace, monkeypatch, context="none"
     )
@@ -840,7 +842,9 @@ def test_search_hidden_subtrees_skipped(
     )
     for engine, res in results.items():
         with allure.step(f"{engine} engine skips the hidden dir"):
-            assert res.hit_paths == ["projects/visible.md"]  # type: ignore[attr-defined]
+            assert [p.replace("\\", "/") for p in res.hit_paths] == [  # type: ignore[attr-defined]
+                "projects/visible.md"
+            ]
 
 
 @allure.story("Path resolve error")

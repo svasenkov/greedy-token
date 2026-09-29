@@ -255,12 +255,14 @@ def test_spend_ledger_utf8_on_ascii_locale(tmp_path: Path) -> None:
     # open(encoding="utf-8") and _iter_spend_records' read_text(encoding="utf-8")
     # — under encoding=None either side raises Unicode*Error on ASCII locale.
     log = tmp_path / "spend.jsonl"
+    # argv must stay pure ASCII: under LC_ALL=C the child cannot decode
+    # non-ASCII argv, so Cyrillic rides in as \uXXXX escapes.
     snippet = (
         "import os, sys; from pathlib import Path; "
         "from greedy_token import spend_ledger; "
         "os.environ['GREEDY_TOKEN_SPEND_LOG'] = sys.argv[1]; "
         "spend_ledger.reserve_spend("
-        "reservation_id='r', model_id='Ёлки', est_usd=1.0); "
+        "reservation_id='r', model_id='\\u0401\\u043b\\u043a\\u0438', est_usd=1.0); "
         "print(f'{spend_ledger.ledger_spend_usd():.4f}')"
     )
     real = _ascii_child(snippet, log)
@@ -275,11 +277,13 @@ def test_trust_manifest_utf8_on_ascii_locale(tmp_path: Path) -> None:
         "from greedy_token.trust import (TrustEntry, FileIdentity, "
         "_read_entries, _write_entries); "
         "root = Path(sys.argv[1]); "
-        "entry = TrustEntry(path='scripts/проверка.py', sha256='a' * 64, "
+        # argv must stay pure ASCII: 'проверка' rides in as \uXXXX escapes.
+        "entry = TrustEntry(path='scripts/\\u043f\\u0440\\u043e\\u0432\\u0435\\u0440\\u043a\\u0430.py', "
+        "sha256='a' * 64, "
         "script_type='python', approved_at='2026-01-01T00:00:00+00:00', "
         "approval_source='t', file_identity=FileIdentity(device=1, inode=1)); "
         "_write_entries(root, (entry,)); "
-        "assert _read_entries(root)[0].path == 'scripts/проверка.py'; "
+        "assert _read_entries(root)[0].path == 'scripts/\\u043f\\u0440\\u043e\\u0432\\u0435\\u0440\\u043a\\u0430.py'; "
         "print('ok')"
     )
     proc = _ascii_child(snippet, tmp_path / "ws")

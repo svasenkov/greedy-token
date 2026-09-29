@@ -351,6 +351,9 @@ def test_policy_footer_extras(monkeypatch: pytest.MonkeyPatch) -> None:
 def footer_env(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Deterministic footer rendering: no policy extras, ollama offline."""
     monkeypatch.setattr(budget, "ollama_available", lambda: False)
+    # router's own binding feeds the tier-scan est — without this the row is
+    # ~2 on hosts with a live ollama and ~6,002 where it is absent (CI).
+    monkeypatch.setattr("greedy_token.router.ollama_available", lambda: False)
     monkeypatch.setattr(budget, "_policy_footer_lines", lambda root: [])
     monkeypatch.delenv("GREEDY_LLM_MODEL_ID", raising=False)
     monkeypatch.delenv("GREEDY_TOKEN_LOG", raising=False)
@@ -586,7 +589,7 @@ def test_footer_full_exact(footer_env: Path) -> None:
         "Tier alternatives (estimated):\n"
         "  rg (disk search)           ~     0  ← this call\n"
         "  python (script)            ~     0  · 0 LLM\n"
-        "  ollama (cheap LLM)         ~     2  · unavailable (would fall back to"
+        "  ollama (cheap LLM)         ~ 6,002  · unavailable (would fall back to"
         " expensive LLM)\n"
         "  rag (docs/rag read)        ~ 1,802\n"
         "  cursor (expensive LLM)     ~ 6,008\n"

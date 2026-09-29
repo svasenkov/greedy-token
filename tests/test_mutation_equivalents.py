@@ -69,7 +69,7 @@ def _scan_module(path: Path) -> tuple[list[Marker], list[int]]:
     lines; the first non-comment line after the block is the anchored code line
     and determines whether the site carries ``# pragma: no mutate``.
     """
-    module = str(path.relative_to(SRC_ROOT))
+    module = path.relative_to(SRC_ROOT).as_posix()
     lines = path.read_text(encoding="utf-8").splitlines()
     markers: list[Marker] = []
     covered_pragma_lines: set[int] = set()
@@ -115,7 +115,7 @@ def _scan_source() -> tuple[list[Marker], dict[str, list[int]]]:
         found, naked_lines = _scan_module(path)
         markers.extend(found)
         if naked_lines:
-            naked[str(path.relative_to(SRC_ROOT))] = naked_lines
+            naked[path.relative_to(SRC_ROOT).as_posix()] = naked_lines
     return markers, naked
 
 

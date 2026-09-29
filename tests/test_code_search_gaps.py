@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import signal
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -1299,16 +1299,22 @@ def test_mcp_search_empty_result(
 
 def _bounded(fn, *args, seconds=2, **kwargs):
     """Call fn(); TimeoutError if it does not return (infinite-loop mutants)."""
-    def _boom(signum, frame):
-        raise TimeoutError("call did not terminate")
+    box: dict[str, object] = {}
 
-    prev = signal.signal(signal.SIGALRM, _boom)
-    signal.setitimer(signal.ITIMER_REAL, seconds)
-    try:
-        return fn(*args, **kwargs)
-    finally:
-        signal.setitimer(signal.ITIMER_REAL, 0)
-        signal.signal(signal.SIGALRM, prev)
+    def _run() -> None:
+        try:
+            box["result"] = fn(*args, **kwargs)
+        except BaseException as exc:
+            box["error"] = exc
+
+    worker = threading.Thread(target=_run, daemon=True)
+    worker.start()
+    worker.join(seconds)
+    if worker.is_alive():
+        raise TimeoutError("call did not terminate")
+    if "error" in box:
+        raise box["error"]  # type: ignore[misc]
+    return box["result"]
 
 
 def _write_ignore(path: Path, body: bytes | str) -> Path:

@@ -372,8 +372,11 @@ def test_tool_paths_empty_path_segment(tmp_path: Path, monkeypatch: pytest.Monke
     monkeypatch.setenv("PATH", os.pathsep.join(("", "", str(bin_dir))))
     monkeypatch.setattr("greedy_token.tool_paths.shutil.which", lambda *_a, **_k: None)
 
-    path_derived = [p for p in _rg_candidates() if p.parent == bin_dir]
-    assert path_derived == [bin_dir / "rg"]
+    candidates = list(_rg_candidates())
+    assert bin_dir / "rg" in candidates
+    # empty PATH segments must not yield a bare relative "rg" candidate
+    # (Windows also yields PATHEXT variants under bin_dir — both are fine)
+    assert Path("rg") not in candidates
 
     with patch("greedy_token.tool_paths._rg_candidates", return_value=iter([bin_dir / "rg"])):
         found = resolve_rg()

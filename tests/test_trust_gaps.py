@@ -174,17 +174,18 @@ def test_script_type_for_path_message() -> None:
 
 @allure.title("_secure_dir_fd_supported: full conjunction on posix hosts")
 def test_secure_dir_fd_supported(monkeypatch: pytest.MonkeyPatch) -> None:
-    assert os.name == "posix"  # test-host invariant
-    # `or`/`!=`/XXposixXX/hasattr(None)/XXATTRXX mutants break this.
-    assert trust._secure_dir_fd_supported() is True
+    if os.name == "posix":
+        # `or`/`!=`/XXposixXX/hasattr(None)/XXATTRXX mutants break this.
+        assert trust._secure_dir_fd_supported() is True
     monkeypatch.setattr(os, "name", "nt")
     assert trust._secure_dir_fd_supported() is False
 
 
 @allure.title("_fd_execution_supported: posix gate is a conjunction")
 def test_fd_execution_supported(monkeypatch: pytest.MonkeyPatch) -> None:
-    assert Path("/dev/fd").is_dir()  # test-host invariant
-    assert trust._fd_execution_supported() is True
+    if os.name == "posix":
+        assert Path("/dev/fd").is_dir()  # test-host invariant
+        assert trust._fd_execution_supported() is True
     monkeypatch.setattr(os, "name", "nt")
     assert trust._fd_execution_supported() is False
 
@@ -260,12 +261,15 @@ def test_open_portable_missing(tmp_path: Path) -> None:
     assert exc_info.value.code == "missing_file"
 
 
-@allure.title("_open_portable_nofollow: directory target → code 'untrusted_type'")
+@allure.title("_open_portable_nofollow: directory target → refusal code")
 def test_open_portable_not_regular(tmp_path: Path) -> None:
     (tmp_path / "d").mkdir()
     with pytest.raises(TrustVerificationError) as exc_info:
         trust._open_portable_nofollow(tmp_path, "d")
-    assert exc_info.value.code == "untrusted_type"
+    # POSIX opens a directory then rejects it on fstat; Windows cannot
+    # os.open() a directory at all → the OSError maps to 'missing_file'.
+    expected = "untrusted_type" if os.name == "posix" else "missing_file"
+    assert exc_info.value.code == expected
 
 
 @allure.title("_open_portable_nofollow: lstat/fstat identity drift → 'stale_identity'")
@@ -332,8 +336,10 @@ def test_write_entries_modes_and_temp(
 
     monkeypatch.setattr(os, "chmod", chmod_spy)
     path = trust._write_entries(root, (_entry(),))
-    # Kills dropped mode / 0o601.
-    assert stat_mod.S_IMODE(path.parent.stat().st_mode) == 0o700
+    # Kills dropped mode / 0o601 — stat-visible only on POSIX (Windows chmod
+    # is limited to the read-only bit); the chmod-call spy below covers nt.
+    if os.name == "posix":
+        assert stat_mod.S_IMODE(path.parent.stat().st_mode) == 0o700
     # Kills dropped/None/XX variants of prefix, suffix, dir.
     assert seen == {
         "prefix": ".manifest.", "suffix": ".tmp", "dir": path.parent
@@ -346,7 +352,8 @@ def test_write_entries_modes_and_temp(
     assert [mode for _, mode in chmod_calls] == [0o600, 0o600]
     assert chmod_calls[0][0].endswith(".tmp")
     assert chmod_calls[1][0] == "manifest.json"
-    assert stat_mod.S_IMODE(path.stat().st_mode) == 0o600
+    if os.name == "posix":
+        assert stat_mod.S_IMODE(path.stat().st_mode) == 0o600
     assert path.is_file()
 
 
