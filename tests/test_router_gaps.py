@@ -1188,3 +1188,470 @@ def test_format_decision_threads_root(
     monkeypatch.setattr(router, "explain_route", spy_er)
     router.format_decision(_decision(), "t", minimal_workspace)
     assert seen["root"] == minimal_workspace
+
+
+# --- mutation kill-tests: intent gates, argv construction, routing pipeline ---
+
+
+@allure.title("_matches_prefix: case-insensitive match and non-None pattern")
+def test_matches_prefix_semantics() -> None:
+    from greedy_token.router import _matches_prefix
+
+    # re.match(None, …) raises; dropped flags fails the mixed-case hit.
+    assert _matches_prefix("Find the thing", ("find",)) is True
+    assert _matches_prefix("unrelated", ("find",)) is False
+
+
+@allure.title("is_read_only_tool_intent: edit verbs in payload block tool routing")
+def test_tool_intent_payload_edit_verbs() -> None:
+    from greedy_token.router import is_read_only_tool_intent
+
+    with allure.step("pure jq lookup is read-only"):
+        assert is_read_only_tool_intent("jq .name docs/phase-manifest.json") is True
+    with allure.step("edit verb without a boundary word still blocks (kills has_edit_verbs(None))"):
+        assert is_read_only_tool_intent("jq .x fix") is False
+
+
+@allure.title("confidence_label: segment only appended when non-empty")
+def test_confidence_label_segment() -> None:
+    from greedy_token.router import confidence_label
+
+    base = router.RouteDecision(
+        target="python", route_id="r", confidence=0.5, matched=[], command=None,
+        note="", domains=[], confidence_source=router.SOURCE_OUTCOME_CALIBRATED
+        if hasattr(router, "SOURCE_OUTCOME_CALIBRATED") else "outcome_calibrated",
+        calibration_n=7,
+    )
+    # (seg) or True would append ', ' after n=7; else "XXXX" the same.
+    assert confidence_label(base) == "outcome-calibrated (n=7)"
+    seg = router.RouteDecision(
+        target="python", route_id="r", confidence=0.5, matched=[], command=None,
+        note="", domains=[],
+        confidence_source=getattr(router, "SOURCE_OUTCOME_CALIBRATED", "outcome_calibrated"),
+        calibration_n=7, calibration_segment="lang:en",
+    )
+    assert confidence_label(seg) == "outcome-calibrated (n=7, lang:en)"
+
+
+@allure.title("format_decision: structured invocation wins over the raw command string")
+def test_format_decision_invocation_preferred(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from greedy_token.subprocess_safe import format_invocation
+
+    monkeypatch.setattr(
+        router, "explain_route",
+        lambda d, t, r: {"reason": "why", "runner_up": None, "saved_est": 0},
+    )
+    monkeypatch.setattr(router, "uncalibrated_nudge", lambda: None)
+    argv = ("rg", "-n", "query")
+    dec = router.RouteDecision(
+        target="tool", route_id="tool-rg", confidence=0.5, matched=["q"],
+        command="custom-raw-string", note="", domains=[],
+        command_argv=argv, command_cwd=minimal_workspace,
+    )
+    out = router.format_decision(dec, "task", minimal_workspace)
+    expected = f"Command: {format_invocation(argv, minimal_workspace)}"
+    assert expected in out
+    assert "Command: custom-raw-string" not in out
+
+
+@allure.title("_split_search_paths: exact (existing, missing) split and defaults")
+def test_split_search_paths_exact(minimal_workspace: Path) -> None:
+    from greedy_token.router import _split_search_paths
+
+    with allure.step("missing key → default '.' on disk (kills `and`/key mutants)"):
+        assert _split_search_paths({}, minimal_workspace) == (["."], [])
+    with allure.step("split by existence (kills missing=None and dropped-arg mutants)"):
+        assert _split_search_paths(
+            {"search_paths": ["docs", "gone-dir"]}, minimal_workspace
+        ) == (["docs"], ["gone-dir"])
+
+
+@allure.title("_best_in_tier: skip-continue does not stop the scan")
+def test_best_in_tier_continue_semantics(minimal_workspace: Path) -> None:
+    with allure.step("tool route skipped for non-read-only task, python route still wins"):
+        decision = router._best_in_tier(
+            [
+                {"id": "tool-rg", "target": "tool", "patterns": ["deploy"], "tool": "rg"},
+                {"id": "py-x", "target": "python", "patterns": ["deploy"]},
+            ],
+            "update the deploy docs",
+            "update the deploy docs",
+            minimal_workspace,
+        )
+        # continue→break would return None before reaching py-x.
+        assert decision is not None
+        assert decision.route_id == "py-x"
+
+    with allure.step("malformed tool route skipped, later valid route wins"):
+        decision2 = router._best_in_tier(
+            [
+                {
+                    "id": "bad",
+                    "target": "tool",
+                    "patterns": ["deploy"],
+                    "search_paths": ["../outside"],
+                },
+                {"id": "good", "target": "python", "patterns": ["deploy"]},
+            ],
+            "find deploy docs",
+            "find deploy docs",
+            minimal_workspace,
+        )
+        # Malformed route must not abort the loop (continue→break → None).
+        assert decision2 is not None
+        assert decision2.route_id == "good"
+
+    with allure.step("route without patterns key scores 0 and is skipped"):
+        decision3 = router._best_in_tier(
+            [
+                {"id": "no-pats", "target": "python"},
+                {"id": "good2", "target": "python", "patterns": ["deploy"]},
+            ],
+            "update the deploy docs",
+            "update the deploy docs",
+            minimal_workspace,
+        )
+        # patterns=None/dropped → _score_patterns(text, None) → TypeError.
+        assert decision3 is not None
+        assert decision3.route_id == "good2"
+
+
+@allure.title("_build_tool_argv: field name in the json_path confinement error")
+def test_build_tool_argv_field_name(minimal_workspace: Path) -> None:
+    from greedy_token.router import _build_tool_argv
+
+    with pytest.raises(ValueError, match=r"^json_path must be a workspace-relative path$"):
+        _build_tool_argv(
+            {"tool": "jq", "json_path": "/tmp/x.json"}, "task", minimal_workspace
+        )
+
+
+@allure.title("_build_tool_argv: executable falls back to the bare tool name")
+def test_build_tool_argv_tool_fallback(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from greedy_token.router import _build_tool_argv
+
+    with allure.step("resolve_jq → None keeps literal 'jq' as argv[0]"):
+        monkeypatch.setattr(router, "resolve_jq", lambda: None)
+        argv = _build_tool_argv({"tool": "jq"}, "task", minimal_workspace)
+        assert argv[0] == "jq"
+    with allure.step("resolve_rg → None keeps literal 'rg' as argv[0]"):
+        monkeypatch.setattr(router, "resolve_rg", lambda: None)
+        argv2 = _build_tool_argv({}, "find baseUrl", minimal_workspace)
+        assert argv2[0] == "rg"
+
+
+@allure.title("_build_tool_argv: max_count bounds and error text are exact")
+def test_build_tool_argv_max_count_bounds(minimal_workspace: Path) -> None:
+    from greedy_token.router import _build_tool_argv
+
+    with allure.step("both bounds inclusive (kills 2<=, 1<, <1000, <=1001)"):
+        argv = _build_tool_argv({"max_count": 1}, "find baseUrl", minimal_workspace)
+        assert "--max-count" in argv and argv[argv.index("--max-count") + 1] == "1"
+        argv = _build_tool_argv({"max_count": 1000}, "find baseUrl", minimal_workspace)
+        assert argv[argv.index("--max-count") + 1] == "1000"
+    with allure.step("out-of-range message is exact (kills XX…XX)"):
+        with pytest.raises(
+            ValueError, match=r"^max_count must be between 1 and 1000$"
+        ):
+            _build_tool_argv({"max_count": 0}, "find baseUrl", minimal_workspace)
+    with allure.step("non-integer message is exact (kills XX…XX)"):
+        with pytest.raises(
+            ValueError, match=r"^max_count must be an integer$"
+        ):
+            _build_tool_argv({"max_count": "abc"}, "find baseUrl", minimal_workspace)
+
+
+@allure.title("_decision_from_route: calibration kwargs and outcome fields are threaded")
+def test_decision_from_route_calibration_args(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from greedy_token.router import _decision_from_route
+
+    seen: dict = {}
+    lang_seen: dict = {}
+
+    def fake_confidence(score, *, tier, language, route_id):
+        seen.update(
+            score=score, tier=tier, language=language, route_id=route_id
+        )
+        return SimpleNamespace(
+            confidence=0.66, source="test-src", n=3, segment="", segment_type=""
+        )
+
+    def fake_lang(task):
+        lang_seen["task"] = task
+        return "test-lang"
+
+    monkeypatch.setattr(router, "confidence_for_outcome", fake_confidence)
+    monkeypatch.setattr(router, "detect_task_language", fake_lang)
+    dec = router._decision_from_route(
+        {"id": "py", "target": "python", "patterns": []},
+        score=1.0, matched=[], task="the task", root=minimal_workspace,
+    )
+    # Kills tier=None/dropped, dropped language, detect_task_language(None).
+    assert seen == {
+        "score": 1.0, "tier": "python", "language": "test-lang",
+        "route_id": "py",
+    }
+    assert lang_seen["task"] == "the task"
+    assert dec.confidence == 0.66
+    assert dec.confidence_source == "test-src"
+    assert dec.calibration_n == 3
+    # `or True` / `else "XXXX"` would corrupt the empty segment.
+    assert dec.calibration_segment == ""
+
+
+@allure.title("_decision_from_route: calibration segment rendering")
+def test_decision_from_route_calibration_segment(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from greedy_token.router import _decision_from_route
+
+    monkeypatch.setattr(
+        router, "confidence_for_outcome",
+        lambda score, *, tier, language, route_id: SimpleNamespace(
+            confidence=0.7, source="s", n=1, segment="en", segment_type="lang"
+        ),
+    )
+    dec = router._decision_from_route(
+        {"id": "py", "target": "python", "patterns": []},
+        score=1.0, matched=[], task="t", root=minimal_workspace,
+    )
+    assert dec.calibration_segment == "lang:en"
+
+
+@allure.title("_decision_from_route: command authority paths are exact")
+def test_decision_from_route_command_authority(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from greedy_token.router import _decision_from_route
+
+    with allure.step("no command → argv/cwd stay None (kills '' init mutants)"):
+        dec = router._decision_from_route(
+            {"id": "py", "target": "python", "patterns": []},
+            score=1.0, matched=[], task="do", root=minimal_workspace,
+        )
+        assert dec.command_argv is None
+        assert dec.command_cwd is None
+
+    with allure.step("wrapper command → resolve_wrapper_invocation argv/cwd used verbatim"):
+        calls: dict = {}
+
+        def fake_command_to_argv(command, *, default_cwd, workspace_root):
+            calls.update(
+                command=command, default_cwd=default_cwd,
+                workspace_root=workspace_root,
+            )
+            return minimal_workspace, ["python", "scripts/x.py", "--flag"]
+
+        def fake_invocation(wid, root, *, extra_args):
+            calls["wid"] = wid
+            calls["root"] = root
+            calls["extra_args"] = extra_args
+            return SimpleNamespace(argv=("wrapped",), cwd=minimal_workspace)
+
+        monkeypatch.setattr(router, "command_to_argv", fake_command_to_argv)
+        monkeypatch.setattr(router, "resolve_wrapper_invocation", fake_invocation)
+        monkeypatch.setattr(
+            router, "wrapper_command_fixed_args", lambda argv: ("F",)
+        )
+        # scripts/ollama/audit-skill.sh is a registered wrapper command.
+        dec_w = router._decision_from_route(
+            {
+                "id": "w",
+                "target": "python",
+                "patterns": [],
+                "command": "scripts/ollama/audit-skill.sh",
+            },
+            score=1.0, matched=[], task="do", root=minimal_workspace,
+        )
+        # Kills wrapper=None / wrapper_for_command(None) — the spy never runs.
+        assert calls["wid"] is not None
+        assert calls["root"] == minimal_workspace
+        # Kills the command_to_argv arg mutants (None command, None/dropped roots).
+        assert calls["command"] == "scripts/ollama/audit-skill.sh"
+        assert calls["default_cwd"] == minimal_workspace
+        assert calls["workspace_root"] == minimal_workspace
+        # Kills command_argv/cwd = None inside the wrapper branch.
+        assert dec_w.command_argv == ("wrapped",)
+        assert dec_w.command_cwd == minimal_workspace
+
+    with allure.step("plain command → command_to_argv tuple + parsed cwd"):
+        calls2: dict = {}
+
+        def fake_c2a(command, *, default_cwd, workspace_root):
+            calls2.update(
+                command=command, default_cwd=default_cwd,
+                workspace_root=workspace_root,
+            )
+            return minimal_workspace, ["python", "scripts/x.py"]
+
+        monkeypatch.setattr(router, "command_to_argv", fake_c2a)
+        dec_p = router._decision_from_route(
+            {
+                "id": "p",
+                "target": "python",
+                "patterns": [],
+                "command": "python scripts/x.py",
+            },
+            score=1.0, matched=[], task="do", root=minimal_workspace,
+        )
+        assert calls2["command"] == "python scripts/x.py"
+        assert calls2["default_cwd"] == minimal_workspace
+        assert calls2["workspace_root"] == minimal_workspace
+        # Kills tuple(None) and command_cwd=None.
+        assert dec_p.command_argv == ("python", "scripts/x.py")
+        assert dec_p.command_cwd == minimal_workspace
+
+
+@allure.title("_escalate_edit_from_cheap: every escalated field is exact")
+def test_escalate_edit_exact_fields(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from greedy_token.router import EDIT_ESCALATE_NOTE
+
+    seen: dict = {}
+    orig = router._token_estimate_for_route
+
+    def spy(target, *, task, root):
+        seen.update(target=target, task=task, root=root)
+        return orig(target, task=task, root=root)
+
+    monkeypatch.setattr(router, "_token_estimate_for_route", spy)
+    decision = router.RouteDecision(
+        target="rag", route_id="rag-docs", confidence=0.55,
+        matched=["deploy"], command=None, note="", domains=["ops"],
+        raw_score=0.4, confidence_source="src-x", calibration_n=2,
+        calibration_segment="lang:en", shadow_route_id="shadow-1",
+        tool="ignored",
+    )
+    out = router._escalate_edit_from_cheap(
+        decision, "update the deploy docs", minimal_workspace
+    )
+    # Kills "cursor"→None/"XXcursorXX"/"CURSOR".
+    assert out.target == "cursor"
+    assert out.route_id == "cursor-edit-escalate"
+    # Kills root=None — the spy records what was passed.
+    assert seen["target"] == "cursor"
+    assert seen["root"] == minimal_workspace
+    # Kills the None/dropped field mutants.
+    assert out.confidence == 0.55
+    assert out.matched == ["deploy"]
+    assert out.command is None
+    assert out.note == EDIT_ESCALATE_NOTE
+    assert out.domains == ["ops"]
+    assert out.complexity == "high"
+    assert isinstance(out.est_tokens, int)
+    assert out.read_only is False
+    assert out.tool is None
+    assert out.shadow_route_id == "shadow-1"
+    assert out.raw_score == 0.4
+    assert out.calibration_n == 2
+    assert out.calibration_segment == "lang:en"
+    assert out.rationale.startswith(
+        "Matched rag/rag-docs on cheap patterns, but edit verbs require agent path."
+    )
+    with allure.step("confidence >= 0.55 keeps source — `>` alone would force FIXED"):
+        assert out.confidence_source == "src-x"
+
+    with allure.step("below-floor confidence is marked fixed"):
+        low = router.RouteDecision(
+            target="rag", route_id="rag-x", confidence=0.10, matched=["d"],
+            command=None, note="", domains=[],
+        )
+        out_low = router._escalate_edit_from_cheap(
+            low, "update the deploy docs", minimal_workspace
+        )
+        assert out_low.confidence == 0.55
+        assert out_low.confidence_source == "fixed"
+
+
+@allure.title("route_task: mixed lookup+edit escalates before tier scoring")
+def test_route_task_false_cheap_escalation(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from greedy_token.router import EDIT_ESCALATE_NOTE
+
+    monkeypatch.setattr(
+        router, "load_routes_config",
+        lambda root: {
+            "routes": [
+                {
+                    "id": "shadow-hit", "target": "cursor",
+                    "shadow_until": "2999-01-01T00:00:00+00:00",
+                    "patterns": ["jq"],
+                }
+            ]
+        },
+    )
+    seen: dict = {}
+    orig = router._token_estimate_for_route
+
+    def spy(target, *, task, root):
+        seen.update(target=target, root=root)
+        return orig(target, task=task, root=root)
+
+    monkeypatch.setattr(router, "_token_estimate_for_route", spy)
+    dec = router.route_task(
+        "jq .x docs/phase-manifest.json and fix the pipeline", minimal_workspace
+    )
+    # Kills "cursor"→None/"XXcursorXX"/"CURSOR" at the escalation branch.
+    assert dec.target == "cursor"
+    assert dec.route_id == "cursor-edit-escalate"
+    assert seen["target"] == "cursor"
+    assert seen["root"] == minimal_workspace  # kills root=None
+    # Exact fields — kills None/dropped/literal mutants.
+    assert dec.confidence == 0.60
+    assert dec.matched == []
+    assert dec.command is None
+    assert dec.note == EDIT_ESCALATE_NOTE
+    assert dec.domains == []
+    assert dec.complexity == "high"
+    assert isinstance(dec.est_tokens, int)
+    assert dec.rationale == (
+        "A recognised lookup contains a second or mutating action; "
+        f"fail-safe escalation. {dec.rationale.split('fail-safe escalation. ', 1)[1]}"
+    )
+    assert dec.rationale.startswith(
+        "A recognised lookup contains a second or mutating action; "
+        "fail-safe escalation. "
+    )
+    assert dec.confidence_source == "fixed"
+    # Kills shadow_id→None — the shadow route matched the task text.
+    assert dec.shadow_route_id == "shadow-hit"
+
+
+@allure.title("route_task: escalation inside the tier loop gets the real root")
+def test_route_task_tier_loop_escalation_root(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        router, "load_routes_config",
+        lambda root: {
+            "routes": [
+                {"id": "rag-docs", "target": "rag", "patterns": ["deploy"]},
+            ]
+        },
+    )
+    import greedy_token.budget_policy as bp
+
+    monkeypatch.setattr(bp, "apply_budget_policy", lambda d, t, r: d)
+    seen: dict = {}
+    orig = router._token_estimate_for_route
+
+    def spy(target, *, task, root):
+        seen.setdefault("roots", []).append(root)
+        return orig(target, task=task, root=root)
+
+    monkeypatch.setattr(router, "_token_estimate_for_route", spy)
+    dec = router.route_task("update the deploy docs", minimal_workspace)
+    # rag route matches → budget policy → edit-verb escalation. Kills
+    # _escalate_edit_from_cheap(decided, task, None).
+    assert dec.target == "cursor"
+    assert dec.route_id == "cursor-edit-escalate"
+    assert seen["roots"]
+    assert all(root == minimal_workspace for root in seen["roots"])

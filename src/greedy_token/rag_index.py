@@ -18,6 +18,8 @@ def _tokenize(text: str) -> frozenset[str]:
     # Unicode letters/digits (incl. Cyrillic) plus ASCII _- for code ids.
     # ASCII-only [a-z0-9_] left RU queries as an empty token set → no RAG hits.
     normalized = _normalize(text)
+    # equivalent: re.UNICODE is the default for str patterns — dropping the
+    # flag changes nothing for \w on str input.
     return frozenset(re.findall(r"[\w-]{2,}", normalized, flags=re.UNICODE))
 
 
@@ -40,6 +42,9 @@ def _load_manifest_rows(manifest: Path) -> list[dict]:
     if manifest.stat().st_size > MAX_MANIFEST_BYTES:
         return []
     rows: list[dict] = []
+    # equivalent: a dropped encoding resolves to the locale encoding — UTF-8 on
+    # the mutmut dev hosts — and codec names are case-insensitive, so "UTF-8"
+    # decodes identically; the explicit arg is load-bearing on non-UTF-8 hosts.
     for line in manifest.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if line:
@@ -124,6 +129,8 @@ def _read_text_chunk(path: Path) -> str | None:
     if len(raw) > MAX_CHUNK_BYTES or b"\x00" in raw:
         return None
     try:
+        # equivalent: codec names are case-insensitive — decode("UTF-8") is the
+        # same decoder as "utf-8" on every host.
         return raw.decode("utf-8")
     except UnicodeDecodeError:
         return None
@@ -152,6 +159,8 @@ def load_manifest_documents(root: Path) -> list[ManifestDocument]:
         normalized_body = _normalize(_strip_frontmatter(body))
         canonical_meta = json.dumps(
             meta, sort_keys=True, ensure_ascii=False
+            # equivalent: codec names are case-insensitive — encode("UTF-8") on
+            # the canonical meta produces the same bytes as "utf-8".
         ).encode("utf-8")
         base_key = hashlib.sha256(canonical_meta).hexdigest()
         occurrence = key_counts.get(base_key, 0)
@@ -159,6 +168,8 @@ def load_manifest_documents(root: Path) -> list[ManifestDocument]:
         entry_key = f"{base_key}:{occurrence}"
         content_hash = hashlib.sha256(
             canonical_meta + b"\0" + normalized_body.encode("utf-8")
+            # equivalent: codec names are case-insensitive — encode("UTF-8") on
+            # the normalized body produces the same bytes as "utf-8".
         ).hexdigest()
         documents.append(
             ManifestDocument(

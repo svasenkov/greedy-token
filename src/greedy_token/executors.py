@@ -131,6 +131,10 @@ def plan_run(decision: RouteDecision, task: str, root: Path | None = None) -> Ru
                 # Legacy route compatibility only; execution below remains argv/cwd.
                 parsed_cwd, parsed_argv = command_to_argv(
                     decision.command,
+                    # equivalent: workspace_root is always set here, and
+                    # command_to_argv normalises a missing cwd via
+                    # (cwd or root).resolve() — a dropped/None default_cwd
+                    # resolves to the same root.
                     default_cwd=root,
                     workspace_root=root,
                 )
@@ -265,7 +269,9 @@ def execute_plan(plan: RunPlan) -> PlanRunResult:
             **run_kwargs,
         )
     except TrustError as exc:
-        code = getattr(exc, "code", "")
+        # equivalent: `code` is rendered only when truthy — the "" and None
+        # defaults both produce an empty tag for codeless errors.
+        code = getattr(exc, "code", "")  # pragma: no mutate
         tag = f" [{code}]" if code else ""
         return PlanRunResult(
             1, f"Refusing --execute: trust verification failed{tag}: {exc}"
@@ -286,6 +292,8 @@ def execute_plan(plan: RunPlan) -> PlanRunResult:
     # The canon contract applies to script stdout; the exit code stays the
     # observed fact, result_status is the contract verdict.
     result_status = (
+        # equivalent: a falsy stdout and the "XXXX" sentinel both lack a JSON
+        # claim line, so evaluate_script_result returns not_evaluated either way.
         evaluate_script_result(proc.stdout or "", proc.returncode)
         if plan.script_type == "python"
         else RESULT_NOT_EVALUATED
@@ -481,7 +489,10 @@ def task_result_gate(result: TaskRunResult, decision: RouteDecision) -> GateDeci
     every other tier's native evaluator is the observed output itself:
     nothing on stdout/stderr means nothing was delivered.
     """
-    useful = None
+    # equivalent: the initial value only reaches the gate as output_useful
+    # when result.started is False, and the not-started gate return ignores
+    # output_useful — "" and None yield the same GateDecision.
+    useful = None  # pragma: no mutate
     if result.started:
         if decision.target == "tool":
             useful = not _tool_output_weak(result.output, result.exit_code)

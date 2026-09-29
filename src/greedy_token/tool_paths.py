@@ -66,6 +66,9 @@ def _windows_executable_names(tool: str, directory: str) -> Iterator[Path]:
     ``shutil.which`` already honours PATHEXT; this manual PATH scan needs the
     same treatment or ``dir\\rg`` never matches a real ``rg.exe``.
     """
+    # equivalent: the fallback literal's case is normalized away —
+    # ext.strip().lower() emits identical candidate names for
+    # ".COM;.EXE;.BAT;.CMD" and its lowercase flip.
     pathext = os.environ.get("PATHEXT", ".COM;.EXE;.BAT;.CMD")
     for ext in pathext.split(";"):
         ext = ext.strip().lower()

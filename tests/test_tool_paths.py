@@ -369,6 +369,34 @@ def test_windows_executable_names_skips_empty_pathext(
 
 
 @allure.story("Ripgrep")
+@allure.title("PATHEXT unset falls back to the .COM/.EXE/.BAT/.CMD defaults")
+def test_windows_executable_names_pathext_unset(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("PATHEXT", raising=False)
+    names = [
+        p.name for p in tool_paths._windows_executable_names("rg", str(tmp_path))
+    ]
+    # exact list kills: default None / dropped default (crash on .split) and
+    # "XX.COM;...CMDXX" (extra rgxx.com / rg.cmdxx entries).
+    assert names == ["rg.com", "rg.exe", "rg.bat", "rg.cmd"]
+
+
+@allure.story("Tool resolution")
+@allure.title("resolve_jq honors the GREEDY_TOKEN_JQ override (uppercase var name)")
+def test_resolve_jq_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    jq = tmp_path / "custom-jq"
+    jq.write_text("#!/bin/sh\necho jq\n", encoding="utf-8")
+    jq.chmod(0o755)
+    monkeypatch.setenv("GREEDY_TOKEN_JQ", str(jq))
+    monkeypatch.delenv("GREEDY_TOKEN_jq", raising=False)
+    monkeypatch.setattr(tool_paths.shutil, "which", lambda _name: None)
+    monkeypatch.setenv("PATH", "")
+    # kills override_var = tool.lower() — the env contract is uppercase only.
+    assert tool_paths.resolve_jq() == jq.resolve()
+
+
+@allure.story("Ripgrep")
 @allure.title("/Applications Devin glob finds a real executable rg on this machine")
 @pytest.mark.skipif(
     not _DEVIN_SYS_PARENT.is_dir(), reason="Devin.app is not installed"

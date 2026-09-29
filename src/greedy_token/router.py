@@ -225,6 +225,9 @@ def is_read_only_tool_intent(task: str) -> bool:
         (
             found
             for prefix in STRUCTURED_LOOKUP_PREFIXES
+            # equivalent: flags=re.IGNORECASE is inert here — every lookup
+            # prefix is a lowercase literal and `text` was already
+            # _normalize()d, so case folding can never change the match.
             if (found := re.match(prefix, text, flags=re.IGNORECASE))
         ),
         None,

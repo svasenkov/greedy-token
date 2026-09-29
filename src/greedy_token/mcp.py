@@ -127,7 +127,7 @@ def greedy_token_route(task: str) -> str:
 
 @mcp.tool()
 def greedy_token_rag(query: str, domain: str = "") -> str:
-    """Search docs/rag chunks. Optional domain filter (comma-separated manifest names)."""
+    """Lexical search over docs/rag knowledge-base chunks (token overlap / SQLite BM25 — no embeddings). Optional domain filter (comma-separated manifest names)."""
     t0 = time.perf_counter()
     root = find_workspace_root()
     task = f"rag: {query}" + (f" [{domain}]" if domain else "")

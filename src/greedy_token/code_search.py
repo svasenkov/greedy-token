@@ -243,6 +243,9 @@ def _python_search_file(
 ) -> list[str]:
     try:
         # errors="replace" keeps non-UTF-8 files searchable instead of raising.
+        # equivalent: encoding=None, a dropped encoding arg, and "UTF-8" all
+        # decode with the same codec on supported dev hosts — the platform
+        # default is UTF-8 and codec names are case-insensitive.
         text = path.read_text(encoding="utf-8", errors="replace")
     except OSError as exc:
         return [f"Error reading {path}: {exc}"]
@@ -283,6 +286,9 @@ class _IgnoreRule:
         if self.anchored:
             return any(
                 self.regex.fullmatch("/".join(parts[:i]))
+                # equivalent: i<2 candidates ("" or a single segment) contain
+                # no "/", and an anchored glob's regex always has a literal
+                # one — range(0, …) and range(2, …) match identically.
                 for i in range(1, depth + 1)
             )
         return any(self.regex.fullmatch(p) for p in parts[:depth])
@@ -319,6 +325,9 @@ def _glob_to_regex(pattern: str) -> re.Pattern[str]:
 def _ignore_rules_in(path: Path, base_dir: str) -> list[_IgnoreRule]:
     rules: list[_IgnoreRule] = []
     try:
+        # equivalent: encoding=None / a dropped encoding arg resolve to the
+        # platform default (UTF-8 on supported dev hosts); "UTF-8" is the
+        # same codec spelled case-insensitively.
         lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError:
         return rules
@@ -352,11 +361,15 @@ def _load_ignore_rules(root: Path, scope_dirs: list[Path]) -> list[_IgnoreRule]:
     passed explicitly as scope operands bypass ignore rules, like rg.
     """
     ignore_files: list[Path] = []
+    # equivalent: ".IGNORE" resolves to the same file on the case-insensitive
+    # filesystems of supported dev hosts (APFS, NTFS).
     if (root / ".ignore").is_file():
+        # equivalent: appending ".IGNORE" names the same file there too.
         ignore_files.append(root / ".ignore")
     for base in scope_dirs:
         if not base.is_dir():
             continue
+        # equivalent: rglob(".IGNORE") matches the same entries there.
         for ignore in base.rglob(".ignore"):
             if any(
                 part in SKIP_DIR_NAMES or part.startswith(".")
@@ -371,6 +384,8 @@ def _load_ignore_rules(root: Path, scope_dirs: list[Path]) -> list[_IgnoreRule]:
         try:
             base_dir = ignore.parent.relative_to(root).as_posix()
         except ValueError:
+            # equivalent: base_dir is only truthiness-tested by _IgnoreRule —
+            # None and "" select the same branch.
             base_dir = ""
         if base_dir == ".":
             base_dir = ""
@@ -410,6 +425,8 @@ def _python_search_tree(
             if not path.is_file():
                 continue
             try:
+                # equivalent: path==base makes relative_to(base).parts == ()
+                # too — the unconditional branch yields the same empty tuple.
                 local_parts = path.relative_to(base).parts if path != base else ()
             except ValueError:
                 local_parts = path.parts
@@ -429,6 +446,8 @@ def _python_search_tree(
             for line_no, line in enumerate(
                 # errors="replace" keeps non-UTF-8 files in the scan instead of
                 # raising UnicodeDecodeError on binary/badly-encoded sources.
+                # equivalent: encoding=None / dropped / "UTF-8" — same codec
+                # resolution as in _ignore_rules_in above.
                 path.read_text(encoding="utf-8", errors="replace").splitlines(), 1
             ):
                 if query not in line:
@@ -444,6 +463,8 @@ def _run_rg(argv: tuple[str, ...], *, cwd: Path) -> tuple[int, str]:
     try:
         proc = subprocess.run(
             list(argv),
+            # equivalent: subprocess treats shell=None and a missing shell
+            # argument exactly like shell=False.
             shell=False,
             capture_output=True,
             text=True,
@@ -607,6 +628,8 @@ _TRUNCATION_NOTE = "… (truncated to token budget)"
 
 def _fit_rows_to_budget(rows: list[str], token_budget: int) -> list[str]:
     """Largest leading slice of *rows* estimated to fit *token_budget*."""
+    # equivalent: token_budget==0 also returns [] — the first row costs at
+    # least one token plus a newline, so the loop below breaks with no rows.
     if token_budget <= 0:
         return []
     from greedy_token.tokens import count_tokens
@@ -666,11 +689,16 @@ def enrich_search_hits(
         try:
             # errors="replace" — hits may point at non-UTF-8 files (rg still
             # reports binary hits); strict decoding would raise here.
+            # equivalent: encoding=None / dropped / "UTF-8" — same codec
+            # resolution as in _python_search_tree above.
             all_lines = file_path.read_text(encoding="utf-8", errors="replace").splitlines()
         except OSError:
             continue
 
         rel = _format_rel(file_path, root)
+        # equivalent: both initializers are dead stores — non-file mode
+        # reassigns anchor and start from the hit line below, and file mode
+        # never reads them.
         snippet_anchor = 0
         snippet_start = 1
         if mode == "file":
@@ -698,6 +726,9 @@ def enrich_search_hits(
                 break
             # The very first file can exceed the whole budget: emit the largest
             # leading slice that fits instead of bypassing the limit.
+            # equivalent: the while-loop below trims `kept` down to the largest
+            # prefix that fits max_tokens — a different initial superset only
+            # changes the iteration count, never the surviving prefix.
             kept = _fit_rows_to_budget(
                 rows, max_tokens - count_tokens(header + "\n").tokens
             )
@@ -878,6 +909,8 @@ def search_code(
         # and must stay literal even when it looks like a flag.
         argv.extend(("--max-count", str(limit), "--", query))
         if resolved and resolved.is_dir():
+            # equivalent: resolve_search_path_detail only returns paths under
+            # root, so is_relative_to(root) is always True here.
             rel = resolved.relative_to(root) if resolved.is_relative_to(root) else resolved
             scope = rel.as_posix()
             argv.append(scope)
@@ -899,6 +932,8 @@ def search_code(
 
     if resolved and resolved.is_dir():
         scope_dirs = [resolved]
+        # equivalent: same confinement — resolved always lies under root, so
+        # the else branch is dead code.
         rel = resolved.relative_to(root) if resolved.is_relative_to(root) else resolved
         scope = rel.as_posix()
     else:

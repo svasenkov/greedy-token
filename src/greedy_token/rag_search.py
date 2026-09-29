@@ -23,6 +23,8 @@ def _score_indexed(query_tokens: set[str], chunk: IndexedChunk) -> float:
     overlap = query_tokens & (chunk.body_tokens | chunk.meta_tokens)
     if not overlap:
         return 0.0
+    # equivalent: n*1.0 and n/1.0 are the same float for every int n ≥ 1
+    # reachable here.
     score = len(overlap) * 1.0
     chunk_id = chunk.meta.get("id", "").lower()
     for tok in overlap:
@@ -87,6 +89,8 @@ def search_rag(
                 score=score,
                 excerpt=_excerpt(body, query_tokens),
                 body=body,
+                # equivalent: RagHit.engine already defaults to "overlap" — the
+                # explicit arg restates the dataclass default.
                 engine="overlap",
             )
         )

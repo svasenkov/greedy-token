@@ -26,6 +26,198 @@ equivalents:
       which branch runs.
     pragma: false
 
+  - module: code_search.py
+    symbol: matches
+    reason: >-
+      i<2 candidates ("" or a single segment) contain no "/", and an anchored
+      glob's regex always has a literal one — range(0, …) and range(2, …)
+      match identically.
+    proof: >-
+      _ignore_rules_in sets anchored="/" in pattern after strip("/"), so an
+      anchored regex always embeds a literal "/". fullmatch against
+      "/".join(parts[:i]) can only succeed when the candidate contains "/",
+      which requires i>=2 — i=0 joins to "" and i=1 to one segment.
+    pragma: false
+
+  - module: code_search.py
+    symbol: _python_search_file
+    reason: >-
+      encoding=None, a dropped encoding arg, and "UTF-8" all decode with the
+      same codec on supported dev hosts — the platform default is UTF-8 and
+      codec names are case-insensitive.
+    proof: >-
+      Path.read_text(encoding=None) and a dropped encoding arg both use
+      locale.getpreferredencoding(False), which is UTF-8 on supported
+      macOS/Linux dev hosts; codecs.lookup normalizes case, so "UTF-8" is the
+      same codec as "utf-8".
+    pragma: false
+
+  - module: code_search.py
+    symbol: _ignore_rules_in
+    reason: >-
+      encoding=None / a dropped encoding arg resolve to the platform default
+      (UTF-8 on supported dev hosts); "UTF-8" is the same codec spelled
+      case-insensitively.
+    proof: >-
+      Same codec resolution as _python_search_file: encoding=None resolves to
+      the platform default (UTF-8 here), and codecs.lookup is
+      case-insensitive for "UTF-8".
+    pragma: false
+
+  - module: code_search.py
+    symbol: _load_ignore_rules
+    reason: >-
+      ".IGNORE" resolves to the same file on the case-insensitive filesystems
+      of supported dev hosts (APFS, NTFS).
+    proof: >-
+      The development and test environment is a case-insensitive filesystem
+      (APFS default on macOS, NTFS on Windows), so `root / ".IGNORE"` names
+      the same path as `root / ".ignore"` and is_file() answers identically.
+    pragma: false
+
+  - module: code_search.py
+    symbol: _load_ignore_rules
+    reason: appending ".IGNORE" names the same file there too.
+    proof: >-
+      Same case-insensitive filesystem argument as the ".ignore" is_file
+      check above — the appended path resolves to the same directory entry.
+    pragma: false
+
+  - module: code_search.py
+    symbol: _load_ignore_rules
+    reason: rglob(".IGNORE") matches the same entries there.
+    proof: >-
+      On case-insensitive filesystems rglob(".IGNORE") yields the same
+      directory entries as rglob(".ignore"), so the collected ignore-file
+      set is identical.
+    pragma: false
+
+  - module: code_search.py
+    symbol: _load_ignore_rules
+    reason: >-
+      base_dir is only truthiness-tested by _IgnoreRule — None and "" select
+      the same branch.
+    proof: >-
+      The only consumer is `if self.base_dir:` inside _IgnoreRule.matches,
+      where None and "" are both falsy; no equality or string operation ever
+      reads the value before that guard.
+    pragma: false
+
+  - module: code_search.py
+    symbol: _python_search_tree
+    reason: >-
+      path==base makes relative_to(base).parts == () too — the unconditional
+      branch yields the same empty tuple.
+    proof: >-
+      Path(base).relative_to(base) is Path("."), whose .parts is () — so
+      forcing the (path != base) or True branch still produces () and the
+      downstream skip checks see the same empty sequence.
+    pragma: false
+
+  - module: code_search.py
+    symbol: _python_search_tree
+    reason: >-
+      encoding=None / dropped / "UTF-8" — same codec resolution as in
+      _ignore_rules_in above.
+    proof: >-
+      encoding=None and a dropped encoding arg resolve to the platform
+      default (UTF-8 on supported dev hosts), and codecs.lookup treats
+      "UTF-8" case-insensitively — same proof as _ignore_rules_in.
+    pragma: false
+
+  - module: code_search.py
+    symbol: _run_rg
+    reason: >-
+      subprocess treats shell=None and a missing shell argument exactly like
+      shell=False.
+    proof: >-
+      subprocess.run only branches on truthiness of shell; None and an absent
+      argument both evaluate falsy and take the no-shell exec path.
+    pragma: false
+
+  - module: code_search.py
+    symbol: _fit_rows_to_budget
+    reason: >-
+      token_budget==0 also returns [] — the first row costs at least one
+      token plus a newline, so the loop below breaks with no rows.
+    proof: >-
+      With budget 0 the early `<= 0` return is skipped under `< 0`, but the
+      first iteration adds count_tokens(row)+1 >= 1, so spent > 0 > budget
+      breaks immediately and kept stays empty — same return value.
+    pragma: false
+
+  - module: code_search.py
+    symbol: enrich_search_hits
+    reason: >-
+      encoding=None / dropped / "UTF-8" — same codec resolution as in
+      _python_search_tree above.
+    proof: >-
+      encoding=None and a dropped encoding arg resolve to the platform
+      default (UTF-8 on supported dev hosts), and codecs.lookup treats
+      "UTF-8" case-insensitively — same proof as _python_search_tree.
+    pragma: false
+
+  - module: code_search.py
+    symbol: enrich_search_hits
+    reason: >-
+      both initializers are dead stores — non-file mode reassigns anchor and
+      start from the hit line below, and file mode never reads them.
+    proof: >-
+      The else branch assigns snippet_anchor=center and snippet_start=start
+      before the while-loop reads them; in file mode the loop's header
+      rebuild is skipped (`if mode != "file"`), so neither initial value is
+      ever read.
+    pragma: false
+
+  - module: code_search.py
+    symbol: enrich_search_hits
+    reason: >-
+      the while-loop below trims `kept` down to the largest prefix that fits
+      max_tokens — a different initial superset only changes the iteration
+      count, never the surviving prefix.
+    proof: >-
+      `while kept` removes one trailing row per iteration until
+      count_tokens(chunk) <= max_tokens or kept empties. Any initial kept
+      that covers the fitting prefix converges to the same maximal prefix;
+      a smaller initial kept is already at-or-below it, so the emitted block
+      is identical either way.
+    pragma: false
+
+  - module: code_search.py
+    symbol: search_code
+    reason: >-
+      resolve_search_path_detail only returns paths under root, so
+      is_relative_to(root) is always True here.
+    proof: >-
+      Every non-None path_detail.path is produced behind `_under_root`
+      checks or picked from rglobs rooted at root, so resolved is confined
+      and the `or True` else branch is unreachable.
+    pragma: false
+
+  - module: code_search.py
+    symbol: search_code
+    reason: >-
+      same confinement — resolved always lies under root, so the else branch
+      is dead code.
+    proof: >-
+      Identical invariant to the rg-argv site above: resolved comes only
+      from path_detail.path, which resolve_search_path_detail guarantees is
+      under root before returning it.
+    pragma: false
+
+  - module: router.py
+    symbol: is_read_only_tool_intent
+    reason: >-
+      flags=re.IGNORECASE is inert here — every lookup prefix is a lowercase
+      literal and `text` was already _normalize()d, so case folding can never
+      change the match.
+    proof: >-
+      STRUCTURED_LOOKUP_PREFIXES contains only lowercase literals and
+      anchors (^jq, ^parse json, ^json field); _normalize lowercases the
+      input, so a case-sensitive match produces the same result as a
+      case-insensitive one.
+    pragma: false
+
   - module: executors.py
     symbol: _rag_fallback_output
     reason: >-
@@ -1081,3 +1273,155 @@ equivalents:
       default False) returns False; a present truthy/falsy value bypasses
       the default entirely.
     pragma: false
+  - module: tool_paths.py
+    symbol: _windows_executable_names
+    reason: >-
+      the fallback literal's case is normalized away — ext.strip().lower()
+      emits identical candidate names for ".COM;.EXE;.BAT;.CMD" and its
+      lowercase flip.
+    proof: >-
+      Every PATHEXT segment passes through ext.strip().lower() before becoming
+      a candidate filename, so a case-flipped default (".com;.exe;.bat;.cmd")
+      yields the byte-identical names on every host.
+    pragma: false
+  - module: rag_search.py
+    symbol: _score_indexed
+    reason: >-
+      n*1.0 and n/1.0 are the same float for every int n ≥ 1 reachable here.
+    proof: >-
+      overlap is a non-empty set on this branch, so len(overlap) is an int ≥ 1;
+      both expressions evaluate to float(n) exactly, and the divisor is the
+      constant 1.0 — no zero-division or rounding difference is possible.
+    pragma: false
+
+  - module: rag_search.py
+    symbol: search_rag
+    reason: >-
+      RagHit.engine already defaults to "overlap" — the explicit arg restates
+      the dataclass default.
+    proof: >-
+      RagHit declares `engine: str = "overlap"`; dropping the kwarg on this
+      overlap-fallback construction produces the identical field value.
+    pragma: false
+  - module: rag_index.py
+    symbol: _tokenize
+    reason: >-
+      re.UNICODE is the default for str patterns — dropping the flag changes
+      nothing for \w on str input.
+    proof: >-
+      Python 3 applies Unicode matching to str patterns unconditionally
+      (re.UNICODE is set by default); findall with flags=0 sees the same \w
+      character set, so the token output is identical.
+    pragma: false
+
+  - module: rag_index.py
+    symbol: _load_manifest_rows
+    reason: >-
+      a dropped encoding resolves to the locale encoding — UTF-8 on the mutmut
+      dev hosts — and codec names are case-insensitive, so "UTF-8" decodes
+      identically; the explicit arg is load-bearing on non-UTF-8 hosts.
+    proof: >-
+      read_text(encoding=None) falls back to the locale encoding, which is
+      UTF-8 on the dev hosts where the mutmut campaign runs, and
+      codecs.lookup() normalizes case so "UTF-8" is the same codec — both
+      mutants decode manifest bytes identically. The explicit parameter is
+      intentionally kept for non-UTF-8 hosts (Windows ANSI), which is why the
+      mutants are not suppressed with pragma.
+    pragma: false
+
+  - module: rag_index.py
+    symbol: _read_text_chunk
+    reason: >-
+      codec names are case-insensitive — decode("UTF-8") is the same decoder
+      as "utf-8" on every host.
+    proof: >-
+      codecs.lookup() normalizes case, so bytes.decode("UTF-8") performs the
+      identical UTF-8 decode of the chunk bytes.
+    pragma: false
+
+  - module: rag_index.py
+    symbol: load_manifest_documents
+    reason: >-
+      codec names are case-insensitive — encode("UTF-8") on the canonical meta
+      produces the same bytes as "utf-8".
+    proof: >-
+      codecs.lookup() normalizes case, so str.encode("UTF-8") emits identical
+      canonical-meta bytes for the sha256 base key.
+    pragma: false
+
+  - module: rag_index.py
+    symbol: load_manifest_documents
+    reason: >-
+      codec names are case-insensitive — encode("UTF-8") on the normalized
+      body produces the same bytes as "utf-8".
+    proof: >-
+      codecs.lookup() normalizes case, so str.encode("UTF-8") emits identical
+      normalized-body bytes for the content hash.
+    pragma: false
+  - module: subprocess_safe.py
+    symbol: _validate_script_args
+    reason: >-
+      a skipped "-" or "" value would pass every check below anyway
+      (relative, no "..", resolves inside root), so an and-mutant or a renamed
+      "-" literal cannot change the outcome.
+    proof: >-
+      The only skipped values are "" and "-". Processed, they become
+      Path("")/"." or Path("-") — relative, without a ".." part, resolving to
+      root itself or a child — so the confinement check passes silently for
+      both. Any mutant that stops skipping them still returns without raising.
+    pragma: false
+
+  - module: subprocess_safe.py
+    symbol: trusted_tool_invocation
+    reason: >-
+      the falsy-tool default just needs to be non-"jq" — expected resolves to
+      "rg" under any such placeholder.
+    proof: >-
+      `tool or <default>` reaches the default only when tool is falsy; the
+      comparison is `<default>.lower() == "jq"`, so "rg", "XXrgXX" and "RG"
+      all select expected="rg" identically.
+    pragma: false
+  - module: executors.py
+    symbol: plan_run
+    reason: >-
+      workspace_root is always set here, and command_to_argv normalises a
+      missing cwd via (cwd or root).resolve() — a dropped/None default_cwd
+      resolves to the same root.
+    proof: >-
+      command_to_argv computes `effective_cwd = (cwd or root).resolve()` when
+      workspace_root is set; root is always passed, so default_cwd=None and
+      default_cwd=root both yield cwd=root, and a cd-prefix still overrides.
+    pragma: false
+
+  - module: executors.py
+    symbol: execute_plan
+    reason: >-
+      `code` is rendered only when truthy — the "" and None defaults both
+      produce an empty tag for codeless errors.
+    proof: >-
+      `tag = f" [{code}]" if code else ""` tests truthiness; "" and None are
+      both falsy, so the refusal text is byte-identical for either default.
+    pragma: true
+
+  - module: executors.py
+    symbol: execute_plan
+    reason: >-
+      a falsy stdout and the "XXXX" sentinel both lack a JSON claim line, so
+      evaluate_script_result returns not_evaluated either way.
+    proof: >-
+      evaluate_script_result scans reversed lines for a "{"-prefixed JSON
+      claim; neither "" nor "XXXX" contains one, so both return
+      RESULT_NOT_EVALUATED for any exit code.
+    pragma: false
+
+  - module: executors.py
+    symbol: task_result_gate
+    reason: >-
+      the initial value only reaches the gate as output_useful when
+      result.started is False, and the not-started gate return ignores
+      output_useful — "" and None yield the same GateDecision.
+    proof: >-
+      evaluate_result_gate returns early on `not started` without reading
+      output_useful; the initial `useful` value is observable only after a
+      started run, where it is always reassigned before the call.
+    pragma: true

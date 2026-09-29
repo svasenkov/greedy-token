@@ -237,6 +237,9 @@ def _workspace_script_path(token: str, root: Path) -> tuple[Path, str]:
 def _validate_script_args(args: Iterable[str], root: Path) -> None:
     for arg in args:
         value = arg.split("=", 1)[1] if "=" in arg else arg
+        # equivalent: a skipped "-" or "" value would pass every check below
+        # anyway (relative, no "..", resolves inside root), so an and-mutant or
+        # a renamed "-" literal cannot change the outcome.
         if not value or value == "-":
             continue
         candidate = Path(value).expanduser()
@@ -387,6 +390,8 @@ def trusted_tool_invocation(
     resolved_root = root.resolve()
     if cwd.resolve() != resolved_root:
         raise UnsafeCommandError("tool cwd must equal the workspace root")
+    # equivalent: the falsy-tool default just needs to be non-"jq" — expected
+    # resolves to "rg" under any such placeholder.
     expected = "jq" if (tool or "rg").lower() == "jq" else "rg"
     executable = Path(args[0])
     if executable_name(args[0]) != expected:

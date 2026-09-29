@@ -1233,3 +1233,367 @@ def test_mcp_search_empty_result(
         lambda body, **kwargs: body,
     )
     assert mcp_mod.greedy_token_search("missing") == "No matches"
+
+
+# --- mutation kill-tests: glob/ignore plumbing, rg interpretation, budgets ---
+
+import re
+import signal
+
+
+def _bounded(fn, *args, seconds=2, **kwargs):
+    """Call fn(); TimeoutError if it does not return (infinite-loop mutants)."""
+    def _boom(signum, frame):
+        raise TimeoutError("call did not terminate")
+
+    prev = signal.signal(signal.SIGALRM, _boom)
+    signal.setitimer(signal.ITIMER_REAL, seconds)
+    try:
+        return fn(*args, **kwargs)
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, prev)
+
+
+@allure.title("_glob_to_regex: index arithmetic terminates and translates exactly")
+def test_glob_to_regex_exact_and_bounded() -> None:
+    cases = {
+        "**ab": ".*ab",  # kills +=3 skip
+        "a*b": "a[^/]*b",  # kills =1/-=1 hangs and +=2 skip
+        "a?b": "a[^/]b",  # kills ? index mutants
+        "ab**": "ab.*",  # kills ** index mutants
+        "a[x": "a\\[x",  # kills ==+1/==-2/inverted end check and inner-i hangs
+        "a[b][c": "a[b]\\[c",  # kills find-from-0/i-1 hangs
+        "ab": "ab",  # kills literal-branch index hangs
+        "[a]b]": "[a]b\\]",  # kills rfind
+    }
+    for pattern, expected in cases.items():
+        with allure.step(f"glob {pattern!r}"):
+            rx = _bounded(cs._glob_to_regex, pattern)
+            assert rx.pattern == expected
+
+
+@allure.title("_glob_to_regex: an empty [] class still fails to compile")
+def test_glob_to_regex_empty_class_raises() -> None:
+    # find-from-i+2 skips the ']' and escapes '[' instead — the original raises.
+    with pytest.raises(re.error):
+        _bounded(cs._glob_to_regex, "[]x")
+
+
+@allure.title("_IgnoreRule.matches: dir_only anchored rule never matches the dir itself")
+def test_ignore_rule_anchored_dir_only_not_self() -> None:
+    rule = cs._IgnoreRule(
+        base_dir="", regex=cs._glob_to_regex("a/b"), anchored=True,
+        dir_only=True, negated=False,
+    )
+    # range(1, depth+2) would add the full path candidate and match.
+    assert rule.matches("a/b") is False
+    assert rule.matches("a/b/c.py") is True
+
+
+def _write_ignore(path: Path, body: bytes | str) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if isinstance(body, bytes):
+        path.write_bytes(body)
+    else:
+        path.write_text(body, encoding="utf-8")
+    return path
+
+
+@allure.title("_ignore_rules_in: invalid UTF-8 bytes are replaced, never fatal")
+def test_ignore_rules_in_bad_encoding(minimal_workspace: Path) -> None:
+    ign = _write_ignore(minimal_workspace / ".ignore", b"vendor/\n\xff\xfe\n")
+    rules = cs._ignore_rules_in(ign, "")
+    # errors=None / dropped errors raise UnicodeDecodeError; "XXreplaceXX" and
+    # "REPLACE" raise LookupError — only "replace" survives the bad bytes.
+    assert len(rules) == 2
+    assert rules[0].regex.pattern == "vendor"
+
+
+@allure.title("_ignore_rules_in: comments and blanks never become rules")
+def test_ignore_rules_in_comment_lines(minimal_workspace: Path) -> None:
+    ign = _write_ignore(minimal_workspace / ".ignore", "# note\n\n*.py\n")
+    rules = cs._ignore_rules_in(ign, "")
+    # `and` and "XX#XX" mutants would turn '# note' into a live rule.
+    assert len(rules) == 1
+    assert rules[0].regex.pattern == "[^/]*\\.py"
+
+
+@allure.title("_ignore_rules_in: strip('/') strips exactly slashes")
+def test_ignore_rules_in_strip_charset(minimal_workspace: Path) -> None:
+    ign = _write_ignore(minimal_workspace / ".ignore", "Xabc/\n")
+    rules = cs._ignore_rules_in(ign, "")
+    assert len(rules) == 1
+    assert rules[0].dir_only is True
+    # strip("XX/XX") would also eat the leading X.
+    assert rules[0].regex.pattern == "Xabc"
+
+
+@allure.title("_load_ignore_rules: non-dir scope operand does not stop the scan")
+def test_load_ignore_rules_non_dir_continues(minimal_workspace: Path) -> None:
+    base = minimal_workspace / "pkg"
+    _write_ignore(base / ".ignore", "vendor/\n")
+    operand = minimal_workspace / "README-op.md"
+    operand.write_text("x\n", encoding="utf-8")
+    rules = cs._load_ignore_rules(minimal_workspace, [operand, base])
+    # continue→break would drop the real dir's rules entirely.
+    assert len(rules) == 1
+
+
+@allure.title("_load_ignore_rules: .ignore under a hidden ancestor is skipped")
+def test_load_ignore_rules_hidden_ancestor(minimal_workspace: Path) -> None:
+    base = minimal_workspace / "pkg"
+    _write_ignore(base / "a" / ".hidden" / ".ignore", "vendor/\n")
+    rules = cs._load_ignore_rules(minimal_workspace, [base])
+    # parts[:+1] only inspects the first component and misses '.hidden'.
+    assert rules == []
+
+
+@allure.title("_load_ignore_rules: deeper .ignore files sort last")
+def test_load_ignore_rules_depth_sort(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    base = minimal_workspace / "pkg"
+    _write_ignore(base / "b" / ".ignore", "x\n")
+    _write_ignore(base / "a" / ".ignore", "x\n")
+    _write_ignore(base / "a" / "b" / ".ignore", "x\n")
+    seen: list[str] = []
+    monkeypatch.setattr(
+        cs, "_ignore_rules_in", lambda p, b: seen.append(str(p)) or []
+    )
+    cs._load_ignore_rules(minimal_workspace, [base])
+    rels = [str(Path(p).relative_to(base)) for p in seen]
+    # depth-sort must put the nested a/b/.ignore last; a lexical sort puts
+    # 'a/b' before 'b' and breaks deeper-wins ordering.
+    assert rels[-1] == str(Path("a/b/.ignore"))
+
+
+@allure.title("_cap_hit_lines: limit/bare/overflow semantics are exact")
+def test_cap_hit_lines_semantics() -> None:
+    with allure.step("limit 0 → empty (kills < 0)"):
+        assert cs._cap_hit_lines("a:1:x", 0) == ""
+    with allure.step("bare lines count only with default_path (kills `or`)"):
+        body = "1: a\n2: b\n3: c"
+        assert cs._cap_hit_lines(body, 1) == body
+        assert cs._cap_hit_lines(body, 1, default_path="f") == "1: a"
+    with allure.step("over-limit hits are skipped, narrative kept (kills break)"):
+        body = "a:1:x\na:2:y\ntail line"
+        assert cs._cap_hit_lines(body, 1) == "a:1:x\ntail line"
+
+
+@allure.title("_search_from_rg: cap only runs with a real limit")
+def test_search_from_rg_no_limit(minimal_workspace: Path) -> None:
+    res = cs._search_from_rg(
+        query="q", scope="s", code=0, out="a/f:1:q",
+        root=minimal_workspace, context="none", limit=None,
+    )
+    # `or filtered` would call _cap_hit_lines(filtered, None) → TypeError.
+    assert res is not None
+    assert res.engine == "rg"
+    assert res.hit_count == 1
+
+
+@allure.title("_search_from_rg: error path prefers filtered output over raw")
+def test_search_from_rg_error_filtered(minimal_workspace: Path) -> None:
+    out = ".cursor/hooks/x:1:n\nreal:2:z"
+    res = cs._search_from_rg(
+        query="q", scope="s", code=2, out=out,
+        root=minimal_workspace, context="none",
+    )
+    assert res is not None
+    assert res.engine == "rg"
+    # filtered=None and `filtered and out` mutants leak the agent-internal line.
+    assert res.text == "real:2:z"
+
+
+@allure.title("_fit_rows_to_budget: exact cumulative accounting")
+def test_fit_rows_to_budget(monkeypatch: pytest.MonkeyPatch) -> None:
+    import greedy_token.tokens as tk
+
+    monkeypatch.setattr(tk, "count_tokens", lambda s: SimpleNamespace(tokens=len(s)))
+    with allure.step("budget 1 keeps a zero-token row (kills <=1)"):
+        assert cs._fit_rows_to_budget([""], 1) == [""]
+    with allure.step("spent starts at 0 (kills =1)"):
+        assert cs._fit_rows_to_budget(["aa"], 3) == ["aa"]
+    with allure.step("cumulative spend (kills `spent =` and `-=`)"):
+        assert cs._fit_rows_to_budget(["a", "b", "c"], 3) == ["a"]
+    with allure.step("+1 per row for newlines (kills -1/+2)"):
+        assert cs._fit_rows_to_budget(["a", "b"], 3) == ["a"]
+        assert cs._fit_rows_to_budget(["a", "b"], 4) == ["a", "b"]
+    with allure.step("boundary is `>` not `>=`"):
+        assert cs._fit_rows_to_budget(["a"], 2) == ["a"]
+
+
+@allure.title("_finalize_search: empty body keeps the bare header")
+def test_finalize_search_empty_body(minimal_workspace: Path) -> None:
+    res = cs._finalize_search(
+        header="H", body="", engine="rg", root=minimal_workspace, context="none"
+    )
+    # `or True` would glue a dangling separator onto the header.
+    assert res.text == "H"
+
+
+@allure.title("enrich_search_hits: truncated snippet keeps exact header range and join")
+def test_enrich_snippet_truncated(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import greedy_token.tokens as tk
+
+    monkeypatch.setattr(tk, "count_tokens", lambda s: SimpleNamespace(tokens=len(s)))
+    (minimal_workspace / "k.py").write_text(
+        "".join(f"l{i}\n" for i in range(1, 31)), encoding="utf-8"
+    )
+    # Full 5-row chunk is 79 tokens; 78 forces the over-budget path. The
+    # rebuilt header is 29 chars; chunk(1) = 29+1+9+1+29 = 69 — the only row
+    # that fits. Kills the range-end arithmetic and the join-literal mutants.
+    block, done, used = cs.enrich_search_hits(
+        minimal_workspace, [("k.py", 15, "q")],
+        mode="snippet", max_files=1, context_lines=2, max_tokens=78,
+    )
+    expected = (
+        "--- enriched context (snippet, 1 file(s), ~69 tokens) ---\n\n"
+        "### k.py:15 (±2 lines, 13-13)\n"
+        "   13|l13\n"
+        "… (truncated to token budget)"
+    )
+    assert done == 1
+    assert used == 69
+    assert block == expected
+
+
+@allure.title("enrich_search_hits: a chunk exactly at max_tokens is kept")
+def test_enrich_snippet_exact_boundary(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import greedy_token.tokens as tk
+
+    monkeypatch.setattr(tk, "count_tokens", lambda s: SimpleNamespace(tokens=len(s)))
+    (minimal_workspace / "k.py").write_text(
+        "".join(f"l{i}\n" for i in range(1, 31)), encoding="utf-8"
+    )
+    # chunk(1) costs exactly 69 — `tok <= max_tokens` keeps it; `<` drops to
+    # the marker block instead.
+    block, done, _ = cs.enrich_search_hits(
+        minimal_workspace, [("k.py", 15, "q")],
+        mode="snippet", max_files=1, context_lines=2, max_tokens=69,
+    )
+    assert done == 1
+    assert "13-13" in block
+    assert "stopped at token budget" not in block
+
+
+@allure.title("enrich_search_hits: over-budget trimming always empties kept")
+def test_enrich_snippet_empty_budget_bounded(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import greedy_token.tokens as tk
+
+    monkeypatch.setattr(tk, "count_tokens", lambda s: SimpleNamespace(tokens=len(s)))
+    (minimal_workspace / "k.py").write_text(
+        "".join(f"l{i}\n" for i in range(1, 31)), encoding="utf-8"
+    )
+    # Even a single row exceeds 60 tokens. kept[:-1] empties the list and the
+    # loop exits; `kept[:+1]` pins it at one row forever.
+    block, done, _ = _bounded(
+        cs.enrich_search_hits,
+        minimal_workspace, [("k.py", 15, "q")],
+        mode="snippet", max_files=1, context_lines=2, max_tokens=60,
+    )
+    assert done == 0
+    assert "stopped at token budget" in block
+
+
+@allure.title("resolve_search_path_detail: rooted hints resolve before name globs")
+def test_resolve_detail_rooted_preferred(minimal_workspace: Path) -> None:
+    (minimal_workspace / "a").mkdir()
+    (minimal_workspace / "b").mkdir()
+    (minimal_workspace / "a" / "f.txt").write_text("x\n", encoding="utf-8")
+    (minimal_workspace / "b" / "f.txt").write_text("x\n", encoding="utf-8")
+    detail = cs.resolve_search_path_detail("a/f.txt", minimal_workspace)
+    # rooted=None would fall to the name glob and report ambiguous;
+    # is_file-and-is_dir would do the same.
+    assert detail.path == (minimal_workspace / "a" / "f.txt").resolve()
+    assert detail.reason == ""
+
+
+@allure.title("search_scope_paths: ['.'] fallback and dotfile filtering")
+def test_search_scope_paths_fallback_and_dotfiles(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import greedy_token.paths as pth
+
+    monkeypatch.setattr(pth, "detect_search_paths", lambda r: ["."])
+    (minimal_workspace / "top.txt").write_text("x\n", encoding="utf-8")
+    assert cs.search_scope_paths(minimal_workspace) == ["."]
+    # Now real dirs: root files join the scope, dotfiles stay out.
+    monkeypatch.setattr(pth, "detect_search_paths", lambda r: ["docs"])
+    (minimal_workspace / ".hidden-f").write_text("x\n", encoding="utf-8")
+    scope = cs.search_scope_paths(minimal_workspace)
+    assert "top.txt" in scope
+    assert "workspace-routes.yaml" in scope
+    assert ".hidden-f" not in scope
+    assert ".greedy-token.yaml" not in scope
+
+
+def _rg_stub(monkeypatch: pytest.MonkeyPatch, code: int, out: str):
+    monkeypatch.setattr(cs, "resolve_rg", lambda: Path("/usr/bin/rg"))
+    monkeypatch.setattr(cs, "_run_rg", lambda argv, *, cwd: (code, out))
+
+
+@allure.title("search_code file scope: exact no-match text with RAG hint and engine")
+def test_search_code_file_no_match(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _rg_stub(monkeypatch, 1, "")
+    f = minimal_workspace / "solo.py"
+    f.write_text("nothing here\n", encoding="utf-8")
+    res = cs.search_code("zzz", minimal_workspace, path="solo.py", context="none")
+    assert res.engine == "rg"  # kills and-False / "XXrgXX" / "RG"
+    assert res.text == (
+        "No matches for 'zzz' in solo.py.\n"
+        "Try greedy_token_rag for docs/rag lookup, or search without path."
+    )
+
+
+@allure.title("search_code file scope: python scan shows the relative scope path")
+def test_search_code_file_python_display_path(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(cs, "resolve_rg", lambda: None)
+    f = minimal_workspace / "solo.py"
+    f.write_text("find me\n", encoding="utf-8")
+    res = cs.search_code("find", minimal_workspace, path="solo.py", context="none")
+    assert res.engine == "python"
+    # display_path=None/dropped leaks the absolute path into hit rows.
+    assert "solo.py:1:find me" in res.text
+    assert str(f) + ":1:" not in res.text
+
+
+@allure.title("search_code file scope: unrunnable rg still reports engine rg")
+def test_search_code_file_no_match_engine(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _rg_stub(monkeypatch, 126, "cannot execute")
+    f = minimal_workspace / "solo.py"
+    f.write_text("nothing here\n", encoding="utf-8")
+    res = cs.search_code("zzz", minimal_workspace, path="solo.py", context="none")
+    assert res.engine == "rg"
+
+
+@allure.title("search_code python fallback: note appears only without rg")
+def test_search_code_python_note_only_without_rg(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (minimal_workspace / "docs" / "t.txt").write_text("find me\n", encoding="utf-8")
+    # rg present but refuses to run → python fallback must NOT print the note.
+    _rg_stub(monkeypatch, 126, "cannot execute")
+    res = cs.search_code("find", minimal_workspace, path="docs", context="none")
+    assert res.engine == "python"
+    first = res.text.splitlines()[0]
+    assert first == "Search: 'find' in docs [python]"
+    assert "rg not in PATH" not in res.text
+    assert "XXXX" not in res.text
+
+
+@allure.title("search_code workspace: no-match result reports engine rg when rg ran")
+def test_search_code_workspace_no_match_engine(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _rg_stub(monkeypatch, 126, "cannot execute")
+    monkeypatch.setattr(cs, "_python_search_tree", lambda *a, **k: [])
+    res = cs.search_code("zzz", minimal_workspace, context="none")
+    assert res.engine == "rg"

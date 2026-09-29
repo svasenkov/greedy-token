@@ -361,7 +361,7 @@ def cmd_rag(args: argparse.Namespace) -> int:
         domains=domains or [],
         complexity="low",
         est_tokens=est_tokens,
-        rationale="RAG lookup via greedy-token rag",
+        rationale="Lexical RAG lookup via greedy-token rag",
     )
     operation_id = new_operation_id()
     # RAG is a non-contract tier; the gate verdict rides on produced/empty.
@@ -1440,7 +1440,9 @@ def build_parser() -> argparse.ArgumentParser:
     t.add_argument("paths", nargs="+", help="Files or directories")
     t.set_defaults(func=cmd_tokens)
 
-    rag = sub.add_parser("rag", help="Search docs/rag chunks")
+    rag = sub.add_parser(
+        "rag", help="Lexical search over docs/rag knowledge-base chunks (no embeddings)"
+    )
     rag.add_argument("query", help="Search query")
     rag.add_argument("--domain", help="Comma-separated domains filter")
     rag.add_argument("--limit", type=int, default=5)

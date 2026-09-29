@@ -7,14 +7,32 @@ dry-run / cursor / RAG strings so single-token mutants are caught with ``==``.
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 import allure
 from greedy_token import executors as ex
-from greedy_token.executors import RunPlan, execute_plan, plan_run
+from greedy_token.executors import (
+    PlanRunResult,
+    RunPlan,
+    TaskRunResult,
+    execute_plan,
+    plan_run,
+    task_result_gate,
+)
+from greedy_token.result_contract import RESULT_NOT_EVALUATED, RESULT_PRODUCED
+from greedy_token.result_gate import (
+    GATE_ACCEPTED,
+    GATE_BYPASSED,
+    REASON_OUTPUT_EMPTY,
+    REASON_UNVERIFIED_RESULT,
+)
 from greedy_token.router import RouteDecision
+from greedy_token.subprocess_safe import UnsafeCommandError, format_invocation
+from greedy_token.trust import approve_script
 
 pytestmark = [
     allure.epic("Routing"),
@@ -201,9 +219,12 @@ def test_execute_task_threads_root(minimal_workspace: Path, monkeypatch: pytest.
     # Sentinel root makes `root or find_workspace_root()` vs `root and ..` observable.
     monkeypatch.setattr(ex, "find_workspace_root", lambda: minimal_workspace / "SENTINEL")
     _wire(monkeypatch, decision=dec, plan=plan, exec_ret=(0, "D"), cap=cap)
-    ex.execute_task("some task", minimal_workspace)
+    res = ex.execute_task("some task", minimal_workspace)
     assert cap["route_root"] == minimal_workspace  # kills root=None / root and .. / route_task(task,None)
     assert cap["plan_root"] == minimal_workspace  # kills plan_run(..,None)
+    # A plain tuple never observed the process — started stays False.
+    assert res.started is False  # kills _plan_started defaults None/True
+    assert res.result_status == RESULT_NOT_EVALUATED  # kills default None
 
 
 @allure.title("execute_task cursor tier: exact refuse text + exit 1 + decision preserved")
@@ -350,6 +371,8 @@ def test_execute_task_not_executable_final(
     assert res.output == "OUT"
     assert res.exit_code == 3  # kills exit_code=None / dropped (default 0)
     assert res.decision is dec
+    assert res.started is False  # plain tuple never observed a start
+    assert res.result_status == RESULT_NOT_EVALUATED
 
 
 # --- _rag_fallback_output: exact search_rag args on both calls ---
@@ -373,3 +396,438 @@ def test_rag_fallback_output_thread_args(minimal_workspace: Path, monkeypatch: p
         assert calls[1]["task"] == "allure dashboard"
         assert calls[1]["root"] == minimal_workspace
         assert calls[1]["domains"] is None
+
+
+
+
+def _untrusted_py(root: Path) -> None:
+    script = root / "scripts" / "x.py"
+    script.parent.mkdir(parents=True, exist_ok=True)
+    script.write_text("#!/usr/bin/env python\nprint('x')\n", encoding="utf-8")
+
+
+# --- plan_run tool branch: refusal-plane exact fields ---
+
+
+@allure.title("plan_run tool tier: missing argv refuses with exact builder message")
+def test_plan_run_tool_missing_argv_refusal(minimal_workspace: Path) -> None:
+    dec = _dec("tool", command="rg x .", read_only=True, tool="rg")
+    plan = plan_run(dec, "task", minimal_workspace)
+    assert plan.decision is dec  # kills decision=None
+    assert plan.command == "rg x ."  # kills command=None
+    assert plan.dry_run_output == "rg x ."  # kills dry_run_output=None
+    assert plan.executable is False
+    assert plan.refusal_reason == (
+        "tool command was not produced by the internal argv builder"
+    )  # kills message None/"XX…XX"/UPPER and str(None) mutants
+    assert plan.refusal_code == ""  # kills refusal_code=None
+
+
+@allure.title("plan_run tool tier: decision.tool is validated — jq argv is executable")
+def test_plan_run_tool_jq_argv(minimal_workspace: Path) -> None:
+    dec = _dec(
+        "tool",
+        command="jq .key docs/x.json",
+        read_only=True,
+        tool="jq",
+        command_argv=("jq", ".key", "docs/x.json"),
+        command_cwd=minimal_workspace,
+    )
+    plan = plan_run(dec, "task", minimal_workspace)
+    # tool=None would resolve expected='rg' and refuse the jq argv.
+    assert plan.executable is True
+    assert plan.authorization == "internal-tool:jq"
+    assert plan.argv == ("jq", ".key", "docs/x.json")
+
+
+@allure.title("plan_run tool tier: a coded UnsafeCommandError propagates its refusal code")
+def test_plan_run_tool_coded_refusal(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def boom(*args, **kwargs):
+        raise UnsafeCommandError("custom refusal", code="symlink")
+
+    monkeypatch.setattr(ex, "trusted_tool_invocation", boom)
+    dec = _dec(
+        "tool",
+        command="rg x .",
+        read_only=True,
+        tool="rg",
+        command_argv=("rg", "x", "."),
+        command_cwd=minimal_workspace,
+    )
+    plan = plan_run(dec, "task", minimal_workspace)
+    assert plan.executable is False
+    assert plan.refusal_reason == "custom refusal"
+    # kills dropped kwarg, getattr(None,…), and wrong-attribute-name mutants.
+    assert plan.refusal_code == "symlink"
+
+
+@allure.title("plan_run tool tier: an uncoded OSError leaves refusal_code empty")
+def test_plan_run_tool_uncoded_oserror(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def boom(*args, **kwargs):
+        raise OSError("io gone")
+
+    monkeypatch.setattr(ex, "trusted_tool_invocation", boom)
+    dec = _dec(
+        "tool",
+        command="rg x .",
+        read_only=True,
+        tool="rg",
+        command_argv=("rg", "x", "."),
+        command_cwd=minimal_workspace,
+    )
+    plan = plan_run(dec, "task", minimal_workspace)
+    assert plan.executable is False
+    assert plan.refusal_reason == "io gone"
+    # kills getattr defaults None / dropped / "XXXX".
+    assert plan.refusal_code == ""
+
+
+# --- plan_run script branch: trust lists, legacy parse and refusal fields ---
+
+
+@allure.title("plan_run script tier: refusal surfaces the trusted argv in dry-run")
+def test_plan_run_script_refusal_dry_run_fields(minimal_workspace: Path) -> None:
+    _untrusted_py(minimal_workspace)
+    dec = _dec(
+        "python",
+        command="python scripts/x.py",
+        read_only=True,
+        command_argv=("python", "scripts/x.py"),
+        command_cwd=minimal_workspace,
+    )
+    plan = plan_run(dec, "task", minimal_workspace)
+    assert plan.decision is dec  # kills decision=None
+    assert plan.executable is False
+    # kills `and False`, format_invocation(.., None), and dry_run=None mutants.
+    assert plan.dry_run_output == format_invocation(
+        ("python", "scripts/x.py"), minimal_workspace
+    )
+    assert plan.refusal_reason == (
+        "script is not registered or approved in the local trust manifest: "
+        "'scripts/x.py'"
+    )
+    assert plan.refusal_code == "not_approved"
+
+
+@allure.title("plan_run script tier: argv set but cwd missing still parses the command")
+def test_plan_run_script_argv_without_cwd(minimal_workspace: Path) -> None:
+    _untrusted_py(minimal_workspace)
+    dec = _dec(
+        "python",
+        command="python scripts/x.py",
+        read_only=True,
+        command_argv=("python", "scripts/x.py"),
+        command_cwd=None,
+    )
+    plan = plan_run(dec, "task", minimal_workspace)
+    # `argv is None or cwd is None` → legacy parse runs; `and` would pass a
+    # None cwd into trusted_script_argv and crash instead of refusing.
+    assert plan.executable is False
+    assert plan.refusal_code == "not_approved"
+    # argv present but command_cwd unset → dry-run falls back to the raw
+    # command string (kills `or` and `cwd is None` condition mutants).
+    assert plan.dry_run_output == "python scripts/x.py"
+
+
+@allure.title("plan_run script tier: cwd set but argv missing falls back to command")
+def test_plan_run_script_cwd_without_argv(minimal_workspace: Path) -> None:
+    _untrusted_py(minimal_workspace)
+    dec = _dec(
+        "python",
+        command="python scripts/x.py",
+        read_only=True,
+        command_argv=None,
+        command_cwd=minimal_workspace,
+    )
+    plan = plan_run(dec, "task", minimal_workspace)
+    assert plan.executable is False
+    assert plan.refusal_code == "not_approved"
+    # `argv is None and cwd is not None` mutant would call
+    # format_invocation(None, …) and crash on the None iteration.
+    assert plan.dry_run_output == "python scripts/x.py"
+
+
+@allure.title("plan_run script tier: deprecated list is ignored for write-tier decisions")
+def test_plan_run_script_deprecated_only_when_readonly(minimal_workspace: Path) -> None:
+    _untrusted_py(minimal_workspace)
+    (minimal_workspace / ".greedy-token.yaml").write_text(
+        "routes_file: workspace-routes.yaml\n"
+        "trusted_script_paths:\n  - scripts/x.py\n",
+        encoding="utf-8",
+    )
+    dec = _dec("python", command="python scripts/x.py", read_only=False)
+    plan = plan_run(dec, "task", minimal_workspace)
+    # The `or True` mutant would load the deprecated list and switch the
+    # refusal to the migration message.
+    assert plan.executable is False
+    assert plan.refusal_code == "not_approved"
+    assert plan.refusal_reason.startswith("script is not registered or approved")
+
+
+@allure.title("plan_run script tier: manifest approval is ignored for write-tier decisions")
+def test_plan_run_script_manifest_only_when_readonly(minimal_workspace: Path) -> None:
+    _untrusted_py(minimal_workspace)
+    approve_script(minimal_workspace, "scripts/x.py")
+    dec = _dec("python", command="python scripts/x.py", read_only=False)
+    plan = plan_run(dec, "task", minimal_workspace)
+    # The `or True` mutant would load manifest approvals and mark it executable.
+    assert plan.executable is False
+    assert plan.refusal_code == "not_approved"
+
+
+@allure.title("plan_run script tier: cd outside the workspace root is refused at parse")
+def test_plan_run_script_cd_outside_root(minimal_workspace: Path) -> None:
+    outside = minimal_workspace.parent
+    dec = _dec(
+        "python", command=f"cd {outside} && ./x.sh", read_only=True
+    )
+    plan = plan_run(dec, "task", minimal_workspace)
+    # workspace_root=None would skip confinement; trusted_script_argv then
+    # refuses with a different message — the parse-time refusal is pinned.
+    assert plan.executable is False
+    assert plan.refusal_reason.startswith("cwd is outside workspace root")
+
+
+@allure.title("plan_run script tier: cd inside the workspace is refused by cwd equality")
+def test_plan_run_script_cd_inside_subdir(minimal_workspace: Path) -> None:
+    _untrusted_py(minimal_workspace)
+    dec = _dec(
+        "python", command=f"cd {minimal_workspace}/docs && ./x.sh", read_only=True
+    )
+    plan = plan_run(dec, "task", minimal_workspace)
+    # `cwd = parsed_cwd and root` would silently re-root the cwd and continue
+    # into the trust checks instead of refusing here.
+    assert plan.executable is False
+    assert plan.refusal_reason == "script cwd must equal the workspace root"
+
+
+@allure.title("plan_run script tier: an uncoded OSError leaves refusal_code empty")
+def test_plan_run_script_uncoded_oserror(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _untrusted_py(minimal_workspace)
+    def boom(*args, **kwargs):
+        raise OSError("io gone")
+
+    monkeypatch.setattr(ex, "trusted_script_argv", boom)
+    dec = _dec(
+        "python",
+        command="python scripts/x.py",
+        read_only=True,
+        command_argv=("python", "scripts/x.py"),
+        command_cwd=minimal_workspace,
+    )
+    plan = plan_run(dec, "task", minimal_workspace)
+    assert plan.executable is False
+    assert plan.refusal_reason == "io gone"
+    # kills getattr defaults None / "XXXX" in the script refusal branch.
+    assert plan.refusal_code == ""
+
+
+# --- execute_plan: timeout and contract-verdict branches ---
+
+
+def _exec_plan(root: Path, **kw) -> RunPlan:
+    base = dict(
+        decision=_dec("python", command="python scripts/x.py", read_only=True),
+        command="python scripts/x.py",
+        dry_run_output="D",
+        executable=True,
+        argv=("python", "scripts/x.py"),
+        cwd=root,
+        authorization="wrapper:scripts/x.py",
+        script_type="python",
+    )
+    base.update(kw)
+    return RunPlan(**base)
+
+
+@allure.title("execute_plan timeout: the process started and was killed (exit 124)")
+def test_execute_plan_timeout_started(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def boom(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd="x", timeout=1)
+
+    monkeypatch.setattr(subprocess, "run", boom)
+    res = execute_plan(_exec_plan(minimal_workspace))
+    assert res.exit_code == 124
+    assert "timed out after" in res.output
+    # It did start — kills started=None / dropped / False mutants.
+    assert res.started is True
+
+
+@allure.title("execute_plan: shell scripts are never contract-evaluated")
+def test_execute_plan_shell_not_evaluated(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *a, **k: SimpleNamespace(
+            stdout='{"ok": true}', stderr="", returncode=0
+        ),
+    )
+    plan = _exec_plan(minimal_workspace, script_type="shell")
+    res = execute_plan(plan)
+    assert res.exit_code == 0
+    assert res.started is True
+    # `or True` would evaluate the claim and report produced for a shell run.
+    assert res.result_status == RESULT_NOT_EVALUATED
+
+
+# --- execute_task: PlanRunResult fields propagate through every branch ---
+
+
+@allure.title("execute_task tool tier: observed started=True survives the RAG fallback")
+def test_execute_task_weak_rag_started_true(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dec = _dec("tool", command="rg x", read_only=True)
+    plan = RunPlan(decision=dec, command="rg x", dry_run_output="rg x", executable=True)
+    _wire(
+        monkeypatch, decision=dec, plan=plan,
+        exec_ret=PlanRunResult(0, "", started=True), rag_ret="RAGDATA",
+    )
+    res = ex.execute_task("find baseUrl", minimal_workspace)
+    assert res.used_rag_fallback is True
+    # kills started=None / dropped (default False) on the weak+RAG return.
+    assert res.started is True
+
+
+@allure.title("execute_task tool tier: weak output without RAG keeps started=True")
+def test_execute_task_weak_no_rag_started_true(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dec = _dec("tool", command="rg x", read_only=True)
+    plan = RunPlan(decision=dec, command="rg x", dry_run_output="rg x", executable=True)
+    _wire(
+        monkeypatch, decision=dec, plan=plan,
+        exec_ret=PlanRunResult(2, "", started=True), rag_ret=None,
+    )
+    res = ex.execute_task("find baseUrl", minimal_workspace)
+    assert res.used_rag_fallback is False
+    assert res.exit_code == 2
+    # kills started=None / dropped on the weak-without-RAG return.
+    assert res.started is True
+
+
+@allure.title("execute_task tool tier: filtered+RAG append keeps started=True")
+def test_execute_task_filtered_rag_started_true(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dec = _dec("tool", command="rg x", read_only=True)
+    plan = RunPlan(decision=dec, command="rg x", dry_run_output="rg x", executable=True)
+    _wire(
+        monkeypatch, decision=dec, plan=plan,
+        exec_ret=PlanRunResult(0, ".cursor/hooks/noise\nbaseUrl", started=True),
+        rag_ret="RAGX",
+    )
+    res = ex.execute_task("find baseUrl", minimal_workspace)
+    assert res.used_rag_fallback is True
+    # kills started=None / dropped on the filtered+RAG return.
+    assert res.started is True
+
+
+@allure.title("execute_task tool tier: filtered without RAG keeps started=True")
+def test_execute_task_filtered_no_rag_started_true(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dec = _dec("tool", command="rg x", read_only=True)
+    plan = RunPlan(decision=dec, command="rg x", dry_run_output="rg x", executable=True)
+    _wire(
+        monkeypatch, decision=dec, plan=plan,
+        exec_ret=PlanRunResult(1, ".cursor/hooks/noise\nbaseUrl", started=True),
+        rag_ret=None,
+    )
+    res = ex.execute_task("find baseUrl", minimal_workspace)
+    assert res.used_rag_fallback is False
+    assert res.exit_code == 1
+    # kills started=None / dropped on the filtered-no-RAG return.
+    assert res.started is True
+
+
+@allure.title("execute_task tool tier: unfiltered output keeps started=True")
+def test_execute_task_unfiltered_started_true(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dec = _dec("tool", command="rg x", read_only=True)
+    plan = RunPlan(decision=dec, command="rg x", dry_run_output="rg x", executable=True)
+    _wire(
+        monkeypatch, decision=dec, plan=plan,
+        exec_ret=PlanRunResult(1, "baseUrl\nmore", started=True),
+    )
+    res = ex.execute_task("find baseUrl", minimal_workspace)
+    assert res.exit_code == 1
+    # kills started=None / dropped on the filtered==raw return.
+    assert res.started is True
+
+
+@allure.title("execute_task final return: started and result_status propagate")
+def test_execute_task_final_plan_result_fields(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dec = _dec("ollama", command="c", read_only=False)
+    plan = RunPlan(decision=dec, command="c", dry_run_output="DRY", executable=False)
+    _wire(
+        monkeypatch, decision=dec, plan=plan,
+        exec_ret=PlanRunResult(3, "OUT", started=True, result_status=RESULT_PRODUCED),
+    )
+    res = ex.execute_task("run", minimal_workspace)
+    assert res.output == "OUT"
+    assert res.exit_code == 3
+    # kills _plan_started(None) / dropped started / result_status=None and
+    # _plan_result_status(None) / dropped result_status on the final return.
+    assert res.started is True
+    assert res.result_status == RESULT_PRODUCED
+
+
+# --- task_result_gate: tier-native usefulness feeds the gate ---
+
+
+@allure.title("task_result_gate tool tier: weak filtered output is never useful")
+def test_task_result_gate_tool_weak(minimal_workspace: Path) -> None:
+    dec = _dec("tool", command="rg x", read_only=True, tool="rg")
+    res = TaskRunResult(
+        decision=dec, output=".cursor/hooks/noise", exit_code=0, started=True
+    )
+    gate = task_result_gate(res, dec)
+    # `!=`/`"XXtoolXX"`/`"TOOL"` mutants route to the raw-output check and
+    # would ACCEPT the noise; dropping `not` or `useful=None` likewise.
+    assert gate.action == GATE_BYPASSED
+    assert gate.reason == REASON_OUTPUT_EMPTY
+    assert gate.may_answer is False
+    assert gate.savings_eligible is False
+
+
+@allure.title("task_result_gate tool tier: real matches are a useful answer")
+def test_task_result_gate_tool_useful(minimal_workspace: Path) -> None:
+    dec = _dec("tool", command="rg x", read_only=True, tool="rg")
+    res = TaskRunResult(
+        decision=dec, output="real match data\n", exit_code=0, started=True
+    )
+    gate = task_result_gate(res, dec)
+    # `_tool_output_weak(out, None)` sees exit None ∉ (0,1) → weak → bypass.
+    assert gate.action == GATE_ACCEPTED
+    assert gate.may_answer is True
+    assert gate.savings_eligible is True
+
+
+@allure.title("task_result_gate contract tier: empty output is unverified, not an answer")
+def test_task_result_gate_python_silent(minimal_workspace: Path) -> None:
+    dec = _dec("python", command="python scripts/x.py", read_only=True)
+    res = TaskRunResult(
+        decision=dec, output="", exit_code=0, started=True
+    )
+    gate = task_result_gate(res, dec)
+    # useful=None / dropped output_useful would normalise to True and ACCEPT;
+    # tier=None falls out of CONTRACT_TIERS and reports output_empty instead.
+    assert gate.action == GATE_BYPASSED
+    assert gate.reason == REASON_UNVERIFIED_RESULT
+    assert gate.tier == "python"
+    assert gate.may_answer is False
+    assert gate.savings_eligible is False
