@@ -1,0 +1,1 @@
+{"id":"d6597254e958476c599f2a95e20f775d","fullName":"tests.test_ci_install_profile#test_minimum_profile_covers_runtime_deps","name":"every pyproject runtime dep is pinned in the minimum profile","status":"passed","testResultsByEnv":{"default":"769aeeea729c99a72184ee6c7d099b6e"}}
