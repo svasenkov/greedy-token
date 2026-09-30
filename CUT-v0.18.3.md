@@ -1,7 +1,8 @@
 # Cut checklist — greedy-token v0.18.3
 
-**Status:** IN PROGRESS. Version pins are `0.18.3`; tag `v0.18.3` pending
-matrix gate.
+**Status:** RELEASED. Tag `v0.18.3` pushed after green Test matrix on
+`c8cb69521`; publish workflow verified the gate and uploaded to PyPI —
+`greedy-token==0.18.3` is live.
 
 Patch release after v0.18.2: trust-boundary fix in script execution,
 intercept rendering polish, and hot-path caching that cuts ~0.4s of audit
