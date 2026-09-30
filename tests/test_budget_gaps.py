@@ -1920,6 +1920,8 @@ def test_budget_cache_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> N
     with allure.step("env absent → Path.home()/.greedy-token"):
         monkeypatch.delenv("GREEDY_TOKEN_HOME")
         monkeypatch.setenv("HOME", str(tmp_path))
+        # Path.home() reads USERPROFILE on Windows, HOME on POSIX.
+        monkeypatch.setenv("USERPROFILE", str(tmp_path))
         assert bl._budget_cache_path() == tmp_path / ".greedy-token" / "budget-cache.json"
 
 
@@ -1930,7 +1932,8 @@ def test_file_signature(tmp_path: Path) -> None:
     log = tmp_path / "u.jsonl"
     log.write_text("x\n", encoding="utf-8")
     sig = bl._file_signature(log)
-    assert sig[0] == str(log) and sig[1] == log.stat().st_mtime_ns and sig[2] == 2
+    # size via stat(), not a literal: text-mode "\n" becomes CRLF on Windows.
+    assert sig == [str(log), log.stat().st_mtime_ns, log.stat().st_size]
 
 
 @allure.title("unchanged ledgers serve the snapshot without re-reading files")

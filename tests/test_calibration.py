@@ -863,6 +863,8 @@ def test_outcome_cache_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> 
 
     monkeypatch.delenv("GREEDY_TOKEN_HOME")
     monkeypatch.setenv("HOME", str(tmp_path))
+    # Path.home()/expanduser read USERPROFILE on Windows, HOME on POSIX.
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
     assert oc._outcome_cache_path() == tmp_path / ".greedy-token" / "outcome-cache.json"
     monkeypatch.setenv("GREEDY_TOKEN_HOME", "~/custom-cache")
     assert oc._outcome_cache_path() == tmp_path / "custom-cache" / "outcome-cache.json"
