@@ -13,6 +13,7 @@ import posixpath
 import re
 import shlex
 import subprocess
+import sys
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -293,11 +294,18 @@ def trusted_script_argv(
 
     executable = executable_name(args[0])
     if is_python_executable(args[0]):
-        if is_absolute_path(args[0]):
-            from greedy_token.tool_paths import resolve_python
+        from greedy_token.tool_paths import resolve_python
 
+        if is_absolute_path(args[0]):
             if Path(args[0]).resolve() != resolve_python():
                 raise UnsafeCommandError("absolute Python executable is not registered")
+        elif sys.executable:
+            # Bare `python`/`python3` floats through PATH to whatever shadow
+            # interpreter comes first — pin it to the interpreter running
+            # greedy-token.  Unresolved on purpose: resolving the venv
+            # launcher to its base binary would drop pyvenv.cfg discovery
+            # and the venv site-packages.
+            args[0] = sys.executable
         if len(args) < 2 or args[1].startswith("-"):
             raise UnsafeCommandError(
                 "python commands must be 'python <trusted-script.py> [args...]'"

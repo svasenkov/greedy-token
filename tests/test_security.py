@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shlex
+import sys
 from pathlib import Path
 from unittest.mock import patch
 
@@ -237,7 +238,9 @@ def test_trusted_script_invocation_requires_allowlist(tmp_path: Path) -> None:
         root=root,
         registered_script_paths=("scripts/check.py",),
     )
-    assert registered.argv == ("python", "scripts/check.py")
+    # Bare interpreter names pin to the running interpreter (PATH-lookup of a
+    # shadow `python` would hand trusted scripts to an unvetted environment).
+    assert registered.argv == (sys.executable, "scripts/check.py")
     assert registered.cwd == root
     assert registered.authorization == "wrapper:scripts/check.py"
 
@@ -292,7 +295,7 @@ def test_trusted_script_invocation_rejects_boundary_breaks(tmp_path: Path) -> No
         root=root,
         registered_script_paths=registered,
     )
-    assert py3.argv == ("python3", "scripts/check.py")
+    assert py3.argv == (sys.executable, "scripts/check.py")
     with pytest.raises(UnsafeCommandError, match="shell interpreters"):
         trusted_script_invocation(
             f"{root_cd_prefix(root)} sh scripts/check.sh",

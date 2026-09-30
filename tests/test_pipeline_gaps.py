@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -356,7 +357,7 @@ def test_run_step_subprocess_success(
     with allure.step("subprocess.run gets cwd=root, shell=False argv, timeout=SCRIPT_TIMEOUT"):
         assert run_calls["cwd"] in (minimal_workspace, str(minimal_workspace))
         assert run_calls["timeout"] == pl.SCRIPT_TIMEOUT
-        assert run_calls["cmd"] == ["python", "scripts/meta-sync-check.py"]
+        assert run_calls["cmd"] == [sys.executable, "scripts/meta-sync-check.py"]
     with allure.step("output = (stdout + stderr).strip(); _estimate_step_tokens got that output+root"):
         assert sr.output == "OUT\nERR"
         assert est_calls == {"output": "OUT\nERR\n", "root": minimal_workspace}

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,7 +21,6 @@ from greedy_token.subprocess_safe import (
     is_python_executable,
     trusted_script_argv,
 )
-from greedy_token.tool_paths import resolve_python
 
 # Backward-compat aliases for tests and external callers
 OLLAMA_PROBE_TTL = CHEAP_LLM_PROBE_TTL
@@ -154,7 +154,7 @@ def resolve_wrapper_invocation(
     if not script.is_file():
         raise FileNotFoundError(f"Script not found: {script}")
     argv = (
-        (str(resolve_python()), wrapper.path, *(str(arg) for arg in extra_args))
+        (sys.executable, wrapper.path, *(str(arg) for arg in extra_args))
         if wrapper.path.endswith(".py")
         else (wrapper.path, *(str(arg) for arg in extra_args))
     )

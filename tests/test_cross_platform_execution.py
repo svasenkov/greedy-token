@@ -65,6 +65,49 @@ def test_trusted_python_uses_running_interpreter_in_unicode_workspace(
     assert invocation.argv[-1] == "--name=значение"
 
 
+@pytest.mark.parametrize("name", ["python", "python3", "python3.12", "python.exe"])
+def test_bare_python_executable_pins_to_running_interpreter(
+    tmp_path: Path, name: str
+) -> None:
+    # A bare interpreter name would float through PATH to a shadow install
+    # without project deps — trusted scripts must run under sys.executable.
+    root = tmp_path / "workspace"
+    script = root / "scripts" / "check.py"
+    script.parent.mkdir(parents=True)
+    script.write_text("print('ok')\n", encoding="utf-8")
+
+    invocation = trusted_script_argv(
+        (name, "scripts/check.py"),
+        cwd=root,
+        root=root,
+        registered_script_paths=("scripts/check.py",),
+    )
+    # sys.executable stays unresolved: the venv launcher path keeps
+    # pyvenv.cfg discovery, its resolved base binary would not.
+    assert invocation.argv == (sys.executable, "scripts/check.py")
+    assert invocation.script_type == "python"
+
+
+def test_bare_python_stays_bare_without_running_interpreter(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Embedded hosts may report an empty sys.executable — keep the bare name
+    # rather than substituting a resolved cwd as the executable.
+    monkeypatch.setattr(sys, "executable", "")
+    root = tmp_path / "workspace"
+    script = root / "scripts" / "check.py"
+    script.parent.mkdir(parents=True)
+    script.write_text("print('ok')\n", encoding="utf-8")
+
+    invocation = trusted_script_argv(
+        ("python", "scripts/check.py"),
+        cwd=root,
+        root=root,
+        registered_script_paths=("scripts/check.py",),
+    )
+    assert invocation.argv[0] == "python"
+
+
 def test_windows_absolute_argument_fails_closed_on_non_windows_too(
     tmp_path: Path,
 ) -> None:
