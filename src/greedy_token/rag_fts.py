@@ -55,9 +55,9 @@ def _connect(root: Path) -> sqlite3.Connection:
     connection.row_factory = sqlite3.Row
     try:
         _ensure_schema(connection)
-    except sqlite3.OperationalError as exc:
+    except Exception as exc:
         connection.close()
-        if "fts5" in str(exc).casefold():
+        if isinstance(exc, sqlite3.OperationalError) and "fts5" in str(exc).casefold():
             raise Fts5Unavailable(str(exc)) from exc
         raise
     return connection

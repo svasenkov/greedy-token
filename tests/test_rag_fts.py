@@ -227,6 +227,23 @@ def test_connect_translates_only_fts5_errors(
         _connect(minimal_workspace)
 
 
+def test_connect_closes_connection_on_non_operational_error(
+    minimal_workspace: Path,
+) -> None:
+    connection = sqlite3.connect(":memory:")
+    with (
+        patch("greedy_token.rag_fts.sqlite3.connect", return_value=connection),
+        patch(
+            "greedy_token.rag_fts._ensure_schema",
+            side_effect=sqlite3.DatabaseError("file is not a database"),
+        ),
+        pytest.raises(sqlite3.DatabaseError),
+    ):
+        _connect(minimal_workspace)
+    with pytest.raises(sqlite3.ProgrammingError):
+        connection.execute("SELECT 1")
+
+
 def test_schema_version_mismatch_rebuilds_fts_tables() -> None:
     connection = sqlite3.connect(":memory:")
     connection.row_factory = sqlite3.Row
