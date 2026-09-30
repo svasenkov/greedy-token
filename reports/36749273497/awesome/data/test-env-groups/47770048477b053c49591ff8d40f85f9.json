@@ -1,1 +1,0 @@
-{"id":"47770048477b053c49591ff8d40f85f9","fullName":"tests.test_settings#test_apply_ollama_env","name":"apply_ollama_env sets OLLAMA_URL, never the deprecated model names","status":"passed","testResultsByEnv":{"default":"1ce8443e1baa86e80d386566951e1f25"}}

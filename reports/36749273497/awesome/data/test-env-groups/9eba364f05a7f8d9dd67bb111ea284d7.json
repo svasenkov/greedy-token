@@ -1,1 +1,0 @@
-{"id":"9eba364f05a7f8d9dd67bb111ea284d7","fullName":"tests.test_executors_gaps#test_plan_run_script_cd_inside_subdir","name":"plan_run script tier: cd inside the workspace is refused by cwd equality","status":"passed","testResultsByEnv":{"default":"ba993d3a179aae79d1ddda82b281e43b"}}

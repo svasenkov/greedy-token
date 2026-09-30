@@ -1,1 +1,0 @@
-{"id":"13cec34455b9866a608d25b073eb59b5","fullName":"tests.test_accounting_gaps#test_budget_metered_daily_default_does_not_override","name":"the unconfigured budget daily default never tightens the llm cap","status":"passed","testResultsByEnv":{"default":"73482a69fae1cb6f042a3bc585fa5590"}}

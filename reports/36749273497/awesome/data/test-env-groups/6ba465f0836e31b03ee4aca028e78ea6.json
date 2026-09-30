@@ -1,1 +1,0 @@
-{"id":"6ba465f0836e31b03ee4aca028e78ea6","fullName":"tests.test_trust_gaps#test_file_identity_from_dict","name":"FileIdentity.from_dict: exact refusal messages and value domain","status":"passed","testResultsByEnv":{"default":"d98af97011e4cbe159778b90c592c643"}}

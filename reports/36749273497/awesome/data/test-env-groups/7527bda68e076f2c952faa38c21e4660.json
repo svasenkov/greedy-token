@@ -1,1 +1,0 @@
-{"id":"7527bda68e076f2c952faa38c21e4660","fullName":"tests.test_security#test_malicious_read_only_workspace_route_not_executed","name":"Malicious read_only workspace route cannot create a side effect","status":"passed","testResultsByEnv":{"default":"ef3885de27c0e5155ecc464424ff6ba1"}}

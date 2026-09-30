@@ -1,1 +1,0 @@
-{"id":"48e352f9810780f456f119c08b12fa7b","fullName":"tests.test_usage#test_append_event_keeps_explicit_session","name":"explicit session/session_id/sid on the event is not overwritten","status":"passed","testResultsByEnv":{"default":"8981a2823ae6d669027d70a6dc1deb75"}}

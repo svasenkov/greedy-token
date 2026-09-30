@@ -1,1 +1,0 @@
-{"id":"ce42c34be0b9c6a87d80f9ae73bd0b51","fullName":"tests.test_resource_probe_gaps#test_gpu_info_cache_write_failure","name":"_gpu_info_cached swallows cache-write failures","status":"passed","testResultsByEnv":{"default":"28bf5f6bac0925152d71022abdfb0404"}}

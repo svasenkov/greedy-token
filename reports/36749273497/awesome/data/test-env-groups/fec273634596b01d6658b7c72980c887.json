@@ -1,1 +1,0 @@
-{"id":"fec273634596b01d6658b7c72980c887","fullName":"tests.test_advisory#test_format_overkill_user_message_golden","name":"format_overkill_user_message renders the exact toast","status":"passed","testResultsByEnv":{"default":"c9567c20673c2cccc98081589c285f2e"}}

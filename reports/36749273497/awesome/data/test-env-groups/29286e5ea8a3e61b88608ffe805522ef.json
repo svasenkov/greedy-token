@@ -1,1 +1,0 @@
-{"id":"29286e5ea8a3e61b88608ffe805522ef","fullName":"tests.test_subprocess_safe_gaps#test_trusted_tool_invocation_rg_refusal_messages","name":"malformed rg argv and path refusals carry exact messages","status":"passed","testResultsByEnv":{"default":"1ab82c67cad9a4c08ccd7711cc64d94e"}}

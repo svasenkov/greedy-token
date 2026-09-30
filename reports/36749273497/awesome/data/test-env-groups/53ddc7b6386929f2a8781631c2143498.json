@@ -1,1 +1,0 @@
-{"id":"53ddc7b6386929f2a8781631c2143498","fullName":"tests.test_rag_fts_gaps#test_connect_fts5_unavailable_message","name":"_connect: fts5 OperationalError becomes Fts5Unavailable with the cause text","status":"passed","testResultsByEnv":{"default":"99be0e549cd66f79125e521609c349e0"}}

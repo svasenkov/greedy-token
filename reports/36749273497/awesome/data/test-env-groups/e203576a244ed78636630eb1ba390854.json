@@ -1,1 +1,0 @@
-{"id":"e203576a244ed78636630eb1ba390854","fullName":"tests.test_usage#test_load_events_reads_archives","name":"Event loader reads current log and rotated archives","status":"passed","testResultsByEnv":{"default":"11a113679ce4d341ac01875b44254e4b"}}

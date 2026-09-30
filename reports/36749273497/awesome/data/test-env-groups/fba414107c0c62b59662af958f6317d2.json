@@ -1,1 +1,0 @@
-{"id":"fba414107c0c62b59662af958f6317d2","fullName":"tests.test_capabilities#test_route_params_scalar_string","name":"params scalar string normalizes to the same args contract","status":"passed","testResultsByEnv":{"default":"92caac39e88bf7e882b1bb7b50979013"}}

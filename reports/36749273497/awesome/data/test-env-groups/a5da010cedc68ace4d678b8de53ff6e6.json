@@ -1,1 +1,0 @@
-{"id":"a5da010cedc68ace4d678b8de53ff6e6","fullName":"tests.test_paths#test_yaml_cache_stat_failure","name":"YAML stat errors disable memoization without preventing a successful read","status":"passed","testResultsByEnv":{"default":"8a504051042b51736da3fbad963634c4"}}

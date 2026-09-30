@@ -1,1 +1,0 @@
-{"id":"5fa01075bd253b85eb9ef6e1dc59ee70","fullName":"tests.test_code_search_gaps#test_enrich_snippet_truncated","name":"enrich_search_hits: truncated snippet keeps exact header range and join","status":"passed","testResultsByEnv":{"default":"5f3c6b5605f3a31e99dd07d5607b1c2c"}}

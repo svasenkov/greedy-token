@@ -1,1 +1,0 @@
-{"id":"c8d46c985402a70e858ad89457d53a88","fullName":"tests.test_hub_gaps#test_list_crystals_inbox_fail_open_on_missing_root","name":"list_crystals inbox stays fail-open when the workspace is missing","status":"passed","testResultsByEnv":{"default":"8dc3b48d0def1c23449f73e2f6ce33c5"}}

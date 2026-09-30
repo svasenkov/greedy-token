@@ -1,1 +1,0 @@
-{"id":"3a19061a4e4376e7eebe8faef7508cb8","fullName":"tests.test_accounting_gaps#test_invoke_empty_delivered_records_failure_outcome","name":"a delivered-but-empty answer records a failure outcome, not success","status":"passed","testResultsByEnv":{"default":"5ca60da86c4a2cef5100a24171b2f136"}}

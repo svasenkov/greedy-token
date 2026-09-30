@@ -1,1 +1,0 @@
-{"id":"6d5f9f11a58f7fc6dec5455474bd4cf4","fullName":"tests.test_trust#test_verify_manifest_codes_and_inert","name":"trust verify surfaces refusal codes and marks wrapper-covered stale entries inert","status":"passed","testResultsByEnv":{"default":"c029c51066062309141e928f36dc4d2d"}}

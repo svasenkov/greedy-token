@@ -1,1 +1,0 @@
-{"id":"57ce1f3fdaf25db00f5a8060206f498e","fullName":"tests.test_result_gate#test_step_savings_refused_label","name":"refused pipeline step bills as 'not executed', not dry-run","status":"passed","testResultsByEnv":{"default":"e08e92fc98f2670a419814f516076792"}}

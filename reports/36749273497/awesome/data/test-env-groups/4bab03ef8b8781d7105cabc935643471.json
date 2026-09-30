@@ -1,1 +1,0 @@
-{"id":"4bab03ef8b8781d7105cabc935643471","fullName":"tests.test_coverage_gaps#test_cmd_compress_outside_workspace","name":"cmd_compress falls back to root=None outside a workspace","status":"passed","testResultsByEnv":{"default":"aeaa7a88952244333451fc3f8532c454"}}

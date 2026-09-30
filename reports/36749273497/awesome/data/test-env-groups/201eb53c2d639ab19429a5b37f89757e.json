@@ -1,1 +1,0 @@
-{"id":"201eb53c2d639ab19429a5b37f89757e","fullName":"tests.test_subprocess_safe_gaps#test_command_to_argv_exact_messages","name":"refusal messages are exact, not XX-padded","status":"passed","testResultsByEnv":{"default":"1d31a8224811fb917a2bc7d63c16905e"}}

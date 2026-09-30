@@ -1,1 +1,0 @@
-{"id":"b765542e90efa69e4e0f2f285542ef58","fullName":"tests.test_spend_guard_gaps#test_reserve_fail_closed_on_write_error","name":"reserve_metered_call fails closed when the ledger write raises OSError","status":"passed","testResultsByEnv":{"default":"dd88555acf8db3ed66795d57e4841cf4"}}

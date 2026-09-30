@@ -1,1 +1,0 @@
-{"id":"aef471914e7b8019e3940bff5d162793","fullName":"tests.test_advisory#test_overkill_recommendations_golden","name":"overkill_recommendations emits the exact advice list","status":"passed","testResultsByEnv":{"default":"95cd04d3d6a29870b5f6a0bec77f71c3"}}

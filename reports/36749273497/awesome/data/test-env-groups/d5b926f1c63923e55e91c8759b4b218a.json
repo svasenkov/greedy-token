@@ -1,1 +1,0 @@
-{"id":"d5b926f1c63923e55e91c8759b4b218a","fullName":"tests.test_advisory#test_render_result_output_dict_cell","name":"render_result_output embeds nested dict cell as compact json","status":"passed","testResultsByEnv":{"default":"f06f7642d522015dd9647ecd1fc0ac78"}}

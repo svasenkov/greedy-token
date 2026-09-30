@@ -1,1 +1,0 @@
-{"id":"9ce471e927acb030ccfa9b12ba1dd8be","fullName":"tests.test_spend_ledger#test_tail_is_partial_oserror","name":"_tail_is_partial returns False when the path is unopenable","status":"passed","testResultsByEnv":{"default":"9502324a87d22368a681f257705ad3c9"}}

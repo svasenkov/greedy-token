@@ -1,1 +1,0 @@
-{"id":"8bdd19b2c4e0abb01c1b9ceb57d469ee","fullName":"tests.test_coverage_gaps#test_default_actor_fallbacks","name":"default_actor: env override, USER/LOGNAME fallback, getpass last resort","status":"passed","testResultsByEnv":{"default":"403a761a9e7d3413a1295453934b83e9"}}

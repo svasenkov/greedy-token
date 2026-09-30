@@ -1,1 +1,0 @@
-{"id":"45996208c4624e616280cb2ef2c70510","fullName":"tests.test_rag_search_gaps#test_excerpt_chunk_at_max_len_not_truncated","name":"chunk of exactly max_len is returned whole (>, not >=)","status":"passed","testResultsByEnv":{"default":"f801596c936ddd047233de1882761725"}}

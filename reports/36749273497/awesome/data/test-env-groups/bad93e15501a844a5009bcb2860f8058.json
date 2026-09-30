@@ -1,1 +1,0 @@
-{"id":"bad93e15501a844a5009bcb2860f8058","fullName":"tests.test_rag_index_gaps#test_read_text_chunk_missing","name":"missing path returns None without touching stat()","status":"passed","testResultsByEnv":{"default":"1d6f2cc759a05430566526ec685a9acf"}}

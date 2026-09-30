@@ -1,1 +1,0 @@
-{"id":"aba1cd15bc532f5e4478bb91bb953842","fullName":"tests.test_spend_ledger#test_ledger_row_without_id_skipped","name":"a fresh reserve row without an id never counts","status":"passed","testResultsByEnv":{"default":"33d84d88da8f324c665382f20900bae7"}}

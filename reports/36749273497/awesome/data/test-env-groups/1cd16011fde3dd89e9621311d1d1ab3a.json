@@ -1,1 +1,0 @@
-{"id":"1cd16011fde3dd89e9621311d1d1ab3a","fullName":"tests.test_spend_ledger#test_reservation_ttl_zero","name":"explicit zero TTL is honoured — not clamped to a positive floor","status":"passed","testResultsByEnv":{"default":"f75d8ac4e7c6378990e7b152af63d3b0"}}

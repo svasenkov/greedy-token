@@ -1,1 +1,0 @@
-{"id":"b88cb45bb90c3739139a7b14e4ed436e","fullName":"tests.test_trust#test_cmd_trust_handler_success_and_stale","name":"Trust CLI handler renders successful add/list/verify/revoke and stale verify","status":"passed","testResultsByEnv":{"default":"74f145b57355afc2e06ef451a14af3f5"}}

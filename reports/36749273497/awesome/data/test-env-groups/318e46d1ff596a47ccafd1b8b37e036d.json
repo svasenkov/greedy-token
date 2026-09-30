@@ -1,1 +1,0 @@
-{"id":"318e46d1ff596a47ccafd1b8b37e036d","fullName":"tests.test_hub_gaps#test_rank_candidates_no_workspace","name":"rank_candidates without workspace root: fail-open keeps candidates","status":"passed","testResultsByEnv":{"default":"3217f2fd1010755b3d6a2f316bb8a0d0"}}

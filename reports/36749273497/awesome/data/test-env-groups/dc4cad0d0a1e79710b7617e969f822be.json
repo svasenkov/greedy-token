@@ -1,1 +1,0 @@
-{"id":"dc4cad0d0a1e79710b7617e969f822be","fullName":"tests.test_usage#test_session_file_default","name":"no GREEDY_TOKEN_SESSION_FILE → session_file uses the default path","status":"passed","testResultsByEnv":{"default":"4b7e3b5b50be85f90a4cab40a401a4ff"}}

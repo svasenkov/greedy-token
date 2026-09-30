@@ -1,1 +1,0 @@
-{"id":"9a3e0b62c801d2363831e8d8c48ec5f5","fullName":"tests.test_llm_invoke_gaps#test_invoke_weak_final_output_fails","name":"weak output on the last candidate is a failure, not a saved success","status":"passed","testResultsByEnv":{"default":"7c71a2b836307f014efc8c894fd980b3"}}

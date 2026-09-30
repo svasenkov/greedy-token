@@ -1,1 +1,0 @@
-{"id":"7b510b07c8e06f49963b0480d6d8dea5","fullName":"tests.test_mcp_icon#test_mcp_icons_skips_oversized_payload","name":"MCP server icon skips payloads over MAX_ICON_BYTES","status":"passed","testResultsByEnv":{"default":"17656ed9e64e2e857b7ee8598154da22"}}

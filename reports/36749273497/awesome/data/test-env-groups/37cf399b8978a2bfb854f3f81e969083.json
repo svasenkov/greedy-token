@@ -1,1 +1,0 @@
-{"id":"37cf399b8978a2bfb854f3f81e969083","fullName":"tests.test_llm_invoke_gaps#test_invoke_refusal_event_schema","name":"denied invoke logs a full refusal event","status":"passed","testResultsByEnv":{"default":"2f80e0e4f6db04c55b329dce16b40335"}}

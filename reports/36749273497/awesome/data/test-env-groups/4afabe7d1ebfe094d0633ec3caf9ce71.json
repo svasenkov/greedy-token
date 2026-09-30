@@ -1,1 +1,0 @@
-{"id":"4afabe7d1ebfe094d0633ec3caf9ce71","fullName":"tests.test_result_contract#test_malformed_canon_claim","name":"malformed output that still claims an ok flag is invalid, not skipped","status":"passed","testResultsByEnv":{"default":"d79f5c774712abd88e184bde90c7d3ff"}}

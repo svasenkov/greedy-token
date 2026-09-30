@@ -1,1 +1,0 @@
-{"id":"4bfce3c69ed185081e9afdeda68f50e4","fullName":"tests.test_usage_gaps#test_append_event_open_args","name":"append_event opens the log with pinned utf-8/LF settings","status":"passed","testResultsByEnv":{"default":"ded94351f4f28e0e317dea195c909424"}}

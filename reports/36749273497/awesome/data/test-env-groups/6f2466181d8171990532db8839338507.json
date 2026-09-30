@@ -1,1 +1,0 @@
-{"id":"6f2466181d8171990532db8839338507","fullName":"tests.test_trust#test_trust_entry_rejects_malformed_fields","name":"Trust entry parser rejects malformed metadata fields","status":"passed","testResultsByEnv":{"default":"7a3b4d48b542ef1cc7118525bc6b8bae"}}

@@ -1,1 +1,0 @@
-{"id":"6518ddfef4cf462f636e5623619b80a7","fullName":"tests.test_calibration#test_outcome_cache_disabled","name":"Outcome cache kill-switch bypasses populated memory and disk caches","status":"passed","testResultsByEnv":{"default":"b8cd2f3059cb04e65b3901bce04ece54"}}

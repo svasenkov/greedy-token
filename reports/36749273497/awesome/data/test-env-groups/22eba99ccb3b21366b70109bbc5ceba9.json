@@ -1,1 +1,0 @@
-{"id":"22eba99ccb3b21366b70109bbc5ceba9","fullName":"tests.test_crystallize_lifecycle#test_promote_stale_pin_refuses","name":"promote refuses when the draft changed after approval (stale pin)","status":"passed","testResultsByEnv":{"default":"6cdbe7edac9714de9223793d1fa618a4"}}

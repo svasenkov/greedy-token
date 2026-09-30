@@ -1,1 +1,0 @@
-{"id":"b5420691b69782b26024469fbc8ce93a","fullName":"tests.test_advisory#test_watch_from_size_no_output","name":"watch_events once-mode emits nothing for already-read content","status":"passed","testResultsByEnv":{"default":"976f32f394f7329708479ccdabc6dca5"}}

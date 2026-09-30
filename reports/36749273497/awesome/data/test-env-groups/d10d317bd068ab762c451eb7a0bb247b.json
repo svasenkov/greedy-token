@@ -1,1 +1,0 @@
-{"id":"d10d317bd068ab762c451eb7a0bb247b","fullName":"tests.test_trust#test_trusted_argv_security_refusals_are_exact","name":"Code-string guards and trust refusals keep exact fail-closed diagnostics","status":"passed","testResultsByEnv":{"default":"feef6371815a21a010e01ca1e89b2328"}}

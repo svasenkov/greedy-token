@@ -1,1 +1,0 @@
-{"id":"1e08bd24ea4c55fe94c3433c49294eaa","fullName":"tests.test_paths#test_yaml_cache_symlink_swap","name":"YAML symlink swaps invalidate even identical mtime and size signatures","status":"passed","testResultsByEnv":{"default":"0703df978873053eea43d36f0099a574"}}

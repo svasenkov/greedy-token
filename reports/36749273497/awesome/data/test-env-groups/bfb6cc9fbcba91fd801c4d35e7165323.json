@@ -1,1 +1,0 @@
-{"id":"bfb6cc9fbcba91fd801c4d35e7165323","fullName":"tests.test_resource_probe_gaps#test_run_micro_benchmark_loopback_not_metered","name":"run_micro_benchmark: loopback endpoint stays free, not guarded","status":"passed","testResultsByEnv":{"default":"03f15764abe9170ac48117f1da9ad762"}}

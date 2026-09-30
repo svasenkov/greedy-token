@@ -1,1 +1,0 @@
-{"id":"dc5d2c7592dcb440701991cf504a2b0a","fullName":"tests.test_trust_gaps#test_verification_error_default_code","name":"TrustVerificationError: default code is exactly 'internal'","status":"passed","testResultsByEnv":{"default":"0327bbe9e060146da8fea656aa88e755"}}

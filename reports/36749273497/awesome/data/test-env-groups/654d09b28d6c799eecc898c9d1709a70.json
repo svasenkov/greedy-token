@@ -1,1 +1,0 @@
-{"id":"654d09b28d6c799eecc898c9d1709a70","fullName":"tests.test_crystal_ids#test_validate_truncated_slug_prompt","name":"validate_route_id rejects a 4-token id that is the truncated slug of a longer prompt","status":"passed","testResultsByEnv":{"default":"d62efd0ed07d72a03469a9cba10852a8"}}

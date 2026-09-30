@@ -1,1 +1,0 @@
-{"id":"903249f7cf35573d585942dc994cc02a","fullName":"tests.test_budget_gaps#test_period_start_exact","name":"_period_start honours the calendar-month fields and rolling window","status":"passed","testResultsByEnv":{"default":"ab31e62b7885474e97980245762d281c"}}

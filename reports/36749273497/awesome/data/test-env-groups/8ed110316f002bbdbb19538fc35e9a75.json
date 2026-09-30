@@ -1,1 +1,0 @@
-{"id":"8ed110316f002bbdbb19538fc35e9a75","fullName":"tests.test_code_search_gaps#test_search_code_rg_file_limit_capped","name":"search_code: file-scoped rg output is capped to the global limit","status":"passed","testResultsByEnv":{"default":"9bded637529d3a292367478da437bcf3"}}

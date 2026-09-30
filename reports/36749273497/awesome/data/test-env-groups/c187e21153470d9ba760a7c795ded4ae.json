@@ -1,1 +1,0 @@
-{"id":"c187e21153470d9ba760a7c795ded4ae","fullName":"tests.test_subprocess_safe_gaps#test_executable_name_bat_suffix","name":".bat suffix is stripped case-insensitively","status":"passed","testResultsByEnv":{"default":"f5138e2013fb4c45002b323af1e96056"}}

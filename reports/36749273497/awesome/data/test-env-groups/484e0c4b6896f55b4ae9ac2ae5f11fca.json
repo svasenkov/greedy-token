@@ -1,1 +1,0 @@
-{"id":"484e0c4b6896f55b4ae9ac2ae5f11fca","fullName":"tests.test_spend_ledger#test_metered_spend_default_counts_pending","name":"pending reservations count in metered_spend_usd by default","status":"passed","testResultsByEnv":{"default":"6a603a8f3a6cc2bc930aa588eedcbac7"}}

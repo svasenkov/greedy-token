@@ -1,1 +1,0 @@
-{"id":"41d65de3e387fddbd1cc4920d4c8e54d","fullName":"tests.test_rag_index_gaps#test_strip_frontmatter_offsets_exact","name":"closer search starts past the opening delimiter and picks the first close","status":"passed","testResultsByEnv":{"default":"77e9f8bd0ec6a64f802e8260af21ead3"}}

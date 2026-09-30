@@ -1,1 +1,0 @@
-{"id":"4ec0d4e9c94118d50e29dd7a2b5c8d5f","fullName":"tests.test_budget_gaps#test_budget_cache_memo_cap","name":"memo dict is capped; lookup and store evict en masse","status":"passed","testResultsByEnv":{"default":"74312874cd5d7b884af2fb299b838851"}}

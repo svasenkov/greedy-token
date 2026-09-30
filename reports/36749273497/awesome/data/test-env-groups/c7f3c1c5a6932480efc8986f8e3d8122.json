@@ -1,1 +1,0 @@
-{"id":"c7f3c1c5a6932480efc8986f8e3d8122","fullName":"tests.test_capabilities#test_view_readiness_classes","name":"View derives every readiness class from route+fs+trust facts","status":"passed","testResultsByEnv":{"default":"39431ee8bd988b83e25942821b962555"}}

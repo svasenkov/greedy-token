@@ -1,1 +1,0 @@
-{"id":"fa228313e111e61a9c7eca58cf2a1d7a","fullName":"tests.test_advisory#test_append_event_bytes","name":"append_event writes one UTF-8 LF-terminated JSON line","status":"passed","testResultsByEnv":{"default":"7dabad4e52c7bc96814e4c2296087361"}}

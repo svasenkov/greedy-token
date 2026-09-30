@@ -1,1 +1,0 @@
-{"id":"7b4b8937f287075714f5f027ffd16cab","fullName":"tests.test_budget_gaps#test_wrap_mcp_response_forwards_all_fields","name":"wrap_mcp_response forwards every argument to footer, gate and log","status":"passed","testResultsByEnv":{"default":"1eb7c68cb9fed6f5de46c84898056bdf"}}

@@ -1,1 +1,0 @@
-{"id":"23a77bdd8da4971dce7382c4fc9565b1","fullName":"tests.test_usage_gaps#test_rotate_log_if_needed","name":"rotate_log_if_needed shifts numbered archives and drops the oldest","status":"passed","testResultsByEnv":{"default":"322cd45cb3c053a7692b2a62d2a9252a"}}

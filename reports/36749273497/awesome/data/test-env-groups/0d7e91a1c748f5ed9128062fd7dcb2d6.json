@@ -1,1 +1,0 @@
-{"id":"0d7e91a1c748f5ed9128062fd7dcb2d6","fullName":"tests.test_spend_ledger#test_reserve_blocks_concurrent_call","name":"a pending reservation blocks the second call over the cap","status":"passed","testResultsByEnv":{"default":"14f3dfa93bef5ce441faeb4a405d1086"}}

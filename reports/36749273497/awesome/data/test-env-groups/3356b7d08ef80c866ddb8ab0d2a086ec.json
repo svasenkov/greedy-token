@@ -1,1 +1,0 @@
-{"id":"3356b7d08ef80c866ddb8ab0d2a086ec","fullName":"tests.test_spend_ledger#test_unwritable_ledger_fails_closed","name":"a reservation that cannot be persisted fails the cap check closed","status":"passed","testResultsByEnv":{"default":"3431152b7fa35f96e267c2923f9262f6"}}

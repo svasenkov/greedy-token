@@ -1,1 +1,0 @@
-{"id":"201112e4902a472a36303c4bfe618bc8","fullName":"tests.test_usage_gaps#test_aggregate_events_golden","name":"aggregate_events produces the exact summary shape","status":"passed","testResultsByEnv":{"default":"769587ea7403c26b3b61eaf80ecfaf3a"}}

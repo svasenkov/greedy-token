@@ -1,1 +1,0 @@
-{"id":"4bf4b0420fc4857b5a8c47a5637ffdb9","fullName":"tests.test_calibration#test_outcome_cache_calibration_parity","name":"Disk outcome normalization preserves buckets, segments, floors and thresholds","status":"passed","testResultsByEnv":{"default":"1777e2b6b3944be3d721a9485434a0fe"}}

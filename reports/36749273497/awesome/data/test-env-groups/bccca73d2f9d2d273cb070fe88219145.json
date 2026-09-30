@@ -1,1 +1,0 @@
-{"id":"bccca73d2f9d2d273cb070fe88219145","fullName":"tests.test_cli_commands#test_cli_config_init","name":"CLI config --init creates user config under HOME","status":"passed","testResultsByEnv":{"default":"69a4a8681c1ab3a2ce5f97f36dd06ddc"}}

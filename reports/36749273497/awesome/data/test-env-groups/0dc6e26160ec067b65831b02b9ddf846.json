@@ -1,1 +1,0 @@
-{"id":"0dc6e26160ec067b65831b02b9ddf846","fullName":"tests.test_ci_install_profile#test_minimum_profile_has_xdist","name":"minimum profile installs pytest-xdist for the mandatory -n auto","status":"passed","testResultsByEnv":{"default":"0a6dd79c847e9ac750570c9791080eda"}}

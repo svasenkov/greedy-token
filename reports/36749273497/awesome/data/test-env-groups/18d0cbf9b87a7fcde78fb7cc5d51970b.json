@@ -1,1 +1,0 @@
-{"id":"18d0cbf9b87a7fcde78fb7cc5d51970b","fullName":"tests.test_trust#test_execute_task_invalid_contract_result","name":"invalid contract output reaches TaskRunResult without losing the real exit code","status":"passed","testResultsByEnv":{"default":"52d806371bced6f7fa34b50219595fea"}}

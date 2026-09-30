@@ -1,1 +1,0 @@
-{"id":"a50f5c7fade5035afa4c79e60a9773c2","fullName":"tests.test_ci_install_profile#test_release_gate_has_clean_checkout_guard","name":"release-gate.sh refuses a dirty tests/ tree before building","status":"passed","testResultsByEnv":{"default":"cd63b992cf263c7758cea74db55e4243"}}

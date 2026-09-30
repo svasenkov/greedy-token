@@ -1,1 +1,0 @@
-{"id":"108c071480fd2c4098f53a10e01e9e41","fullName":"tests.test_capabilities#test_invoke_wrapper_malformed_args_invalid_params","name":"Unmatched quote in --args is a structured invalid_params refusal","status":"passed","testResultsByEnv":{"default":"7f614bcf6427f468d91a090ed62b2dbe"}}

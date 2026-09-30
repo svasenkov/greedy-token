@@ -1,1 +1,0 @@
-{"id":"b8857da781688c7e31c6c419629d7685","fullName":"tests.test_expensive_llm#test_yandex_malformed_shapes","name":"non-object result/usage payloads are structured errors, not AttributeError","status":"passed","testResultsByEnv":{"default":"ff9c506b2b0a323ae404962246ffc4a3"}}

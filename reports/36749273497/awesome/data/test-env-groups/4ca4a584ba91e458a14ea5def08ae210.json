@@ -1,1 +1,0 @@
-{"id":"4ca4a584ba91e458a14ea5def08ae210","fullName":"tests.test_subprocess_safe_gaps#test_run_command_forwards_kwargs","name":"subprocess.run receives exact kwargs for defaults and overrides","status":"passed","testResultsByEnv":{"default":"80bfc8ce0804f3d2312997d12eeabad2"}}

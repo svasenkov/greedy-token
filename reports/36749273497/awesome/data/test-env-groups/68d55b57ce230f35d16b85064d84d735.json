@@ -1,1 +1,0 @@
-{"id":"68d55b57ce230f35d16b85064d84d735","fullName":"tests.test_spend_ledger#test_ledger_settles_accumulate","name":"two settled calls in one tier accumulate, not overwrite","status":"passed","testResultsByEnv":{"default":"920f06ff170f7298fae154ad62af5bb3"}}

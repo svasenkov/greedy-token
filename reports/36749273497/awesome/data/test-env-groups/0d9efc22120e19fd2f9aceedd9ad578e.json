@@ -1,1 +1,0 @@
-{"id":"0d9efc22120e19fd2f9aceedd9ad578e","fullName":"tests.test_advisory#test_is_overkill_fallback_zero_attachments","name":"is_overkill: fallback + attachments=0 stays under threshold","status":"passed","testResultsByEnv":{"default":"99ad6a26c46b88335a692bbcb66bc468"}}

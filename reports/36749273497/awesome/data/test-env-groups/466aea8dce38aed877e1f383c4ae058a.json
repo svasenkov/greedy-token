@@ -1,1 +1,0 @@
-{"id":"466aea8dce38aed877e1f383c4ae058a","fullName":"tests.test_rag_search_gaps#test_excerpt_default_max_len_head","name":"default max_len is 320 on the head path","status":"passed","testResultsByEnv":{"default":"e04f034bbd155d2943e3429c7494b121"}}

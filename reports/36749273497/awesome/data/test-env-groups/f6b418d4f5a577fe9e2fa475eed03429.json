@@ -1,1 +1,0 @@
-{"id":"f6b418d4f5a577fe9e2fa475eed03429","fullName":"tests.test_spend_ledger#test_append_after_partial_tail","name":"a crashed writer's partial tail never swallows the next record","status":"passed","testResultsByEnv":{"default":"1df6812bbca69cbee5c18541f8aa2187"}}

@@ -1,1 +1,0 @@
-{"id":"03c1314d3e0eb75de079fa63f2b54b23","fullName":"tests.test_pipeline_gaps#test_run_step_no_command_refusal","name":"_run_step: allowlisted step without command is refused with exact fields","status":"passed","testResultsByEnv":{"default":"a29b325aaa067af5a0512ceac3c0fbe9"}}

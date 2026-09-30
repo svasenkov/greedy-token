@@ -1,1 +1,0 @@
-{"id":"4a6d496e2fd920fa3d0484fb96aabecc","fullName":"tests.test_rag_search_gaps#test_search_rag_hit_fields_exact","name":"hit carries rel path, domain, excerpt, body and id-fallback","status":"passed","testResultsByEnv":{"default":"02a21ed5f05e272010d9892e26380f3c"}}

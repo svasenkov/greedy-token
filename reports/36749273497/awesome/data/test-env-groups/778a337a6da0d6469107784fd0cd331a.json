@@ -1,1 +1,0 @@
-{"id":"778a337a6da0d6469107784fd0cd331a","fullName":"tests.test_budget_gaps#test_policy_exhausted_note","name":"exhausted snapshot appends the budget note exactly once","status":"passed","testResultsByEnv":{"default":"de71e46eda685c166a6b80cd4bcd8334"}}

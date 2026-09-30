@@ -1,1 +1,0 @@
-{"id":"1931c3efe638eb2fc694a23bce4dca1e","fullName":"tests.test_advisory#test_format_gate_user_message_golden","name":"format_gate_user_message renders the exact toast","status":"passed","testResultsByEnv":{"default":"a40ec20ed7f3f747c42a517b362e0740"}}

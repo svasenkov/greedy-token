@@ -1,1 +1,0 @@
-{"id":"b465b488b3c4aaeb9a2934d94394b9c4","fullName":"tests.test_spend_ledger#test_ledger_ignores_infinite_amounts","name":"non-finite ledger amounts contribute zero, not inf","status":"passed","testResultsByEnv":{"default":"9f3f972d3484eb003a35f21f9907e307"}}

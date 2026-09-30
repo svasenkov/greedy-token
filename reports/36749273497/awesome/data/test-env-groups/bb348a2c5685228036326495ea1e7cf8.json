@@ -1,1 +1,0 @@
-{"id":"bb348a2c5685228036326495ea1e7cf8","fullName":"tests.test_capabilities#test_view_manifest_states","name":"Manifest states: approved→ready, modified→stale_bytes, wrapper→inert","status":"passed","testResultsByEnv":{"default":"4866df287c508ae03a1bd71b95b9cc51"}}

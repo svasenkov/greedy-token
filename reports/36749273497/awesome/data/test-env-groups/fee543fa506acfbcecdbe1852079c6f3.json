@@ -1,1 +1,0 @@
-{"id":"fee543fa506acfbcecdbe1852079c6f3","fullName":"tests.test_rag_search_gaps#test_search_rag_score_one_kept","name":"score 1.0 chunk is kept (threshold is > 0, not > 1)","status":"passed","testResultsByEnv":{"default":"b8f238782425b28ce1961a72e2906297"}}

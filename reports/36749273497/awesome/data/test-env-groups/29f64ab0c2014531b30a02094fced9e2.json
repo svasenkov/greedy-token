@@ -1,1 +1,0 @@
-{"id":"29f64ab0c2014531b30a02094fced9e2","fullName":"tests.test_budget_gaps#test_wrap_mcp_response_no_log","name":"wrap_mcp_response with log=False writes no telemetry","status":"passed","testResultsByEnv":{"default":"f49cb2d1a272cd6ce2fe528e20229fcb"}}

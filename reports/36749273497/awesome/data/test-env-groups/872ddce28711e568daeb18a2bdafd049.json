@@ -1,1 +1,0 @@
-{"id":"872ddce28711e568daeb18a2bdafd049","fullName":"tests.test_calibration#test_confidence_for_outcome_language_and_global_fallback","name":"Language then global segments backstop sparse route and tier","status":"passed","testResultsByEnv":{"default":"2b529756b2d82111cfc826fb50f517c9"}}

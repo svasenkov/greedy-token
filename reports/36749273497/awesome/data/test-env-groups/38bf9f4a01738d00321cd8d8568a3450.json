@@ -1,1 +1,0 @@
-{"id":"38bf9f4a01738d00321cd8d8568a3450","fullName":"tests.test_hub_gaps#test_rank_candidates_coverage_early_exit","name":"rank_candidates stops coverage probes once candidates+covered reach `top`","status":"passed","testResultsByEnv":{"default":"536d1fcf3b003dfa2d7cdbf5500f1a70"}}

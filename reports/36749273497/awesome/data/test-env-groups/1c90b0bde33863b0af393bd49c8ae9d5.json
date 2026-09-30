@@ -1,1 +1,0 @@
-{"id":"1c90b0bde33863b0af393bd49c8ae9d5","fullName":"tests.test_spend_ledger#test_metered_spend_since_window","name":"metered spend applies the since window to the ledger side too","status":"passed","testResultsByEnv":{"default":"f4f2ca27cfad4e59efc11c0230d480f8"}}

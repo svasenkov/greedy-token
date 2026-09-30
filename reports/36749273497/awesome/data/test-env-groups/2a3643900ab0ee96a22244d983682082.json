@@ -1,1 +1,0 @@
-{"id":"2a3643900ab0ee96a22244d983682082","fullName":"tests.test_tool_paths#test_resolve_rg_own_copy_beats_ide_bundles","name":"resolve_rg prefers ~/.greedy-token/bin/rg over IDE bundles","status":"passed","testResultsByEnv":{"default":"067231faf8e04d305fd7133e18b1c35b"}}

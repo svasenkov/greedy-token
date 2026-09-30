@@ -1,1 +1,0 @@
-{"id":"d76a9ab07ef4387447a3a3c414653809","fullName":"tests.test_advisory#test_watch_bad_bytes","name":"watch_events decodes invalid bytes as U+FFFD, skips bad JSON","status":"passed","testResultsByEnv":{"default":"4aef03be8d50e38f9a24358e2c0040bf"}}

@@ -1,1 +1,0 @@
-{"id":"13ef38c585c4467e9b9349dbe54a9be8","fullName":"tests.test_rag_index_gaps#test_build_index_fields","name":"chunk carries document rel_path and domain verbatim","status":"passed","testResultsByEnv":{"default":"530999fc362b87da23757de3cd7c8dae"}}

@@ -1,1 +1,0 @@
-{"id":"fb8b373296fc99d0bdfdac95417ecac4","fullName":"tests.test_advisory#test_utc_now_iso_shape","name":"_utc_now_iso emits whole-second ISO-8601 with Z suffix","status":"passed","testResultsByEnv":{"default":"a0af0d46a802db80564b6b59413aa48a"}}

@@ -1,1 +1,0 @@
-{"id":"a7488774a51b1b630e01595c2b5d9c05","fullName":"tests.test_trust#test_portable_open_identity_and_open_race","name":"Portable fallback detects identity race and closes descriptors on open race","status":"passed","testResultsByEnv":{"default":"ccb32706395a2843729cd8a9de21d4d5"}}

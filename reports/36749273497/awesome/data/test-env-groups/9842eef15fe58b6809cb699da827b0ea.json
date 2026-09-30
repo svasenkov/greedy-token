@@ -1,1 +1,0 @@
-{"id":"9842eef15fe58b6809cb699da827b0ea","fullName":"tests.test_trust_cut#test_false_cheap_edit_corpus_escalates","name":"Reviewer edit prompts escalate to cursor, not tool/rg","status":"passed","testResultsByEnv":{"default":"653239e3d75d8b4459e22d73ba72ce51"}}

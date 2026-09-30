@@ -1,1 +1,0 @@
-{"id":"c0f791abd004664816fd2693d05581bd","fullName":"tests.test_budget_gaps#test_build_billing_event_fields_exact","name":"build_billing_event_fields maps tiers, rounds cost, passes model","status":"passed","testResultsByEnv":{"default":"3a5a79ba0a6de14e2f6a7c9753fe11f9"}}

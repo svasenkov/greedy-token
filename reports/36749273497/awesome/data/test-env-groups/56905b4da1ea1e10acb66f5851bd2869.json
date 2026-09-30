@@ -1,1 +1,0 @@
-{"id":"56905b4da1ea1e10acb66f5851bd2869","fullName":"tests.test_rag_search_gaps#test_excerpt_head_truncation_exact","name":"long head truncates to max_len chars ending with ellipsis","status":"passed","testResultsByEnv":{"default":"a6542489392fc73f83d2256bac4d6af2"}}

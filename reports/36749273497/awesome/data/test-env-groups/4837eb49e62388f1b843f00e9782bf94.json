@@ -1,1 +1,0 @@
-{"id":"4837eb49e62388f1b843f00e9782bf94","fullName":"tests.test_trust#test_approval_rejects_symlink_escape","name":"Approval rejects a workspace symlink that escapes the root","status":"passed","testResultsByEnv":{"default":"d0286d76c78bf7ae6b7d930aacfa1ae6"}}

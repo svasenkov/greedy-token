@@ -1,1 +1,0 @@
-{"id":"32273a60f9ba7cfb0d5b8a167f550708","fullName":"tests.test_trust_gaps#test_verified_script_close_zero_fd","name":"VerifiedScript.close: fd 0 is still closed exactly once","status":"passed","testResultsByEnv":{"default":"19be4508d6ed5ec463af5d6f69d82770"}}

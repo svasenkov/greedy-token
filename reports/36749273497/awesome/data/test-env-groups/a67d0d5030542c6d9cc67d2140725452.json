@@ -1,1 +1,0 @@
-{"id":"a67d0d5030542c6d9cc67d2140725452","fullName":"tests.test_result_gate#test_unknown_result_status_fails_closed","name":"Unknown result_status fails closed: normalized to invalid, never savings","status":"passed","testResultsByEnv":{"default":"f4aefef2d533c3e891a6ab302c72fdc1"}}

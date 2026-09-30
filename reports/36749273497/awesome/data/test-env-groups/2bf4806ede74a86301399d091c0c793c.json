@@ -1,1 +1,0 @@
-{"id":"2bf4806ede74a86301399d091c0c793c","fullName":"tests.test_spend_ledger#test_metered_spend_excludes_pending","name":"metered_spend_usd honours include_pending=False","status":"passed","testResultsByEnv":{"default":"21ece161931e288a3fd9cea53ae9c927"}}

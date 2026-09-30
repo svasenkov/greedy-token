@@ -1,1 +1,0 @@
-{"id":"e327d5fcc2d4caa57bb67dbe4ad3378c","fullName":"tests.test_cheap_llm#test_remote_ollama_basic_from_env","name":"Remote Ollama sends Basic from OLLAMA_USER / OLLAMA_PASSWORD","status":"passed","testResultsByEnv":{"default":"6dbc9185ad2e8ae28aa1962d780d318a"}}

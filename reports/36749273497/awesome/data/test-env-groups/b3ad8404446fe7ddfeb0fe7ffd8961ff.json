@@ -1,1 +1,0 @@
-{"id":"b3ad8404446fe7ddfeb0fe7ffd8961ff","fullName":"tests.test_cheap_llm#test_cheap_llm_available_ollama","name":"cheap_llm_available probes Ollama /api/tags and requires the configured model","status":"passed","testResultsByEnv":{"default":"193a431c6aad1ce18bdef7b4f971e382"}}

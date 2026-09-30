@@ -1,1 +1,0 @@
-{"id":"daadb9efbe08ac065df28b99c32e446c","fullName":"tests.test_trust_gaps#test_trust_entry_note_default","name":"TrustEntry.from_dict: absent note defaults to empty string","status":"passed","testResultsByEnv":{"default":"a660a4281293f3afb6948519d52606f1"}}

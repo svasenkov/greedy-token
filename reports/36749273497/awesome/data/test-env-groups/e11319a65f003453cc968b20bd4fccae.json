@@ -1,1 +1,0 @@
-{"id":"e11319a65f003453cc968b20bd4fccae","fullName":"tests.test_portability#test_script_path_rejects_windows_forms","name":"script operand rejects drive-relative and UNC forms","status":"passed","testResultsByEnv":{"default":"ea82d0e72d9c7a21d8f869f4c5b91fb4"}}

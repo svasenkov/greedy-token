@@ -1,1 +1,0 @@
-{"id":"4d7cd1899c0bf639a735d079a72a4ba4","fullName":"tests.test_expensive_llm#test_yandex_malformed_no_compat_fallback","name":"malformed native response is a structured failure — not a fallback retry","status":"passed","testResultsByEnv":{"default":"f1249fb92213f36f7e3ce82d07449eb5"}}

@@ -1,1 +1,0 @@
-{"id":"c9ff14882f393eeebe5844a3a6545e62","fullName":"tests.test_settings#test_get_hook_settings_workspace","name":"get_hook_settings reads hook: from workspace yaml","status":"passed","testResultsByEnv":{"default":"918e1f5029fe6436e1243e293d4f5d2e"}}

@@ -1,1 +1,0 @@
-{"id":"3ceac9da7eabc3db63893cc937f98c20","fullName":"tests.test_llm_invoke_gaps#test_invoke_weak_served_output_no_savings","name":"served-but-weak output claims no savings even without escalation","status":"passed","testResultsByEnv":{"default":"13ba6788bf7ae8c0be2f31d43f44a593"}}

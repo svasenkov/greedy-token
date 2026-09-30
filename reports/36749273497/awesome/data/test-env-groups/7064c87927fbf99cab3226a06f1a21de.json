@@ -1,1 +1,0 @@
-{"id":"7064c87927fbf99cab3226a06f1a21de","fullName":"tests.test_usage_gaps#test_rotate_boundary","name":"rotate boundary: exactly max bytes still rotates","status":"passed","testResultsByEnv":{"default":"d70ea43d137c13ea6dcafc2d9263845b"}}

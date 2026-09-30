@@ -1,1 +1,0 @@
-{"id":"ff759e8c24db0b1298def41ffd45ed0b","fullName":"tests.test_advisory#test_truncate_boundary","name":"_truncate keeps exactly-limit text verbatim","status":"passed","testResultsByEnv":{"default":"38cc3439124e62ff1852a057d1b78aa0"}}

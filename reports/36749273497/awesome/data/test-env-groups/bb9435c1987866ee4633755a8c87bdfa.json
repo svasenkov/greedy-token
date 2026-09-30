@@ -1,1 +1,0 @@
-{"id":"bb9435c1987866ee4633755a8c87bdfa","fullName":"tests.test_llm_invoke_gaps#test_invoke_registry_uses_invoked_root","name":"escalation triggers come from the invoked root, not the env root","status":"passed","testResultsByEnv":{"default":"34d0661f99edd5ec1c64571ba04b8736"}}

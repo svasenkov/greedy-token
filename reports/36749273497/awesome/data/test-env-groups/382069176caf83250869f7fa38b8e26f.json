@@ -1,1 +1,0 @@
-{"id":"382069176caf83250869f7fa38b8e26f","fullName":"tests.test_code_search_gaps#test_load_ignore_specs_outside_root","name":"an .ignore outside the workspace root still loads with a root anchor","status":"passed","testResultsByEnv":{"default":"afd4e03c0f4f12733a5c274413d7ceaf"}}

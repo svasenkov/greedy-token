@@ -1,1 +1,0 @@
-{"id":"8ab09790e947a0be19eff841466ff444","fullName":"tests.test_pipeline_gaps#test_estimate_step_tokens_encoding","name":"_estimate_step_tokens pins skill reads to encoding='utf-8'","status":"passed","testResultsByEnv":{"default":"dc462c4c52680f526e856a7aeb8bd853"}}

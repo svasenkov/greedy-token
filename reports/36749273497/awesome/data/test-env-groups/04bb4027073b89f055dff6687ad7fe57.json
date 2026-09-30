@@ -1,1 +1,0 @@
-{"id":"04bb4027073b89f055dff6687ad7fe57","fullName":"tests.test_code_search_gaps#test_escape_literal_brackets","name":"_escape_literal_brackets escapes only unescaped unclosed `[`","status":"passed","testResultsByEnv":{"default":"f2ed7d3acdbd736845f2fc3b02e65159"}}

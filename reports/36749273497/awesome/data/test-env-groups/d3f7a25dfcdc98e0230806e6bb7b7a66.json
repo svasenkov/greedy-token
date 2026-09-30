@@ -1,1 +1,0 @@
-{"id":"d3f7a25dfcdc98e0230806e6bb7b7a66","fullName":"tests.test_trust#test_parent_symlink_swap_is_rejected","name":"Parent-directory symlink swap cannot redirect an approved path","status":"passed","testResultsByEnv":{"default":"eda092376b3a567152b6bbe9d8f2ad8f"}}

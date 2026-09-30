@@ -1,1 +1,0 @@
-{"id":"df5385e886e57933ace1854eeaf6085a","fullName":"tests.test_spend_ledger#test_free_model_no_reservation","name":"free (non-metered) models get a no-op reservation","status":"passed","testResultsByEnv":{"default":"4179d2595c52bec27d71110f1a616228"}}

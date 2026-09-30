@@ -1,1 +1,0 @@
-{"id":"a90d1c5886552048fe99bea9401ad6f1","fullName":"tests.test_spend_guard_gaps#test_reserve_fail_closed_on_lock_error","name":"reserve_metered_call fails closed when the spend lock raises OSError","status":"passed","testResultsByEnv":{"default":"cd9ec18f0e67109201203e557a4e0195"}}

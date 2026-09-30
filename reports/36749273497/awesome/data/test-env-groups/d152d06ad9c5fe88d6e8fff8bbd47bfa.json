@@ -1,1 +1,0 @@
-{"id":"d152d06ad9c5fe88d6e8fff8bbd47bfa","fullName":"tests.test_spend_ledger#test_ledger_spend_usd_exclude_pending","name":"include_pending=False drops pending rows entirely","status":"passed","testResultsByEnv":{"default":"ee5e56553ce26d4854eac89734204fc9"}}

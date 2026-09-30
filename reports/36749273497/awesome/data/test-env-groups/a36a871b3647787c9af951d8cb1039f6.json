@@ -1,1 +1,0 @@
-{"id":"a36a871b3647787c9af951d8cb1039f6","fullName":"tests.test_code_search_gaps#test_cap_hit_lines_edges","name":"_cap_hit_lines: limit<=0 empties the body; non-hit lines pass through","status":"passed","testResultsByEnv":{"default":"86dcc53fe8772c94c593fb68e31c6add"}}

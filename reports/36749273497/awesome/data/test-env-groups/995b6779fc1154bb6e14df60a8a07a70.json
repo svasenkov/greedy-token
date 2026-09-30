@@ -1,1 +1,0 @@
-{"id":"995b6779fc1154bb6e14df60a8a07a70","fullName":"tests.test_trust_gaps#test_open_portable_stale_identity","name":"_open_portable_nofollow: lstat/fstat identity drift → 'stale_identity'","status":"passed","testResultsByEnv":{"default":"875bea31436d727ef68edd4b82fc472d"}}

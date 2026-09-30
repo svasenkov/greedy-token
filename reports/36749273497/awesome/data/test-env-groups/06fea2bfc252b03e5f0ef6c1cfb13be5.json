@@ -1,1 +1,0 @@
-{"id":"06fea2bfc252b03e5f0ef6c1cfb13be5","fullName":"tests.test_usage#test_append_event_respects_env_optout_default","name":"append_event honours GREEDY_TOKEN_LOG=0 at the default path","status":"passed","testResultsByEnv":{"default":"0d0ad47c663e27c3ff2f5675af6f0af7"}}

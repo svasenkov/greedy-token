@@ -1,1 +1,0 @@
-{"id":"6c13d683f28685109dbdea0a4d03ccc3","fullName":"tests.test_advisory#test_watch_once_ignores_partial_tail","name":"watch_events: incomplete tail is not emitted in once mode, complete rows are","status":"passed","testResultsByEnv":{"default":"1838670fe331f1a9fb79b3af874bb03b"}}

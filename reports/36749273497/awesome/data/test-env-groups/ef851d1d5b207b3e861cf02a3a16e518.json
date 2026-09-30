@@ -1,1 +1,0 @@
-{"id":"ef851d1d5b207b3e861cf02a3a16e518","fullName":"tests.test_usage#test_aggregate_operations_legacy","name":"Legacy records without operation_id still load and count","status":"passed","testResultsByEnv":{"default":"b9d1db51a047ebae84d3aa087a7843fe"}}

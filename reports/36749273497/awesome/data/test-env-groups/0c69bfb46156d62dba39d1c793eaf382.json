@@ -1,1 +1,0 @@
-{"id":"0c69bfb46156d62dba39d1c793eaf382","fullName":"tests.test_trust_gaps#test_read_entries_pinned_encoding","name":"_read_entries: manifest is decoded with an explicit UTF-8 pin","status":"passed","testResultsByEnv":{"default":"20823d2541f2fe1e8e322632f390b781"}}

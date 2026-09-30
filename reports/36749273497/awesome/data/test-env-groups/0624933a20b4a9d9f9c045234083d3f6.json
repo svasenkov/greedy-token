@@ -1,1 +1,0 @@
-{"id":"0624933a20b4a9d9f9c045234083d3f6","fullName":"tests.test_result_gate#test_run_pipeline_stops_on_invalid_contract","name":"invalid contract stops the chain even when the exit code was clean","status":"passed","testResultsByEnv":{"default":"03bd111395e36372621ed964fff48256"}}

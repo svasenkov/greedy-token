@@ -1,1 +1,0 @@
-{"id":"84022476298b1189f985a70cf11e9bc6","fullName":"tests.test_trust#test_cmd_trust_handler_edges","name":"Trust CLI handler covers empty, stale, missing, and invalid operations","status":"passed","testResultsByEnv":{"default":"4fb15d9624c2e663e3c114191443d9a4"}}

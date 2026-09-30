@@ -1,1 +1,0 @@
-{"id":"0fd1d94c0dcb9034a32dc8c2963afb76","fullName":"tests.test_trust#test_script_result_contract_statuses","name":"canon JSON stdout is checked against the declared contract; prose is not evaluated","status":"passed","testResultsByEnv":{"default":"e48ae936a553dc05328052ae80d6e306"}}

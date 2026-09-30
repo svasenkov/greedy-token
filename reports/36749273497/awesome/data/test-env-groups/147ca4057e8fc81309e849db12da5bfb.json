@@ -1,1 +1,0 @@
-{"id":"147ca4057e8fc81309e849db12da5bfb","fullName":"tests.test_hub_gaps#test_rank_candidates_sandbox_roots","name":"rank_candidates skips tasks rooted only in tmp/pytest sandboxes","status":"passed","testResultsByEnv":{"default":"f8dfcd8cccdf3f38a8c206109b22f7ac"}}

@@ -1,1 +1,0 @@
-{"id":"cbcfc115e5c3fb517aba699ebe576269","fullName":"tests.test_trust#test_cli_trust_lifecycle_spaces_unicode_and_no_telemetry","name":"trust add/list/verify/revoke handles spaces and Unicode without telemetry","status":"passed","testResultsByEnv":{"default":"954232b30b6fa9fa6358ac566718d486"}}

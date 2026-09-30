@@ -1,1 +1,0 @@
-{"id":"985982e8ae844191b882000718ce6dad","fullName":"tests.test_llm_invoke_gaps#test_invoke_metered_denied_no_http","name":"metered cheap model denied without opt-in — provider is never called","status":"passed","testResultsByEnv":{"default":"222db63ebd9d938596070ee52a931a6a"}}

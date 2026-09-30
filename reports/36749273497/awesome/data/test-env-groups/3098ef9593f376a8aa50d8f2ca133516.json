@@ -1,1 +1,0 @@
-{"id":"3098ef9593f376a8aa50d8f2ca133516","fullName":"tests.test_advisory#test_event_from_dict_golden","name":"event_from_dict golden: full row and missing-keys defaults","status":"passed","testResultsByEnv":{"default":"74906bd719dd47d8a09fad962ddbdab8"}}

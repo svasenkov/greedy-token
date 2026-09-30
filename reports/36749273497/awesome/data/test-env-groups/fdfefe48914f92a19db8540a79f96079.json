@@ -1,1 +1,0 @@
-{"id":"fdfefe48914f92a19db8540a79f96079","fullName":"tests.test_evidence_benchmark#test_evidence_metered_api_denied_by_default","name":"Manual host adapter cannot be metered without explicit opt-in","status":"passed","testResultsByEnv":{"default":"4ddf618e17979e7eef0ea6ab062a2816"}}

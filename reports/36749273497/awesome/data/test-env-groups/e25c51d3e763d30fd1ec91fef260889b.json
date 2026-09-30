@@ -1,1 +1,0 @@
-{"id":"e25c51d3e763d30fd1ec91fef260889b","fullName":"tests.test_portability#test_tool_candidates_pathext_gated","name":"PATH scan emits PATHEXT candidate names on win32 only","status":"passed","testResultsByEnv":{"default":"13d1d1cdcc93e862c88b982a25c23aa3"}}

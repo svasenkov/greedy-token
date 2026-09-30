@@ -1,1 +1,0 @@
-{"id":"144c3c6e6a4d9270c391f11b21c514a4","fullName":"tests.test_llm_invoke_gaps#test_invoke_malformed_response","name":"malformed provider response records a structured failed call with spend","status":"passed","testResultsByEnv":{"default":"cde4f3297c3a40a517f06ba507329d66"}}
