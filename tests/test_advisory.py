@@ -928,8 +928,30 @@ def test_render_result_output_nested_values() -> None:
     out = advisory.render_result_output(
         json.dumps({"meta": {"elapsed": 1}, "tags": ["a", "b"]})
     )
-    assert '**meta**: {"elapsed": 1}' in out
+    assert "**meta**: elapsed=1" in out
     assert "**tags**: a, b" in out
+
+
+@allure.title("render_result_output expands deep dicts instead of truncated JSON")
+def test_render_result_output_deep_dict() -> None:
+    out = advisory.render_result_output(
+        json.dumps(
+            {
+                "app": {
+                    "procs": 43,
+                    "cpu": 145.4,
+                    "by_role": {
+                        "main": {"procs": 14, "cpu": 6.6},
+                        "gpu": {"procs": 1, "cpu": 16.2},
+                    },
+                }
+            }
+        )
+    )
+    assert "**app**" in out
+    assert "- procs: 43" in out
+    assert "  - main: procs=14, cpu=6.6" in out
+    assert '{"procs"' not in out
 
 
 @allure.title("render_result_output inlines list cells with +N overflow")

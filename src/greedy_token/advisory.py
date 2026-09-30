@@ -399,9 +399,38 @@ def _render_result_dict(d: dict[str, Any]) -> str:
             isinstance(r, dict) for r in value
         ):
             blocks.append(f"**{key}**\n\n{_render_result_table(value)}")
-        elif isinstance(value, (dict, list)):
+        elif isinstance(value, dict):
+            flat = _inline_pairs(value)
+            if flat is not None:
+                blocks.append(f"**{key}**: {flat}")
+            else:
+                blocks.append(f"**{key}**\n\n{_render_nested_dict(value)}")
+        elif isinstance(value, list):
             blocks.append(f"**{key}**: {_result_cell(value)}")
     return "\n\n".join(blocks)
+
+
+def _inline_pairs(value: dict[str, Any]) -> str | None:
+    """``k=v`` inline form when every value is scalar, else None."""
+    if any(isinstance(v, (dict, list)) for v in value.values()):
+        return None
+    return ", ".join(f"{k}={_result_cell(v)}" for k, v in value.items())
+
+
+def _render_nested_dict(value: dict[str, Any], depth: int = 0) -> str:
+    """Indented ``- key: value`` lines; nested dicts inline or recurse."""
+    pad = "  " * depth
+    lines: list[str] = []
+    for key, item in value.items():
+        flat = _inline_pairs(item) if isinstance(item, dict) else None
+        if flat is not None:
+            lines.append(f"{pad}- {key}: {flat}")
+        elif isinstance(item, dict):
+            lines.append(f"{pad}- {key}:")
+            lines.append(_render_nested_dict(item, depth + 1))
+        else:
+            lines.append(f"{pad}- {key}: {_result_cell(item)}")
+    return "\n".join(lines)
 
 
 def _render_result_table(rows: list[dict[str, Any]]) -> str:
