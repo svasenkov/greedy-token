@@ -79,6 +79,18 @@ routes:
       - phase-manifest
       - phase manifest drift
       - skills-map sync
+      - проверь синхронизацию метаданных
+      - проверь согласованность метаданных
+      - покажи расхождения метаданных
+      - выведи расхождения метаданных
+      - проверь синхронизацию skills-map
+      - проверь дрейф phase-manifest
+      - check workspace metadata sync
+      - show workspace metadata drift
+      - list workspace metadata inconsistencies
+      - check phase manifest consistency
+      - check skills map synchronization
+      - verify workspace metadata consistency
     command: python scripts/meta-sync-check.py
     note: "meta_sync_clean gate — crystallized script tier, 0 LLM"
 
@@ -119,6 +131,18 @@ routes:
       - crystallize report
       - crystallize candidates
       - coverage report script
+      - покажи кандидатов кристаллизации
+      - выведи кандидатов кристаллизации
+      - список кандидатов кристаллизации
+      - дай отчёт о кристаллизации
+      - покажи отчёт о кристаллизации
+      - покажи покрытие детерминированных операций
+      - show crystallization candidates
+      - list crystallization candidates
+      - show crystallization coverage report
+      - show deterministic route coverage
+      - list script crystallization candidates
+      - check script crystallization coverage
     command: python scripts/crystallize-report.py
     note: "script-crystallize candidates from usage.jsonl, 0 LLM"
 
@@ -129,6 +153,18 @@ routes:
       - meta-audit configurator-boolean
       - configurator boolean audit
       - plaque-field-seg drift
+      - проверь boolean опции конфигуратора
+      - проверь boolean пресеты конфигуратора
+      - проверь булевы опции конфигуратора
+      - проверь булевы пресеты конфигуратора
+      - покажи дрейф boolean конфигуратора
+      - выведи аудит boolean конфигуратора
+      - проверь дрейф plaque-field-seg
+      - check configurator boolean presets
+      - check configurator boolean consistency
+      - audit configurator boolean options
+      - show configurator boolean drift
+      - verify configurator boolean presets
     command: python scripts/configurator-boolean-audit.py
     note: "configurator-boolean canon drift gate — crystallized script tier, 0 LLM"
 
@@ -141,6 +177,18 @@ routes:
       - ssh access canon
       - qaguru ssh
       - infra ssh probe
+      - проверь ssh доступ
+      - проверь доступ по ssh
+      - проверь ssh подключения
+      - проверь ssh соединения
+      - покажи диагностику ssh
+      - выведи диагностику ssh
+      - check ssh connectivity
+      - verify ssh connectivity
+      - check qa.guru ssh access
+      - show ssh connectivity report
+      - run ssh connectivity checks
+      - check canonical ssh access
     command: python scripts/ssh-check.py
     note: "infra SSH smoke — crystallized script tier, 0 LLM"
 
@@ -166,6 +214,18 @@ routes:
       - usage stats
       - tier counts
       - usage aggregate
+      - покажи статистику greedy-token
+      - выведи статистику greedy-token
+      - дай статистику greedy-token
+      - покажи расход токенов greedy-token
+      - покажи экономию токенов greedy-token
+      - проверь расход токенов greedy-token
+      - show greedy-token usage statistics
+      - list greedy-token usage statistics
+      - check greedy-token token spend
+      - show greedy-token token savings
+      - show greedy-token billing statistics
+      - show executor tier statistics
     command: python scripts/usage-stats.py
     note: "usage.jsonl tier aggregation — crystallized script tier, 0 LLM"
 
@@ -192,6 +252,20 @@ routes:
       - why is devin slow
       - check devin performance
       - что жрёт cpu
+      - почему тормозит компьютер
+      - почему компьютер тормозит
+      - почему тормозит комп
+      - почему комп тормозит
+      - проверь производительность компьютера
+      - покажи потребление ресурсов devin
+      - что нагружает процессор
+      - какие процессы потребляют память
+      - show devin resource usage
+      - show top cpu consumers
+      - check computer performance
+      - why is my computer slow
+      - why is my mac slow
+      - check devin cpu usage
     command: python scripts/pc-performance.py
     note: "Devin/host perf snapshot (top cpu, devin roles, memory, extensions, strays) — read-only, 0 LLM"
 
@@ -203,6 +277,18 @@ routes:
       - crystal status
       - crystallize status
       - lifecycle state
+      - покажи статус кристаллов
+      - выведи статус кристаллов
+      - покажи состояние кристаллизации
+      - проверь состояние кристаллизации
+      - покажи lifecycle кристаллов
+      - список состояний кристаллов
+      - show crystallization status
+      - check crystallization status
+      - show crystal lifecycle status
+      - list crystal lifecycle states
+      - show crystallize lifecycle status
+      - check crystal lifecycle state
     command: python scripts/crystal-status.py
     note: "Crystallize lifecycle/watch state — crystallized script tier, 0 LLM"
 
@@ -215,6 +301,23 @@ routes:
       - recent commits
       - что изменилось
       - git log
+      - покажи последние коммиты
+      - выведи последние коммиты
+      - дай последние коммиты
+      - покажи историю коммитов
+      - список последних коммитов
+      - последние коммиты в этом репо
+      - последние коммиты репозитория
+      - что изменилось в этом репо
+      - что изменилось в репозитории
+      - show recent commits
+      - list recent commits
+      - show latest commits
+      - list latest git commits
+      - show repository commit history
+      - show git commit history
+      - show repository changes
+      - show latest git commits
     command: python scripts/git-recent.py
     note: "Recent git history — crystallized script tier, 0 LLM"
 
@@ -228,6 +331,18 @@ routes:
       - list repos
       - список репо
       - где репо
+      - покажи вложенные репозитории
+      - выведи вложенные репозитории
+      - список вложенных репозиториев
+      - покажи список репозиториев
+      - дай список репозиториев
+      - проверь список репозиториев
+      - show nested repositories
+      - list nested repositories
+      - show workspace repositories
+      - list workspace repositories
+      - show nested git repositories
+      - list nested git repositories
     command: python scripts/git-repos.py
     note: "Nested git repo inventory — crystallized script tier, 0 LLM"
 
@@ -239,6 +354,18 @@ routes:
       - greedy context smoke
       - cheap tier smoke
       - context quality matrix
+      - проверь качество контекста greedy-token
+      - проверь контекст дешёвых уровней
+      - проверь smoke контекста
+      - проверь матрицу качества контекста
+      - покажи smoke проверки контекста
+      - запусти smoke проверки контекста
+      - check cheap tier context
+      - check routing context smoke
+      - run greedy context smoke
+      - show cheap tier context quality
+      - verify cheap tier context
+      - check routing context quality
     command: python scripts/greedy-context-smoke.py
     note: "Cheap-tier context smoke matrix — crystallized script tier, 0 LLM"
 
@@ -250,6 +377,18 @@ routes:
       - rag golden
       - rag retrieval recall
       - rag hit rate
+      - проверь качество rag поиска
+      - проверь точность rag поиска
+      - покажи оценку rag поиска
+      - проверь эталон rag поиска
+      - проверь полноту rag поиска
+      - выведи метрики rag поиска
+      - check rag retrieval quality
+      - evaluate rag retrieval quality
+      - show rag retrieval metrics
+      - check rag retrieval recall
+      - run rag golden evaluation
+      - show rag evaluation metrics
     command: python scripts/rag-eval.py
     note: "RAG retrieval golden eval — recall@k/MRR by chunk id, 0 LLM"
 
@@ -437,6 +576,18 @@ routes:
     patterns:
       - jenkins access check
       - jenkins access probe
+      - проверь доступ к jenkins
+      - проверь доступность jenkins
+      - проверь авторизацию jenkins
+      - покажи диагностику доступа jenkins
+      - выведи диагностику доступа jenkins
+      - дай диагностику доступа jenkins
+      - проверь подключение к jenkins
+      - check access to jenkins
+      - check jenkins authentication
+      - show jenkins authentication status
+      - run jenkins authentication check
+      - verify jenkins service access
     command: python scripts/access-diag.py jenkins
     note: "Access-diag jenkins profile — read-only probe, canon schema"
 
@@ -445,6 +596,18 @@ routes:
     read_only: true
     patterns:
       - selenoid access probe
+      - проверь доступ к selenoid
+      - проверь доступность selenoid
+      - проверь авторизацию selenoid
+      - покажи диагностику доступа selenoid
+      - выведи диагностику доступа selenoid
+      - проверь подключение к selenoid
+      - check access to selenoid
+      - check selenoid authentication
+      - show selenoid authentication status
+      - run selenoid authentication check
+      - verify selenoid service access
+      - check selenoid service availability
     command: python scripts/access-diag.py selenoid
     note: "Access-diag selenoid profile — read-only probe, canon schema"
 
@@ -457,6 +620,18 @@ routes:
       - auth_storage_probe
       - tms auth probe
       - testops auth storage
+      - проверь доступ к testops
+      - проверь доступность testops
+      - проверь авторизацию testops
+      - покажи диагностику доступа testops
+      - выведи диагностику доступа testops
+      - проверь подключение к testops
+      - check access to testops
+      - check testops authentication
+      - show testops authentication status
+      - run testops authentication check
+      - verify testops service access
+      - check testops service availability
     command: python scripts/access-diag.py testops
     note: "Access-diag testops profile — auth env probe, canon schema"
 
@@ -467,6 +642,18 @@ routes:
       - access diag
       - access-diag probe
       - service account access
+      - проверь доступ к учебным сервисам
+      - проверь доступ к сервисам qa.guru
+      - проверь сервисные учётные записи
+      - покажи общую диагностику доступа
+      - выведи общую диагностику доступа
+      - проверь авторизацию учебных сервисов
+      - check qa.guru service access
+      - check training services access
+      - show combined service access diagnostics
+      - run all standard access diagnostics
+      - verify training service authentication
+      - check service account authentication
     command: python scripts/access-diag.py --all-standard
     note: "Access-diag all standard profiles — jenkins+selenoid+testops"
 
