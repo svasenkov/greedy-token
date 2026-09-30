@@ -1,0 +1,1 @@
+{"id":"b869be54382c34b9bf50cc0d6908ff67","fullName":"tests.test_calibration#test_outcome_disk_cache_hit","name":"Outcome disk cache survives a process-cache reset without rereading logs","status":"passed","testResultsByEnv":{"default":"53ffcc365d0069010e6854640e35c0c7"}}

@@ -1,0 +1,1 @@
+{"id":"bc98e8ae2044aa1c08e9b15fcd6b07ab","fullName":"tests.test_paths#test_yaml_cache_malformed_source","name":"Malformed YAML is not cached and a repaired source is read immediately","status":"passed","testResultsByEnv":{"default":"3f2cb4d4d92aff9ea7617cc32f24fe7b"}}

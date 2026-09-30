@@ -1,0 +1,1 @@
+{"id":"eabd1bbc854115bce95ba0397227ed0b","fullName":"tests.test_calibration#test_outcome_cache_malformed","name":"Malformed outcome disk entries fall back to the authoritative log","status":"passed","testResultsByEnv":{"default":"3766fa20390f27f29c993c2fd18d06f2"}}

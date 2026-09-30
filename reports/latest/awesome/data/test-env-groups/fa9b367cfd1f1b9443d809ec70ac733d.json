@@ -1,0 +1,1 @@
+{"id":"fa9b367cfd1f1b9443d809ec70ac733d","fullName":"tests.test_advisory#test_render_result_output_nested_values","name":"render_result_output renders nested dict and scalar list inline","status":"passed","testResultsByEnv":{"default":"746982caf84aa9953cea2f7fb1cee450"}}

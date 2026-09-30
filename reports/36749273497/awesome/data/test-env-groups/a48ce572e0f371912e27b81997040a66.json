@@ -1,0 +1,1 @@
+{"id":"a48ce572e0f371912e27b81997040a66","fullName":"tests.test_advisory#test_render_result_output_passthrough_edge","name":"render_result_output keeps empty and scalar JSON unchanged","status":"passed","testResultsByEnv":{"default":"12668e2948cc5ad6d6458a8838a75431"}}

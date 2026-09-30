@@ -1,0 +1,1 @@
+{"id":"be7a32ffcb107a245d1659b277facfd0","fullName":"tests.test_paths#test_yaml_cache_signatures","name":"YAML cache invalidates independently on mtime and size","status":"passed","testResultsByEnv":{"default":"bd06e56638e268fd3778d25b7304c5a8"}}

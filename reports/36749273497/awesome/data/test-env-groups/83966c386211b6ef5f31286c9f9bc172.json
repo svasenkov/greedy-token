@@ -1,0 +1,1 @@
+{"id":"83966c386211b6ef5f31286c9f9bc172","fullName":"tests.test_resource_probe_gaps#test_gpu_info_cached","name":"_gpu_info_cached honours the off flag and serves repeat calls from disk","status":"passed","testResultsByEnv":{"default":"b64dba5ee6bcd83d3f683680e12d61f9"}}

@@ -1,0 +1,1 @@
+{"id":"09343378c88217d8911061c1dda59eb0","fullName":"tests.test_budget_gaps#test_policy_single_ledger_read","name":"apply_budget_policy reads the ledgers once — checks share the snapshot","status":"passed","testResultsByEnv":{"default":"f4cb4206111280991760ac00948055b9"}}
