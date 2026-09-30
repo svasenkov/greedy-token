@@ -244,6 +244,7 @@ def test_format_overkill_user_message() -> None:
 @allure.title("hook_mode: unset → legacy, junk → advisory, valid modes pass")
 def test_hook_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("GREEDY_HOOK_MODE", raising=False)
+    monkeypatch.setattr(advisory, "_hook_settings", lambda: None)
     assert advisory.hook_mode() == ""
     monkeypatch.setenv("GREEDY_HOOK_MODE", "bogus")
     assert advisory.hook_mode() == advisory.HOOK_MODE_ADVISORY
@@ -252,10 +253,26 @@ def test_hook_mode(monkeypatch: pytest.MonkeyPatch) -> None:
         assert advisory.hook_mode() == mode
 
 
+@allure.title("hook_mode: yaml config applies when env unset, env wins over config")
+def test_hook_mode_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("GREEDY_HOOK_MODE", raising=False)
+    cfg = SimpleNamespace(mode=advisory.HOOK_MODE_INTERCEPT, min_confidence=0.7)
+    monkeypatch.setattr(advisory, "_hook_settings", lambda: cfg)
+    assert advisory.hook_mode() == advisory.HOOK_MODE_INTERCEPT
+    monkeypatch.setenv("GREEDY_HOOK_MODE", "gate")
+    assert advisory.hook_mode() == advisory.HOOK_MODE_GATE
+
+    empty = SimpleNamespace(mode=None, min_confidence=None)
+    monkeypatch.delenv("GREEDY_HOOK_MODE", raising=False)
+    monkeypatch.setattr(advisory, "_hook_settings", lambda: empty)
+    assert advisory.hook_mode() == ""
+
+
 @allure.title("hook_min_confidence: env override, enforce default, advisory lock")
 def test_hook_min_confidence(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("GREEDY_HOOK_MODE", raising=False)
     monkeypatch.delenv("GREEDY_HOOK_MIN_CONFIDENCE", raising=False)
+    monkeypatch.setattr(advisory, "_hook_settings", lambda: None)
     assert advisory.hook_min_confidence() == advisory.ADVISORY_MIN_CONFIDENCE
 
     # Legacy path: env alone arms the threshold when no mode is set.
@@ -928,3 +945,26 @@ def test_render_result_output_dict_cell() -> None:
         json.dumps([{"stats": {"add": 3}}])
     )
     assert '{"add": 3}' in out
+
+
+@allure.title("hook_min_confidence: yaml threshold applies when env unset")
+def test_hook_min_confidence_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("GREEDY_HOOK_MIN_CONFIDENCE", raising=False)
+    monkeypatch.setenv("GREEDY_HOOK_MODE", "intercept")
+    cfg = SimpleNamespace(mode="intercept", min_confidence=0.7)
+    monkeypatch.setattr(advisory, "_hook_settings", lambda: cfg)
+    assert advisory.hook_min_confidence() == 0.7
+
+    # env still beats the yaml threshold
+    monkeypatch.setenv("GREEDY_HOOK_MIN_CONFIDENCE", "0.9")
+    assert advisory.hook_min_confidence() == 0.9
+
+
+@allure.title("_hook_settings: get_hook_settings failure → unconfigured")
+def test_hook_settings_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    from greedy_token import settings as _settings
+
+    monkeypatch.setattr(
+        _settings, "get_hook_settings", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom"))
+    )
+    assert advisory._hook_settings() is None

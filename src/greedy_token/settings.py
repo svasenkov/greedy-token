@@ -246,6 +246,64 @@ def get_footer_settings(root: Path | None = None) -> FooterSettings:
     return _resolve_footer_style(user_cfg=user_cfg, workspace_cfg=workspace_cfg)
 
 
+@dataclass(frozen=True)
+class HookSettings:
+    mode: str | None
+    min_confidence: float | None
+
+
+_HOOK_MODES = frozenset({"advisory", "gate", "intercept"})
+
+
+def _normalize_hook_mode(value: Any) -> str | None:
+    if value is None:
+        return None
+    normalized = str(value).strip().lower()
+    return normalized if normalized in _HOOK_MODES else None
+
+
+def _normalize_hook_confidence(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _resolve_hook(
+    *,
+    user_cfg: dict[str, Any],
+    workspace_cfg: dict[str, Any],
+) -> HookSettings:
+    mode: str | None = None
+    min_confidence: float | None = None
+    for cfg in (user_cfg, workspace_cfg):
+        hook = _section(cfg, "hook")
+        next_mode = _normalize_hook_mode(hook.get("mode"))
+        if next_mode:
+            mode = next_mode
+        next_conf = _normalize_hook_confidence(hook.get("min_confidence"))
+        if next_conf is not None:
+            min_confidence = next_conf
+    return HookSettings(mode=mode, min_confidence=min_confidence)
+
+
+def get_hook_settings(root: Path | None = None) -> HookSettings:
+    user_cfg = _read_yaml(user_config_path())
+    workspace_cfg: dict[str, Any] = {}
+    if root is not None:
+        workspace_cfg = _read_yaml(workspace_config_path(root))
+    else:
+        try:
+            from greedy_token.paths import find_workspace_root
+
+            workspace_cfg = _read_yaml(workspace_config_path(find_workspace_root()))
+        except SystemExit:
+            pass
+    return _resolve_hook(user_cfg=user_cfg, workspace_cfg=workspace_cfg)
+
+
 def _normalize_agent_host(value: str | None) -> AgentHost | None:
     if not value:
         return None
@@ -650,6 +708,10 @@ def example_workspace_config() -> str:
         f"  model: {DEFAULT_CHEAP_LLM_MODEL}\n"
         "footer:\n"
         f"  style: {DEFAULT_FOOTER_STYLE}  # compact | markdown | full\n"
+        "# UserPromptSubmit hook policy (opt-in; env still overrides)\n"
+        "# hook:\n"
+        "#   mode: intercept  # advisory | gate | intercept\n"
+        "#   min_confidence: 0.7\n"
         "search:\n"
         f"  context: {DEFAULT_SEARCH_CONTEXT}  # none | snippet | file\n"
         f"  max_context_tokens: {DEFAULT_MAX_CONTEXT_TOKENS}\n"

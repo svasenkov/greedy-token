@@ -269,3 +269,59 @@ def test_get_ollama_settings_alias(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     assert settings.url == local.url
     assert settings.model == local.model
 
+
+
+@allure.story("Hook")
+@allure.title("_resolve_hook: workspace wins over user, junk values ignored")
+def test_resolve_hook_precedence() -> None:
+    from greedy_token.settings import _resolve_hook
+
+    out = _resolve_hook(
+        user_cfg={"hook": {"mode": "gate", "min_confidence": 0.9}},
+        workspace_cfg={"hook": {"mode": "intercept"}},
+    )
+    assert out.mode == "intercept"
+    assert out.min_confidence == 0.9
+
+
+@allure.story("Hook")
+@allure.title("_resolve_hook: missing/junk config → unconfigured")
+def test_resolve_hook_empty() -> None:
+    from greedy_token.settings import _resolve_hook
+
+    out = _resolve_hook(
+        user_cfg={"hook": {"mode": "bogus", "min_confidence": "junk"}},
+        workspace_cfg={},
+    )
+    assert out.mode is None
+    assert out.min_confidence is None
+
+
+@allure.story("Hook")
+@allure.title("get_hook_settings reads hook: from workspace yaml")
+def test_get_hook_settings_workspace(tmp_path: Path) -> None:
+    from greedy_token.settings import get_hook_settings
+
+    (tmp_path / ".greedy-token.yaml").write_text(
+        "hook:\n  mode: intercept\n  min_confidence: 0.7\n", encoding="utf-8"
+    )
+    out = get_hook_settings(tmp_path)
+    assert out.mode == "intercept"
+    assert out.min_confidence == 0.7
+
+
+@allure.story("Hook")
+@allure.title("get_hook_settings without root → unconfigured")
+def test_get_hook_settings_no_root(monkeypatch: pytest.MonkeyPatch) -> None:
+    from greedy_token.settings import get_hook_settings
+
+    import greedy_token.paths as _paths
+
+    monkeypatch.setattr(
+        _paths,
+        "find_workspace_root",
+        lambda: (_ for _ in ()).throw(SystemExit("no root")),
+    )
+    out = get_hook_settings(None)
+    assert out.mode is None
+    assert out.min_confidence is None

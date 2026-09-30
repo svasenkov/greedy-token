@@ -79,23 +79,36 @@ def overkill_attachment_threshold() -> int:
         return 3
 
 
-def hook_mode() -> str:
-    """GREEDY_HOOK_MODE profile; unset → legacy (threshold env only).
+def _hook_settings():
+    """hook: section from config yaml; any failure → unconfigured (legacy)."""
+    from greedy_token.settings import get_hook_settings
 
+    try:
+        return get_hook_settings()
+    except Exception:
+        return None
+
+
+def hook_mode() -> str:
+    """Hook mode profile; unset everywhere → legacy (threshold env only).
+
+    GREEDY_HOOK_MODE env wins; `hook.mode` yaml is the durable opt-in.
     Junk values fail safe to advisory — a typo must never start blocking.
     """
     raw = os.environ.get("GREEDY_HOOK_MODE", "").strip().lower()
-    if not raw:
-        return ""
-    return raw if raw in HOOK_MODES else HOOK_MODE_ADVISORY
+    if raw:
+        return raw if raw in HOOK_MODES else HOOK_MODE_ADVISORY
+    cfg = _hook_settings()
+    return cfg.mode if cfg is not None and cfg.mode else ""
 
 
 def hook_min_confidence() -> float:
     """Effective block threshold for the active hook mode.
 
-    An explicit GREEDY_HOOK_MIN_CONFIDENCE always wins in the enforce modes;
-    MODE=advisory never blocks, whatever the threshold env says.  With no
-    mode and no env the legacy default keeps everything advisory.
+    An explicit GREEDY_HOOK_MIN_CONFIDENCE always wins in the enforce modes,
+    then `hook.min_confidence` yaml; MODE=advisory never blocks, whatever
+    either source says.  With no mode and no value anywhere the legacy
+    default keeps everything advisory.
     """
     mode = hook_mode()
     if mode == HOOK_MODE_ADVISORY:
@@ -108,6 +121,9 @@ def hook_min_confidence() -> float:
             return float(raw)
         except ValueError:
             pass
+    cfg = _hook_settings()
+    if cfg is not None and cfg.min_confidence is not None:
+        return cfg.min_confidence
     if mode in (HOOK_MODE_GATE, HOOK_MODE_INTERCEPT):
         return ENFORCE_MIN_CONFIDENCE
     return ADVISORY_MIN_CONFIDENCE
