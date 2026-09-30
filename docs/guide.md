@@ -617,11 +617,11 @@ Everything else (rsync / migrate / batch-inventory, non-allowlisted wrappers) �
 
 ## Scope & roadmap
 
-Today the happy path is **any MCP agent host + Ollama + workspace** (Cursor by default); CLI and MCP are IDE-agnostic. The current release is **v0.18.2**; the trust cut landed in **v0.13.0** (honest savings framing, mcp pin, edit-escalation, Cyrillic tokenize, routing corpus scorecard, `shell=False` harden), on top of earlier time savings / beyond-Cursor hosts / spend-guarded [metered bulk APIs](#metered-bulk-apis-adr-0002). Paid agent APIs (`expensive_llm`) remain opt-in.
+Today the happy path is **any MCP agent host + Ollama + workspace** (Cursor by default); CLI and MCP are IDE-agnostic. The current release is **v0.18.3**; the trust cut landed in **v0.13.0** (honest savings framing, mcp pin, edit-escalation, Cyrillic tokenize, routing corpus scorecard, `shell=False` harden), on top of earlier time savings / beyond-Cursor hosts / spend-guarded [metered bulk APIs](#metered-bulk-apis-adr-0002). Paid agent APIs (`expensive_llm`) remain opt-in.
 
 **Per-release detail:** cut checklists `CUT-v*.md` in the repo root. **Full matrix (✅ / ❌ / 🔜) + acceptance criteria + GitHub issues:** [docs/ROADMAP.md](ROADMAP.md) · [docs/ROADMAP-RU.md](ROADMAP-RU.md)
 
-| Area | ✅ today (v0.18.2) | 🔜 next |
+| Area | ✅ today (v0.18.3) | 🔜 next |
 |------|-------------------|---------|
 | Executors | `tool`, `python`, `ollama` (via `cheap_llm`), `rag`; **metered bulk APIs** (spend-guarded, [ADR-0002](adr/0002-metered-bulk-cheap-tier.md)) | Crystal IR store |
 | Crystallization | L2 telemetry + **audited lifecycle** (`draft` → `approve` → `promote` / `reject`, trust-gated apply) | — (silent auto-apply intentionally not planned) |

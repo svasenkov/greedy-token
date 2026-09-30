@@ -199,6 +199,7 @@ CI job → greedy-token CLI → rg | python | cheap_llm (Ollama/internal) | RAG 
 
 | Версия | Фокус |
 |--------|-------|
+| **v0.18.3** | Полировка hook-тира: bare `python`/`python3` в trusted argv пинится к running interpreter (PATH-shadowing закрыт); вложенные dict в intercept-выводе — читаемые строки вместо урезанного JSON; кеши горячего пути — budget snapshot по подписи леджеров, диск-кеш GPU-пробы, мемоизация YAML; +187 RU/EN-паттернов в workspace-оверлее маршрутов |
 | **v0.18.2** | Мутационный харденинг: ~160 kill-тестов по spend_ledger / llm_invoke / usage / budget* / advisory; реестр доказанных эквивалентов (`docs/mutation-equivalents.yaml` + `# equivalent:` маркеры + drift-guard); 100% покрытие строк и веток; flaky latency-assert убран |
 | **v0.18.1** | Crystallize candidates: canonical `rank_candidates` SSOT — dedup по `crystal_id` + `operation_id`, sandbox/fixture-фильтры; per-host skills dir (`HOST_SKILLS_DIR`); host-internal search exclusions; общие result formatters CLI/MCP |
 | **v0.18.0** | Adoption/enforcement: `GREEDY_HOOK_MODE` gate/intercept hook-профили, `covered` adoption-gap split + tmp/pytest sandbox-фильтр в crystallize candidates, route-first invoke rule |
