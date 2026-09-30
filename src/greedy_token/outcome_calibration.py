@@ -11,9 +11,14 @@ score formula remains a visibly uncalibrated fallback.
 
 from __future__ import annotations
 
+import json
+import math
+import os
 import re
+import time
 from dataclasses import dataclass
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from greedy_token.calibration import (
     BUCKET_BOUNDS,
@@ -142,10 +147,14 @@ def _candidate_segments(
 
 # Per log path: ((mtime_ns, size) | None, explicit events).
 _CACHE: dict[str, tuple[tuple[int, int] | None, tuple[dict, ...]]] = {}
+_CACHE_KEYS: dict[str, tuple[str, float]] = {}
+_OUTCOME_CACHE_MAX_TTL_S = 3600
+_OUTCOME_CACHE_MAX = 64
 
 
 def reset_outcome_calibration_cache() -> None:
     _CACHE.clear()
+    _CACHE_KEYS.clear()
 
 
 def _log_signature(path: Path) -> tuple[int, int] | None:
@@ -156,20 +165,118 @@ def _log_signature(path: Path) -> tuple[int, int] | None:
     return (stat.st_mtime_ns, stat.st_size)
 
 
+def _outcome_cache_enabled() -> bool:
+    return os.environ.get("GREEDY_OUTCOME_CACHE", "").strip().lower() not in (
+        "0", "false", "off", "no"
+    )
+
+
+def _outcome_cache_path() -> Path:
+    raw = os.environ.get("GREEDY_TOKEN_HOME", "").strip()
+    base = Path(raw).expanduser() if raw else Path.home() / ".greedy-token"
+    return base / "outcome-cache.json"
+
+
+def _outcome_cache_key(path: Path) -> str:
+    from greedy_token.usage import log_archive_paths
+
+    return json.dumps({
+        "v": 1,
+        "files": [(str(p.resolve()), _log_signature(p)) for p in log_archive_paths(path)],
+    }, sort_keys=True)
+
+
+def _outcome_cache_lookup(digest: str) -> tuple[tuple[dict, ...], float] | None:
+    try:
+        entry = json.loads(_outcome_cache_path().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(entry, dict) or entry.get("key") != digest:
+        return None
+    try:
+        expires_at = float(entry.get("expires_at", 0))
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(expires_at) or time.time() >= expires_at:
+        return None
+    events = entry.get("events")
+    if not isinstance(events, list) or any(
+        not isinstance(event, dict)
+        or event.get("event") != OUTCOME_EVENT
+        or event.get("outcome") not in ("success", "failure")
+        or _event_raw_score(event) is None
+        or any(not isinstance(event.get(name), str) for name in ("route_id", "selected_tier", "task_language"))
+        for event in events
+    ):
+        return None
+    return tuple(events), expires_at
+
+
+def _memoize_events(
+    key: str, signature: tuple[int, int] | None, digest: str,
+    events: tuple[dict, ...], expires_at: float,
+) -> None:
+    if len(_CACHE) >= _OUTCOME_CACHE_MAX:
+        reset_outcome_calibration_cache()
+    _CACHE[key] = (signature, events)
+    _CACHE_KEYS[key] = (digest, expires_at)
+
+
+def _outcome_cache_store(digest: str, events: tuple[dict, ...], expires_at: float) -> None:
+    if any(isinstance(event.get("outcome"), (dict, list)) for event in events):
+        return
+    rows = [
+        {
+            "event": OUTCOME_EVENT,
+            "outcome": event["outcome"],
+            "raw_score": event["raw_score"],
+            "route_id": _segment_value(event, "route"),
+            "selected_tier": _segment_value(event, "tier"),
+            "task_language": _segment_value(event, "language"),
+        }
+        for event in events
+        if event.get("outcome") in ("success", "failure") and _event_raw_score(event) is not None
+    ]
+    payload = {"key": digest, "expires_at": expires_at, "events": rows}
+    try:
+        path = _outcome_cache_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=path.parent) as directory:
+            tmp = Path(directory) / "outcome-cache.json"
+            tmp.write_text(json.dumps(payload), encoding="utf-8")
+            tmp.replace(path)
+    except OSError:
+        pass
+
+
 def _events_from_log() -> tuple[dict, ...]:
     from greedy_token.usage import load_events, log_path, logging_enabled
 
     if not logging_enabled():
         return ()
     path = log_path()
-    key = str(path)
-    signature = _log_signature(path)
-    cached = _CACHE.get(key)
-    if cached is not None and cached[0] == signature:
-        return cached[1]
+    enabled = _outcome_cache_enabled()
+    if enabled:
+        key = str(path)
+        digest = _outcome_cache_key(path)
+        signature = _log_signature(path)
+        cached = _CACHE.get(key)
+        state = _CACHE_KEYS.get(key)
+        if cached is not None and cached[0] == signature and state is not None and (
+            state[0] == digest and time.time() < state[1]
+        ):
+            return cached[1]
+        disk = _outcome_cache_lookup(digest)
+        if disk is not None and _outcome_cache_key(path) == digest:
+            explicit, expires_at = disk
+            _memoize_events(key, signature, digest, explicit, expires_at)
+            return explicit
     events, _skipped = load_events(path)
     explicit = tuple(event for event in events if event.get("event") == OUTCOME_EVENT)
-    _CACHE[key] = (signature, explicit)
+    if enabled and _outcome_cache_key(path) == digest:
+        expires_at = time.time() + _OUTCOME_CACHE_MAX_TTL_S
+        _memoize_events(key, signature, digest, explicit, expires_at)
+        _outcome_cache_store(digest, explicit, expires_at)
     return explicit
 
 

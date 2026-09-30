@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import json
 import math
-from dataclasses import dataclass
+import os
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Literal
 
 from greedy_token.budget_config import BudgetMode, BudgetSettings, get_budget_settings
-from greedy_token.usage import load_events, log_path
+from greedy_token.usage import _parse_event_ts, load_events, log_archive_paths, log_path
 
 BillingTier = Literal["metered", "cheap", "cursor_estimate"]
 
@@ -114,6 +116,109 @@ def _midnight_utc() -> datetime:
     return datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
 
 
+# --- snapshot cache -------------------------------------------------------
+#
+# ``aggregate_budget`` re-parses every usage/spend ledger line on each call,
+# and the prompt hook calls it three times per route decision in a fresh
+# process.  The ledger files are append-only, so a (mtime_ns, size) signature
+# of every file read is a sound cache key.  Time still drifts the totals
+# without a write — pending reservations expire and a rolling window lets
+# rows age out — so each stored snapshot carries ``expires_at``: the earliest
+# moment the answer could change, capped by ``_BUDGET_CACHE_MAX_TTL_S``.
+# ``GREEDY_BUDGET_CACHE=0`` disables both layers.
+
+_BUDGET_CACHE_MAX_TTL_S = 3600
+_MEMO: dict[str, tuple[float, BudgetSnapshot]] = {}
+_MEMO_MAX = 64
+
+
+def _budget_cache_enabled() -> bool:
+    return os.environ.get("GREEDY_BUDGET_CACHE", "").strip().lower() not in (
+        "0",
+        "false",
+        "off",
+        "no",
+    )
+
+
+def _budget_cache_path() -> Path:
+    raw = os.environ.get("GREEDY_TOKEN_HOME", "").strip()
+    base = Path(raw).expanduser() if raw else Path.home() / ".greedy-token"
+    return base / "budget-cache.json"
+
+
+def _file_signature(path: Path) -> list:
+    try:
+        st = path.stat()
+    except OSError:
+        return [str(path), None]
+    return [str(path), st.st_mtime_ns, st.st_size]
+
+
+def _budget_cache_key(log: Path, settings: BudgetSettings) -> str:
+    """Canonical key: signature of every file the aggregate reads, plus the
+    settings/env that shape the numbers."""
+    from greedy_token.spend_ledger import reservation_ttl_sec, spend_log_path
+
+    files = [_file_signature(p) for p in (*log_archive_paths(log), spend_log_path())]
+    return json.dumps(
+        {
+            "files": files,
+            "settings": asdict(settings),
+            "ttl": reservation_ttl_sec(),
+        },
+        sort_keys=True,
+    )
+
+
+def _budget_cache_lookup(digest: str) -> BudgetSnapshot | None:
+    now = datetime.now(UTC).timestamp()
+    memo = _MEMO.get(digest)
+    if memo is not None and now < memo[0]:
+        return memo[1]
+    # An expired memo entry must not mask a fresher disk entry (another
+    # process may have recomputed after the expiry) — fall through.
+    try:
+        entry = json.loads(_budget_cache_path().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(entry, dict) or entry.get("key") != digest:
+        return None
+    try:
+        expires_at = float(entry.get("expires_at", 0))
+    except (TypeError, ValueError):
+        return None
+    if now >= expires_at:
+        return None
+    try:
+        snap = BudgetSnapshot(**entry["snapshot"])
+    except (TypeError, ValueError, KeyError):
+        return None
+    if len(_MEMO) >= _MEMO_MAX:
+        _MEMO.clear()
+    _MEMO[digest] = (expires_at, snap)
+    return snap
+
+
+def _budget_cache_store(
+    digest: str, snap: BudgetSnapshot, expires_at: float
+) -> None:
+    if len(_MEMO) >= _MEMO_MAX:
+        _MEMO.clear()
+    _MEMO[digest] = (expires_at, snap)
+    payload = {"key": digest, "expires_at": expires_at, "snapshot": asdict(snap)}
+    try:
+        path = _budget_cache_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(payload), encoding="utf-8")
+    except OSError:
+        pass  # best-effort — a failed write just costs a recompute next call
+
+
+def _next_month_start(month_start: datetime) -> datetime:
+    return (month_start + timedelta(days=32)).replace(day=1)
+
+
 def _today_utc() -> str:
     return datetime.now(UTC).strftime("%Y-%m-%d")
 
@@ -142,15 +247,18 @@ def metered_spent_today(path: Path | None = None) -> float:
     return metered_spend_usd(since=_midnight_utc())
 
 
-def aggregate_budget(
-    *,
-    root: Path | None = None,
-    path: Path | None = None,
-    settings: BudgetSettings | None = None,
-) -> BudgetSnapshot:
-    settings = settings or get_budget_settings(root)
-    log = path or log_path()
+def _aggregate_budget(
+    log: Path, settings: BudgetSettings
+) -> tuple[BudgetSnapshot, float]:
+    """Compute the snapshot and the epoch when it may drift without a write.
+
+    The second value bounds cache reuse: pending reservations expire on their
+    TTL, rolling-window rows age out at ``ts + 30d``, and a calendar month
+    rolls over at the next month boundary.
+    """
+    now = datetime.now(UTC)
     since = _period_start(settings)
+    window = timedelta(days=30) if settings.period == "rolling_30d" else None
     events, _ = load_events(log, since=since)
 
     metered_spent = 0.0
@@ -177,9 +285,11 @@ def aggregate_budget(
 
     # Durable spend ledger: calls accounted there (incl. calls made while
     # telemetry was off) join the usage-log pre-ledger spend above.
-    from greedy_token.spend_ledger import ledger_spend_by_tier
+    from greedy_token.spend_ledger import _ledger_spend_detail
 
-    ledger_split = ledger_spend_by_tier(since=since)
+    ledger_split, ledger_next_change = _ledger_spend_detail(
+        since=since, include_pending=True, window=window, now=now
+    )
     metered_spent += ledger_split["cheap"] + ledger_split["expensive"]
     metered_cheap += ledger_split["cheap"]
     metered_expensive += ledger_split["expensive"]
@@ -199,7 +309,7 @@ def aggregate_budget(
     elif metered_pct >= settings.warn_at_pct or cursor_pct >= settings.warn_at_pct:
         mode = "warn"
 
-    return BudgetSnapshot(
+    snap = BudgetSnapshot(
         metered_spent_usd=round(metered_spent, 4),
         metered_cap_usd=metered_cap,
         metered_remaining_usd=round(metered_remaining, 4),
@@ -215,6 +325,48 @@ def aggregate_budget(
         metered_cheap_spent_usd=round(metered_cheap, 4),
         metered_expensive_spent_usd=round(metered_expensive, 4),
     )
+
+    changes: list[datetime] = []
+    if ledger_next_change is not None:
+        changes.append(ledger_next_change)
+    if window is not None:
+        oldest: datetime | None = None
+        for event in events:
+            ts = _parse_event_ts(event)
+            if ts is not None and (oldest is None or ts < oldest):
+                oldest = ts
+        if oldest is not None:
+            changes.append(oldest + window)
+    else:
+        changes.append(_next_month_start(since))
+    expires_at = min(changes).timestamp() if changes else now.timestamp() + _BUDGET_CACHE_MAX_TTL_S
+    expires_at = min(expires_at, now.timestamp() + _BUDGET_CACHE_MAX_TTL_S)
+    return snap, expires_at
+
+
+def aggregate_budget(
+    *,
+    root: Path | None = None,
+    path: Path | None = None,
+    settings: BudgetSettings | None = None,
+) -> BudgetSnapshot:
+    settings = settings or get_budget_settings(root)
+    log = path or log_path()
+    if not _budget_cache_enabled():
+        snap, _expires = _aggregate_budget(log, settings)
+        return snap
+    digest = _budget_cache_key(log, settings)
+    cached = _budget_cache_lookup(digest)
+    if cached is not None:
+        return cached
+    snap, expires_at = _aggregate_budget(log, settings)
+    # The ledger may have been appended to while it was being read; a snapshot
+    # is only stored under a signature that provably produced it.
+    if _budget_cache_key(log, settings) == digest and (
+        expires_at > datetime.now(UTC).timestamp()
+    ):
+        _budget_cache_store(digest, snap, expires_at)
+    return snap
 
 
 def headroom(*, root: Path | None = None) -> BudgetSnapshot:

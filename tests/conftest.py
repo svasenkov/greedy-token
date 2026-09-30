@@ -262,6 +262,18 @@ def _isolate_trust_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setenv("GREEDY_TOKEN_HOME", str(tmp_path / "gt-home"))
 
 
+@allure.title("Disable hot-path caches")
+@pytest.fixture(autouse=True)
+def _disable_hot_path_caches(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Budget/hardware caches serve repeat calls from a file-signature
+    snapshot — tests that patch loaders or re-probe hardware must observe
+    every call, so both caches default to off and cache tests opt in."""
+    monkeypatch.setenv("GREEDY_BUDGET_CACHE", "0")
+    monkeypatch.setenv("GREEDY_HW_CACHE", "0")
+    monkeypatch.setenv("GREEDY_OUTCOME_CACHE", "0")
+    monkeypatch.setenv("GREEDY_YAML_CACHE", "0")
+
+
 @pytest.hookimpl(tryfirst=True)
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     """Auto-mark tests with pyramid layer for pytest -m and CI matrix slices."""

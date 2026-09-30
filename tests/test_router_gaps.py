@@ -64,6 +64,22 @@ def test_format_decision_shadow(tmp_path: Path) -> None:
 # --- Mutation kill-tests: exact per-tier/per-field coverage for hot helpers ---
 
 
+@allure.title("Deterministic route estimates do not initialize the tokenizer")
+@pytest.mark.parametrize("target", ["tool", "python"])
+def test_deterministic_route_skips_tokenizer(target: str, minimal_workspace: Path) -> None:
+    with patch.object(router, "count_tokens", side_effect=AssertionError("unused tokenizer")):
+        complexity, tokens, rationale = router._token_estimate_for_route(
+            target, task="почему комп тормозит", root=minimal_workspace
+        )
+    assert complexity == "low"
+    assert tokens == 0
+    assert rationale == (
+        "Mechanical search — ripgrep/jq, zero LLM tokens."
+        if target == "tool"
+        else "Deterministic shell/Python script — no agent context."
+    )
+
+
 @allure.title("_token_estimate_for_route: exact (complexity, tokens, rationale) per tier")
 def test_token_estimate_for_route_exact(
     minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch

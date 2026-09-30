@@ -9,6 +9,8 @@ from typing import Any, Literal
 
 import yaml
 
+from greedy_token.paths import load_yaml
+
 CheapLlmProvider = Literal["ollama", "openai_compat"]
 FooterStyle = Literal["compact", "markdown", "full"]
 DEFAULT_FOOTER_STYLE: FooterStyle = "compact"
@@ -87,8 +89,7 @@ def workspace_config_path(root: Path | None = None) -> Path:
 def _read_yaml(path: Path) -> dict[str, Any]:
     if not path.is_file():
         return {}
-    with path.open(encoding="utf-8") as f:
-        data = yaml.safe_load(f) or {}
+    data = load_yaml(path) or {}
     return data if isinstance(data, dict) else {}
 
 

@@ -616,6 +616,314 @@ def test_outcome_calibration_disabled_and_missing(
     assert missing.source == SOURCE_FORMULA
 
 
+@allure.title("Outcome disk cache survives a process-cache reset without rereading logs")
+def test_outcome_disk_cache_hit(monkeypatch: pytest.MonkeyPatch) -> None:
+    from unittest.mock import patch
+
+    from greedy_token import outcome_calibration as oc
+    from greedy_token import usage
+
+    monkeypatch.setenv("GREEDY_OUTCOME_CACHE", "1")
+    _write_log(_outcome_series(25, 20))
+    expected = confidence_for_outcome(2.5, tier="python", language="en", route_id="python-x")
+    reset_outcome_calibration_cache()
+    with patch.object(usage, "load_events", side_effect=AssertionError("cache miss")):
+        assert confidence_for_outcome(
+            2.5, tier="python", language="en", route_id="python-x"
+        ) == expected
+        assert confidence_for_outcome(2.5, tier="python", route_id="python-x") == expected
+    rows = json.loads(oc._outcome_cache_path().read_text(encoding="utf-8"))["events"]
+    assert rows and all("task" not in row and "task_normalized" not in row for row in rows)
+
+
+@allure.title("Outcome cache invalidates on active or archived log signature changes")
+@pytest.mark.parametrize("archive", [False, True])
+@pytest.mark.parametrize("change", ["mtime", "size"])
+def test_outcome_cache_source_signatures(
+    monkeypatch: pytest.MonkeyPatch, archive: bool, change: str
+) -> None:
+    monkeypatch.setenv("GREEDY_OUTCOME_CACHE", "1")
+    path = _write_log([] if archive else _outcome_series(20, 20))
+    source = path.with_name(path.name + ".1") if archive else path
+    if archive:
+        source.write_text("".join(json.dumps(e) + "\n" for e in _outcome_series(20, 20)), encoding="utf-8")
+    assert confidence_for_outcome(2.5, route_id="python-x").confidence == 1.0
+    before = source.stat()
+    if change == "mtime":
+        source.write_text(source.read_text(encoding="utf-8").replace("success", "failure"), encoding="utf-8")
+        assert source.stat().st_size == before.st_size
+        os.utime(source, ns=(before.st_atime_ns, before.st_mtime_ns + 1_000_000))
+        expected = 0.0
+    else:
+        with source.open("a", encoding="utf-8") as fh:
+            fh.write("".join(json.dumps(e) + "\n" for e in _outcome_series(20, 0)))
+        os.utime(source, ns=(before.st_atime_ns, before.st_mtime_ns))
+        expected = 0.5
+    assert confidence_for_outcome(2.5, route_id="python-x").confidence == expected
+    reset_outcome_calibration_cache()
+    assert confidence_for_outcome(2.5, route_id="python-x").confidence == expected
+
+
+@allure.title("Expired outcome memory and disk entries trigger a fresh scan")
+def test_outcome_cache_expiry(monkeypatch: pytest.MonkeyPatch) -> None:
+    from unittest.mock import patch
+
+    from greedy_token import outcome_calibration as oc
+    from greedy_token import usage
+
+    monkeypatch.setenv("GREEDY_OUTCOME_CACHE", "1")
+    now = [1000.0]
+    monkeypatch.setattr(oc.time, "time", lambda: now[0])
+    _write_log(_outcome_series(20, 15))
+    with patch.object(usage, "load_events", wraps=usage.load_events) as reader:
+        expected = confidence_for_outcome(2.5, route_id="python-x")
+        assert confidence_for_outcome(2.5, route_id="python-x") == expected
+        assert reader.call_count == 1
+        now[0] += oc._OUTCOME_CACHE_MAX_TTL_S
+        assert confidence_for_outcome(2.5, route_id="python-x") == expected
+        assert reader.call_count == 2
+
+
+@allure.title("Outcome cache kill-switch bypasses populated memory and disk caches")
+@pytest.mark.parametrize("value", ["0", "false", "OFF", "no"])
+def test_outcome_cache_disabled(monkeypatch: pytest.MonkeyPatch, value: str) -> None:
+    from unittest.mock import patch
+
+    from greedy_token import usage
+
+    monkeypatch.setenv("GREEDY_OUTCOME_CACHE", "1")
+    _write_log(_outcome_series(20, 15))
+    expected = confidence_for_outcome(2.5, route_id="python-x")
+    monkeypatch.setenv("GREEDY_OUTCOME_CACHE", value)
+    with patch.object(usage, "load_events", wraps=usage.load_events) as reader:
+        assert confidence_for_outcome(2.5, route_id="python-x") == expected
+        assert confidence_for_outcome(2.5, route_id="python-x") == expected
+        assert reader.call_count == 2
+
+
+@allure.title("Malformed outcome disk entries fall back to the authoritative log")
+@pytest.mark.parametrize("body", ["{", "null", "[]", '{"expires_at": "bad"}'])
+def test_outcome_cache_malformed(monkeypatch: pytest.MonkeyPatch, body: str) -> None:
+    from unittest.mock import patch
+
+    from greedy_token import outcome_calibration as oc
+    from greedy_token import usage
+
+    monkeypatch.setenv("GREEDY_OUTCOME_CACHE", "1")
+    _write_log(_outcome_series(20, 15))
+    expected = confidence_for_outcome(2.5, route_id="python-x")
+    oc._outcome_cache_path().write_text(body, encoding="utf-8")
+    reset_outcome_calibration_cache()
+    with patch.object(usage, "load_events", wraps=usage.load_events) as reader:
+        assert confidence_for_outcome(2.5, route_id="python-x") == expected
+        assert reader.call_count == 1
+
+
+@allure.title("A log changed during reading is cached in neither memory nor disk")
+def test_outcome_cache_toctou(monkeypatch: pytest.MonkeyPatch) -> None:
+    from greedy_token import outcome_calibration as oc
+    from greedy_token import usage
+
+    monkeypatch.setenv("GREEDY_OUTCOME_CACHE", "1")
+    path = _write_log(_outcome_series(20, 20))
+    read = usage.load_events
+
+    def changed_during_read(*args, **kwargs):
+        result = read(*args, **kwargs)
+        path.write_text(path.read_text(encoding="utf-8").replace("success", "failure"), encoding="utf-8")
+        return result
+
+    with monkeypatch.context() as m:
+        m.setattr(usage, "load_events", changed_during_read)
+        assert confidence_for_outcome(2.5, route_id="python-x").confidence == 1.0
+    assert not oc._CACHE
+    assert not oc._outcome_cache_path().exists()
+    assert confidence_for_outcome(2.5, route_id="python-x").confidence == 0.0
+
+
+@allure.title("Invalid outcome payloads do not become successful after warming the disk cache")
+@pytest.mark.parametrize("outcome", [[], {}])
+def test_outcome_cache_preserves_invalid_source_errors(monkeypatch: pytest.MonkeyPatch, outcome) -> None:
+    from greedy_token import outcome_calibration as oc
+
+    monkeypatch.setenv("GREEDY_OUTCOME_CACHE", "1")
+    _write_log([_outcome("invalid", 2.5, outcome)])
+    with pytest.raises(TypeError):
+        confidence_for_outcome(2.5)
+    reset_outcome_calibration_cache()
+    with pytest.raises(TypeError):
+        confidence_for_outcome(2.5)
+    assert not oc._outcome_cache_path().exists()
+
+
+@allure.title("Matching-key outcome entries reject invalid expiry and event fields")
+@pytest.mark.parametrize("field,value", [
+    ("expires_at", "bad"), ("expires_at", None), ("expires_at", float("nan")),
+    ("expires_at", float("inf")), ("events", None), ("events", [None]),
+    ("event", "route"), ("outcome", "unknown"), ("raw_score", True),
+    ("raw_score", "2.5"), ("raw_score", 0), ("route_id", None),
+    ("selected_tier", 42), ("task_language", []),
+])
+def test_outcome_cache_invalid_fields(monkeypatch: pytest.MonkeyPatch, field: str, value) -> None:
+    from unittest.mock import patch
+
+    from greedy_token import outcome_calibration as oc
+    from greedy_token import usage
+
+    monkeypatch.setenv("GREEDY_OUTCOME_CACHE", "1")
+    _write_log(_outcome_series(20, 15))
+    expected = confidence_for_outcome(2.5, route_id="python-x")
+    cache = oc._outcome_cache_path()
+    entry = json.loads(cache.read_text(encoding="utf-8"))
+    if field in ("expires_at", "events"):
+        entry[field] = value
+    else:
+        entry["events"][0][field] = value
+    cache.write_text(json.dumps(entry), encoding="utf-8")
+    reset_outcome_calibration_cache()
+    with patch.object(usage, "load_events", wraps=usage.load_events) as reader:
+        assert confidence_for_outcome(2.5, route_id="python-x") == expected
+        assert reader.call_count == 1
+
+
+@allure.title("Outcome cache writes are atomic and failures preserve the computed confidence")
+def test_outcome_cache_write_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    from unittest.mock import patch
+
+    from greedy_token import outcome_calibration as oc
+    from greedy_token import usage
+
+    monkeypatch.setenv("GREEDY_OUTCOME_CACHE", "1")
+    path = _write_log(_outcome_series(20, 20))
+    assert confidence_for_outcome(2.5, route_id="python-x").confidence == 1.0
+    cache = oc._outcome_cache_path()
+    old = cache.read_text(encoding="utf-8")
+    path.write_text(path.read_text(encoding="utf-8").replace("success", "failure"), encoding="utf-8")
+    with patch.object(Path, "replace", side_effect=OSError("cache read-only")):
+        result = confidence_for_outcome(2.5, route_id="python-x")
+    assert result.confidence == 0.0
+    assert cache.read_text(encoding="utf-8") == old
+    with patch.object(usage, "load_events", side_effect=AssertionError("memory cache miss")):
+        assert confidence_for_outcome(2.5, route_id="python-x") == result
+    assert sorted(p.name for p in cache.parent.iterdir()) == ["outcome-cache.json"]
+
+
+@allure.title("A log changed while loading a disk entry cannot reuse that entry")
+def test_outcome_cache_disk_hit_toctou(monkeypatch: pytest.MonkeyPatch) -> None:
+    from greedy_token import outcome_calibration as oc
+
+    monkeypatch.setenv("GREEDY_OUTCOME_CACHE", "1")
+    path = _write_log(_outcome_series(20, 20))
+    assert confidence_for_outcome(2.5, route_id="python-x").confidence == 1.0
+    cache = oc._outcome_cache_path()
+    reset_outcome_calibration_cache()
+    read = Path.read_text
+
+    def changed_during_cache_read(self, *args, **kwargs):
+        result = read(self, *args, **kwargs)
+        if self == cache:
+            path.write_text(read(path, encoding="utf-8").replace("success", "failure"), encoding="utf-8")
+        return result
+
+    with monkeypatch.context() as m:
+        m.setattr(Path, "read_text", changed_during_cache_read)
+        assert confidence_for_outcome(2.5, route_id="python-x").confidence == 0.0
+    assert not oc._CACHE
+    assert confidence_for_outcome(2.5, route_id="python-x").confidence == 0.0
+
+
+@allure.title("Outcome cache isolates paths, bounds memory, and tracks archive settings")
+def test_outcome_cache_paths_and_archive_settings(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from greedy_token import outcome_calibration as oc
+
+    monkeypatch.setenv("GREEDY_OUTCOME_CACHE", "1")
+    monkeypatch.setenv("GREEDY_TOKEN_LOG_MAX_FILES", "1")
+    monkeypatch.setattr(oc, "_OUTCOME_CACHE_MAX", 1)
+    path = _write_log(_outcome_series(20, 20))
+    path.with_name(path.name + ".2").write_text(
+        "".join(json.dumps(e) + "\n" for e in _outcome_series(20, 0)), encoding="utf-8"
+    )
+    assert confidence_for_outcome(2.5, route_id="python-x").confidence == 1.0
+    monkeypatch.setenv("GREEDY_TOKEN_LOG_MAX_FILES", "2")
+    assert confidence_for_outcome(2.5, route_id="python-x").confidence == 0.5
+    other = tmp_path / "other.jsonl"
+    monkeypatch.setenv("GREEDY_TOKEN_LOG", str(other))
+    _write_log(_outcome_series(20, 0))
+    assert confidence_for_outcome(2.5, route_id="python-x").confidence == 0.0
+    assert set(oc._CACHE) == set(oc._CACHE_KEYS) == {str(other)}
+    oc._CACHE_KEYS.clear()
+    assert confidence_for_outcome(2.5, route_id="python-x").confidence == 0.0
+    other.unlink()
+    assert confidence_for_outcome(2.5).n == 0
+
+
+@allure.title("Outcome cache home follows GREEDY_TOKEN_HOME or the isolated user HOME")
+def test_outcome_cache_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from greedy_token import outcome_calibration as oc
+
+    monkeypatch.delenv("GREEDY_TOKEN_HOME")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    assert oc._outcome_cache_path() == tmp_path / ".greedy-token" / "outcome-cache.json"
+    monkeypatch.setenv("GREEDY_TOKEN_HOME", "~/custom-cache")
+    assert oc._outcome_cache_path() == tmp_path / "custom-cache" / "outcome-cache.json"
+
+
+@allure.title("Disk outcome normalization preserves buckets, segments, floors and thresholds")
+def test_outcome_cache_calibration_parity(monkeypatch: pytest.MonkeyPatch) -> None:
+    from greedy_token import outcome_calibration as oc
+
+    events = _outcome_series(20, 18, score=1.0, language="ru", route_id="route-a")
+    events += _outcome_series(20, 8, score=3.0, route_id="route-a")
+    events += _outcome_series(25, 20, score=5.0, tier="rag", route_id="route-b")
+    events += [_outcome("проверь", 7.0, "success", language="")]
+    events += [_outcome("invalid score", 0, "success"), _outcome("unknown", 2.5, "unknown")]
+    _write_log(events)
+    queries = [
+        (score, tier, language, route_id, threshold)
+        for score in (1.0, 3.0, 5.0, 7.0, 9.0)
+        for tier, language, route_id in (("python", "ru", "route-a"), ("rag", "en", "route-b"), ("tool", "de", "missing"))
+        for threshold in (0, 20, 100)
+    ]
+
+    def results():
+        return [confidence_for_outcome(score, tier=tier, language=language, route_id=route_id, min_events=threshold)
+                for score, tier, language, route_id, threshold in queries]
+
+    expected = results()
+    monkeypatch.setenv("GREEDY_OUTCOME_CACHE", "1")
+    assert results() == expected
+    reset_outcome_calibration_cache()
+    assert results() == expected
+    assert all("task" not in e for e in json.loads(oc._outcome_cache_path().read_text(encoding="utf-8"))["events"])
+
+
+@allure.title("Cached routing preserves every decision, exact savings and rendered output field")
+def test_hot_path_cached_output_parity(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from types import SimpleNamespace
+
+    from greedy_token import budget_policy, estimator
+
+    task = "cache parity"
+    (minimal_workspace / ".greedy-token.yaml").write_text(
+        "routes:\n  - id: python-hot-path\n    target: python\n    patterns: [cache parity]\n"
+        "    command: python scripts/meta-sync-check.py\n    read_only: true\n", encoding="utf-8"
+    )
+    _write_log(_outcome_series(25, 20, route_id="python-hot-path"))
+    monkeypatch.setattr(router, "ollama_available", lambda: False)
+    monkeypatch.setattr(router, "_metered_bulk_ready", lambda root: False)
+    monkeypatch.setattr(budget_policy, "run_doctor", lambda **kw: SimpleNamespace(deprecated_installed=[]))
+    expected = estimator.estimate_task(task, minimal_workspace)
+    decision_text = router.format_decision(expected.decision, task, minimal_workspace)
+    estimate_text = estimator.format_estimate(expected, task, minimal_workspace)
+    monkeypatch.setenv("GREEDY_OUTCOME_CACHE", "1")
+    monkeypatch.setenv("GREEDY_YAML_CACHE", "1")
+    for _ in range(2):
+        actual = estimator.estimate_task(task, minimal_workspace)
+        assert actual == expected
+        assert router.format_decision(actual.decision, task, minimal_workspace) == decision_text
+        assert estimator.format_estimate(actual, task, minimal_workspace) == estimate_text
+
+
 # --- Router integration -----------------------------------------------------
 
 

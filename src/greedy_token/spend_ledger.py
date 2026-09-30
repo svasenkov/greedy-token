@@ -25,7 +25,7 @@ import sys
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 DEFAULT_RESERVATION_TTL_SEC = 600
@@ -265,15 +265,20 @@ def ledger_spend_usd(
     return split["cheap"] + split["expensive"]
 
 
-def ledger_spend_by_tier(
+def _ledger_spend_detail(
     *,
-    since: datetime | None = None,
-    include_pending: bool = True,
-) -> dict[str, float]:
-    """Ledger spend split by the derived billing tier recorded at reserve time.
+    since: datetime | None,
+    include_pending: bool,
+    window: timedelta | None,
+    now: datetime,
+) -> tuple[dict[str, float], datetime | None]:
+    """Totals plus the earliest moment they can drift without a ledger write.
 
-    Rows without a tier (written before the field existed) count as
-    "expensive" — the conservative side of the split.
+    ``next_change`` bounds how long a caller may reuse the result: a counted
+    pending reservation stops counting at ``reserved_at + ttl``; under a
+    sliding ``window`` (rolling budget period) counted rows also age out at
+    ``ts + window``.  ``None`` means the totals are stable until the ledger
+    file itself changes.
     """
     reserves: dict[str, dict] = {}
     outcomes: dict[str, dict] = {}
@@ -287,17 +292,19 @@ def ledger_spend_by_tier(
         elif kind in ("settle", "release"):
             outcomes[rid] = record
 
-    now = datetime.now(UTC)
     ttl = reservation_ttl_sec()
     totals = {"cheap": 0.0, "expensive": 0.0}
+    changes: list[datetime] = []
     for rid, reserve in reserves.items():
         tier = "cheap" if reserve.get("billing_tier") == "cheap" else "expensive"
         outcome = outcomes.get(rid)
         if outcome is not None:
-            if outcome.get("kind") == "settle" and _in_window(
-                _parse_ts(outcome.get("ts")), since
-            ):
+            outcome_ts = _parse_ts(outcome.get("ts"))
+            if outcome.get("kind") == "settle" and _in_window(outcome_ts, since):
                 totals[tier] += _finite(outcome.get("cost_usd"))
+                if window is not None:
+                    # _in_window guarantees outcome_ts is set here.
+                    changes.append(outcome_ts + window)
             continue
         if not include_pending:
             continue
@@ -306,6 +313,29 @@ def ledger_spend_by_tier(
             continue
         if _in_window(reserved_at, since):
             totals[tier] += _finite(reserve.get("est_usd"))
+            expiry = reserved_at + timedelta(seconds=ttl)
+            if window is not None:
+                expiry = min(expiry, reserved_at + window)
+            changes.append(expiry)
+    return totals, min(changes) if changes else None
+
+
+def ledger_spend_by_tier(
+    *,
+    since: datetime | None = None,
+    include_pending: bool = True,
+) -> dict[str, float]:
+    """Ledger spend split by the derived billing tier recorded at reserve time.
+
+    Rows without a tier (written before the field existed) count as
+    "expensive" — the conservative side of the split.
+    """
+    totals, _next_change = _ledger_spend_detail(
+        since=since,
+        include_pending=include_pending,
+        window=None,
+        now=datetime.now(UTC),
+    )
     return totals
 
 

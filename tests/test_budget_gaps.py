@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -1397,9 +1397,9 @@ def test_aggregate_budget_exact_fields(
     )
     ledger_calls: dict = {}
     monkeypatch.setattr(
-        sl, "ledger_spend_by_tier",
-        lambda since=None: ledger_calls.update(since=since)
-        or {"cheap": 1.00007, "expensive": 2.0},
+        sl, "_ledger_spend_detail",
+        lambda **k: ledger_calls.update(since=k["since"])
+        or ({"cheap": 1.00007, "expensive": 2.0}, None),
     )
     _pin_clock(monkeypatch)
     settings = _settings()
@@ -1432,7 +1432,7 @@ def test_aggregate_budget_mode_edges(
 
     def snap_for(events, ledger, **kw):
         monkeypatch.setattr(bl, "load_events", lambda *a, **k: (events, None))
-        monkeypatch.setattr(sl, "ledger_spend_by_tier", lambda **k: ledger)
+        monkeypatch.setattr(sl, "_ledger_spend_detail", lambda **k: (ledger, None))
         return bl.aggregate_budget(path=tmp_path / "u", settings=_settings(**kw))
 
     def metered(usd):
@@ -1876,3 +1876,392 @@ def test_policy_footer_extras_contract(
     monkeypatch.setattr(bp, "local_health_line", lambda: "health")
     assert bp.policy_footer_extras(root=tmp_path) == ["budget line", "health"]
     assert seen == {"root": tmp_path, "compact": True}
+
+
+# ---------------------------------------------------------------------------
+# aggregate_budget snapshot cache (GREEDY_BUDGET_CACHE)
+# ---------------------------------------------------------------------------
+
+
+def _enable_budget_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GREEDY_BUDGET_CACHE", "1")
+    bl._MEMO.clear()
+
+
+def _cache_file(tmp_path: Path) -> Path:
+    # conftest isolates GREEDY_TOKEN_HOME to tmp_path/"gt-home".
+    return tmp_path / "gt-home" / "budget-cache.json"
+
+
+def _write_usage(log: Path, cost: float, *, ts: str | None = None) -> None:
+    event = {
+        "ts": ts or datetime.now(UTC).isoformat(),
+        "billing": {"tier": "metered", "cost_usd": cost},
+    }
+    with log.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(event) + "\n")
+
+
+@allure.title("cache toggle defaults on, honours the off-word list")
+def test_budget_cache_toggle(monkeypatch: pytest.MonkeyPatch) -> None:
+    for off in ("0", "false", "off", "no"):
+        monkeypatch.setenv("GREEDY_BUDGET_CACHE", off)
+        assert bl._budget_cache_enabled() is False
+    monkeypatch.setenv("GREEDY_BUDGET_CACHE", "1")
+    assert bl._budget_cache_enabled() is True
+    monkeypatch.delenv("GREEDY_BUDGET_CACHE")
+    assert bl._budget_cache_enabled() is True
+
+
+@allure.title("cache path honours GREEDY_TOKEN_HOME and falls back to ~/.greedy-token")
+def test_budget_cache_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    with allure.step("GREEDY_TOKEN_HOME set → home-scoped path"):
+        assert bl._budget_cache_path() == tmp_path / "gt-home" / "budget-cache.json"
+    with allure.step("env absent → Path.home()/.greedy-token"):
+        monkeypatch.delenv("GREEDY_TOKEN_HOME")
+        monkeypatch.setenv("HOME", str(tmp_path))
+        assert bl._budget_cache_path() == tmp_path / ".greedy-token" / "budget-cache.json"
+
+
+@allure.title("_file_signature distinguishes present and missing files")
+def test_file_signature(tmp_path: Path) -> None:
+    missing = tmp_path / "none.jsonl"
+    assert bl._file_signature(missing) == [str(missing), None]
+    log = tmp_path / "u.jsonl"
+    log.write_text("x\n", encoding="utf-8")
+    sig = bl._file_signature(log)
+    assert sig[0] == str(log) and sig[1] == log.stat().st_mtime_ns and sig[2] == 2
+
+
+@allure.title("unchanged ledgers serve the snapshot without re-reading files")
+def test_budget_cache_hit_skips_reads(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _enable_budget_cache(monkeypatch)
+    log = tmp_path / "usage.jsonl"
+    _write_usage(log, 1.5)
+    settings = _settings()
+    first = bl.aggregate_budget(path=log, settings=settings)
+    assert first.metered_spent_usd == pytest.approx(1.5)
+    assert _cache_file(tmp_path).is_file()
+
+    def boom(*a, **k):
+        raise AssertionError("ledger re-read on a cache hit")
+
+    monkeypatch.setattr(bl, "load_events", boom)
+    monkeypatch.setattr(
+        "greedy_token.spend_ledger._iter_spend_records", boom
+    )
+    with allure.step("in-process memo hit"):
+        assert bl.aggregate_budget(path=log, settings=settings) == first
+    with allure.step("disk hit after memo eviction"):
+        bl._MEMO.clear()
+        assert bl.aggregate_budget(path=log, settings=settings) == first
+
+
+@allure.title("appending to the ledger busts the signature")
+def test_budget_cache_bust_on_append(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _enable_budget_cache(monkeypatch)
+    log = tmp_path / "usage.jsonl"
+    log.write_text("", encoding="utf-8")
+    settings = _settings()
+    assert bl.aggregate_budget(path=log, settings=settings).metered_spent_usd == 0.0
+    _write_usage(log, 2.0)
+    assert bl.aggregate_budget(
+        path=log, settings=settings
+    ).metered_spent_usd == pytest.approx(2.0)
+
+
+@allure.title("changed settings or reservation TTL miss the cache")
+def test_budget_cache_bust_on_settings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _enable_budget_cache(monkeypatch)
+    log = tmp_path / "usage.jsonl"
+    log.write_text("", encoding="utf-8")
+    calls: list = []
+    real = bl.load_events
+
+    def spy(p, *, since=None, include_archives=True):
+        calls.append(str(p))
+        return real(p, since=since, include_archives=include_archives)
+
+    monkeypatch.setattr(bl, "load_events", spy)
+    with allure.step("first fill"):
+        bl.aggregate_budget(path=log, settings=_settings())
+        assert len(calls) == 1
+    with allure.step("same key → memo hit"):
+        bl.aggregate_budget(path=log, settings=_settings())
+        assert len(calls) == 1
+    with allure.step("different cap → different digest → recompute"):
+        bl.aggregate_budget(path=log, settings=_settings(metered_monthly_cap_usd=99.0))
+        assert len(calls) == 2
+    with allure.step("different reservation TTL → recompute"):
+        monkeypatch.setenv("GREEDY_SPEND_RESERVATION_TTL_SEC", "30")
+        bl.aggregate_budget(path=log, settings=_settings(metered_monthly_cap_usd=99.0))
+        assert len(calls) == 3
+
+
+@allure.title("stored entries are served verbatim; malformed entries recompute")
+def test_budget_cache_entry_validation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _enable_budget_cache(monkeypatch)
+    log = tmp_path / "usage.jsonl"
+    _write_usage(log, 1.5)
+    settings = _settings()
+    digest = bl._budget_cache_key(log, settings)
+    cache = _cache_file(tmp_path)
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    future = datetime.now(UTC).timestamp() + 999
+    crafted = _snap(metered_spent_usd=999.0).metered_spent_usd
+    real_load_events = bl.load_events
+
+    def write_entry(entry: object) -> None:
+        cache.write_text(json.dumps(entry), encoding="utf-8")
+        bl._MEMO.clear()
+
+    with allure.step("valid entry returns the stored snapshot without reads"):
+        write_entry(
+            {"key": digest, "expires_at": future, "snapshot": bl.asdict(_snap(metered_spent_usd=999.0))}
+        )
+        monkeypatch.setattr(
+            bl, "load_events",
+            lambda *a, **k: (_ for _ in ()).throw(AssertionError("re-read")),
+        )
+        assert bl.aggregate_budget(path=log, settings=settings).metered_spent_usd == crafted
+
+    monkeypatch.setattr(bl, "load_events", real_load_events)
+    with allure.step("corrupt JSON"):
+        cache.write_text("{nope", encoding="utf-8")
+        bl._MEMO.clear()
+        assert bl.aggregate_budget(path=log, settings=settings).metered_spent_usd == pytest.approx(1.5)
+    with allure.step("non-dict entry"):
+        write_entry([1, 2])
+        assert bl.aggregate_budget(path=log, settings=settings).metered_spent_usd == pytest.approx(1.5)
+    with allure.step("foreign key"):
+        write_entry({"key": "other", "expires_at": future, "snapshot": bl.asdict(_snap(metered_spent_usd=9.0))})
+        assert bl.aggregate_budget(path=log, settings=settings).metered_spent_usd == pytest.approx(1.5)
+    with allure.step("non-numeric expiry"):
+        write_entry({"key": digest, "expires_at": "soon", "snapshot": bl.asdict(_snap())})
+        assert bl.aggregate_budget(path=log, settings=settings).metered_spent_usd == pytest.approx(1.5)
+    with allure.step("expired entry"):
+        write_entry({"key": digest, "expires_at": 1.0, "snapshot": bl.asdict(_snap())})
+        assert bl.aggregate_budget(path=log, settings=settings).metered_spent_usd == pytest.approx(1.5)
+    with allure.step("snapshot schema drift"):
+        write_entry({"key": digest, "expires_at": future, "snapshot": {"bogus": 1}})
+        assert bl.aggregate_budget(path=log, settings=settings).metered_spent_usd == pytest.approx(1.5)
+
+
+@allure.title("expired memo entry falls through to a fresher disk entry")
+def test_budget_cache_memo_expiry_falls_through(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _enable_budget_cache(monkeypatch)
+    log = tmp_path / "usage.jsonl"
+    log.write_text("", encoding="utf-8")
+    settings = _settings()
+    digest = bl._budget_cache_key(log, settings)
+    fresh = _snap(metered_spent_usd=42.0)
+    _cache_file(tmp_path).parent.mkdir(parents=True, exist_ok=True)
+    _cache_file(tmp_path).write_text(
+        json.dumps(
+            {"key": digest, "expires_at": datetime.now(UTC).timestamp() + 999,
+             "snapshot": bl.asdict(fresh)}
+        ),
+        encoding="utf-8",
+    )
+    bl._MEMO[digest] = (1.0, _snap(metered_spent_usd=-1.0))  # stale memo copy
+    assert bl.aggregate_budget(path=log, settings=settings).metered_spent_usd == 42.0
+
+
+@allure.title("memo dict is capped; lookup and store evict en masse")
+def test_budget_cache_memo_cap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _enable_budget_cache(monkeypatch)
+    log = tmp_path / "usage.jsonl"
+    log.write_text("", encoding="utf-8")
+    settings = _settings()
+    digest = bl._budget_cache_key(log, settings)
+    snap = _snap()
+    for i in range(bl._MEMO_MAX):
+        bl._MEMO[f"dummy-{i}"] = (datetime.now(UTC).timestamp() + 999, snap)
+
+    with allure.step("lookup past the cap clears the memo before inserting"):
+        _cache_file(tmp_path).parent.mkdir(parents=True, exist_ok=True)
+        _cache_file(tmp_path).write_text(
+            json.dumps(
+                {"key": digest, "expires_at": datetime.now(UTC).timestamp() + 999,
+                 "snapshot": bl.asdict(snap)}
+            ),
+            encoding="utf-8",
+        )
+        assert bl._budget_cache_lookup(digest) == snap
+        assert len(bl._MEMO) == 1
+    with allure.step("store past the cap clears too"):
+        for i in range(bl._MEMO_MAX):
+            bl._MEMO[f"dummy2-{i}"] = (1.0, snap)
+        bl._budget_cache_store("new-key", snap, 1.0)
+        assert bl._MEMO == {"new-key": (1.0, snap)}
+
+
+@allure.title("a mid-read ledger write prevents caching the torn snapshot")
+def test_budget_cache_toctou_no_store(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _enable_budget_cache(monkeypatch)
+    log = tmp_path / "usage.jsonl"
+    log.write_text("", encoding="utf-8")
+    real = bl.load_events
+
+    def racing_reader(p, *, since=None, include_archives=True):
+        out = real(p, since=since, include_archives=include_archives)
+        _write_usage(log, 1.0)
+        return out
+
+    monkeypatch.setattr(bl, "load_events", racing_reader)
+    bl.aggregate_budget(path=log, settings=_settings())
+    assert not _cache_file(tmp_path).exists()
+
+
+@allure.title("an already-expired computation is never stored")
+def test_budget_cache_past_expiry_not_stored(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _enable_budget_cache(monkeypatch)
+    log = tmp_path / "usage.jsonl"
+    log.write_text("", encoding="utf-8")
+    monkeypatch.setattr(bl, "_aggregate_budget", lambda *a, **k: (_snap(), 1.0))
+    bl.aggregate_budget(path=log, settings=_settings())
+    assert not _cache_file(tmp_path).exists()
+
+
+@allure.title("a failed cache write still returns the fresh snapshot")
+def test_budget_cache_write_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _enable_budget_cache(monkeypatch)
+    blocker = tmp_path / "home-as-file"
+    blocker.write_text("x", encoding="utf-8")
+    monkeypatch.setenv("GREEDY_TOKEN_HOME", str(blocker))
+    log = tmp_path / "usage.jsonl"
+    log.write_text("", encoding="utf-8")
+    snap = bl.aggregate_budget(path=log, settings=_settings())
+    assert snap.mode == "normal"
+
+
+@allure.title("pending reservation expiry bounds the cache lifetime")
+def test_budget_cache_pending_expiry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _enable_budget_cache(monkeypatch)
+    monkeypatch.setenv("GREEDY_SPEND_RESERVATION_TTL_SEC", "600")
+    from greedy_token.spend_ledger import reserve_spend
+
+    log = tmp_path / "usage.jsonl"
+    log.write_text("", encoding="utf-8")
+    t0 = datetime.now(UTC)
+    reserve_spend(reservation_id="r-exp", model_id="m", est_usd=0.5)
+    snap = bl.aggregate_budget(path=log, settings=_settings())
+    assert snap.metered_spent_usd == pytest.approx(0.5)
+    entry = json.loads(_cache_file(tmp_path).read_text(encoding="utf-8"))
+    # Counted pending expires at reserved_at + TTL (600s default).
+    expected = t0.timestamp() + 600
+    assert entry["expires_at"] == pytest.approx(expected, abs=30)
+
+
+@allure.title("calendar month rolls over at the next boundary; rolling rows age out")
+def test_budget_cache_window_expiry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _enable_budget_cache(monkeypatch)
+    from greedy_token.spend_ledger import reserve_spend
+
+    log = tmp_path / "usage.jsonl"
+    log.write_text("", encoding="utf-8")
+    now = datetime.now(UTC)
+
+    with allure.step("calendar: expires at month start or the safety cap"):
+        bl.aggregate_budget(path=log, settings=_settings())
+        entry = json.loads(_cache_file(tmp_path).read_text(encoding="utf-8"))
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        next_month = (month_start + timedelta(days=32)).replace(day=1).timestamp()
+        assert entry["expires_at"] == pytest.approx(
+            min(next_month, now.timestamp() + 3600), abs=30
+        )
+
+    with allure.step("rolling: counted rows age out at ts + 30d, earliest wins"):
+        _cache_file(tmp_path).unlink()
+        bl._MEMO.clear()
+        spend = tmp_path / "gt-home" / "spend.jsonl"
+        spend.parent.mkdir(parents=True, exist_ok=True)
+        aging_ledger = (now - timedelta(days=29, hours=23, minutes=55)).isoformat()
+        aging_event = (now - timedelta(days=29, hours=23, minutes=50)).isoformat()
+        spend.write_text(
+            json.dumps({"ts": aging_ledger, "kind": "reserve", "id": "r-old", "est_usd": 0.1})
+            + "\n"
+            + json.dumps({"ts": aging_ledger, "kind": "settle", "id": "r-old", "cost_usd": 0.1})
+            + "\n",
+            encoding="utf-8",
+        )
+        _write_usage(log, 1.0, ts=aging_event)
+        _write_usage(log, 0.5, ts=(now - timedelta(days=1)).isoformat())
+        reserve_spend(reservation_id="r-pend", model_id="m", est_usd=0.2)
+        bl.aggregate_budget(path=log, settings=_settings(period="rolling_30d"))
+        entry = json.loads(_cache_file(tmp_path).read_text(encoding="utf-8"))
+        expected = datetime.fromisoformat(aging_ledger).timestamp() + 30 * 86400
+        assert entry["expires_at"] == pytest.approx(expected, abs=30)
+
+    with allure.step("rolling with empty ledgers expires at the safety cap"):
+        _cache_file(tmp_path).unlink()
+        bl._MEMO.clear()
+        (tmp_path / "gt-home" / "spend.jsonl").write_text("", encoding="utf-8")
+        empty_log = tmp_path / "empty.jsonl"
+        bl.aggregate_budget(path=empty_log, settings=_settings(period="rolling_30d"))
+        entry = json.loads(_cache_file(tmp_path).read_text(encoding="utf-8"))
+        assert entry["expires_at"] == pytest.approx(now.timestamp() + 3600, abs=60)
+
+
+@allure.title("_next_month_start rolls December into January")
+def test_next_month_start() -> None:
+    assert bl._next_month_start(datetime(2025, 12, 1, tzinfo=UTC)) == datetime(
+        2026, 1, 1, tzinfo=UTC
+    )
+    assert bl._next_month_start(datetime(2025, 1, 1, tzinfo=UTC)) == datetime(
+        2025, 2, 1, tzinfo=UTC
+    )
+
+
+@allure.title("apply_budget_policy reads the ledgers once — checks share the snapshot")
+def test_policy_single_ledger_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, minimal_workspace: Path
+) -> None:
+    _enable_budget_cache(monkeypatch)
+    log = tmp_path / "usage.jsonl"
+    _write_usage(log, 1.0)
+    monkeypatch.setenv("GREEDY_TOKEN_LOG", str(log))
+
+    calls: list = []
+    real = bl.load_events
+
+    def spy(p, *, since=None, include_archives=True):
+        calls.append(str(p))
+        return real(p, since=since, include_archives=include_archives)
+
+    monkeypatch.setattr(bl, "load_events", spy)
+
+    def no_doctor(**k):
+        raise RuntimeError("no probe in this test")
+
+    monkeypatch.setattr(bp, "run_doctor", no_doctor)
+    out = bp.apply_budget_policy(
+        _decision(target="python", route_id="python-x"),
+        "show recent commits",
+        minimal_workspace,
+        policy="auto",
+    )
+    assert out.route_id == "python-x"
+    assert len(calls) == 1

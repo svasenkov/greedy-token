@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 import yaml
@@ -15,6 +17,162 @@ pytestmark = [
     allure.feature("Workspace paths"),
     allure.suite("Workspace paths"),
 ]
+
+
+@pytest.fixture
+def yaml_cache(monkeypatch: pytest.MonkeyPatch):
+    import greedy_token.paths as paths
+
+    monkeypatch.setenv("GREEDY_YAML_CACHE", "1")
+    paths.reset_yaml_cache()
+    yield paths
+    paths.reset_yaml_cache()
+
+
+@allure.title("YAML cache shares parsing across routes, settings and the model catalog")
+def test_yaml_cache_shared_hit(yaml_cache, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from greedy_token import resource_probe, settings
+
+    path = tmp_path / "shared.yaml"
+    path.write_text("nested:\n  values: [1, 2]\n", encoding="utf-8")
+    monkeypatch.setattr(resource_probe, "catalog_path", lambda: path)
+    with patch.object(yaml, "safe_load", wraps=yaml.safe_load) as loader:
+        first = yaml_cache._read_yaml_dict(path)
+        first["nested"]["values"].append(3)
+        assert settings._read_yaml(path) == {"nested": {"values": [1, 2]}}
+        assert resource_probe.load_model_catalog() == {"nested": {"values": [1, 2]}}
+        assert loader.call_count == 1
+
+
+@allure.title("YAML cache invalidates independently on mtime and size")
+@pytest.mark.parametrize("change", ["mtime", "size"])
+def test_yaml_cache_signatures(yaml_cache, tmp_path: Path, change: str) -> None:
+    path = tmp_path / "signature.yaml"
+    path.write_text("value: one\n", encoding="utf-8")
+    assert yaml_cache._read_yaml_dict(path) == {"value": "one"}
+    before = path.stat()
+    path.write_text("value: two\n" if change == "mtime" else "value: longer\n", encoding="utf-8")
+    os.utime(path, ns=(before.st_atime_ns, before.st_mtime_ns + (1_000_000 if change == "mtime" else 0)))
+    assert yaml_cache._read_yaml_dict(path) == {"value": "two" if change == "mtime" else "longer"}
+
+
+@allure.title("Expired YAML memo reparses the source without changing its result")
+def test_yaml_cache_expiry(yaml_cache, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = tmp_path / "expiry.yaml"
+    path.write_text("value: same\n", encoding="utf-8")
+    now = [1000.0]
+    monkeypatch.setattr(yaml_cache.time, "time", lambda: now[0])
+    with patch.object(yaml, "safe_load", wraps=yaml.safe_load) as loader:
+        assert yaml_cache._read_yaml_dict(path) == {"value": "same"}
+        assert yaml_cache._read_yaml_dict(path) == {"value": "same"}
+        assert loader.call_count == 1
+        now[0] += yaml_cache._YAML_CACHE_MAX_TTL_S
+        assert yaml_cache._read_yaml_dict(path) == {"value": "same"}
+        assert loader.call_count == 2
+
+
+@allure.title("YAML kill-switch bypasses an existing memo")
+@pytest.mark.parametrize("value", ["0", "false", "OFF", "no"])
+def test_yaml_cache_disabled(yaml_cache, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, value: str) -> None:
+    path = tmp_path / "disabled.yaml"
+    path.write_text("value: same\n", encoding="utf-8")
+    assert yaml_cache._read_yaml_dict(path) == {"value": "same"}
+    monkeypatch.setenv("GREEDY_YAML_CACHE", value)
+    with patch.object(yaml, "safe_load", wraps=yaml.safe_load) as loader:
+        assert yaml_cache._read_yaml_dict(path) == {"value": "same"}
+        assert yaml_cache._read_yaml_dict(path) == {"value": "same"}
+        assert loader.call_count == 2
+
+
+@allure.title("A YAML file changed during parsing is not memoized")
+def test_yaml_cache_toctou(yaml_cache, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = tmp_path / "race.yaml"
+    path.write_text("value: old\n", encoding="utf-8")
+    load = yaml.safe_load
+
+    def changed_during_parse(stream):
+        result = load(stream)
+        path.write_text("value: new\n", encoding="utf-8")
+        return result
+
+    with monkeypatch.context() as m:
+        m.setattr(yaml, "safe_load", changed_during_parse)
+        assert yaml_cache._read_yaml_dict(path) == {"value": "old"}
+    assert not yaml_cache._YAML_CACHE
+    assert yaml_cache._read_yaml_dict(path) == {"value": "new"}
+
+
+@allure.title("Malformed YAML is not cached and a repaired source is read immediately")
+def test_yaml_cache_malformed_source(yaml_cache, tmp_path: Path) -> None:
+    path = tmp_path / "bad.yaml"
+    path.write_text("value: [\n", encoding="utf-8")
+    with pytest.raises(yaml.YAMLError):
+        yaml_cache._read_yaml_dict(path)
+    assert not yaml_cache._YAML_CACHE
+    path.write_text("value: repaired\n", encoding="utf-8")
+    assert yaml_cache._read_yaml_dict(path) == {"value": "repaired"}
+
+
+@allure.title("YAML stat errors disable memoization without preventing a successful read")
+def test_yaml_cache_stat_failure(yaml_cache, tmp_path: Path) -> None:
+    path = tmp_path / "unstatable.yaml"
+    path.write_text("value: same\n", encoding="utf-8")
+    with patch.object(Path, "stat", side_effect=OSError("stat failed")):
+        assert yaml_cache._yaml_signature(path) is None
+    with patch.object(yaml_cache, "_yaml_signature", return_value=None):
+        with patch.object(yaml, "safe_load", wraps=yaml.safe_load) as loader:
+            assert yaml_cache.load_yaml(path) == {"value": "same"}
+            assert yaml_cache.load_yaml(path) == {"value": "same"}
+            assert loader.call_count == 2
+    assert not yaml_cache._YAML_CACHE
+
+
+@allure.title("YAML memo stays bounded and eviction only causes a reparse")
+def test_yaml_cache_eviction(yaml_cache, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(yaml_cache, "_YAML_CACHE_MAX", 1)
+    first, second = tmp_path / "one.yaml", tmp_path / "two.yaml"
+    first.write_text("value: one\n", encoding="utf-8")
+    second.write_text("value: two\n", encoding="utf-8")
+    with patch.object(yaml, "safe_load", wraps=yaml.safe_load) as loader:
+        assert yaml_cache.load_yaml(first) == {"value": "one"}
+        assert yaml_cache.load_yaml(second) == {"value": "two"}
+        assert len(yaml_cache._YAML_CACHE) == 1
+        assert yaml_cache.load_yaml(first) == {"value": "one"}
+        assert loader.call_count == 3
+
+
+@allure.title("YAML symlink swaps invalidate even identical mtime and size signatures")
+@pytest.mark.parametrize("during_read", [False, True])
+def test_yaml_cache_symlink_swap(yaml_cache, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, during_read: bool) -> None:
+    if os.name == "nt":
+        pytest.skip("requires symlinks")
+    first, second, link = tmp_path / "first.yaml", tmp_path / "second.yaml", tmp_path / "link.yaml"
+    first.write_text("value: one\n", encoding="utf-8")
+    second.write_text("value: two\n", encoding="utf-8")
+    stat = first.stat()
+    os.utime(second, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+    link.symlink_to(first)
+
+    def swap():
+        link.unlink()
+        link.symlink_to(second)
+
+    if during_read:
+        load = yaml.safe_load
+
+        def changed_during_parse(stream):
+            result = load(stream)
+            swap()
+            return result
+
+        with monkeypatch.context() as m:
+            m.setattr(yaml, "safe_load", changed_during_parse)
+            assert yaml_cache.load_yaml(link) == {"value": "one"}
+        assert not yaml_cache._YAML_CACHE
+    else:
+        assert yaml_cache.load_yaml(link) == {"value": "one"}
+        swap()
+    assert yaml_cache.load_yaml(link) == {"value": "two"}
 
 
 @allure.story("GREEDY_TOKEN_ROOT")

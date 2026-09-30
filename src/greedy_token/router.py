@@ -423,7 +423,6 @@ def _token_estimate_for_route(
     task: str,
     root: Path,
 ) -> tuple[str, int, str]:
-    task_tokens = count_tokens(task).tokens
     complexity = COMPLEXITY_BY_TARGET.get(target, "medium")
 
     if target == "tool":
@@ -438,6 +437,7 @@ def _token_estimate_for_route(
             0,
             "Deterministic shell/Python script — no agent context.",
         )
+    task_tokens = count_tokens(task).tokens
     if target == "ollama":
         if ollama_available():
             # Local/cheap LLM still spends tokens (not agent API $).

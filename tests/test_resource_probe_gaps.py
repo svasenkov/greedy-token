@@ -697,3 +697,117 @@ def test_local_health_line(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(rp, "run_doctor", boom)
     assert "probe skipped" in rp.local_health_line()
+
+
+# ---------------------------------------------------------------------------
+# _gpu_info disk cache (GREEDY_HW_CACHE, probe-cache.json "hwgpu:*")
+# ---------------------------------------------------------------------------
+
+
+def _enable_hw_cache(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+    monkeypatch.setenv("GREEDY_HW_CACHE", "1")
+    cache = tmp_path / "probe-cache.json"
+    monkeypatch.setattr(rp, "PROBE_CACHE_PATH", cache)
+    return cache
+
+
+@allure.title("_gpu_info_cached honours the off flag and serves repeat calls from disk")
+def test_gpu_info_cached(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list = []
+    monkeypatch.setattr(rp, "_gpu_info", lambda: calls.append(1) or (1.5, "Test GPU"))
+    with allure.step("disabled flag → live probe on every call"):
+        monkeypatch.setenv("GREEDY_HW_CACHE", "0")
+        assert rp._gpu_info_cached() == (1.5, "Test GPU")
+        assert rp._gpu_info_cached() == (1.5, "Test GPU")
+        assert len(calls) == 2
+
+    with allure.step("enabled → second call is a cache hit"):
+        _enable_hw_cache(monkeypatch, tmp_path)
+        calls.clear()
+        assert rp._gpu_info_cached() == (1.5, "Test GPU")
+        monkeypatch.setattr(
+            rp,
+            "_gpu_info",
+            lambda: (_ for _ in ()).throw(AssertionError("re-probe on hit")),
+        )
+        assert rp._gpu_info_cached() == (1.5, "Test GPU")
+        assert len(calls) == 1
+
+
+@allure.title("_gpu_info_cached ignores expired, malformed and foreign entries")
+def test_gpu_info_cache_validation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cache = _enable_hw_cache(monkeypatch, tmp_path)
+    key = rp._gpu_cache_key()
+    probed: list = []
+    monkeypatch.setattr(rp, "_gpu_info", lambda: probed.append(1) or (3.0, "Fresh"))
+    cases = [
+        ("expired", {key: {"ts": 0, "vram_gb": 9.0, "gpu_name": "Stale"}}),
+        ("non-numeric ts", {key: {"ts": "never", "vram_gb": 9.0, "gpu_name": "X"}}),
+        ("missing fields", {key: {"ts": 9999999999}}),
+        ("non-dict entry", {key: 7}),
+    ]
+    for label, payload in cases:
+        with allure.step(label):
+            cache.write_text(json.dumps(payload), encoding="utf-8")
+            probed.clear()
+            assert rp._gpu_info_cached() == (3.0, "Fresh")
+            assert probed == [1]
+
+
+@allure.title("_gpu_info_cached preserves unrelated probe-cache keys")
+def test_gpu_info_cache_preserves_other_keys(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cache = _enable_hw_cache(monkeypatch, tmp_path)
+    bench = {"bench:abc": {"ts": 1, "latency_ms": 5, "ok": True}}
+    cache.write_text(json.dumps(bench), encoding="utf-8")
+    monkeypatch.setattr(rp, "_gpu_info", lambda: (2.0, "G"))
+    assert rp._gpu_info_cached() == (2.0, "G")
+    stored = json.loads(cache.read_text(encoding="utf-8"))
+    assert stored["bench:abc"] == bench["bench:abc"]
+    assert rp._gpu_cache_key() in stored
+
+
+@allure.title("_gpu_info_cached swallows cache-write failures")
+def test_gpu_info_cache_write_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _enable_hw_cache(monkeypatch, tmp_path)
+    monkeypatch.setattr(rp, "_gpu_info", lambda: (0.5, "GPU"))
+
+    def boom(payload):
+        raise OSError("read-only fs")
+
+    monkeypatch.setattr(rp, "_save_probe_cache", boom)
+    assert rp._gpu_info_cached() == (0.5, "GPU")
+
+
+@allure.title("_gpu_cache_key tracks host identity")
+def test_gpu_cache_key_host(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(rp.platform, "node", lambda: "host-a")
+    key_a = rp._gpu_cache_key()
+    monkeypatch.setattr(rp.platform, "node", lambda: "host-b")
+    assert rp._gpu_cache_key() != key_a
+    assert key_a.startswith("hwgpu:")
+
+
+@allure.title("detect_hardware caches the GPU probe but keeps RAM live")
+def test_detect_hardware_gpu_cache(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _enable_hw_cache(monkeypatch, tmp_path)
+    calls: list = []
+    monkeypatch.setattr(rp, "_gpu_info", lambda: calls.append(1) or (24.0, "RTX 4090"))
+    ram_states = iter([(64.0, 32.0), (64.0, 10.0)])
+    monkeypatch.setattr(rp, "_ram_gb", lambda: next(ram_states))
+    first = rp.detect_hardware()
+    second = rp.detect_hardware()
+    assert first.gpu_name == "RTX 4090" and first.vram_gb == 24.0
+    assert first.tier == "high_vram"
+    assert len(calls) == 1, "GPU probe must be cached across calls"
+    assert second.gpu_name == "RTX 4090"
+    assert second.ram_gb_available == 10.0, "RAM availability stays live"

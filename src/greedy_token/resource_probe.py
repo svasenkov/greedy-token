@@ -19,13 +19,12 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from greedy_token.model_select import ResolvedModel
 
-import yaml
-
 from greedy_token.cheap_llm import (
     cheap_llm_available,
     probe_cheap_llm,
     request_target,
 )
+from greedy_token.paths import load_yaml
 from greedy_token.settings import get_cheap_llm_settings
 
 HardwareTier = str  # cpu_only | low_vram | mid_vram | high_vram
@@ -99,7 +98,7 @@ def load_model_catalog() -> dict[str, Any]:
     path = catalog_path()
     if not path.is_file():
         return {}
-    raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    raw = load_yaml(path)
     return raw if isinstance(raw, dict) else {}
 
 
@@ -174,9 +173,54 @@ def _gpu_info() -> tuple[float, str]:
         return 0.0, "cpu_only"
 
 
+def _hw_cache_enabled() -> bool:
+    # ``GREEDY_HW_CACHE=0`` disables the disk cache (tests pin fresh probes).
+    return os.environ.get("GREEDY_HW_CACHE", "").strip().lower() not in (
+        "0",
+        "false",
+        "off",
+        "no",
+    )
+
+
+def _gpu_cache_key() -> str:
+    identity = f"{platform.node()}|{platform.machine()}|{platform.system()}"
+    return "hwgpu:" + hashlib.sha256(identity.encode("utf-8")).hexdigest()[:24]
+
+
+def _gpu_info_cached() -> tuple[float, str]:
+    """Disk-cached GPU probe: hardware identity outlives a hook process, and
+    the subprocess probe (system_profiler/nvidia-smi) is the slowest part of
+    ``detect_hardware``.  Lives in the shared probe cache next to benchmark
+    results; a miss/corrupt entry falls back to the live probe.
+    RAM availability stays live — only the GPU tuple is cached."""
+    if not _hw_cache_enabled():
+        return _gpu_info()
+    key = _gpu_cache_key()
+    entry = _load_probe_cache().get(key)
+    if isinstance(entry, dict):
+        try:
+            if time.time() - float(entry.get("ts", 0)) < PROBE_CACHE_TTL_S:
+                return float(entry["vram_gb"]), str(entry["gpu_name"])
+        except (KeyError, TypeError, ValueError):
+            pass
+    result = _gpu_info()
+    try:
+        cached = _load_probe_cache()
+        cached[key] = {
+            "ts": time.time(),
+            "vram_gb": result[0],
+            "gpu_name": result[1],
+        }
+        _save_probe_cache(cached)
+    except OSError:
+        pass  # best-effort — a failed cache write just re-probes next call
+    return result
+
+
 def detect_hardware() -> HardwareProfile:
     ram_total, ram_avail = _ram_gb()
-    vram, gpu_name = _gpu_info()
+    vram, gpu_name = _gpu_info_cached()
     cores = _cpu_cores()
 
     if vram <= 0.5:

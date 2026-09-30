@@ -1,10 +1,48 @@
 from __future__ import annotations
 
 import os
+import time
+from copy import deepcopy
 from pathlib import Path
+from typing import Any
 
 WORKSPACE_CONFIG_NAME = ".greedy-token.yaml"
 TRUSTED_SCRIPT_PATHS_KEY = "trusted_script_paths"
+_YAML_CACHE_MAX_TTL_S = 3600
+_YAML_CACHE_MAX = 64
+_YAML_CACHE: dict[str, tuple[tuple[int, int], float, Any]] = {}
+
+
+def reset_yaml_cache() -> None:
+    _YAML_CACHE.clear()
+
+
+def _yaml_signature(path: Path) -> tuple[int, int] | None:
+    try:
+        stat = path.stat()
+    except OSError:
+        return None
+    return stat.st_mtime_ns, stat.st_size
+
+
+def load_yaml(path: Path) -> Any:
+    import yaml
+
+    enabled = os.environ.get("GREEDY_YAML_CACHE", "").strip().lower() not in (
+        "0", "false", "off", "no"
+    )
+    signature = _yaml_signature(path) if enabled else None
+    key = str(path.resolve()) if enabled else ""
+    cached = _YAML_CACHE.get(key) if enabled else None
+    if cached is not None and cached[0] == signature and time.time() < cached[1]:
+        return deepcopy(cached[2])
+    with path.open(encoding="utf-8") as fh:
+        data = yaml.safe_load(fh)
+    if signature is not None and _yaml_signature(path) == signature and str(path.resolve()) == key:
+        if len(_YAML_CACHE) >= _YAML_CACHE_MAX:
+            reset_yaml_cache()
+        _YAML_CACHE[key] = (signature, time.time() + _YAML_CACHE_MAX_TTL_S, deepcopy(data))
+    return data
 
 
 def find_workspace_root(start: Path | None = None) -> Path:
@@ -28,11 +66,9 @@ def find_workspace_root(start: Path | None = None) -> Path:
 
 
 def _read_yaml_dict(path: Path) -> dict:
-    import yaml
-
     if not path.is_file():
         return {}
-    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    data = load_yaml(path) or {}
     return data if isinstance(data, dict) else {}
 
 
@@ -45,11 +81,8 @@ def _routes_list(cfg: dict) -> list[dict]:
 
 def bundled_routes_config() -> dict:
     """Generic default routes shipped with the package."""
-    import yaml
-
     config_path = Path(__file__).parent / "config" / "routes.yaml"
-    with config_path.open(encoding="utf-8") as f:
-        return yaml.safe_load(f)
+    return load_yaml(config_path)
 
 
 def workspace_routes_overlay(root: Path) -> dict:
