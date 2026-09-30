@@ -346,6 +346,87 @@ def format_gate_user_message(prompt: str, *, op_id: str) -> str:
     )
 
 
+_INTERCEPT_CELL_MAX = 72
+_INTERCEPT_ROWS_MAX = 10
+_INTERCEPT_LIST_INLINE = 4
+
+
+def render_result_output(output: str) -> str:
+    """Human-readable render of an op's stdout for the intercept toast.
+
+    JSON becomes key/value lines plus a markdown table per array of objects;
+    anything else is already human-readable and returned unchanged.
+    """
+    text = output.strip()
+    if not text:
+        return text
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return text
+    if isinstance(data, dict):
+        return _render_result_dict(data) or text
+    if isinstance(data, list) and data and all(isinstance(r, dict) for r in data):
+        return _render_result_table(data)
+    return text
+
+
+def _render_result_dict(d: dict[str, Any]) -> str:
+    scalars = [
+        f"**{k}**: {_result_cell(v)}"
+        for k, v in d.items()
+        if not isinstance(v, (dict, list))
+    ]
+    blocks = ["\n".join(scalars)] if scalars else []
+    for key, value in d.items():
+        if isinstance(value, list) and value and all(
+            isinstance(r, dict) for r in value
+        ):
+            blocks.append(f"**{key}**\n\n{_render_result_table(value)}")
+        elif isinstance(value, (dict, list)):
+            blocks.append(f"**{key}**: {_result_cell(value)}")
+    return "\n\n".join(blocks)
+
+
+def _render_result_table(rows: list[dict[str, Any]]) -> str:
+    cols: list[str] = []
+    for row in rows:
+        cols += [k for k in row if k not in cols]
+    lines = [
+        "| " + " | ".join(cols) + " |",
+        "|" + "---|" * len(cols),
+    ]
+    lines += [
+        "| " + " | ".join(_result_cell(row.get(c)) for c in cols) + " |"
+        for row in rows[:_INTERCEPT_ROWS_MAX]
+    ]
+    if len(rows) > _INTERCEPT_ROWS_MAX:
+        lines.append(f"| … +{len(rows) - _INTERCEPT_ROWS_MAX} more" + " |" * (len(cols) - 1))
+    return "\n".join(lines)
+
+
+def _result_cell(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, list):
+        inline = ", ".join(_result_cell(v) for v in value[:_INTERCEPT_LIST_INLINE])
+        if len(value) > _INTERCEPT_LIST_INLINE:
+            inline += f" +{len(value) - _INTERCEPT_LIST_INLINE}"
+        return _cell_truncate(inline)
+    if isinstance(value, dict):
+        return _cell_truncate(json.dumps(value, ensure_ascii=False))
+    return _cell_truncate(str(value))
+
+
+def _cell_truncate(text: str) -> str:
+    text = text.replace("\n", " ").replace("|", "\\|")
+    return _truncate(text, _INTERCEPT_CELL_MAX)
+
+
 def event_from_dict(row: dict[str, Any]) -> AdvisoryEvent:
     return AdvisoryEvent(
         ts=row.get("ts", ""),

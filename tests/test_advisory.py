@@ -840,3 +840,91 @@ def test_watch_events_default_text_out(
     out = capsys.readouterr().out
     assert "\033[36m[greedy-token watch]" in out
     assert '"kind"' not in out
+
+
+@allure.title("render_result_output passes through non-JSON stdout")
+def test_render_result_output_plain_text() -> None:
+    raw = "3 repos found\nfoo\nbar"
+    assert advisory.render_result_output(raw) == raw
+
+
+@allure.title("render_result_output renders dict scalars and object array as table")
+def test_render_result_output_dict_table() -> None:
+    raw = json.dumps(
+        {
+            "ok": True,
+            "repo": ".",
+            "count": 2,
+            "commits": [
+                {"sha": "abc1234", "subject": "first"},
+                {"sha": "def5678", "subject": "second", "extra": "x"},
+            ],
+        }
+    )
+    out = advisory.render_result_output(raw)
+    assert "**repo**: ." in out
+    assert "**count**: 2" in out
+    assert "| sha | subject | extra |" in out
+    assert "| abc1234 | first |  |" in out
+
+
+@allure.title("render_result_output renders a bare list of dicts as a table")
+def test_render_result_output_top_list() -> None:
+    raw = json.dumps([{"a": 1}, {"a": 2}])
+    out = advisory.render_result_output(raw)
+    assert out.startswith("| a |")
+    assert "| 2 |" in out
+
+
+@allure.title("render_result_output caps rows and truncates wide cells")
+def test_render_result_output_truncation() -> None:
+    rows = [{"c": "x" * 200} for _ in range(15)]
+    out = advisory.render_result_output(json.dumps(rows))
+    assert "+5 more" in out
+    assert "x" * 72 not in out
+    assert "…" in out
+
+
+@allure.title("render_result_output escapes pipes and newlines inside cells")
+def test_render_result_output_cell_sanitization() -> None:
+    out = advisory.render_result_output(
+        json.dumps([{"m": "a|b\nc"}])
+    )
+    assert "a\\|b c" in out
+    assert "\nc" not in out.splitlines()[2]
+
+
+@allure.title("render_result_output keeps empty and scalar JSON unchanged")
+def test_render_result_output_passthrough_edge() -> None:
+    assert advisory.render_result_output("") == ""
+    assert advisory.render_result_output("42") == "42"
+
+
+@allure.title("render_result_output keeps non-tabular JSON unchanged")
+def test_render_result_output_non_tabular_json() -> None:
+    for raw in ("[]", '["a", "b"]', "{}", '"just a string"'):
+        assert advisory.render_result_output(raw) == raw
+
+
+@allure.title("render_result_output renders nested dict and scalar list inline")
+def test_render_result_output_nested_values() -> None:
+    out = advisory.render_result_output(
+        json.dumps({"meta": {"elapsed": 1}, "tags": ["a", "b"]})
+    )
+    assert '**meta**: {"elapsed": 1}' in out
+    assert "**tags**: a, b" in out
+
+
+@allure.title("render_result_output inlines list cells with +N overflow")
+def test_render_result_output_list_cell() -> None:
+    row = {"name": "x", "files": ["a", "b", "c", "d", "e"]}
+    out = advisory.render_result_output(json.dumps([row]))
+    assert "a, b, c, d +1" in out
+
+
+@allure.title("render_result_output embeds nested dict cell as compact json")
+def test_render_result_output_dict_cell() -> None:
+    out = advisory.render_result_output(
+        json.dumps([{"stats": {"add": 3}}])
+    )
+    assert '{"add": 3}' in out
