@@ -92,14 +92,14 @@ def test_yaml_cache_toctou(yaml_cache, tmp_path: Path, monkeypatch: pytest.Monke
 
     def changed_during_parse(stream):
         result = load(stream)
-        path.write_text("value: new\n", encoding="utf-8")
+        path.write_text("value: new\nextra: 1\n", encoding="utf-8")
         return result
 
     with monkeypatch.context() as m:
         m.setattr(yaml, "safe_load", changed_during_parse)
         assert yaml_cache._read_yaml_dict(path) == {"value": "old"}
     assert not yaml_cache._YAML_CACHE
-    assert yaml_cache._read_yaml_dict(path) == {"value": "new"}
+    assert yaml_cache._read_yaml_dict(path) == {"value": "new", "extra": 1}
 
 
 @allure.title("Malformed YAML is not cached and a repaired source is read immediately")
