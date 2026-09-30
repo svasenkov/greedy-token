@@ -313,9 +313,8 @@ def test_get_hook_settings_workspace(tmp_path: Path) -> None:
 @allure.story("Hook")
 @allure.title("get_hook_settings without root → unconfigured")
 def test_get_hook_settings_no_root(monkeypatch: pytest.MonkeyPatch) -> None:
-    from greedy_token.settings import get_hook_settings
-
     import greedy_token.paths as _paths
+    from greedy_token.settings import get_hook_settings
 
     monkeypatch.setattr(
         _paths,
