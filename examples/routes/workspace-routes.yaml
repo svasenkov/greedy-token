@@ -325,6 +325,12 @@ routes:
     command: python scripts/git-recent.py
     params: [args]
     args_from_prompt:
+      - regex: '(?:список|покажи +последние|выведи +последние|дай +последние)\D{0,60}?([0-9]{1,4}) +коммит'
+        args: --count {0} --compact
+      - regex: '(?:list|show)\D{0,60}?(?:last|latest|recent) +([0-9]{1,4}) +commits?'
+        args: --count {0} --compact
+      - regex: 'список|\blist\b|покажи +последние|выведи +последние|дай +последние|show +(?:last|latest|recent) +commits?'
+        args: --compact
       - regex: '([0-9]{1,4}) +коммит'
         args: --count {0}
       - regex: '(?:last|latest) +([0-9]{1,4}) +commits?'
