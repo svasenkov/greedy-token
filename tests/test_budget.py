@@ -372,3 +372,98 @@ def test_full_footer_not_executed_note(minimal_workspace: Path) -> None:
     attach_text("footer", footer)
     assert "not executed" in footer
     assert "Saved note:" in footer
+
+
+@allure.story("Savings footer")
+@allure.title("saved shows both figures when the hook mode is not intercept")
+def test_footer_saved_dual_under_advisory(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from greedy_token.baseline import cursor_overhead
+
+    task = "probe task"
+    baseline = cursor_baseline(minimal_workspace, task)
+    turn_shared = baseline - cursor_overhead()
+    monkeypatch.setenv("GREEDY_HOOK_MODE", "advisory")
+    footer = format_tool_footer(
+        task,
+        minimal_workspace,
+        tier="tool",
+        est_tokens=0,
+        route_id="mcp-search",
+        executor_sub="rg",
+    )
+    attach_text("advisory footer", footer)
+    assert f"saved **~{baseline:,}**" in footer
+    assert f"(if intercept; turn-shared otherwise ~{turn_shared:,})" in footer
+
+    monkeypatch.setenv("GREEDY_HOOK_MODE", "gate")
+    footer = format_tool_footer(
+        task,
+        minimal_workspace,
+        tier="tool",
+        est_tokens=0,
+        route_id="mcp-search",
+        executor_sub="rg",
+    )
+    attach_text("gate footer", footer)
+    assert f"turn-shared otherwise ~{turn_shared:,}" in footer
+
+
+@allure.story("Savings footer")
+@allure.title("saved shows a single figure when the hook mode is intercept")
+def test_footer_saved_single_under_intercept(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    task = "probe task"
+    baseline = cursor_baseline(minimal_workspace, task)
+    monkeypatch.setenv("GREEDY_HOOK_MODE", "intercept")
+    footer = format_tool_footer(
+        task,
+        minimal_workspace,
+        tier="tool",
+        est_tokens=0,
+        route_id="mcp-search",
+        executor_sub="rg",
+    )
+    attach_text("intercept footer", footer)
+    assert f"saved **~{baseline:,}**" in footer
+    assert "turn-shared" not in footer
+
+
+@allure.story("Savings footer")
+@allure.title("legacy threshold env alone keeps the saved figure intercept-level")
+def test_footer_saved_single_under_legacy_threshold(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("GREEDY_HOOK_MODE", raising=False)
+    monkeypatch.setenv("GREEDY_HOOK_MIN_CONFIDENCE", "0.9")
+    footer = format_tool_footer(
+        "probe task",
+        minimal_workspace,
+        tier="tool",
+        est_tokens=0,
+        route_id="mcp-search",
+        executor_sub="rg",
+    )
+    assert "turn-shared" not in footer
+
+
+@allure.story("Savings footer")
+@allure.title("no saved claim → no dual qualifier even in advisory mode")
+def test_footer_saved_dual_suppressed_without_savings(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("GREEDY_HOOK_MODE", "advisory")
+    footer = format_tool_footer(
+        "probe task",
+        minimal_workspace,
+        tier="tool",
+        est_tokens=0,
+        route_id="mcp-search",
+        executor_sub="rg",
+        executed=False,
+    )
+    attach_text("not-executed footer", footer)
+    assert "not executed" in footer
+    assert "turn-shared" not in footer

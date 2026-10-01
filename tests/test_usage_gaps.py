@@ -1025,8 +1025,9 @@ def test_append_event(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -
     )
     usage.append_event({"a": "é"}, path=target)
     line = target.read_bytes()
-    assert line == '{"a":"é"}\n'.encode()
-    assert spy == [{"a": "é"}]
+    # hook_mode is stamped on every appended event (savings attribution).
+    assert line == '{"a":"é","hook_mode":"advisory"}\n'.encode()
+    assert spy == [{"a": "é", "hook_mode": "advisory"}]
     # emit_auto_override=False skips the override emitter
     usage.append_event({"b": 1}, path=target, emit_auto_override=False)
     assert len(spy) == 1

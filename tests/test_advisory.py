@@ -294,6 +294,29 @@ def test_hook_min_confidence(monkeypatch: pytest.MonkeyPatch) -> None:
     assert advisory.hook_min_confidence() == advisory.ADVISORY_MIN_CONFIDENCE
 
 
+@allure.title("effective_hook_mode: unset → advisory; legacy ≤1.0 threshold → intercept")
+def test_effective_hook_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("GREEDY_HOOK_MODE", raising=False)
+    monkeypatch.delenv("GREEDY_HOOK_MIN_CONFIDENCE", raising=False)
+    monkeypatch.setattr(advisory, "_hook_settings", lambda: None)
+    assert advisory.effective_hook_mode() == advisory.HOOK_MODE_ADVISORY
+
+    # Legacy: no mode, but the threshold env still arms execute-and-block —
+    # the savings claim is intercept-level.  1.0 is the documented boundary.
+    monkeypatch.setenv("GREEDY_HOOK_MIN_CONFIDENCE", "0.9")
+    assert advisory.effective_hook_mode() == advisory.HOOK_MODE_INTERCEPT
+    monkeypatch.setenv("GREEDY_HOOK_MIN_CONFIDENCE", "1.0")
+    assert advisory.effective_hook_mode() == advisory.HOOK_MODE_INTERCEPT
+    monkeypatch.setenv("GREEDY_HOOK_MIN_CONFIDENCE", "1.01")
+    assert advisory.effective_hook_mode() == advisory.HOOK_MODE_ADVISORY
+    monkeypatch.delenv("GREEDY_HOOK_MIN_CONFIDENCE", raising=False)
+
+    # Explicit modes pass through unchanged.
+    for mode in sorted(advisory.HOOK_MODES):
+        monkeypatch.setenv("GREEDY_HOOK_MODE", mode)
+        assert advisory.effective_hook_mode() == mode
+
+
 @allure.title("format_gate_user_message: invoke pointer + bypass hint")
 def test_format_gate_user_message() -> None:
     msg = advisory.format_gate_user_message(

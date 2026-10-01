@@ -7,9 +7,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from greedy_token.advisory import HOOK_MODE_INTERCEPT, effective_hook_mode
 from greedy_token.baseline import (
     SOURCE_DEFAULT,
     baseline_source,
+    cursor_overhead,
     format_duration_short,
     get_baseline_settings,
     get_time_baseline_settings,
@@ -144,6 +146,9 @@ def format_savings_lines(
     executor_sub: str | None = None,
     spent_note: str | None = None,
     source: str | None = None,
+    # Hook-mode qualifier printed right after the saved figure — empty under
+    # intercept (or when nothing is claimed), where baseline − spent holds.
+    saved_suffix: str = "",
 ) -> list[str]:
     if saved is None:
         saved = max(0, baseline - spent)
@@ -160,7 +165,7 @@ def format_savings_lines(
             # equivalent: format_spent_line defaults indent to the same "  ".
             indent="  ",
         ),
-        f"  Saved:             ~{saved:,}  (= baseline − spent; baseline: {source})",
+        f"  Saved:             ~{saved:,}{saved_suffix}  (= baseline − spent; baseline: {source})",
     ]
 
 
@@ -219,6 +224,11 @@ class ToolFooterContext:
     # Non-empty only when this call did not execute the tier it describes; the
     # renderers print it next to a zero "saved" instead of branching.
     saved_note: str = ""
+    # Effective hook profile at emit time. ``saved`` claims the whole naive
+    # turn only under intercept; every other mode shares the agent turn, so
+    # the honest figure is ``saved_turn_shared``.
+    hook_mode: str = ""
+    saved_turn_shared: int = 0
 
 
 def _cheap_billing_note(root: Path | None = None) -> str:
@@ -277,6 +287,7 @@ def _build_tool_footer_context(
     breakdown = cursor_baseline_breakdown(root, task)
     baseline = breakdown.total
     saved = cursor_saved_for(root, task, est_tokens, tier)
+    saved_turn_shared = max(0, baseline - cursor_overhead() - est_tokens)
     baseline_ms = naive_agent_ms(baseline)
     saved_ms = time_saved_ms(baseline, duration_ms, tier)
     saved_note = ""
@@ -314,6 +325,8 @@ def _build_tool_footer_context(
         baseline_ms=baseline_ms,
         time_saved=saved_ms,
         time_source=time_source,
+        hook_mode=effective_hook_mode(),
+        saved_turn_shared=saved_turn_shared,
         # equivalent: ctx.task_success is recorded for callers/debugging, but
         # no renderer reads it — a None/omitted mutation is unobservable.
         task_success=task_success,
@@ -325,6 +338,17 @@ def _resolve_footer_style(root: Path, style: FooterStyleArg) -> FooterStyle:
     if style is not None:
         return style
     return get_footer_settings(root).style
+
+
+def _saved_mode_qualifier(ctx: ToolFooterContext) -> str:
+    """Suffix for non-intercept modes: "(if intercept; turn-shared otherwise
+    ~M)" — the honest saving when the hook did not replace the agent turn.
+    Advisory/gate/legacy-advisory still pay the turn overhead, so only
+    baseline − overhead − spent is contestable.  A zero claim needs no
+    qualifier either way."""
+    if ctx.hook_mode == HOOK_MODE_INTERCEPT or ctx.saved <= 0:
+        return ""
+    return f" (if intercept; turn-shared otherwise ~{ctx.saved_turn_shared:,})"
 
 
 def _format_tool_footer_compact(ctx: ToolFooterContext) -> str:
@@ -340,7 +364,7 @@ def _format_tool_footer_compact(ctx: ToolFooterContext) -> str:
         "",
         "---",
         f"> **Greedy token** · `{ctx.executor_sub}`{duration} · saved **~{ctx.saved:,}**"
-        f"{ctx.saved_note}{time_saved} (baseline: {ctx.breakdown.source})",
+        f"{_saved_mode_qualifier(ctx)}{ctx.saved_note}{time_saved} (baseline: {ctx.breakdown.source})",
         f"> spent ~{ctx.est_tokens:,} · naive ~{ctx.baseline:,} · {ctx.billing_short}{route}",
     ]
     lines.extend(extras)
@@ -376,7 +400,7 @@ def _format_tool_footer_markdown(ctx: ToolFooterContext) -> str:
             f"| naive agent chat ({ctx.breakdown.source}) | ~{ctx.baseline:,} | "
             f"~{format_duration_short(ctx.baseline_ms)} ({ctx.time_source}) |",
             f"| **saved** (baseline: {ctx.breakdown.source}){ctx.saved_note} | "
-            f"**~{ctx.saved:,}** | **~{time_saved}** |",
+            f"**~{ctx.saved:,}**{_saved_mode_qualifier(ctx)} | **~{time_saved}** |",
             "",
             f"{ctx.billing_short}{route}",
             "---",
@@ -455,6 +479,7 @@ def _format_tool_footer_full(ctx: ToolFooterContext) -> str:
             # get_baseline_settings().source — the same value
             # format_savings_lines falls back to when source is None.
             source=ctx.breakdown.source,
+            saved_suffix=_saved_mode_qualifier(ctx),
         )
     )
     if ctx.saved_note:

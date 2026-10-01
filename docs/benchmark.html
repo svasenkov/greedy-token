@@ -102,8 +102,10 @@
   <b>Как читать</b>
   Три колонки токенов: «без greedy» (полный наивный ход) vs «с greedy»
   (тот же ход агента + payload исполнителя) → Saved = их разница.
-  Футерное «saved ~17k» из usage.jsonl верно только при hook-режиме intercept —
+  Футерное «saved ~17k» верно только при hook-режиме intercept —
   когда LLM-ход не случается вовсе; в advisory/MCP overhead платится.
+  Футер сам печатает оба числа: «saved ~N (if intercept; turn-shared
+  otherwise ~M)», а события usage.jsonl несут поле hook_mode.
   $ — по input-ставке (saved = непрочитанный контекст; output &lt;5%).
   После живых прогонов заменить base/overhead фактом из IDE usage.
 </div>
@@ -126,8 +128,8 @@ const ROWS = [
 
 // Фиксированная цена хода агента (rules + system + tool schemas + reply),
 // измерена `greedy-token calibrate`. Платится и при greedy-вызове:
-// «с greedy» = overhead + payload исполнителя. Футерное «saved ~17k» верно
-// только в hook-режиме intercept (LLM-ход не случается вовсе).
+// «с greedy» = overhead + payload исполнителя. «saved ~N» верно только в
+// hook-режиме intercept — футер показывает оба числа (turn-shared = M).
 const AGENT_OVERHEAD = 17043;
 
 // Ряд 2 — большие объёмы (/tmp/gt-bench-big.jsonl). oh — agent overhead

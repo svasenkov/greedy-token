@@ -216,6 +216,10 @@ def _clear_cheap_llm_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "GREEDY_TOKEN_TAG",
         "GREEDY_TOKEN_SESSION",
         "GREEDY_AGENT_HOST",
+        # Ambient hook config would flip the footer's dual-saved qualifier and
+        # the hook_mode stamp on logged events — pin both to unset for tests.
+        "GREEDY_HOOK_MODE",
+        "GREEDY_HOOK_MIN_CONFIDENCE",
     ):
         monkeypatch.delenv(key, raising=False)
 

@@ -471,7 +471,7 @@ Outcome confidence calibration (explicit success/failure; min n=20):
 
 Log file: `~/.greedy-token/usage.jsonl` (disable: `GREEDY_TOKEN_LOG=0`).
 
-Each event: tier, `est_tokens`, `cursor_baseline`, `cursor_saved`, `duration_ms`, `cursor_baseline_ms`, `time_saved_ms`.
+Each event: tier, `est_tokens`, `cursor_baseline`, `cursor_saved`, `duration_ms`, `cursor_baseline_ms`, `time_saved_ms`, `hook_mode` (resolved hook profile — `cursor_saved` = baseline − spent is intercept-level only; under `advisory`/`gate` the agent turn still pays its overhead and the real saving is `baseline − overhead − spent`).
 
 Pipeline logs **one event per step**. `llm invoke` logs **one request event per completed provider call** (per-call model, `billing` block, `cost_usd`, gate verdict) plus one `route_outcome` record per invoke — a failed escalation still logs every completed call's spend, and internal callers (`compress --ollama`, `crystallize draft`) emit the same records under their own profile. When the log exceeds `GREEDY_TOKEN_LOG_MAX_BYTES` (default 5 MiB), it rotates to `usage.jsonl.1`, `.2`, …; `report` reads the active log and archives.
 

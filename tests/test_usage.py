@@ -135,7 +135,8 @@ def test_append_event_no_session_source_omits_field(log_file: Path) -> None:
     event = {"v": SCHEMA_VERSION, "cmd": "route", "task": "find baseUrl"}
     append_event(dict(event), path=log_file, emit_auto_override=False)
     payload = json.loads(log_file.read_text(encoding="utf-8"))
-    assert payload == event
+    # hook_mode is stamped unconditionally — the savings claim depends on it.
+    assert payload == {**event, "hook_mode": "advisory"}
 
 
 @allure.story("Event logging")
@@ -211,6 +212,42 @@ def test_session_id_on_all_event_kinds(
     assert len(payloads) == 5
     assert [p["cmd"] for p in payloads] == ["route", "scripts", "outcome", "compress", "override"]
     assert all(p["session_id"] == "conv-all-1" for p in payloads)
+
+
+@allure.story("Event logging")
+@allure.title("hook_mode is stamped from env/config so cursor_saved can be judged")
+def test_append_event_hook_mode(
+    log_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("GREEDY_HOOK_MODE", raising=False)
+    monkeypatch.delenv("GREEDY_HOOK_MIN_CONFIDENCE", raising=False)
+    event = {"v": SCHEMA_VERSION, "cmd": "route", "task": "find baseUrl"}
+    append_event(dict(event), path=log_file, emit_auto_override=False)
+    # Unset profile is advisory — cursor_saved is a turn-shared estimate.
+    assert json.loads(log_file.read_text(encoding="utf-8"))["hook_mode"] == "advisory"
+
+    monkeypatch.setenv("GREEDY_HOOK_MODE", "intercept")
+    append_event(dict(event), path=log_file, emit_auto_override=False)
+    rows = [
+        json.loads(line)
+        for line in log_file.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert rows[-1]["hook_mode"] == "intercept"
+
+    # An explicit field on the event wins over the ambient resolution.
+    monkeypatch.setenv("GREEDY_HOOK_MODE", "gate")
+    append_event(
+        {**event, "hook_mode": "intercept"},
+        path=log_file,
+        emit_auto_override=False,
+    )
+    rows = [
+        json.loads(line)
+        for line in log_file.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert rows[-1]["hook_mode"] == "intercept"
 
 
 @allure.story("Route events")

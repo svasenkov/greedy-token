@@ -469,7 +469,7 @@ Outcome confidence calibration (explicit success/failure; min n=20):
 
 Файл: `~/.greedy-token/usage.jsonl` · отключить: `GREEDY_TOKEN_LOG=0`
 
-Каждое событие: tier, `est_tokens`, `cursor_baseline`, `cursor_saved`, `duration_ms`, `cursor_baseline_ms`, `time_saved_ms`.
+Каждое событие: tier, `est_tokens`, `cursor_baseline`, `cursor_saved`, `duration_ms`, `cursor_baseline_ms`, `time_saved_ms`, `hook_mode` (resolved-профиль хука — `cursor_saved` = baseline − spent верен только при `intercept`; при `advisory`/`gate` agent turn всё равно платит overhead, и честная экономия — `baseline − overhead − spent`).
 
 Pipeline пишет **одну строку на каждый шаг**. `llm invoke` пишет **одно request-событие на каждый завершённый provider-вызов** (model, `billing`-блок, `cost_usd` и verdict гейта — на вызов) плюс одну запись `route_outcome` на invoke — упавшая цепочка эскалации всё равно логирует spend каждого завершённого вызова, а внутренние вызовы (`compress --ollama`, `crystallize draft`) пишут те же записи под своим profile. При превышении `GREEDY_TOKEN_LOG_MAX_BYTES` (default 5 MiB) лог ротируется в `usage.jsonl.1`, `.2`, …; `report` читает активный файл и архивы.
 

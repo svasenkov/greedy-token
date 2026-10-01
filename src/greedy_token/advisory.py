@@ -129,6 +129,22 @@ def hook_min_confidence() -> float:
     return ADVISORY_MIN_CONFIDENCE
 
 
+def effective_hook_mode() -> str:
+    """Hook mode for savings attribution on telemetry events and footers.
+
+    ``cursor_saved = baseline − est`` is only true when the prompt never
+    reaches the agent: ``intercept`` mode, or the unset (legacy) profile when
+    a ``GREEDY_HOOK_MIN_CONFIDENCE`` ≤ 1.0 still arms execute-and-block —
+    the documented legacy contract.  Every other configuration leaves the
+    agent turn running, so the turn overhead is spent either way and the
+    honest saving is smaller (turn-shared).
+    """
+    mode = hook_mode()
+    if mode:
+        return mode
+    return HOOK_MODE_INTERCEPT if hook_min_confidence() <= 1.0 else HOOK_MODE_ADVISORY
+
+
 def tty_path() -> Path | None:
     raw = os.environ.get("GREEDY_TOKEN_TTY", "").strip()
     if not raw:

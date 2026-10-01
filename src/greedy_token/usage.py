@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from greedy_token.advisory import effective_hook_mode
 from greedy_token.baseline import naive_agent_ms, time_saved_ms
 from greedy_token.calibration import (
     CALIBRATION_MIN_EVENTS,
@@ -817,6 +818,11 @@ def append_event(
         tags = event.get("tags") if isinstance(event.get("tags"), dict) else {}
         if not any(key in event or key in tags for key in SESSION_KEYS):
             event = {**event, "session_id": sid}
+    if "hook_mode" not in event:
+        # cursor_saved = baseline − est only holds when the hook intercepted
+        # the prompt (the agent turn never ran).  The resolved mode is what
+        # lets a reader tell that claim apart from a turn-shared call.
+        event = {**event, "hook_mode": effective_hook_mode()}
     try:
         _ensure_log_dir(target)
         rotate_log_if_needed(target)
