@@ -151,7 +151,7 @@ pip install -e ".[dev,mcp]"
 ```
 
 ```bash
-export GREEDY_TOKEN_ROOT=/path/to/workspace   # optional; auto-detect when markers exist
+export GREEDY_TOKEN_ROOT=/path/to/workspace   # optional; auto-detected from the nearest .greedy-token.yaml (or workspace markers) up from cwd
 ```
 
 ## Cursor integration (recommended)
@@ -483,7 +483,7 @@ Precedence (low → high): built-in defaults → `~/.greedy-token/config.yaml` (
 
 | Var | Default |
 |-----|---------|
-| `GREEDY_TOKEN_ROOT` | auto-detect or required |
+| `GREEDY_TOKEN_ROOT` | auto-detect (nearest `.greedy-token.yaml` up from cwd) or required outside a workspace |
 | `CHEAP_LLM_PROVIDER` | from config or `ollama` (`ollama` \| `openai_compat`) |
 | `CHEAP_LLM_URL` / `OLLAMA_URL` | from config or `http://localhost:11434` |
 | `CHEAP_LLM_MODEL` / `OLLAMA_MODEL` | **deprecated** — still read for compat, warns once; use `llm.models[]` profiles or `GREEDY_LLM_MODEL_ID` |
@@ -515,7 +515,7 @@ cheap_llm:
   model: qwen2.5-coder:7b-instruct-q4_K_M
 ```
 
-Multi-model registry ([ADR-0001](adr/0001-unified-model-spec-derived-tier.md)): declare one unified `llm.models[]` list; the cheap/expensive tier is *derived* from each model's attributes — `billing: free|metered`, `cost_per_1m_usd`, threshold `llm.cheap_cost_threshold_per_1m_usd` (default 0.2 USD per 1M tokens). `locality: local|remote` never affects the tier. Legacy `llm.cheap.models[]` / `llm.expensive.models[]` sections are still read. Templates: `examples/presets/`.
+Multi-model registry ([ADR-0001](adr/0001-unified-model-spec-derived-tier.md)): declare one unified `llm.models[]` list; the cheap/expensive tier is *derived* from each model's attributes — `billing: free|metered`, `cost_per_1m_usd`, threshold `llm.cheap_cost_threshold_per_1m_usd` (default 0.2 USD per 1M tokens). `locality: local|remote` never affects the tier, but it does affect call timeouts: remote calls clamp to 20 s by default so a dead endpoint fails fast instead of hanging on the local-sized timeout — a model-level `timeout_s` overrides both. Legacy `llm.cheap.models[]` / `llm.expensive.models[]` sections are still read. Templates: `examples/presets/`.
 
 ### Metered bulk APIs (ADR-0002)
 
@@ -560,7 +560,7 @@ cursor_fallback:
   message: Custom fallback hint for full agent chats.
 ```
 
-**Merge priority:** a workspace route with the same `id` replaces the bundled one; new ids are placed first, so they also win tier tie-breaks against the defaults. Outside a workspace (no `GREEDY_TOKEN_ROOT`, no markers) the bundled defaults are used as-is.
+**Merge priority:** a workspace route with the same `id` replaces the bundled one; new ids are placed first, so they also win tier tie-breaks against the defaults. Outside a workspace (no `GREEDY_TOKEN_ROOT` and no `.greedy-token.yaml` or markers up-tree) the bundled defaults are used as-is.
 
 Bootstrap options:
 

@@ -151,7 +151,7 @@ pip install -e ".[dev,mcp]"
 ```
 
 ```bash
-export GREEDY_TOKEN_ROOT=/path/to/workspace   # опционально; авто-detect при наличии маркеров
+export GREEDY_TOKEN_ROOT=/path/to/workspace   # опционально; авто-detect по ближайшему .greedy-token.yaml (или маркерам workspace) вверх от cwd
 ```
 
 ## Интеграция с Cursor
@@ -481,7 +481,7 @@ Pipeline пишет **одну строку на каждый шаг**. `llm inv
 
 | Var | Default |
 |-----|---------|
-| `GREEDY_TOKEN_ROOT` | auto-detect |
+| `GREEDY_TOKEN_ROOT` | auto-detect (ближайший `.greedy-token.yaml` вверх от cwd) или обязателен вне workspace |
 | `CHEAP_LLM_PROVIDER` | из config или `ollama` (`ollama` \| `openai_compat`) |
 | `CHEAP_LLM_URL` / `OLLAMA_URL` | из config или `http://localhost:11434` |
 | `CHEAP_LLM_MODEL` / `OLLAMA_MODEL` | **deprecated** — читаются для совместимости, warning один раз; используй `llm.models[]` profiles или `GREEDY_LLM_MODEL_ID` |
@@ -515,7 +515,7 @@ cheap_llm:
   model: qwen2.5-coder:7b-instruct-q4_K_M
 ```
 
-Multi-model реестр ([ADR-0001](adr/0001-unified-model-spec-derived-tier.md)): единый список `llm.models[]`; tier cheap/expensive *выводится* из атрибутов модели — `billing: free|metered`, `cost_per_1m_usd`, порог `llm.cheap_cost_threshold_per_1m_usd` (default 0.2 USD за 1M токенов). `locality: local|remote` на tier не влияет. Старые секции `llm.cheap.models[]` / `llm.expensive.models[]` продолжают читаться. Шаблоны: `examples/presets/`.
+Multi-model реестр ([ADR-0001](adr/0001-unified-model-spec-derived-tier.md)): единый список `llm.models[]`; tier cheap/expensive *выводится* из атрибутов модели — `billing: free|metered`, `cost_per_1m_usd`, порог `llm.cheap_cost_threshold_per_1m_usd` (default 0.2 USD за 1M токенов). `locality: local|remote` на tier не влияет, но влияет на таймауты вызова: remote-коллы клампятся в 20 с по умолчанию — мёртвый endpoint падает быстро, а не висит на локальном таймауте; `timeout_s` на модель перекрывает оба случая. Старые секции `llm.cheap.models[]` / `llm.expensive.models[]` продолжают читаться. Шаблоны: `examples/presets/`.
 
 ### Metered bulk APIs (ADR-0002)
 
@@ -560,7 +560,7 @@ cursor_fallback:
   message: Свой fallback-хинт для полных agent-чатов.
 ```
 
-**Приоритет merge:** workspace-роут с тем же `id` заменяет бандловый; новые id ставятся первыми — они выигрывают tie-break внутри tier у дефолтов. Вне workspace (нет `GREEDY_TOKEN_ROOT` и маркеров) используются бандловые дефолты как есть.
+**Приоритет merge:** workspace-роут с тем же `id` заменяет бандловый; новые id ставятся первыми — они выигрывают tie-break внутри tier у дефолтов. Вне workspace (нет `GREEDY_TOKEN_ROOT`, нет `.greedy-token.yaml` и маркеров вверх по дереву) используются бандловые дефолты как есть.
 
 Bootstrap:
 
