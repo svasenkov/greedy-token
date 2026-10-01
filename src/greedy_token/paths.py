@@ -45,6 +45,26 @@ def load_yaml(path: Path) -> Any:
     return data
 
 
+def _has_workspace_markers(parent: Path) -> bool:
+    return (parent / "docs" / "phase-manifest.json").is_file() and (
+        parent / "scripts" / "meta-sync-check.py"
+    ).is_file()
+
+
+def _walk_for_root(origin: Path, marker_fallback: Path | None = None) -> Path | None:
+    # Nearest declaration wins: .greedy-token.yaml and the marker pair are
+    # checked at the same depth, so a nested yaml-workspace cannot shadow a
+    # closer markers-workspace and vice versa.
+    for parent in [origin, *origin.parents]:
+        if (parent / WORKSPACE_CONFIG_NAME).is_file() or _has_workspace_markers(parent):
+            return parent
+    if marker_fallback is not None:
+        for parent in [marker_fallback, *marker_fallback.parents]:
+            if (parent / WORKSPACE_CONFIG_NAME).is_file() or _has_workspace_markers(parent):
+                return parent
+    return None
+
+
 def find_workspace_root(start: Path | None = None) -> Path:
     env = os.environ.get("GREEDY_TOKEN_ROOT")
     if env:
@@ -53,15 +73,20 @@ def find_workspace_root(start: Path | None = None) -> Path:
             return root
         raise SystemExit(f"GREEDY_TOKEN_ROOT is not a directory: {root}")
 
-    here = (start or Path(__file__)).resolve()
-    for parent in [here, *here.parents]:
-        if (parent / "docs" / "phase-manifest.json").is_file() and (
-            parent / "scripts" / "meta-sync-check.py"
-        ).is_file():
-            return parent
+    if start is not None:
+        # Explicit probe point: only that tree is walked — the nearest
+        # .greedy-token.yaml wins, then the monorepo marker pair.
+        found = _walk_for_root(start.resolve())
+    else:
+        # Invocation site first (nearest .greedy-token.yaml up from cwd),
+        # then the package-file marker walk that anchors a dev checkout.
+        found = _walk_for_root(Path.cwd().resolve(), Path(__file__).resolve())
+    if found is not None:
+        return found
 
     raise SystemExit(
-        "Cannot find workspace root. Set GREEDY_TOKEN_ROOT=/path/to/workspace"
+        "Cannot find workspace root. Set GREEDY_TOKEN_ROOT=/path/to/workspace "
+        "or run from a directory containing .greedy-token.yaml"
     )
 
 

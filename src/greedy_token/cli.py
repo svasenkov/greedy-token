@@ -1092,6 +1092,14 @@ def cmd_init(args: argparse.Namespace) -> int:
     if not env["ollama"]:
         lines.append("  · ollama offline — cheap LLM tier skipped; tool/python/rag still work")
 
+    try:
+        find_workspace_root()
+    except SystemExit:
+        lines.append(
+            "  ! no workspace detected — route/run/rag need a .greedy-token.yaml "
+            "in cwd or a parent dir, or GREEDY_TOKEN_ROOT"
+        )
+
     if not args.apply:
         lines.extend(
             [
@@ -1384,10 +1392,24 @@ def cmd_hub_serve(args: argparse.Namespace) -> int:
     return 0
 
 
+def _package_version() -> str:
+    from importlib.metadata import PackageNotFoundError, version
+
+    try:
+        return version("greedy-token")
+    except PackageNotFoundError:
+        return "0.0.0-dev"
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="greedy-token",
         description="Task orchestrator: tool | Python | Ollama | RAG | Cursor",
+    )
+    p.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {_package_version()}",
     )
     p.add_argument(
         "--no-log",

@@ -223,6 +223,60 @@ def test_find_workspace_root_not_found(
             find_workspace_root(empty)
 
 
+@allure.story("Discovery")
+@allure.title("find_workspace_root resolves the nearest .greedy-token.yaml up from cwd")
+def test_find_workspace_root_cwd_yaml(
+    monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    monkeypatch.delenv("GREEDY_TOKEN_ROOT", raising=False)
+    # Sibling of this test's tmp_path — the autouse minimal_workspace fixture
+    # plants a .greedy-token.yaml in tmp_path that would otherwise be found first.
+    workspace = tmp_path_factory.mktemp("root-yaml") / "ws"
+    nested = workspace / "a" / "b"
+    nested.mkdir(parents=True)
+    (workspace / ".greedy-token.yaml").write_text("routes: []\n", encoding="utf-8")
+    monkeypatch.chdir(nested)
+    with allure.step("Resolve root via workspace config from cwd"):
+        root = find_workspace_root()
+        attach_text("root", str(root))
+    assert root == workspace.resolve()
+
+
+@allure.story("Discovery")
+@allure.title("find_workspace_root falls back to marker pair walked from cwd")
+def test_find_workspace_root_cwd_markers(
+    monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    monkeypatch.delenv("GREEDY_TOKEN_ROOT", raising=False)
+    workspace = tmp_path_factory.mktemp("root-markers") / "ws"
+    (workspace / "docs").mkdir(parents=True)
+    (workspace / "docs" / "phase-manifest.json").write_text("{}", encoding="utf-8")
+    (workspace / "scripts").mkdir()
+    (workspace / "scripts" / "meta-sync-check.py").write_text("ok\n", encoding="utf-8")
+    nested = workspace / "deep"
+    nested.mkdir()
+    monkeypatch.chdir(nested)
+    with allure.step("Resolve root via markers (no yaml up-tree)"):
+        assert find_workspace_root() == workspace.resolve()
+
+
+@allure.story("Discovery")
+@allure.title("find_workspace_root walks markers from an explicit start path")
+def test_find_workspace_root_start_markers_only(
+    monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    monkeypatch.delenv("GREEDY_TOKEN_ROOT", raising=False)
+    workspace = tmp_path_factory.mktemp("root-start") / "ws"
+    nested = workspace / "nested" / "deep"
+    nested.mkdir(parents=True)
+    (workspace / "docs").mkdir()
+    (workspace / "docs" / "phase-manifest.json").write_text("{}", encoding="utf-8")
+    (workspace / "scripts").mkdir()
+    (workspace / "scripts" / "meta-sync-check.py").write_text("ok\n", encoding="utf-8")
+    with allure.step("Resolve root via marker pair from start (no yaml)"):
+        assert find_workspace_root(nested) == workspace.resolve()
+
+
 @allure.story("Routes config")
 @allure.title("load_routes_config reads bundled routes.yaml")
 def test_load_routes_config() -> None:

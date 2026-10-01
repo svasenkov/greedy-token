@@ -63,6 +63,12 @@ class _ProviderCall:
     spend_ref: str = ""
 
 
+# Remote endpoints are either reachable within seconds or dead — a full
+# local-sized timeout would hang a guarded call for minutes. Model-level
+# ``timeout_s`` in llm.models[] overrides this clamp.
+REMOTE_CALL_TIMEOUT_S = 20.0
+
+
 def _output_weak(text: str, *, min_len: int = 8) -> bool:
     stripped = text.strip()
     if len(stripped) < min_len:
@@ -381,13 +387,19 @@ def invoke_profile(
                 continue
 
         apply_model_env(candidate)
+        # Remote endpoints answer fast or not at all — the default timeout is
+        # sized for local model load, so a dead remote host would otherwise
+        # hang the call for the full two minutes.
+        call_timeout = candidate.spec.timeout_s or (
+            min(timeout, REMOTE_CALL_TIMEOUT_S) if candidate.spec.locality == "remote" else timeout
+        )
         call_t0 = time.perf_counter()
         try:
             text, eval_tokens = llm_chat(
                 candidate,
                 system=system,
                 user=user,
-                timeout=timeout,
+                timeout=call_timeout,
             )
         except MalformedResponseError as exc:
             # A response did arrive — tokens may already be billed — so the
@@ -420,6 +432,13 @@ def invoke_profile(
             last_error = _redact_error(
                 str(exc), secrets=(candidate.spec.api_key, candidate.spec.url)
             )
+            if candidate.spec.locality == "remote":
+                # The URL may embed credentials — it is a redacted secret, so
+                # the hint stays host-free on purpose.
+                last_error += (
+                    " — remote endpoint unreachable or unauthorized "
+                    "(check VPN/credentials; probe the configured url)"
+                )
             continue
         call_ms = int((time.perf_counter() - call_t0) * 1000)
         call_cost = _settle_call_cost(candidate.spec, reservation, eval_tokens)

@@ -51,6 +51,7 @@ class ModelSpec:
     cost_per_1m_usd: float | None = None
     api_key: str = ""
     api_key_env: str = ""
+    timeout_s: float | None = None
 
 
 def derive_tier(
@@ -186,6 +187,18 @@ def _parse_cost(raw: dict[str, Any]) -> float | None:
         return None
 
 
+def _parse_timeout_s(raw: dict[str, Any]) -> float | None:
+    """Per-model HTTP timeout override; absent/unparsable/non-positive → None."""
+    value = raw.get("timeout_s")
+    if value is None:
+        return None
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
+
+
 def _parse_profiles(raw: Any) -> tuple[str, ...]:
     if raw is None:
         return ("*",)
@@ -233,6 +246,7 @@ def _parse_model_entry(raw: dict[str, Any], *, section: ModelTier = "cheap") -> 
         cost_per_1m_usd=cost,
         api_key=api_key,
         api_key_env=api_key_env,
+        timeout_s=_parse_timeout_s(raw),
     )
 
 

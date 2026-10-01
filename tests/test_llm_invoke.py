@@ -99,3 +99,91 @@ def test_invoke_profile_cheap(
     assert result.model_id == "fast"
     assert result.tier_billing == "cheap"
     mock_chat.assert_called_once()
+
+
+def _remote_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, model: dict) -> None:
+    monkeypatch.setenv("GREEDY_TOKEN_LOG", "0")
+    monkeypatch.setattr(
+        "greedy_token.model_select.user_config_path",
+        lambda: tmp_path / "missing.yaml",
+    )
+    cfg = {
+        "llm": {
+            "cheap": {"models": [model]},
+            "escalation": {"enabled": False},
+        }
+    }
+    (tmp_path / ".greedy-token.yaml").write_text(yaml.safe_dump(cfg), encoding="utf-8")
+    monkeypatch.setenv("GREEDY_TOKEN_ROOT", str(tmp_path))
+
+
+@patch("greedy_token.llm_invoke.llm_chat", return_value=("ok response", 12))
+def test_invoke_profile_remote_timeout_clamped(
+    mock_chat: object,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _remote_workspace(
+        tmp_path,
+        monkeypatch,
+        {
+            "id": "remote-7b",
+            "enabled": True,
+            "model": "m7",
+            "url": "https://ollama.example.com",
+            "profiles": ["classify"],
+        },
+    )
+    invoke_profile(
+        "classify", system="s", user="u", root=tmp_path, log=False, allow_escalate=False
+    )
+    from greedy_token.llm_invoke import REMOTE_CALL_TIMEOUT_S
+
+    assert mock_chat.call_args.kwargs["timeout"] == REMOTE_CALL_TIMEOUT_S
+
+
+@patch("greedy_token.llm_invoke.llm_chat", return_value=("ok response", 12))
+def test_invoke_profile_timeout_s_override(
+    mock_chat: object,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _remote_workspace(
+        tmp_path,
+        monkeypatch,
+        {
+            "id": "remote-7b",
+            "enabled": True,
+            "model": "m7",
+            "url": "https://ollama.example.com",
+            "profiles": ["classify"],
+            "timeout_s": 7,
+        },
+    )
+    invoke_profile(
+        "classify", system="s", user="u", root=tmp_path, log=False, allow_escalate=False
+    )
+    assert mock_chat.call_args.kwargs["timeout"] == 7.0
+
+
+@patch("greedy_token.llm_invoke.llm_chat", side_effect=OSError("timed out"))
+def test_invoke_profile_remote_error_hint(
+    mock_chat: object,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _remote_workspace(
+        tmp_path,
+        monkeypatch,
+        {
+            "id": "remote-7b",
+            "enabled": True,
+            "model": "m7",
+            "url": "https://ollama.example.com",
+            "profiles": ["classify"],
+        },
+    )
+    with pytest.raises(RuntimeError, match="unreachable or unauthorized"):
+        invoke_profile(
+            "classify", system="s", user="u", root=tmp_path, log=False, allow_escalate=False
+        )
