@@ -495,6 +495,7 @@ Precedence (low → high): built-in defaults → `~/.greedy-token/config.yaml` (
 | `GREEDY_HOOK_MIN_CONFIDENCE` | `1.01` advisory / `0.55` in gate·intercept — block threshold; without `GREEDY_HOOK_MODE` a value ≤1.0 keeps the legacy execute-and-block behaviour |
 | `GREEDY_OVERKILL_GATE` | unset — `1` blocks Agent-bound prompts the router flags as overkill |
 | `GREEDY_ADVISORY` | `1` — `0` disables the `advisory.jsonl` hook log |
+| `GREEDY_TOKEN_RAG_MAX_PAYLOAD_TOKENS` | `8000` — cumulative est cap on RAG hits; `0` disables |
 
 ### Cheap LLM
 
@@ -536,6 +537,16 @@ llm:
 ```
 
 Every metered call (whether the derived tier is cheap or expensive) passes the spend guard: an `llm.expensive.daily_cap_usd` daily cap plus a monthly metered cap. It logs `cost_usd` with a `billing.tier: metered` telemetry block, while `billing_tier` keeps the derived tier for compatibility. `greedy-token budget --verbose` / `--json` show the metered split (cheap bulk vs expensive), and footers label the tier honestly: `cheap LLM (…, metered)` vs `cheap LLM (…, local free)`. The `doctor --benchmark` probe resolves its target through the same registry and guarded invoke path — a metered model needs the opt-in (`--allow-expensive`) before any endpoint call, and its spend lands in the usage log.
+
+### RAG
+
+RAG hits (`greedy-token rag`, MCP `greedy_token_rag`, pipeline `rag` step, router estimates) are capped by cumulative `est_tokens` — `rag.max_payload_tokens` in `~/.greedy-token/config.yaml` or workspace `.greedy-token.yaml` (default `8000`; `0` disables; env `GREEDY_TOKEN_RAG_MAX_PAYLOAD_TOKENS` wins). A hit that would overflow the cap is skipped — smaller later hits may still fit — and the response then reports `truncated: true, hits_dropped: N`. The cap bounds what a lookup can inject into context; `est_tokens` in telemetry/footer already reflects the truncated payload.
+
+```yaml
+# $GREEDY_TOKEN_ROOT/.greedy-token.yaml
+rag:
+  max_payload_tokens: 4000
+```
 
 ### Routing
 

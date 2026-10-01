@@ -3,7 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 import allure
+from greedy_token.budget import rag_est_tokens
 from greedy_token.rag_index import IndexedChunk
 from greedy_token.rag_search import _excerpt, _score_indexed, format_hits, search_rag
 from tests.allure_reporting import attach_json, attach_text
@@ -104,3 +107,22 @@ def test_excerpt_covers_matching_and_head_truncation() -> None:
     assert _excerpt("needle " + "x" * 20, {"needle"}, max_len=10).endswith("…")
     assert _excerpt("short head", {"absent"}, max_len=20) == "short head"
     assert _excerpt("x" * 20, {"absent"}, max_len=10).endswith("…")
+
+
+@allure.story("Payload cap")
+@allure.title("monorepo corpus: hits over rag.max_payload_tokens are dropped with a flag")
+def test_search_rag_monorepo_cap(workspace_root: Path) -> None:
+    with allure.step("Measure the uncapped payload on the real monorepo corpus"):
+        full = search_rag("check", workspace_root, limit=5, max_payload_tokens=0)
+        full_est = rag_est_tokens(full, workspace_root)
+        attach_text("uncapped est_tokens", str(full_est))
+    if full_est <= 4000:
+        pytest.skip(f"monorepo corpus drifted below the cap scenario (est={full_est})")
+    with allure.step("Re-run with max_payload_tokens=4000"):
+        capped = search_rag("check", workspace_root, limit=5, max_payload_tokens=4000)
+        capped_est = rag_est_tokens(capped, workspace_root)
+        attach_text("capped est_tokens", str(capped_est))
+    with allure.step("Verify fewer tokens and the truncated flag"):
+        assert capped_est <= 4000 < full_est
+        assert capped.truncated is True
+        assert capped.hits_dropped == len(full) - len(capped)

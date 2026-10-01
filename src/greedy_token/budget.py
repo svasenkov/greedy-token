@@ -22,7 +22,7 @@ from greedy_token.calibration import SOURCE_FIXED
 from greedy_token.context_audit import audit_context
 from greedy_token.estimator import cursor_saved_for
 from greedy_token.paths import find_workspace_root
-from greedy_token.rag_search import RagHit
+from greedy_token.rag_search import RagHit, rag_hit_tokens
 from greedy_token.result_gate import GateDecision, evaluate_result_gate
 from greedy_token.router import RouteDecision, route_task_all_tiers
 from greedy_token.settings import FooterStyle, get_cheap_llm_settings, get_footer_settings
@@ -80,19 +80,7 @@ def cursor_baseline_breakdown(root: Path, task: str) -> CursorBaselineBreakdown:
 
 
 def rag_est_tokens(hits: list[RagHit], root: Path) -> int:
-    total = 0
-    for hit in hits:
-        if hit.body is not None:
-            total += count_tokens(hit.body).tokens
-            continue
-        chunk_path = root / hit.path
-        if chunk_path.is_file():
-            total += count_tokens(
-                chunk_path.read_text(encoding="utf-8", errors="replace")
-            ).tokens
-        else:
-            total += count_tokens(hit.excerpt).tokens
-    return total
+    return sum(rag_hit_tokens(hit, root) for hit in hits)
 
 
 BASELINE_LABEL = "Baseline (naive agent chat):"

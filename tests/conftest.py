@@ -213,6 +213,7 @@ def _clear_cheap_llm_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "GREEDY_ALLOW_EXPENSIVE",
         "GREEDY_METERED_LLM",
         "GREEDY_TOKEN_FOOTER_STYLE",
+        "GREEDY_TOKEN_RAG_MAX_PAYLOAD_TOKENS",
         "GREEDY_TOKEN_TAG",
         "GREEDY_TOKEN_SESSION",
         "GREEDY_AGENT_HOST",

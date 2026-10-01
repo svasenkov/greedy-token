@@ -64,6 +64,9 @@ DEFAULT_MAX_CONTEXT_TOKENS = 2000
 DEFAULT_MAX_SNIPPET_FILES = 3
 DEFAULT_CONTEXT_LINES = 15
 
+# RAG payload cap — cumulative est_tokens of returned hits (0 disables).
+DEFAULT_RAG_MAX_PAYLOAD_TOKENS = 8000
+
 
 @dataclass(frozen=True)
 class SearchSettings:
@@ -71,6 +74,12 @@ class SearchSettings:
     max_context_tokens: int
     max_snippet_files: int
     context_lines: int
+    source: str
+
+
+@dataclass(frozen=True)
+class RagSettings:
+    max_payload_tokens: int
     source: str
 
 
@@ -436,6 +445,50 @@ def get_search_settings(root: Path | None = None) -> SearchSettings:
     return _resolve_search_settings(user_cfg=user_cfg, workspace_cfg=workspace_cfg)
 
 
+def _resolve_rag_settings(
+    *,
+    user_cfg: dict[str, Any],
+    workspace_cfg: dict[str, Any],
+) -> RagSettings:
+    max_payload = DEFAULT_RAG_MAX_PAYLOAD_TOKENS
+    source = "default"
+
+    for level, cfg in (("user", user_cfg), ("workspace", workspace_cfg)):
+        section = _section(cfg, "rag")
+        if section.get("max_payload_tokens") is not None:
+            try:
+                max_payload = max(0, int(section["max_payload_tokens"]))
+                source = level
+            except (TypeError, ValueError):
+                pass
+
+    env_raw = os.environ.get("GREEDY_TOKEN_RAG_MAX_PAYLOAD_TOKENS", "").strip()
+    if env_raw:
+        try:
+            max_payload = max(0, int(env_raw))
+            source = "env"
+        except ValueError:
+            pass
+
+    return RagSettings(max_payload_tokens=max_payload, source=source)
+
+
+def get_rag_settings(root: Path | None = None) -> RagSettings:
+    """Resolved ``rag:`` config — currently just the payload token cap."""
+    user_cfg = _read_yaml(user_config_path())
+    workspace_cfg: dict[str, Any] = {}
+    if root is not None:
+        workspace_cfg = _read_yaml(workspace_config_path(root))
+    else:
+        try:
+            from greedy_token.paths import find_workspace_root
+
+            workspace_cfg = _read_yaml(workspace_config_path(find_workspace_root()))
+        except SystemExit:
+            pass
+    return _resolve_rag_settings(user_cfg=user_cfg, workspace_cfg=workspace_cfg)
+
+
 def get_cheap_llm_settings(root: Path | None = None) -> CheapLlmSettings:
     """Resolved default cheap model (legacy API — delegates to model registry when configured)."""
     user_cfg = _read_yaml(user_config_path())
@@ -718,4 +771,6 @@ def example_workspace_config() -> str:
         f"  max_context_tokens: {DEFAULT_MAX_CONTEXT_TOKENS}\n"
         f"  max_snippet_files: {DEFAULT_MAX_SNIPPET_FILES}\n"
         f"  context_lines: {DEFAULT_CONTEXT_LINES}\n"
+        "rag:\n"
+        f"  max_payload_tokens: {DEFAULT_RAG_MAX_PAYLOAD_TOKENS}  # 0 disables the cap\n"
     )

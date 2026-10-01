@@ -23,6 +23,7 @@ def _clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "GREEDY_TOKEN_FOOTER_STYLE",
         "GREEDY_TOKEN_SEARCH_CONTEXT",
         "GREEDY_TOKEN_MAX_CONTEXT_TOKENS",
+        "GREEDY_TOKEN_RAG_MAX_PAYLOAD_TOKENS",
     ):
         monkeypatch.delenv(var, raising=False)
 
@@ -102,6 +103,64 @@ def test_get_search_settings_no_root(tmp_path: Path, monkeypatch: pytest.MonkeyP
         lambda: (_ for _ in ()).throw(SystemExit(1)),
     )
     assert st.get_search_settings(root=None).source == "default"
+
+
+@allure.title("_resolve_rag_settings: workspace wins over user, junk and negatives handled")
+def test_resolve_rag_settings_precedence() -> None:
+    resolved = st._resolve_rag_settings(
+        user_cfg={"rag": {"max_payload_tokens": 6000}},
+        workspace_cfg={"rag": {"max_payload_tokens": 4000}},
+    )
+    assert resolved.max_payload_tokens == 4000
+    assert resolved.source == "workspace"
+
+    junk = st._resolve_rag_settings(
+        user_cfg={"rag": {"max_payload_tokens": "abc"}},
+        workspace_cfg={"rag": {"max_payload_tokens": {"nope": 1}}},
+    )
+    assert junk.max_payload_tokens == st.DEFAULT_RAG_MAX_PAYLOAD_TOKENS
+    assert junk.source == "default"
+
+    clamped = st._resolve_rag_settings(
+        user_cfg={}, workspace_cfg={"rag": {"max_payload_tokens": -50}}
+    )
+    assert clamped.max_payload_tokens == 0
+
+
+@allure.title("_resolve_rag_settings: env wins, junk env ignored")
+def test_resolve_rag_settings_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GREEDY_TOKEN_RAG_MAX_PAYLOAD_TOKENS", "1234")
+    env = st._resolve_rag_settings(
+        user_cfg={"rag": {"max_payload_tokens": 6000}}, workspace_cfg={}
+    )
+    assert env.max_payload_tokens == 1234
+    assert env.source == "env"
+
+    monkeypatch.setenv("GREEDY_TOKEN_RAG_MAX_PAYLOAD_TOKENS", "junk")
+    bad = st._resolve_rag_settings(user_cfg={}, workspace_cfg={})
+    assert bad.max_payload_tokens == st.DEFAULT_RAG_MAX_PAYLOAD_TOKENS
+
+
+@allure.title("get_rag_settings reads rag: from workspace yaml")
+def test_get_rag_settings_workspace(tmp_path: Path) -> None:
+    (tmp_path / ".greedy-token.yaml").write_text(
+        "rag:\n  max_payload_tokens: 2500\n", encoding="utf-8"
+    )
+    out = st.get_rag_settings(tmp_path)
+    assert out.max_payload_tokens == 2500
+    assert out.source == "workspace"
+
+
+@allure.title("get_rag_settings tolerates missing workspace root")
+def test_get_rag_settings_no_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(st, "user_config_path", lambda: tmp_path / "missing.yaml")
+    monkeypatch.setattr(
+        "greedy_token.paths.find_workspace_root",
+        lambda: (_ for _ in ()).throw(SystemExit(1)),
+    )
+    out = st.get_rag_settings(root=None)
+    assert out.max_payload_tokens == st.DEFAULT_RAG_MAX_PAYLOAD_TOKENS
+    assert out.source == "default"
 
 
 @allure.title("get_cheap_llm_settings falls back when registry resolve fails")

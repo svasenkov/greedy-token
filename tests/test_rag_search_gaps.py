@@ -5,10 +5,20 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 import allure
 from greedy_token.rag_fts import Bm25Match, Fts5Unavailable
 from greedy_token.rag_index import IndexedChunk, ManifestDocument
-from greedy_token.rag_search import RagHit, _excerpt, _score_indexed, format_hits, search_rag
+from greedy_token.rag_search import (
+    RagHit,
+    RagHits,
+    _excerpt,
+    _score_indexed,
+    format_hits,
+    search_rag,
+)
+from greedy_token.tokens import count_tokens
 
 pytestmark = [
     allure.epic("RAG"),
@@ -347,3 +357,130 @@ def test_format_hits_exact_layout_bm25() -> None:
         "\n"
         "---"
     )
+
+
+# --- rag.max_payload_tokens cap ---
+
+
+@allure.story("Payload cap")
+@allure.title("cap <= 0 disables truncation entirely")
+def test_cap_zero_disables(minimal_workspace: Path) -> None:
+    chunks = [_chunk(meta={"id": f"c{i}"}) for i in range(3)]
+    with _fts5_unavailable(), patch(
+        "greedy_token.rag_search.get_indexed_chunks", return_value=chunks
+    ):
+        hits = search_rag("tok", minimal_workspace, max_payload_tokens=0)
+    # cap < 0 / cap < 1 mutants would drop every hit here.
+    assert [h.chunk_id for h in hits] == ["c0", "c1", "c2"]
+    assert hits.truncated is False
+    assert hits.hits_dropped == 0
+
+
+@allure.story("Payload cap")
+@allure.title("an oversized hit is skipped, smaller later hits still fit (continue, not break)")
+def test_cap_skip_not_break(minimal_workspace: Path) -> None:
+    body_a = "tok " * 30
+    body_big = "tok " * 400
+    body_b = "tok " * 20
+    chunks = [
+        _chunk(meta={"id": "keep-a"}, body=body_a, rel_path="docs/rag/a.md"),
+        _chunk(meta={"id": "drop-big"}, body=body_big, rel_path="docs/rag/big.md"),
+        _chunk(meta={"id": "keep-b"}, body=body_b, rel_path="docs/rag/b.md"),
+    ]
+    cap = count_tokens(body_a).tokens + count_tokens(body_b).tokens
+    with _fts5_unavailable(), patch(
+        "greedy_token.rag_search.get_indexed_chunks", return_value=chunks
+    ):
+        hits = search_rag("tok", minimal_workspace, max_payload_tokens=cap)
+    # break-mutant would stop at drop-big and lose keep-b; keeping both
+    # boundary-fitting hits also kills `total + cost >= cap`.
+    assert [h.chunk_id for h in hits] == ["keep-a", "keep-b"]
+    assert hits.truncated is True
+    assert hits.hits_dropped == 1
+
+
+@allure.story("Payload cap")
+@allure.title("a hit costing exactly the cap is kept (>, not >=)")
+def test_cap_boundary_hit_kept(minimal_workspace: Path) -> None:
+    body = "tok " * 50
+    cost = count_tokens(body).tokens
+    chunks = [_chunk(meta={"id": "exact"}, body=body)]
+    with _fts5_unavailable(), patch(
+        "greedy_token.rag_search.get_indexed_chunks", return_value=chunks
+    ):
+        hits = search_rag("tok", minimal_workspace, max_payload_tokens=cost)
+    assert [h.chunk_id for h in hits] == ["exact"]
+    assert hits.truncated is False
+    assert hits.hits_dropped == 0
+
+
+@allure.story("Payload cap")
+@allure.title("default cap comes from rag.max_payload_tokens settings")
+def test_cap_default_from_settings(minimal_workspace: Path) -> None:
+    chunks = [_chunk(meta={"id": "c"})]
+    with _fts5_unavailable(), patch(
+        "greedy_token.rag_search.get_indexed_chunks", return_value=chunks
+    ):
+        hits = search_rag("tok", minimal_workspace)
+    assert len(hits) == 1
+    assert hits.truncated is False
+    assert hits.hits_dropped == 0
+
+
+@allure.story("Payload cap")
+@allure.title("config cap drops a hit bigger than the budget on the real index")
+def test_cap_via_env_config(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GREEDY_TOKEN_RAG_MAX_PAYLOAD_TOKENS", "5")
+    # minimal_workspace's single chunk (~13 est tokens) exceeds the cap.
+    hits = search_rag("baseUrl", minimal_workspace)
+    assert hits == []
+    assert hits.truncated is True
+    assert hits.hits_dropped == 1
+    out = format_hits("baseUrl", hits)
+    assert "No RAG hits" in out
+    assert "truncated: true, hits_dropped: 1" in out
+
+
+@allure.story("Payload cap")
+@allure.title("explicit max_payload_tokens beats env-resolved settings")
+def test_cap_explicit_param_beats_env(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("GREEDY_TOKEN_RAG_MAX_PAYLOAD_TOKENS", "1")
+    hits = search_rag("baseUrl", minimal_workspace, max_payload_tokens=0)
+    assert len(hits) == 1
+    assert hits.truncated is False
+
+
+@allure.story("Payload cap")
+@allure.title("cap applies on the fts5-bm25 path too")
+def test_cap_applies_on_bm25_path(minimal_workspace: Path) -> None:
+    docs = [_bm25_doc({"id": f"m{i}"}) for i in range(3)]
+    cost = count_tokens("bm body").tokens
+    with patch("greedy_token.rag_search.search_bm25", return_value=docs):
+        hits = search_rag("tok", minimal_workspace, max_payload_tokens=cost)
+    assert [h.chunk_id for h in hits] == ["m0"]
+    assert hits.truncated is True
+    assert hits.hits_dropped == 2
+
+
+@allure.story("Formatting")
+@allure.title("format_hits appends the truncated/hits_dropped fields only when capped")
+def test_format_hits_truncated_line() -> None:
+    hit = RagHit(
+        chunk_id="c1",
+        path="docs/a.md",
+        domain="config",
+        score=1.0,
+        excerpt="EX",
+        body="b",
+        engine="overlap",
+    )
+    out = format_hits("q", RagHits([hit], truncated=True, hits_dropped=2))
+    assert "truncated: true, hits_dropped: 2" in out
+
+    plain = format_hits("q", [hit])
+    assert "truncated" not in plain
+
+    uncapped = format_hits("q", RagHits([hit]))
+    assert "truncated" not in uncapped

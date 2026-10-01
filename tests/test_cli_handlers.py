@@ -134,6 +134,19 @@ def test_cmd_rag(minimal_workspace: Path, capsys) -> None:
     assert "RAG hits" in out or "No RAG hits" in out
 
 
+@allure.story("RAG")
+@allure.title("cmd_rag reports truncated/hits_dropped when rag.max_payload_tokens drops the hit")
+def test_cmd_rag_payload_cap(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    monkeypatch.setenv("GREEDY_TOKEN_RAG_MAX_PAYLOAD_TOKENS", "1")
+    code = cli.cmd_rag(_ns(query="baseUrl -D flag", domain="config", limit=5))
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "No RAG hits" in out
+    assert "truncated: true, hits_dropped: 1" in out
+
+
 @allure.story("Compress")
 @allure.title("cmd_compress reads stdin and prints dual format")
 def test_cmd_compress_stdin(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:

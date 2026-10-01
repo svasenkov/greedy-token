@@ -489,6 +489,7 @@ Pipeline пишет **одну строку на каждый шаг**. `llm inv
 | `GREEDY_TOKEN_LOG` | `~/.greedy-token/usage.jsonl` |
 | `GREEDY_TOKEN_LOG_MAX_BYTES` | `5242880` (5 MiB) |
 | `GREEDY_TOKEN_LOG_MAX_FILES` | `5` rotated archives |
+| `GREEDY_TOKEN_RAG_MAX_PAYLOAD_TOKENS` | `8000` — кап на суммарный est RAG-хитов; `0` отключает |
 
 ### Cheap LLM
 
@@ -536,6 +537,16 @@ llm:
 ```
 
 Каждый metered-вызов (неважно, cheap или expensive выведенный tier) проходит spend guard: дневной кэп `llm.expensive.daily_cap_usd` плюс месячный metered-кэп. Он пишет `cost_usd` с блоком телеметрии `billing.tier: metered`, при этом `billing_tier` сохраняет выведенный tier для совместимости. `greedy-token budget --verbose` / `--json` показывают split metered-расходов (cheap bulk vs expensive), а футеры честно маркируют tier: `cheap LLM (…, metered)` vs `cheap LLM (…, local free)`. Проба `doctor --benchmark` резолвит цель через тот же реестр и guarded invoke-путь — metered-модель требует opt-in (`--allow-expensive`) до любого обращения к endpoint, а её расход пишется в usage-лог.
+
+### RAG
+
+Хиты RAG (`greedy-token rag`, MCP `greedy_token_rag`, шаг `rag` в pipeline, оценки роутера) ограничены суммарным `est_tokens` — `rag.max_payload_tokens` в `~/.greedy-token/config.yaml` или workspace `.greedy-token.yaml` (default `8000`; `0` отключает; env `GREEDY_TOKEN_RAG_MAX_PAYLOAD_TOKENS` перекрывает). Хит, который не укладывается в кап, пропускается — более мелкие ниже по рангу могут ещё поместиться — и ответ тогда несёт `truncated: true, hits_dropped: N`. Кап ограничивает объём, который lookup может влить в контекст; `est_tokens` в телеметрии/футере уже отражает урезанный payload.
+
+```yaml
+# $GREEDY_TOKEN_ROOT/.greedy-token.yaml
+rag:
+  max_payload_tokens: 4000
+```
 
 ### Маршрутизация
 
