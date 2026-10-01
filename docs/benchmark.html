@@ -87,8 +87,10 @@
   <p class="foot">oh = agent overhead воркспейса: workshop 17,043 / monorepo ~37,450.
   Наивный pull — измеренный объём (байты/4), который агент прочитал бы:
   1.2MB JSONL, 4.9MB usage-лог, guide.md, git log. Красная строка —
-  честный проигрыш: git-recent печатает verbose-JSON (58.9KB) там, где
-  <code>git log --oneline</code> дал бы 3.6KB — saved отрицательный.</p>
+  после фикса --compact (hook-путь): 7.2KB ≈ 1.8k tok vs naive 0.9k —
+  листинг всё ещё лёгкий минус; «что изменилось» выигрывает. Через
+  <code>run</code> CLI args_from_prompt не применяются (находка F4) —
+  compact доезжает только по hook/intercept.</p>
 </section>
 
 <section>
@@ -136,7 +138,7 @@ const ROWS2 = [
   { q: "в lab/events.jsonl у каждого события есть id ts event (12,000 строк)", tier: "python / check_events · 1.2MB", wall: 141, tok: 30, base: 324474, oh: 17043 },
   { q: "usage stats по ~/.greedy-token/usage.jsonl", tier: "python / usage-stats · 4.9MB", wall: 247, tok: 500, base: 1269421, oh: 37450 },
   { q: "find ensure.py in scripts", tier: "tool / rg · repo-wide", wall: 444, tok: 4461, base: 44910, oh: 37450 },
-  { q: "покажи последние 50 коммитов", tier: "python / git-recent · verbose", wall: 181, tok: 14730, base: 38388, oh: 37450, warn: true },
+  { q: "покажи последние 50 коммитов (compact)", tier: "python / git-recent · post-fix", wall: 181, tok: 1802, base: 38388, oh: 37450, warn: true },
   { q: "baseline calibration naive agent", tier: "rag / FTS5 · 112 chunks", wall: 99, tok: 5812, base: 47677, oh: 37450 },
 ];
 
