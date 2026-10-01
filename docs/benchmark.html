@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>greedy-token — benchmark</title>
+<style>
+  :root {
+    --fg: #1c1c1e; --muted: #6e6e73; --line: #e3e3e8; --bg: #fff;
+    --accent: #0a7f4f; --warn-bg: #fdf3e3; --info-bg: #eaf4fd;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --fg: #e8e8ea; --muted: #9a9aa0; --line: #38383e; --bg: #1a1a1e;
+            --warn-bg: #3a2f18; --info-bg: #18303f; }
+  }
+  * { box-sizing: border-box; }
+  body { font: 14px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--fg);
+         background: var(--bg); max-width: 1080px; margin: 0 auto; padding: 32px 24px 64px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 17px; margin: 0 0 10px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 28px; }
+  section { margin-bottom: 32px; }
+  .models { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+  .card { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .card .name { font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+  .pill { font-size: 11px; font-weight: 500; border: 1px solid var(--line); border-radius: 999px;
+          padding: 1px 8px; color: var(--muted); }
+  .prices { color: var(--muted); font-size: 12px; margin: 6px 0 10px; font-variant-numeric: tabular-nums; }
+  .rate { display: flex; gap: 8px; align-items: center; font-size: 12px; }
+  .rate input { width: 90px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px;
+                font: inherit; background: var(--bg); color: var(--fg); }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { padding: 7px 10px; border-bottom: 1px solid var(--line); text-align: right;
+           font-variant-numeric: tabular-nums; white-space: nowrap; }
+  th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align: left; }
+  td:first-child { white-space: normal; max-width: 340px; }
+  thead th { color: var(--muted); font-weight: 500; font-size: 12px; position: sticky; top: 0;
+             background: var(--bg); }
+  tbody tr:nth-child(even) { background: rgba(128,128,128,.05); }
+  tr.warn { background: var(--warn-bg) !important; }
+  tr.warn td:first-child::before { content: "● "; color: #b87800; font-size: 10px; }
+  tr.total { font-weight: 600; border-top: 2px solid var(--line); }
+  tr.total td:first-child::before { content: "● "; color: #2b7fb8; font-size: 10px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+  .stat { border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; }
+  .stat .v { font-size: 20px; font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat .l { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .note { border: 1px solid var(--line); border-left: 3px solid #2b7fb8; background: var(--info-bg);
+          border-radius: 8px; padding: 12px 16px; font-size: 13px; }
+  .note b { display: block; margin-bottom: 4px; }
+  .foot { color: var(--muted); font-size: 12px; margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<h1>greedy-token — benchmark</h1>
+<p class="sub">greedy-token-workshop · M2 Max · медиана 3 прогонов ·
+«без greedy» = measured baseline ~17,043 tok overhead + ~25.7s</p>
+
+<section>
+  <h2>Модели и ставки</h2>
+  <div class="models" id="models"></div>
+</section>
+
+<section>
+  <h2>Матрица: greedy vs без greedy</h2>
+  <table>
+    <thead><tr id="thead"></tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <p class="foot">Wall включает старт CLI (~200ms). Жёлтые строки — честные пределы:
+  paraphrase → fallback, rag-синоним → пусто, refactoring → полный чат ($0 saved).
+  python: LLM-spend 0, но saved в usage.jsonl=0 (outcome=failure — скрипт нашёл дырку).
+  Стоимость по input-ставке.</p>
+</section>
+
+<section>
+  <h2>Итог</h2>
+  <div class="stats" id="stats"></div>
+</section>
+
+<div class="note">
+  <b>Как читать</b>
+  Greedy-колонки — факт из usage.jsonl (executor-side). «Без greedy» — measured
+  baseline-оценка; после живых агент-прогонов заменяется фактом из IDE usage.
+  $ считаются по input-ставке (saved-токены — непрочитанный контекст; output &lt;5%).
+  Ollama-строки — локальные, их ~115 tok бесплатны. Проверочные строки
+  (fallback ×2) должны давать ~$0 saved — если нет, замер врёт.
+</div>
+
+<script>
+const ROWS = [
+  { q: "find email in lab/users.json", tier: "tool / rg", wall: 304, tok: 0, base: 17230 },
+  { q: "найди email в lab/users.json", tier: "tool / rg", wall: 298, tok: 0, base: 17230 },
+  { q: "jq map keys of lab/users.json", tier: "tool / jq", wall: 306, tok: 0, base: 17120 },
+  { q: "в lab/users.json у каждого объекта есть id и email", tier: "python / check_users", wall: 327, tok: 0, base: 17120 },
+  { q: "проверь, что у каждого объекта есть id и email", tier: "python / check_users", wall: 328, tok: 0, base: 17120 },
+  { q: "у всех юзеров проверь наличие ключей", tier: "cursor-fallback", wall: 249, tok: 17120, base: 17120, warn: true },
+  { q: "как проверять ключи id email у users", tier: "rag / FTS5", wall: 217, tok: 166, base: 17330 },
+  { q: "у каждого человека есть почта", tier: "rag / empty", wall: 217, tok: 17330, base: 17330, warn: true },
+  { q: "отрефактори архитектуру конфигуратора", tier: "cursor-fallback", wall: 250, tok: 17700, base: 17700, warn: true },
+  { q: "pipeline search-rag email path=lab", tier: "rg → rag", wall: 240, tok: 167, base: 17230 },
+  { q: "llm classify 3 users — warm", tier: "ollama local", wall: 1289, tok: 115, base: 17170 },
+  { q: "llm classify — cold load", tier: "ollama local", wall: 4503, tok: 117, base: 17170 },
+];
+
+const MODELS = [
+  { name: "GPT-6.1 Sol Max", input: 2, cached: 0.1, output: 10 },
+  { name: "Kimi K3 Max", input: 3, cached: 0.3, output: 15 },
+  { name: "Opus 5.5 Max", input: 4, cached: 0.2, output: 20 },
+];
+
+const fmt$ = v => v >= 0.0095 ? "$" + v.toFixed(2) : v > 0 ? "$" + v.toFixed(4) : "—";
+const num = v => v.toLocaleString("en-US");
+
+function render() {
+  const rates = MODELS.map((m, i) => parseFloat(document.getElementById("rate" + i).value) || 0);
+
+  document.getElementById("thead").innerHTML =
+    ["Запрос", "Тир", "Wall ms", "Greedy tok", "Без greedy, tok", "Saved tok",
+     ...MODELS.map(m => "$ saved · " + m.name)]
+    .map(h => "<th>" + h + "</th>").join("");
+
+  let totTok = 0, totBase = 0, totSaved = 0;
+  const tot$ = rates.map(() => 0);
+  const body = ROWS.map(r => {
+    const saved = Math.max(0, r.base - r.tok);
+    totTok += r.tok; totBase += r.base; totSaved += saved;
+    const costs = rates.map((rate, i) => { const c = saved * rate / 1e6; tot$[i] += c; return c; });
+    return `<tr${r.warn ? ' class="warn"' : ""}><td>${r.q}</td><td>${r.tier}</td><td>${r.wall}</td>` +
+           `<td>${num(r.tok)}</td><td>${num(r.base)}</td><td>${num(saved)}</td>` +
+           costs.map(fmt$).map(c => `<td>${c}</td>`).join("") + "</tr>";
+  });
+  body.push(`<tr class="total"><td>ИТОГО (12 прогонов)</td><td></td><td></td>` +
+            `<td>${num(totTok)}</td><td>${num(totBase)}</td><td>${num(totSaved)}</td>` +
+            tot$.map(fmt$).map(c => `<td>${c}</td>`).join("") + "</tr>");
+  document.getElementById("tbody").innerHTML = body.join("");
+
+  document.getElementById("stats").innerHTML =
+    `<div class="stat"><div class="v">${num(totSaved)} tok</div><div class="l">Saved за матрицу</div></div>` +
+    MODELS.map((m, i) =>
+      `<div class="stat"><div class="v">${fmt$(tot$[i])}</div><div class="l">Saved $ · ${m.name}</div></div>`
+    ).join("");
+}
+
+document.getElementById("models").innerHTML = MODELS.map((m, i) => `
+  <div class="card">
+    <div class="name">${m.name}<span class="pill">1M context</span></div>
+    <div class="prices">in $${m.input} · cached $${m.cached} · out $${m.output} / 1M</div>
+    <div class="rate"><span>ставка в расчёте, $/1M:</span>
+      <input id="rate${i}" type="number" step="0.01" value="${m.input}" oninput="render()"></div>
+  </div>`).join("");
+
+render();
+</script>
+</body>
+</html>
