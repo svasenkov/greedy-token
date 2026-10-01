@@ -39,6 +39,9 @@
   tbody tr:nth-child(even) { background: rgba(128,128,128,.05); }
   tr.warn { background: var(--warn-bg) !important; }
   tr.warn td:first-child::before { content: "● "; color: #b87800; font-size: 10px; }
+  tr.loss { background: #fdeaea !important; }
+  tr.loss td:first-child::before { content: "● "; color: #b32b2b; font-size: 10px; }
+  @media (prefers-color-scheme: dark) { tr.loss { background: #3a1f1f !important; } }
   tr.total { font-weight: 600; border-top: 2px solid var(--line); }
   tr.total td:first-child::before { content: "● "; color: #2b7fb8; font-size: 10px; }
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
@@ -73,6 +76,19 @@
   ход агента платится. Wall включает старт CLI (~200ms). Жёлтые строки — честные пределы:
   paraphrase → fallback, rag-синоним → пусто, refactoring → полный чат ($0 saved).
   Стоимость по input-ставке.</p>
+</section>
+
+<section>
+  <h2>Большие объёмы — где greedy реально окупается</h2>
+  <table>
+    <thead><tr id="thead2"></tr></thead>
+    <tbody id="tbody2"></tbody>
+  </table>
+  <p class="foot">oh = agent overhead воркспейса: workshop 17,043 / monorepo ~37,450.
+  Наивный pull — измеренный объём (байты/4), который агент прочитал бы:
+  1.2MB JSONL, 4.9MB usage-лог, guide.md, git log. Красная строка —
+  честный проигрыш: git-recent печатает verbose-JSON (58.9KB) там, где
+  <code>git log --oneline</code> дал бы 3.6KB — saved отрицательный.</p>
 </section>
 
 <section>
@@ -112,6 +128,18 @@ const ROWS = [
 // только в hook-режиме intercept (LLM-ход не случается вовсе).
 const AGENT_OVERHEAD = 17043;
 
+// Ряд 2 — большие объёмы (/tmp/gt-bench-big.jsonl). oh — agent overhead
+// воркспейса: workshop 17,043 · monorepo ~37,450. tok — реальный payload
+// исполнителя (байты/4), base — «без greedy»: oh + промпт + контент,
+// который агент прочитал бы сам (байты/4, измерено).
+const ROWS2 = [
+  { q: "в lab/events.jsonl у каждого события есть id ts event (12,000 строк)", tier: "python / check_events · 1.2MB", wall: 141, tok: 30, base: 324474, oh: 17043 },
+  { q: "usage stats по ~/.greedy-token/usage.jsonl", tier: "python / usage-stats · 4.9MB", wall: 247, tok: 500, base: 1269421, oh: 37450 },
+  { q: "find ensure.py in scripts", tier: "tool / rg · repo-wide", wall: 444, tok: 4461, base: 44910, oh: 37450 },
+  { q: "покажи последние 50 коммитов", tier: "python / git-recent · verbose", wall: 181, tok: 14730, base: 38388, oh: 37450, warn: true },
+  { q: "baseline calibration naive agent", tier: "rag / FTS5 · 112 chunks", wall: 99, tok: 5812, base: 47677, oh: 37450 },
+];
+
 const MODELS = [
   { name: "GPT-6.1 Sol Max", input: 2, cached: 0.1, output: 10 },
   { name: "Kimi K3 Max", input: 3, cached: 0.3, output: 15 },
@@ -145,10 +173,29 @@ function render() {
             tot$.map(fmt$).map(c => `<td>${c}</td>`).join("") + "</tr>");
   document.getElementById("tbody").innerHTML = body.join("");
 
+  // Таблица 2 — большие объёмы
+  let totG2 = 0, totBase2 = 0, totSaved2 = 0;
+  const tot2$ = rates.map(() => 0);
+  const body2 = ROWS2.map(r => {
+    const greedy = r.oh + r.tok;
+    const saved = r.base - greedy;
+    totG2 += greedy; totBase2 += r.base; totSaved2 += saved;
+    const costs = rates.map((rate, i) => { const c = saved * rate / 1e6; tot2$[i] += c; return c; });
+    return `<tr${r.warn ? ' class="loss"' : ""}><td>${r.q}</td><td>${r.tier}</td><td>${r.wall}</td>` +
+           `<td>${num(greedy)}</td><td>${num(r.base)}</td><td>${num(saved)}</td>` +
+           costs.map(fmt$).map(c => `<td>${c}</td>`).join("") + "</tr>";
+  });
+  body2.push(`<tr class="total"><td>ИТОГО (5 прогонов)</td><td></td><td></td>` +
+            `<td>${num(totG2)}</td><td>${num(totBase2)}</td><td>${num(totSaved2)}</td>` +
+            tot2$.map(fmt$).map(c => `<td>${c}</td>`).join("") + "</tr>");
+  document.getElementById("thead2").innerHTML = document.getElementById("thead").innerHTML;
+  document.getElementById("tbody2").innerHTML = body2.join("");
+
+  const allSaved = totSaved + totSaved2;
   document.getElementById("stats").innerHTML =
-    `<div class="stat"><div class="v">${num(totSaved)} tok</div><div class="l">Saved за матрицу</div></div>` +
+    `<div class="stat"><div class="v">${num(allSaved)} tok</div><div class="l">Saved за обе таблицы</div></div>` +
     MODELS.map((m, i) =>
-      `<div class="stat"><div class="v">${fmt$(tot$[i])}</div><div class="l">Saved $ · ${m.name}</div></div>`
+      `<div class="stat"><div class="v">${fmt$(tot$[i] + tot2$[i])}</div><div class="l">Saved $ · ${m.name}</div></div>`
     ).join("");
 }
 
