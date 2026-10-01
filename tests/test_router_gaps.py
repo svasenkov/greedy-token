@@ -1854,3 +1854,48 @@ def test_first_matching_route_id_inactive_first(
         router.first_matching_route_id("please probe-me now", Path("/x"))
         == "python-live"
     )
+
+
+@allure.title("_pattern_hit: re: entries search via regex, literals stay substring")
+def test_pattern_hit_regex_prefix() -> None:
+    assert router._pattern_hit("re:[0-9]+ коммит", "покажи последних 11 коммитов")
+    assert not router._pattern_hit("re:[0-9]+ коммит", "покажи последние коммиты")
+    assert router._pattern_hit("git log", "show me git log")
+    assert not router._pattern_hit("git log", "show me nothing")
+
+
+@allure.title("_score_patterns: re: hit scores like a literal of its own length")
+def test_score_patterns_regex_scores() -> None:
+    score, matched = router._score_patterns(
+        "покажи последних 11 коммитов",
+        ["re:последних [0-9]+ коммит", "literal miss"],
+    )
+    assert matched == ["re:последних [0-9]+ коммит"]
+    assert score == 1.0 + min(len("re:последних [0-9]+ коммит") / 20.0, 2.0)
+
+
+@allure.title("_score_patterns: invalid re: regex never matches (fail-open)")
+def test_score_patterns_invalid_regex() -> None:
+    score, matched = router._score_patterns("any task", ["re:[unclosed("])
+    assert (score, matched) == (0.0, [])
+
+
+@allure.title("route_task picks python route via re: pattern for numbered ask")
+def test_route_task_regex_pattern_routes(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    cfg = {
+        "routes": [
+            {
+                "id": "python-git-recent",
+                "target": "python",
+                "read_only": True,
+                "patterns": ["re:последних [0-9]+ коммит"],
+                "command": "python scripts/git-recent.py",
+            },
+        ]
+    }
+    monkeypatch.setattr(router, "load_routes_config", lambda root=None: cfg)
+    decision = router.route_task("покажи последних 11 коммитов", tmp_path)
+    assert decision.route_id == "python-git-recent"
+    assert decision.matched == ["re:последних [0-9]+ коммит"]

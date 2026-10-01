@@ -77,11 +77,56 @@ def _invocable_op(root: Path, route_id: str) -> Any:
     return op
 
 
-def has_invocation_intent(prompt: str, op: Any) -> bool:
+def _args_from_prompt_spec(op_id: str, root: Path | None) -> list[dict]:
+    """Route-declared prompt→args specs — the opt-in that lets a
+    params:[args] op derive argv from the prompt instead of skipping intent."""
+    try:
+        from greedy_token.paths import find_workspace_root, load_routes_config
+
+        routes = load_routes_config(root or find_workspace_root()).get("routes", [])
+    except (Exception, SystemExit):
+        return []
+    route = next((r for r in routes if r.get("id") == op_id), None)
+    spec = route.get("args_from_prompt") if isinstance(route, dict) else None
+    return spec if isinstance(spec, list) else []
+
+
+def derive_prompt_args(prompt: str, spec: list[dict]) -> str:
+    """Render the first matching args_from_prompt entry as an args string.
+
+    ``{0}``..``{n}`` in ``args`` map to regex capture groups; a spec whose
+    regex misses or whose template does not line up yields "" — fail-open,
+    the fixed argv still stands.
+    """
+    text = " ".join(str(prompt).split())
+    for entry in spec:
+        if not isinstance(entry, dict):
+            continue
+        regex = str(entry.get("regex") or "")
+        template = str(entry.get("args") or "")
+        if not regex or not template:
+            continue
+        try:
+            match = re.search(regex, text, flags=re.IGNORECASE)
+        except re.error:
+            continue
+        if match is None:
+            continue
+        try:
+            return template.format(*(g or "" for g in match.groups()))
+        except (IndexError, KeyError):
+            continue
+    return ""
+
+
+def has_invocation_intent(prompt: str, op: Any, *, root: Path | None = None) -> bool:
     from greedy_token.router import has_edit_verbs, is_read_only_tool_intent
 
+    args_spec: list[dict] = []
     if op.params and op.params != ("query",):
-        return False
+        args_spec = _args_from_prompt_spec(getattr(op, "id", ""), root)
+        if not args_spec:
+            return False
     if op.tier == "tool":
         return is_read_only_tool_intent(prompt)
     text = re.sub(r"^(?:please|пожалуйста)[,\s]+", "", prompt.strip(), flags=re.IGNORECASE)
@@ -112,6 +157,8 @@ def has_invocation_intent(prompt: str, op: Any) -> bool:
     )
     if request is None:
         return False
+    if args_spec and derive_prompt_args(prompt, args_spec):
+        return True
     suffixes = {
         "", "now", "please", "сейчас", "пожалуйста", "проекта", "workspace",
         "в workspace", "для workspace", "в этом репо", "в репозитории",
@@ -282,7 +329,7 @@ def evaluate(
     if op is None:
         action = "gate_skip" if mode == "gate" else "intercept_skip"
         return _pass_to_agent(prompt, data, decision, adv, action)
-    if not has_invocation_intent(prompt, op):
+    if not has_invocation_intent(prompt, op, root=root):
         return _pass_to_agent(prompt, data, decision, adv, "intent_skip")
 
     if adv is not None and mode == adv.HOOK_MODE_GATE:
@@ -305,7 +352,13 @@ def evaluate(
             "user_message": adv.format_gate_user_message(prompt, op_id=decision.route_id),
         })
 
-    params = {"query": _extract_search_query(prompt)} if op.params == ("query",) else {}
+    if op.params == ("query",):
+        params = {"query": _extract_search_query(prompt)}
+    elif op.params == ("args",):
+        derived = derive_prompt_args(prompt, _args_from_prompt_spec(op.id, root))
+        params = {"args": derived} if derived else {}
+    else:
+        params = {}
     try:
         result = invoke_capability(root, op.id, **params)
     except Exception:

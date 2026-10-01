@@ -106,12 +106,24 @@ def _normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text.lower().strip())
 
 
+def _pattern_hit(pat: str, text: str) -> bool:
+    # "re:<regex>" entries search normalized text — substring literals cannot
+    # express slots like "последних N коммитов". An invalid regex simply never
+    # matches: a broken pattern is dead weight, not a routing error.
+    if pat.startswith("re:"):
+        try:
+            return re.search(pat[3:], text, flags=re.IGNORECASE) is not None
+        except re.error:
+            return False
+    return pat.lower() in text
+
+
 def _score_patterns(text: str, patterns: list[str]) -> tuple[float, list[str]]:
     matched: list[str] = []
     score = 0.0
     for pat in patterns:
         p = pat.lower()
-        if p in text:
+        if _pattern_hit(pat, text):
             matched.append(pat)
             score += 1.0 + min(len(p) / 20.0, 2.0)
     return score, matched

@@ -337,3 +337,97 @@ def test_policy_dependency_import_failure_is_pass_through(policy_state, monkeypa
     assert evaluate(policy_state).kind == "pass"
     policy_state.runner.assert_not_called()
     policy_state.route.assert_not_called()
+
+
+ARGS_SPEC = [{"regex": r"([0-9]{1,4}) +коммит", "args": "--count {0}"}]
+
+
+def _patch_args_spec(monkeypatch, op_id, spec=ARGS_SPEC):
+    monkeypatch.setattr(
+        paths, "load_routes_config",
+        lambda *a, **k: {"routes": [{"id": op_id, "args_from_prompt": spec}]},
+    )
+
+
+@allure.title("params:[args] op + args_from_prompt — numbered prompt intercepts with derived args")
+def test_params_args_op_derives_args(policy_state, monkeypatch):
+    _patch_args_spec(monkeypatch, policy_state.cap.id)
+    cap = replace(policy_state.cap, params=("args",))
+    policy_state.probe.return_value = cap
+    response = evaluate(policy_state, "покажи последних 11 коммитов")
+    assert response.kind == "intercept"
+    policy_state.runner.assert_called_once_with(
+        policy_state.root, cap.id, args="--count 11"
+    )
+
+
+@allure.title("params:[args] op + args_from_prompt — alias prompt runs the fixed argv")
+def test_params_args_op_alias_runs_default_argv(policy_state, monkeypatch):
+    _patch_args_spec(monkeypatch, policy_state.cap.id)
+    cap = replace(policy_state.cap, params=("args",))
+    policy_state.probe.return_value = cap
+    response = evaluate(policy_state, PROMPT)
+    assert response.kind == "intercept"
+    policy_state.runner.assert_called_once_with(policy_state.root, cap.id)
+
+
+@allure.title("params:[args] op — number without request verb is not an invoke intent")
+def test_params_args_op_derived_args_still_need_request_verb(
+    policy_state, monkeypatch
+):
+    _patch_args_spec(monkeypatch, policy_state.cap.id)
+    cap = replace(policy_state.cap, params=("args",))
+    policy_state.probe.return_value = cap
+    assert evaluate(policy_state, "в последних 3 коммитах сломался тест").kind == "pass"
+    assert last_event(policy_state)["action"] == "intent_skip"
+    policy_state.runner.assert_not_called()
+
+
+@allure.title("derive_prompt_args covers malformed spec entries and template errors")
+@pytest.mark.parametrize("spec,prompt,expected", [
+    (["not-a-dict"], "покажи 5 коммитов", ""),
+    ([{"args": "--count {0}"}], "покажи 5 коммитов", ""),
+    ([{"regex": "[0-9]+"}], "покажи 5 коммитов", ""),
+    ([{"regex": "[bad(", "args": "--count {0}"}], "покажи 5 коммитов", ""),
+    ([{"regex": "zzz", "args": "--count {0}"}], "покажи 5 коммитов", ""),
+    ([{"regex": "([0-9]+)", "args": "--count {9}"}], "покажи 5 коммитов", ""),
+    ([{"regex": "([0-9]+)", "args": "--count {name}"}], "покажи 5 коммитов", ""),
+    ([{"regex": "([0-9]+)", "args": "--count {0}"}], "покажи 5 коммитов", "--count 5"),
+    ([{"regex": "zzz"}, {"regex": "([0-9]+)", "args": "--count {0}"}],
+     "покажи 7 коммитов", "--count 7"),
+])
+def test_derive_prompt_args_edges(spec, prompt, expected):
+    assert hook_policy.derive_prompt_args(prompt, spec) == expected
+
+
+@allure.title("_args_from_prompt_spec fails open: error, missing route, non-list spec")
+def test_args_from_prompt_spec_edges(policy_state, monkeypatch):
+    monkeypatch.setattr(
+        paths, "load_routes_config",
+        lambda *a, **k: {"routes": [{"id": "x", "args_from_prompt": "nope"}]},
+    )
+    assert hook_policy._args_from_prompt_spec("missing-id", policy_state.root) == []
+    assert hook_policy._args_from_prompt_spec("x", policy_state.root) == []
+    monkeypatch.setattr(
+        paths, "load_routes_config",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+    assert hook_policy._args_from_prompt_spec("x", policy_state.root) == []
+
+
+@allure.title("has_invocation_intent: params args-op needs verb or alias, no spec stays skipped")
+@pytest.mark.parametrize("prompt,with_spec,expected", [
+    ("покажи последних 11 коммитов", True, True),
+    ("почему комп тормозит", True, True),          # alias-exact → fixed argv
+    ("покажи непонятные 11 вещей", True, False),    # verb, but derive misses
+    ("в последних 3 коммитах", True, False),        # derived args, no request verb
+    ("покажи последних 11 коммитов", False, False), # params op without spec
+])
+def test_intent_params_args_op(policy_state, monkeypatch, prompt, with_spec, expected):
+    if with_spec:
+        _patch_args_spec(monkeypatch, policy_state.cap.id)
+    cap = replace(policy_state.cap, params=("args",))
+    assert (
+        hook_policy.has_invocation_intent(prompt, cap, root=policy_state.root)
+        is expected
+    )
