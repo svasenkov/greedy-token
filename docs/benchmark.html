@@ -68,9 +68,10 @@
     <thead><tr id="thead"></tr></thead>
     <tbody id="tbody"></tbody>
   </table>
-  <p class="foot">Wall включает старт CLI (~200ms). Жёлтые строки — честные пределы:
+  <p class="foot">«С greedy, tok» = agent overhead ~17,043 (измерен <code>calibrate</code>:
+  rules + system + schemas + reply) + payload исполнителя — greedy-вызов не бесплатен,
+  ход агента платится. Wall включает старт CLI (~200ms). Жёлтые строки — честные пределы:
   paraphrase → fallback, rag-синоним → пусто, refactoring → полный чат ($0 saved).
-  python: LLM-spend 0, но saved в usage.jsonl=0 (outcome=failure — скрипт нашёл дырку).
   Стоимость по input-ставке.</p>
 </section>
 
@@ -81,11 +82,12 @@
 
 <div class="note">
   <b>Как читать</b>
-  Greedy-колонки — факт из usage.jsonl (executor-side). «Без greedy» — measured
-  baseline-оценка; после живых агент-прогонов заменяется фактом из IDE usage.
-  $ считаются по input-ставке (saved-токены — непрочитанный контекст; output &lt;5%).
-  Ollama-строки — локальные, их ~115 tok бесплатны. Проверочные строки
-  (fallback ×2) должны давать ~$0 saved — если нет, замер врёт.
+  Три колонки токенов: «без greedy» (полный наивный ход) vs «с greedy»
+  (тот же ход агента + payload исполнителя) → Saved = их разница.
+  Футерное «saved ~17k» из usage.jsonl верно только при hook-режиме intercept —
+  когда LLM-ход не случается вовсе; в advisory/MCP overhead платится.
+  $ — по input-ставке (saved = непрочитанный контекст; output &lt;5%).
+  После живых прогонов заменить base/overhead фактом из IDE usage.
 </div>
 
 <script>
@@ -104,6 +106,12 @@ const ROWS = [
   { q: "llm classify — cold load", tier: "ollama local", wall: 4503, tok: 117, base: 17170 },
 ];
 
+// Фиксированная цена хода агента (rules + system + tool schemas + reply),
+// измерена `greedy-token calibrate`. Платится и при greedy-вызове:
+// «с greedy» = overhead + payload исполнителя. Футерное «saved ~17k» верно
+// только в hook-режиме intercept (LLM-ход не случается вовсе).
+const AGENT_OVERHEAD = 17043;
+
 const MODELS = [
   { name: "GPT-6.1 Sol Max", input: 2, cached: 0.1, output: 10 },
   { name: "Kimi K3 Max", input: 3, cached: 0.3, output: 15 },
@@ -117,22 +125,23 @@ function render() {
   const rates = MODELS.map((m, i) => parseFloat(document.getElementById("rate" + i).value) || 0);
 
   document.getElementById("thead").innerHTML =
-    ["Запрос", "Тир", "Wall ms", "Greedy tok", "Без greedy, tok", "Saved tok",
+    ["Запрос", "Тир", "Wall ms", "С greedy, tok", "Без greedy, tok", "Saved tok",
      ...MODELS.map(m => "$ saved · " + m.name)]
     .map(h => "<th>" + h + "</th>").join("");
 
-  let totTok = 0, totBase = 0, totSaved = 0;
+  let totG = 0, totBase = 0, totSaved = 0;
   const tot$ = rates.map(() => 0);
   const body = ROWS.map(r => {
-    const saved = Math.max(0, r.base - r.tok);
-    totTok += r.tok; totBase += r.base; totSaved += saved;
+    const greedy = AGENT_OVERHEAD + r.tok;
+    const saved = Math.max(0, r.base - greedy);
+    totG += greedy; totBase += r.base; totSaved += saved;
     const costs = rates.map((rate, i) => { const c = saved * rate / 1e6; tot$[i] += c; return c; });
     return `<tr${r.warn ? ' class="warn"' : ""}><td>${r.q}</td><td>${r.tier}</td><td>${r.wall}</td>` +
-           `<td>${num(r.tok)}</td><td>${num(r.base)}</td><td>${num(saved)}</td>` +
+           `<td>${num(greedy)}</td><td>${num(r.base)}</td><td>${num(saved)}</td>` +
            costs.map(fmt$).map(c => `<td>${c}</td>`).join("") + "</tr>";
   });
   body.push(`<tr class="total"><td>ИТОГО (12 прогонов)</td><td></td><td></td>` +
-            `<td>${num(totTok)}</td><td>${num(totBase)}</td><td>${num(totSaved)}</td>` +
+            `<td>${num(totG)}</td><td>${num(totBase)}</td><td>${num(totSaved)}</td>` +
             tot$.map(fmt$).map(c => `<td>${c}</td>`).join("") + "</tr>");
   document.getElementById("tbody").innerHTML = body.join("");
 
