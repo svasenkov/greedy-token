@@ -248,6 +248,9 @@ oracle по file/line, exit code, chunk ID и escalation, временные wor
 executor/retrieval/escalation, attempts, p50/p95 и только authoritative
 billing. Без billing стоимость Cursor остаётся `unknown`; неуспешная работа
 никогда не считается saved. См. [контракт benchmark](bench/README.md).
+Живые цифры воркшопа (greedy vs naive, $ по моделям, честные минусы):
+[benchmark.html](https://svasenkov.github.io/greedy-token/benchmark.html) —
+исходник `docs/benchmark.html`, деплой через `gh-pages`.
 
 ### Калибровка confidence
 

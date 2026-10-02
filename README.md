@@ -247,6 +247,9 @@ host baseline is manual. The JSON scorecard reports routing and task success
 separately, executor/retrieval/escalation success, attempts, p50/p95, and
 authoritative billing only. Cursor cost remains `unknown` when billing data is
 unavailable; failed work never counts as saved. See [benchmark contract](bench/README.md).
+Live workshop numbers (greedy vs naive, per-model $, honest negatives):
+[benchmark.html](https://svasenkov.github.io/greedy-token/benchmark.html) —
+source `docs/benchmark.html`, deployed via `gh-pages`.
 
 ### Confidence calibration
 
