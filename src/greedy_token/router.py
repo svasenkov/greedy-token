@@ -345,6 +345,92 @@ def _extract_search_query(task: str) -> str:
     return text
 
 
+_PATH_LINE_REF = re.compile(r":\d+$")
+
+
+def _looks_like_path_token(token: str) -> bool:
+    """Path-shaped: a separator, a file extension, or a dotfile name."""
+    if "/" in token:
+        return True
+    return bool(Path(token).suffix) or Path(token).name.startswith(".")
+
+
+def _prompt_path_scope(token: str, root: Path) -> str | None:
+    """Workspace-relative scope for a path-like prompt token, else ``None``.
+
+    The token must resolve to an existing file/dir confined under *root* —
+    relative paths are anchored at root, absolute ones must point inside it.
+    ``x.py:12`` line refs and a sentence-final period are tolerated; anything
+    that does not exist on disk stays a content term (it may be a literal
+    string the user is searching for).
+    """
+    candidate = token.rstrip(".") if token.endswith(".") else token
+    candidate = _PATH_LINE_REF.sub("", candidate)
+    if not _looks_like_path_token(candidate):
+        return None
+    path = Path(candidate)
+    try:
+        resolved = path.resolve() if path.is_absolute() else (root / path).resolve()
+        rel = resolved.relative_to(root.resolve())
+    except (OSError, ValueError):
+        return None
+    if not resolved.exists():
+        return None
+    return rel.as_posix()
+
+
+def _extract_search_targets(task: str, root: Path) -> tuple[str | None, list[str]]:
+    """Split a search task into ``(content pattern, prompt path scopes)``.
+
+    Same extraction grammar as :func:`_extract_search_query`, but path-like
+    tokens that exist under *root* leave the pattern and become rg operands
+    instead — ``find email in lab/users.json`` searches *inside* the file
+    rather than *for* the path string (self-referential docs/notes then cannot
+    flood the output).  Operands keep prompt order, so hits in the
+    first-mentioned path rank first.
+
+    A ``None`` pattern means every candidate was a path — the caller falls
+    back to the legacy whole-query / route-scope behaviour rather than
+    emitting a catch-all ``.*`` search.
+    """
+    text = _strip_search_prefix(task.strip())
+    if not text:
+        return task.strip(), []
+    # Quoted spans are verbatim queries — path tokens inside them stay literal
+    # (invoke --query wraps the query in quotes on purpose).
+    unquoted = re.sub(r'["\'][^"\']*["\']', " ", text)
+    scopes: list[str] = []
+    scoped_tokens: set[str] = set()
+    for token in re.findall(r"[\w@./:-]+", unquoted):
+        scope = _prompt_path_scope(token, root)
+        if scope is None:
+            continue
+        scoped_tokens.add(token)
+        if scope not in scopes:
+            scopes.append(scope)
+    quoted = re.findall(r'["\']([^"\']+)["\']', text)
+    if quoted:
+        return quoted[0].strip(), scopes
+
+    text = text.strip('"').strip("'")
+    candidates: list[tuple[float, str]] = []
+    for token in re.findall(r"[\w@./:-]+", text):
+        key = token.lower()
+        if key in SEARCH_FILLER or len(token) < 2 or token in scoped_tokens:
+            continue
+        candidates.append((_score_search_token(token), token))
+
+    if candidates:
+        if QUESTION_SCAFFOLD.match(task.strip()):
+            return candidates[-1][1], scopes
+        candidates.sort(key=lambda item: (-item[0], -len(item[1]), item[1].lower()))
+        return candidates[0][1], scopes
+
+    if scopes:
+        return None, scopes
+    return text, []
+
+
 def _confined_route_path(value: object, root: Path, *, field: str) -> str:
     text = str(value).strip()
     path = Path(text)
@@ -380,7 +466,6 @@ def _build_tool_argv(route: dict, task: str, root: Path) -> tuple[str, ...]:
     # equivalent: the "rg" default is only compared against "jq" below, so any
     # non-"jq" default routes to the same ripgrep branch.
     tool = (route.get("tool") or "rg").lower()  # pragma: no mutate
-    query = _extract_search_query(task)
     if tool == "jq":
         path_hint = _confined_route_path(
             route.get("json_path") or "docs/phase-manifest.json",
@@ -398,9 +483,17 @@ def _build_tool_argv(route: dict, task: str, root: Path) -> tuple[str, ...]:
         )
     globs = route.get("globs") or DEFAULT_GLOBS
     existing_paths, _missing_paths = _split_search_paths(route, root)
-    # Every declared path missing → degrade to the bundled default scope "."
-    # rather than hand rg operands it will exit 2 on.
-    search_paths = tuple(existing_paths or ["."])
+    query, prompt_scopes = _extract_search_targets(task, root)
+    if prompt_scopes and query is None:
+        # Every prompt term was a path — keep the legacy path-as-pattern and
+        # the route scope rather than emit a catch-all search.
+        query = _extract_search_query(task)
+        prompt_scopes = []
+    # Prompt-scoped paths replace the declared scope (incl. the "." default):
+    # a user naming concrete files/dirs asked for a search inside them.
+    # Without them the route's own search_paths stand, degrading to "." when
+    # every declared path is missing — no rg exit-2 on stale operands.
+    search_paths = tuple(prompt_scopes or existing_paths or ["."])
     try:
         max_count = int(route.get("max_count", 50))
     except (TypeError, ValueError) as exc:

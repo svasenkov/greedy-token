@@ -33,6 +33,7 @@ from greedy_token.result_contract import RESULT_NOT_EVALUATED
 from greedy_token.result_gate import evaluate_result_gate
 from greedy_token.router import RouteDecision, _decision_from_route
 from greedy_token.subprocess_safe import UnsafeCommandError, format_invocation
+from greedy_token.tool_output import cap_tool_output
 from greedy_token.usage import (
     append_event,
     build_outcome_event,
@@ -174,13 +175,17 @@ def invoke_capability(
     *,
     args: str = "",
     query: str = "",
+    task: str = "",
     log: bool = True,
 ) -> InvocationResult:
     """Invoke one capability by stable id through the guarded execution path.
 
     Same policy as ``run --execute``: only read-only ready ops run; refused
     invocations carry the readiness/refusal class and emit Step-1 telemetry
-    (planned, not executed, no savings).
+    (planned, not executed, no savings).  For ``params=("query",)`` ops an
+    internal caller may pass the raw *task* text instead of ``query`` — the
+    argv builder then keeps prompt path-scoping context (``query`` stays a
+    verbatim search term for the CLI/MCP contract).
     """
     t0 = time.perf_counter()
     cap = capability_by_id(root, op_id)
@@ -256,7 +261,7 @@ def invoke_capability(
     # trusted_script_argv, same as `scripts --run`); other route ops stay
     # fixed-argv.
     if cap.params == ("query",):
-        if not query.strip():
+        if not query.strip() and not task.strip():
             return refused(
                 REFUSAL_INVALID_PARAMS,
                 f"{op_id} requires --query (the rg search term is the parameterized part)",
@@ -301,7 +306,10 @@ def invoke_capability(
                 exit_code=2,
             )
 
-    task = _query_task(query.strip()) if cap.params == ("query",) else f"invoke {op_id}"
+    if cap.params == ("query",):
+        task = task.strip() or _query_task(query.strip())
+    else:
+        task = f"invoke {op_id}"
     decision = _decision_for_op(cap, task=task, root=root)
 
     if cap.source == "wrapper":
@@ -404,7 +412,9 @@ def invoke_capability(
         invocable=True,
         executed=run.started,
         exit_code=run.exit_code,
-        output=run.output,
+        # The evaluator gate above ruled on the raw output; the surfaced
+        # payload is display-capped for tool tiers (rg hit floods).
+        output=cap_tool_output(run.output) if cap.tier == "tool" else run.output,
         readiness=cap.readiness,
         gate_action=gate.action,
         gate_reason=gate.reason,

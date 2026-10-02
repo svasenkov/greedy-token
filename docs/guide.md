@@ -556,7 +556,7 @@ rag:
 | `$GREEDY_TOKEN_ROOT/.greedy-token.yaml` | Workspace routes overlay (`routes:` / `routes_file:` / `cursor_fallback:`) |
 | `src/greedy_token/config/pipelines.yaml` | Named pipeline recipes |
 
-The bundled `routes.yaml` is intentionally generic: `tool-rg-search` (ripgrep over `.`), `rag-lookup`, `cursor-wiring`, and the `cursor` fallback. Workspace-specific routes (crystallized scripts, jq lookups, RAG domains) live in `$GREEDY_TOKEN_ROOT/.greedy-token.yaml` and are merged over the defaults:
+The bundled `routes.yaml` is intentionally generic: `tool-rg-search` (ripgrep over `.`), `rag-lookup`, `cursor-wiring`, and the `cursor` fallback. Path-aware scoping: a path-like prompt token that resolves under the workspace root becomes an rg operand instead of a search term — `find email in lab/users.json` searches only that file. Workspace-specific routes (crystallized scripts, jq lookups, RAG domains) live in `$GREEDY_TOKEN_ROOT/.greedy-token.yaml` and are merged over the defaults:
 
 ```yaml
 # $GREEDY_TOKEN_ROOT/.greedy-token.yaml

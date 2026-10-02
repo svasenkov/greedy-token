@@ -766,3 +766,51 @@ def test_execute_task_no_prompt_args_match(minimal_workspace: Path) -> None:
         argv = json.loads(result.output.strip().splitlines()[-1])["argv"]
         assert argv == []
 
+
+
+@allure.story("Tool tier")
+@allure.title("Execute task scopes rg to the existing prompt path — F5")
+def test_execute_task_tool_scopes_prompt_path(minimal_workspace: Path) -> None:
+    lab = minimal_workspace / "lab"
+    lab.mkdir()
+    (lab / "users.json").write_text(
+        '[\n'
+        '  {"id": 1, "email": "ada@example.com"},\n'
+        '  {"id": 2},\n'
+        '  {"id": 3, "email": "grace@example.com"}\n'
+        "]\n",
+        encoding="utf-8",
+    )
+    # Self-referential noise: docs mentioning the path must not outrank the
+    # file itself — the scoped operand makes the file the whole search space.
+    (minimal_workspace / "notes.md").write_text(
+        "mentions email and lab/users.json\n" * 40, encoding="utf-8"
+    )
+    with allure.step("Execute scoped find — pattern email, operand lab/users.json"):
+        result = execute_task("find email in lab/users.json", minimal_workspace)
+        attach_text("output", result.output)
+    with allure.step("argv carries pattern + scoped operand; only file lines return"):
+        assert result.decision.target == "tool"
+        assert result.exit_code == 0
+        assert result.decision.command_argv is not None
+        sep = result.decision.command_argv.index("--")
+        assert result.decision.command_argv[sep + 1 :] == ("email", "lab/users.json")
+        assert "ada@example.com" in result.output
+        assert "grace@example.com" in result.output
+        assert "notes.md" not in result.output
+
+
+@allure.story("Tool tier")
+@allure.title("Tool output is capped with a truncation marker")
+def test_execute_task_tool_output_cap(minimal_workspace: Path) -> None:
+    (minimal_workspace / "big.py").write_text(
+        "".join(f"x{i} = 'needle'\n" for i in range(40)), encoding="utf-8"
+    )
+    with allure.step("Execute scoped find returning more hits than the cap"):
+        result = execute_task("find needle in big.py", minimal_workspace)
+        attach_text("output", result.output)
+    with allure.step("Output holds the cap plus the truncation marker"):
+        assert result.exit_code == 0
+        assert "needle" in result.output
+        assert "truncated" in result.output
+        assert len(result.output.splitlines()) <= 31

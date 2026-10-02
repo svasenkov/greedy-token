@@ -996,3 +996,19 @@ def test_cmd_init_detect_ripgrep_present(
     assert code == 0
     assert "ripgrep:  OK" in out
     assert "install ripgrep" not in out
+
+
+@allure.story("Init")
+@allure.title("cmd_init tolerates a missing workspace root")
+def test_cmd_init_no_workspace(monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    monkeypatch.setattr("greedy_token.wrappers.ollama_available", lambda *a, **k: True)
+    monkeypatch.setattr(
+        "greedy_token.settings.user_config_path", lambda: Path("/nope/config.yaml")
+    )
+    monkeypatch.setattr(
+        cli, "find_workspace_root", lambda: (_ for _ in ()).throw(SystemExit(1))
+    )
+    code = cli.cmd_init(_ns(profile="solo", apply=False, force=False, json=False))
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "no workspace detected" in out

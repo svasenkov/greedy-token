@@ -556,7 +556,7 @@ rag:
 | `$GREEDY_TOKEN_ROOT/.greedy-token.yaml` | Workspace-оверлей роутов (`routes:` / `routes_file:` / `cursor_fallback:`) |
 | `src/greedy_token/config/pipelines.yaml` | Именованные pipeline |
 
-Бандловый `routes.yaml` намеренно generic: `tool-rg-search` (ripgrep по `.`), `rag-lookup`, `cursor-wiring` и `cursor` fallback. Workspace-специфичные роуты (кристаллизованные скрипты, jq-lookups, RAG-домены) живут в `$GREEDY_TOKEN_ROOT/.greedy-token.yaml` и мержатся поверх дефолтов:
+Бандловый `routes.yaml` намеренно generic: `tool-rg-search` (ripgrep по `.`), `rag-lookup`, `cursor-wiring` и `cursor` fallback. Path-aware scoping: токен-путь из промпта, резолвящийся внутри workspace root, становится rg-операндом, а не термом поиска — `find email in lab/users.json` ищет только в этом файле. Workspace-специфичные роуты (кристаллизованные скрипты, jq-lookups, RAG-домены) живут в `$GREEDY_TOKEN_ROOT/.greedy-token.yaml` и мержатся поверх дефолтов:
 
 ```yaml
 # $GREEDY_TOKEN_ROOT/.greedy-token.yaml

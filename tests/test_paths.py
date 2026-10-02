@@ -600,3 +600,28 @@ def test_upsert_workspace_routes(tmp_path: Path) -> None:
         assert cfg["routes"][0]["patterns"] == ["a2"]
         assert cfg["cursor_fallback"]["message"] == "upserted"
         assert cfg["footer"]["style"] == "compact"
+
+
+@allure.story("Discovery")
+@allure.title("_walk_for_root falls back to the marker_fallback tree (dev checkout)")
+def test_walk_for_root_marker_fallback(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    import greedy_token.paths as paths_mod
+
+    with allure.step("Origin without any workspace up-tree resolves to None"):
+        origin = tmp_path_factory.mktemp("root-isolated") / "empty"
+        origin.mkdir(parents=True)
+        assert paths_mod._walk_for_root(origin) is None
+
+    with allure.step("Marker fallback finds the workspace above the package path"):
+        pkg_root = tmp_path_factory.mktemp("root-fallback")
+        (pkg_root / ".greedy-token.yaml").write_text("routes: []\n", encoding="utf-8")
+        pkg_deep = pkg_root / "src" / "pkg"
+        pkg_deep.mkdir(parents=True)
+        assert paths_mod._walk_for_root(origin, pkg_deep) == pkg_root
+
+    with allure.step("Fallback tree without a workspace exhausts the loop → None"):
+        other = tmp_path_factory.mktemp("root-none") / "deep"
+        other.mkdir(parents=True)
+        assert paths_mod._walk_for_root(origin, other) is None

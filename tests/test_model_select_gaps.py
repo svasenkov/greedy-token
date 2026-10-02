@@ -442,3 +442,11 @@ def test_apply_model_env_no_self_warning(
     monkeypatch.setattr(ms, "_env_model_warned", False)
     _warn_env_model_override()
     assert capsys.readouterr().err == ""
+
+
+@allure.title("_parse_timeout_s drops non-numeric and non-positive values")
+def test_parse_timeout_s_invalid() -> None:
+    assert ms._parse_timeout_s({"timeout_s": "soon"}) is None
+    assert ms._parse_timeout_s({"timeout_s": object()}) is None
+    assert ms._parse_timeout_s({"timeout_s": -3}) is None
+    assert ms._parse_timeout_s({"timeout_s": 2.5}) == 2.5

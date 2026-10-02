@@ -221,7 +221,8 @@ def test_tool_intent_and_query_threading(policy_state, prompt, expected):
     response = evaluate(policy_state, prompt)
     assert response.kind == ("intercept" if expected else "pass")
     if expected:
-        policy_state.runner.assert_called_once_with(policy_state.root, cap.id, query="baseUrl")
+        # The raw prompt is passed as `task` so path-like tokens can scope rg.
+        policy_state.runner.assert_called_once_with(policy_state.root, cap.id, task=prompt)
     else:
         policy_state.runner.assert_not_called()
 

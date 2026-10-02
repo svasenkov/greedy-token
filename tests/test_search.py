@@ -7,7 +7,7 @@ import pytest
 import allure
 from greedy_token.executors import _tool_output_weak
 from greedy_token.router import _build_tool_command, _extract_search_query
-from greedy_token.tool_output import filter_tool_output
+from greedy_token.tool_output import cap_tool_output, filter_tool_output
 from tests.allure_reporting import attach_text
 
 pytestmark = [
@@ -82,3 +82,40 @@ def test_tool_output_weak_when_empty() -> None:
     with allure.step("Verify empty results are weak"):
         assert empty_weak is True
         assert match_weak is False
+
+
+@allure.story("Output cap")
+@allure.title("cap_tool_output truncates long output with a marker")
+def test_cap_tool_output() -> None:
+    with allure.step("Within the limit — returned unchanged"):
+        raw = "\n".join(f"f.py:{i}:hit" for i in range(5))
+        assert cap_tool_output(raw, limit=30) == raw
+        assert cap_tool_output("") == ""
+    with allure.step("Over the limit — first N lines + truncation marker"):
+        raw = "\n".join(f"f.py:{i}:hit" for i in range(40))
+        capped = cap_tool_output(raw, limit=30)
+        lines = capped.splitlines()
+        assert len(lines) == 31
+        assert "truncated" in lines[-1]
+        assert "10" in lines[-1]
+    with allure.step("Non-positive limit disables the cap"):
+        raw = "\n".join(f"f.py:{i}:hit" for i in range(40))
+        assert cap_tool_output(raw, limit=0) == raw
+
+
+@allure.story("Query note")
+@allure.title("_extract_query_note reports the content pattern, not the path scope")
+def test_extract_query_note_path_scoped(minimal_workspace: Path) -> None:
+    from greedy_token.executors import _extract_query_note
+
+    (minimal_workspace / "lab").mkdir()
+    (minimal_workspace / "lab" / "users.json").write_text("[]\n", encoding="utf-8")
+    with allure.step("Scoped prompt → content term only; all-path → legacy fallback"):
+        assert (
+            _extract_query_note("find email in lab/users.json", minimal_workspace)
+            == "email"
+        )
+        assert (
+            _extract_query_note("find lab/users.json", minimal_workspace)
+            == "lab/users.json"
+        )

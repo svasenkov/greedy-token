@@ -1899,3 +1899,147 @@ def test_route_task_regex_pattern_routes(
     decision = router.route_task("покажи последних 11 коммитов", tmp_path)
     assert decision.route_id == "python-git-recent"
     assert decision.matched == ["re:последних [0-9]+ коммит"]
+
+
+# --- prompt path scoping: path-like tokens become rg operands, not pattern (F5) ---
+
+
+@allure.title("_looks_like_path_token: separator, extension, or dotfile")
+def test_looks_like_path_token() -> None:
+    assert router._looks_like_path_token("lab/users.json") is True  # "/"
+    assert router._looks_like_path_token("settings.py") is True  # suffix
+    assert router._looks_like_path_token(".env") is True  # dotfile name
+    assert router._looks_like_path_token("email") is False
+    assert router._looks_like_path_token("baseUrl") is False
+
+
+@allure.title("_prompt_path_scope resolves confined existing paths, rejects the rest")
+def test_prompt_path_scope(minimal_workspace: Path) -> None:
+    (minimal_workspace / "lab").mkdir()
+    (minimal_workspace / "lab" / "users.json").write_text("[]\n", encoding="utf-8")
+    (minimal_workspace / ".env").write_text("K=1\n", encoding="utf-8")
+
+    with allure.step("existing relative file/dir tokens resolve to root-relative scope"):
+        assert (
+            router._prompt_path_scope("lab/users.json", minimal_workspace)
+            == "lab/users.json"
+        )
+        assert router._prompt_path_scope("docs/", minimal_workspace) == "docs"
+        assert router._prompt_path_scope(".env", minimal_workspace) == ".env"
+
+    with allure.step("line ref and sentence-final period are tolerated"):
+        assert (
+            router._prompt_path_scope("lab/users.json:4", minimal_workspace)
+            == "lab/users.json"
+        )
+        assert (
+            router._prompt_path_scope("lab/users.json.", minimal_workspace)
+            == "lab/users.json"
+        )
+
+    with allure.step("absolute path inside root relativizes; outside root rejected"):
+        absolute = str(minimal_workspace / "lab" / "users.json")
+        assert router._prompt_path_scope(absolute, minimal_workspace) == "lab/users.json"
+        assert router._prompt_path_scope("/etc/hostname", minimal_workspace) is None
+        assert router._prompt_path_scope("../outside/x", minimal_workspace) is None
+
+    with allure.step("non-path and missing tokens stay content terms"):
+        assert router._prompt_path_scope("email", minimal_workspace) is None
+        assert router._prompt_path_scope("lab/gone.json", minimal_workspace) is None
+
+
+@allure.title("_extract_search_targets: paths leave the pattern, become scope")
+def test_extract_search_targets_scoped(minimal_workspace: Path) -> None:
+    (minimal_workspace / "lab").mkdir()
+    (minimal_workspace / "lab" / "users.json").write_text("[]\n", encoding="utf-8")
+    (minimal_workspace / "lab" / "events.jsonl").write_text("{}\n", encoding="utf-8")
+
+    with allure.step("path token scopes; content term stays the pattern"):
+        assert router._extract_search_targets(
+            "find email in lab/users.json", minimal_workspace
+        ) == ("email", ["lab/users.json"])
+
+    with allure.step("quoted pattern stays verbatim; unquoted tail still scopes"):
+        assert router._extract_search_targets(
+            'find "email" in lab/users.json', minimal_workspace
+        ) == ("email", ["lab/users.json"])
+        assert router._extract_search_targets(
+            'find "lab/users.json"', minimal_workspace
+        ) == ("lab/users.json", [])
+
+    with allure.step("several paths → all scoped in prompt order; duplicates deduped"):
+        assert router._extract_search_targets(
+            "find email in lab/users.json lab/events.jsonl", minimal_workspace
+        ) == ("email", ["lab/users.json", "lab/events.jsonl"])
+        assert router._extract_search_targets(
+            "find email lab/users.json lab/users.json", minimal_workspace
+        ) == ("email", ["lab/users.json"])
+
+    with allure.step("question scaffold picks the last content token, not the path"):
+        assert router._extract_search_targets(
+            "does lab/users.json contain email", minimal_workspace
+        ) == ("email", ["lab/users.json"])
+
+    with allure.step("every term a path → None pattern (caller fails open, not '.*')"):
+        assert router._extract_search_targets(
+            "find lab/users.json", minimal_workspace
+        ) == (None, ["lab/users.json"])
+
+    with allure.step("missing path stays a content term; bare dir name stays a term"):
+        assert router._extract_search_targets(
+            "find email in gone/x.json", minimal_workspace
+        ) == ("gone/x.json", [])
+        assert router._extract_search_targets(
+            "find email in lab", minimal_workspace
+        ) == ("email", [])
+
+    with allure.step("no path tokens → legacy query, empty scope list"):
+        assert router._extract_search_targets(
+            "find baseUrl in test config", minimal_workspace
+        ) == ("baseUrl", [])
+        # bare filename not under root → legacy behavior (docs/phase-manifest.json
+        # exists, but the token is not root-relative — no rescoping).
+        assert router._extract_search_targets(
+            "find phase-manifest.json", minimal_workspace
+        ) == ("phase-manifest.json", [])
+
+    with allure.step("empty task and all-filler leftovers stay reachable"):
+        assert router._extract_search_targets("", minimal_workspace) == ("", [])
+        assert router._extract_search_targets(
+            "find in the", minimal_workspace
+        ) == ("in the", [])
+
+
+@allure.title("_build_tool_argv: prompt paths replace the rg scope operands")
+def test_build_tool_argv_prompt_path_scoping(minimal_workspace: Path) -> None:
+    from greedy_token.router import _build_tool_argv
+
+    (minimal_workspace / "lab").mkdir()
+    (minimal_workspace / "lab" / "users.json").write_text(
+        '[{"id": 1, "email": "ada@example.com"}]\n', encoding="utf-8"
+    )
+
+    with allure.step("existing path token → operand, content term → pattern"):
+        argv = _build_tool_argv({}, "find email in lab/users.json", minimal_workspace)
+        sep = argv.index("--")
+        assert argv[sep + 1] == "email"
+        assert argv[sep + 2 :] == ("lab/users.json",)
+
+    with allure.step("prompt scope replaces the route's declared search_paths"):
+        argv = _build_tool_argv(
+            {"search_paths": ["docs"]},
+            "find email in lab/users.json",
+            minimal_workspace,
+        )
+        sep = argv.index("--")
+        assert argv[sep + 2 :] == ("lab/users.json",)
+
+    with allure.step("all-path prompt → legacy pattern + '.' scope (fail-open)"):
+        argv = _build_tool_argv({}, "find lab/users.json", minimal_workspace)
+        sep = argv.index("--")
+        assert argv[sep + 1 :] == ("lab/users.json", ".")
+
+    with allure.step("no path tokens → route scope exactly as before"):
+        argv = _build_tool_argv({}, "find baseUrl", minimal_workspace)
+        sep = argv.index("--")
+        assert argv[sep + 1 :] == ("baseUrl", ".")

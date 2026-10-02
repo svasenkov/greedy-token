@@ -290,7 +290,7 @@ def evaluate(
         from greedy_token.capabilities_invoke import invoke_capability
         from greedy_token.paths import find_workspace_root
         from greedy_token.result_gate import GATE_ACCEPTED, evaluate_result_gate
-        from greedy_token.router import _extract_search_query, route_task
+        from greedy_token.router import route_task
     except ImportError:
         return HookResponse()
 
@@ -353,7 +353,9 @@ def evaluate(
         })
 
     if op.params == ("query",):
-        params = {"query": _extract_search_query(prompt)}
+        # Raw prompt as task: the rg argv builder extracts the pattern AND
+        # prompt path scopes itself — a verbatim --query would lose the path.
+        params = {"task": prompt}
     elif op.params == ("args",):
         derived = derive_prompt_args(prompt, _args_from_prompt_spec(op.id, root))
         params = {"args": derived} if derived else {}

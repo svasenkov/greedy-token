@@ -242,3 +242,14 @@ def test_cmd_hub_serve(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(hub_pkg, "serve", lambda **kwargs: captured.update(kwargs))
     assert cli.cmd_hub_serve(_ns(host="0.0.0.0", port=9999)) == 0
     assert captured == {"host": "0.0.0.0", "port": 9999}
+
+
+@allure.title("_package_version falls back to a dev version without dist metadata")
+def test_package_version_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    from importlib.metadata import PackageNotFoundError
+
+    def missing(name: str) -> str:
+        raise PackageNotFoundError(name)
+
+    monkeypatch.setattr("importlib.metadata.version", missing)
+    assert cli._package_version() == "0.0.0-dev"

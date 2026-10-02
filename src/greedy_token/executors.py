@@ -17,7 +17,7 @@ from greedy_token.subprocess_safe import (
     trusted_script_argv,
     trusted_tool_invocation,
 )
-from greedy_token.tool_output import filter_tool_output
+from greedy_token.tool_output import cap_tool_output, filter_tool_output
 from greedy_token.tool_paths import RG_TIMEOUT, SCRIPT_TIMEOUT
 from greedy_token.trust import (
     TrustError,
@@ -469,7 +469,7 @@ def execute_task(task: str, root: Path | None = None) -> TaskRunResult:
                 rag_out = _rag_fallback_output(task, root)
                 if rag_out:
                     note = (
-                        f"rg: no useful matches for «{_extract_query_note(task)}» "
+                        f"rg: no useful matches for «{_extract_query_note(task, root)}» "
                         f"→ fallback RAG\n\n"
                     )
                     return TaskRunResult(
@@ -481,12 +481,13 @@ def execute_task(task: str, root: Path | None = None) -> TaskRunResult:
                     )
                 return TaskRunResult(
                     decision=decision,
-                    output=out.strip(),
+                    output=cap_tool_output(out.strip()),
                     exit_code=code,
                     started=started,
                 )
+            shown = cap_tool_output(filtered)
             if filtered != out.strip():
-                note = f"rg (without agent-internal dirs):\n{filtered}\n"
+                note = f"rg (without agent-internal dirs):\n{shown}\n"
                 rag_out = _rag_fallback_output(task, root)
                 if rag_out and len(filtered.splitlines()) < 3:
                     note += f"\n---\nAdditional RAG:\n\n{rag_out}"
@@ -501,7 +502,7 @@ def execute_task(task: str, root: Path | None = None) -> TaskRunResult:
                     decision=decision, output=note, exit_code=code, started=started
                 )
             return TaskRunResult(
-                decision=decision, output=filtered, exit_code=code, started=started
+                decision=decision, output=shown, exit_code=code, started=started
             )
 
         return TaskRunResult(
@@ -523,10 +524,12 @@ def execute_task(task: str, root: Path | None = None) -> TaskRunResult:
     )
 
 
-def _extract_query_note(task: str) -> str:
-    from greedy_token.router import _extract_search_query
+def _extract_query_note(task: str, root: Path | None = None) -> str:
+    """Content pattern for the fallback note — path tokens became rg scope."""
+    from greedy_token.router import _extract_search_query, _extract_search_targets
 
-    return _extract_search_query(task)
+    pattern, _scopes = _extract_search_targets(task, root or find_workspace_root())
+    return pattern or _extract_search_query(task)
 
 
 def task_result_gate(result: TaskRunResult, decision: RouteDecision) -> GateDecision:

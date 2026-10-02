@@ -958,3 +958,76 @@ def test_cli_show(
     )
     assert proc.returncode == 2
     assert "Unknown capability" in proc.stderr
+
+
+@allure.story("Invoke")
+@allure.title("Invoke task= preserves prompt path scoping for the rg op")
+def test_invoke_tool_op_task_path_scoping(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _fake_rg(
+        minimal_workspace,
+        monkeypatch,
+        "#!/bin/sh\nprintf '%s\\n' \"$@\"\n",
+    )
+    (minimal_workspace / "lab").mkdir()
+    (minimal_workspace / "lab" / "users.json").write_text("[]\n", encoding="utf-8")
+
+    with allure.step("task= keeps path context — path becomes an rg operand"):
+        result = invoke_capability(
+            minimal_workspace,
+            "tool-rg-search",
+            task="find email in lab/users.json",
+        )
+        assert result.executed is True
+        echoed = result.output.splitlines()
+        sep = echoed.index("--")
+        assert echoed[sep + 1] == "email"
+        assert echoed[sep + 2 :] == ["lab/users.json"]
+
+    with allure.step("task= wins over query= — the richer context drives the argv"):
+        result = invoke_capability(
+            minimal_workspace,
+            "tool-rg-search",
+            query="zzz",
+            task="find email in lab/users.json",
+        )
+        echoed = result.output.splitlines()
+        sep = echoed.index("--")
+        assert echoed[sep + 1] == "email"
+
+    with allure.step("query= alone keeps the legacy verbatim-pattern behavior"):
+        result = invoke_capability(
+            minimal_workspace, "tool-rg-search", query="lab/users.json"
+        )
+        echoed = result.output.splitlines()
+        sep = echoed.index("--")
+        assert echoed[sep + 1] == "lab/users.json"
+        assert echoed[sep + 2] == "projects"  # route-declared scope, not the file
+
+
+@allure.story("Invoke")
+@allure.title("task= is ignored for ops without the query contract")
+def test_invoke_nonquery_op_ignores_task(
+    minimal_workspace: Path,
+) -> None:
+    result = invoke_capability(
+        minimal_workspace, "python-meta-sync-check", task="find anything"
+    )
+    assert result.executed is True
+
+
+@allure.story("Invoke")
+@allure.title("Tool op output is capped with a truncation marker")
+def test_invoke_tool_op_output_cap(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _fake_rg(
+        minimal_workspace,
+        monkeypatch,
+        '#!/bin/sh\ni=0; while [ $i -lt 40 ]; do echo "f.py:$i:hit"; i=$((i+1)); done\n',
+    )
+    result = invoke_capability(minimal_workspace, "tool-rg-search", query="hit")
+    assert result.exit_code == 0
+    assert "truncated" in result.output
+    assert len(result.output.splitlines()) <= 31
