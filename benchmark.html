@@ -57,7 +57,7 @@
 <body>
 
 <h1>greedy-token — benchmark</h1>
-<p class="sub">greedy-token-workshop · M2 Max · медиана 3 прогонов ·
+<p class="sub">greedy-token-workshop · M2 Max · v0.18.4 · 2026-10-02 · медиана 3 прогонов ·
 «без greedy» = measured baseline ~17,043 tok overhead + ~25.7s</p>
 
 <section>
@@ -73,8 +73,9 @@
   </table>
   <p class="foot">«С greedy, tok» = agent overhead ~17,043 (измерен <code>calibrate</code>:
   rules + system + schemas + reply) + payload исполнителя — greedy-вызов не бесплатен,
-  ход агента платится. Wall включает старт CLI (~200ms). Жёлтые строки — честные пределы:
-  paraphrase → fallback, rag-синоним → пусто, refactoring → полный чат ($0 saved).
+  ход агента платится. Wall включает старт CLI (~200ms). Красные строки — честный минус:
+  на 100B-фикстурах route-карта (150–240 tok) дороже самого файла; промахи платят и
+  наивный ход, и шапку роута. Плюсы: rag-хит и rag-empty (пустой ответ дешевле чтения docs).
   Стоимость по input-ставке.</p>
 </section>
 
@@ -130,19 +131,25 @@
 </div>
 
 <script>
+// Ряд 1 — малые фикстуры, v0.18.4 (2026-10-02, /tmp/gt-bench-v0184.jsonl,
+// медиана 3 прогонов). tok = измеренный payload в контекст агента
+// (stdout байты/4; для rag/llm — est_tokens из телеметрии).
+// На 100B-фикстурах route-карта (~150–240 tok) дороже самого файла —
+// честный минус почти по всей таблице. Промахи (fallback/judgment)
+// считаются base + карта: агент платит и наивный ход, и шапку роута.
 const ROWS = [
-  { q: "find email in lab/users.json", tier: "tool / rg", wall: 304, tok: 0, base: 17230 },
-  { q: "найди email в lab/users.json", tier: "tool / rg", wall: 298, tok: 0, base: 17230 },
-  { q: "jq map keys of lab/users.json", tier: "tool / jq", wall: 306, tok: 0, base: 17120 },
-  { q: "в lab/users.json у каждого объекта есть id и email", tier: "python / check_users", wall: 327, tok: 0, base: 17120 },
-  { q: "проверь, что у каждого объекта есть id и email", tier: "python / check_users", wall: 328, tok: 0, base: 17120 },
-  { q: "у всех юзеров проверь наличие ключей", tier: "cursor-fallback", wall: 249, tok: 17120, base: 17120, warn: true },
-  { q: "как проверять ключи id email у users", tier: "rag / FTS5", wall: 217, tok: 166, base: 17330 },
-  { q: "у каждого человека есть почта", tier: "rag / empty", wall: 217, tok: 17330, base: 17330, warn: true },
-  { q: "отрефактори архитектуру конфигуратора", tier: "cursor-fallback", wall: 250, tok: 17700, base: 17700, warn: true },
-  { q: "pipeline search-rag email path=lab", tier: "rg → rag", wall: 240, tok: 167, base: 17230 },
-  { q: "llm classify 3 users — warm", tier: "ollama local", wall: 1289, tok: 115, base: 17170 },
-  { q: "llm classify — cold load", tier: "ollama local", wall: 4503, tok: 117, base: 17170 },
+  { q: "find email in lab/users.json", tier: "tool / rg", wall: 266, tok: 202, base: 17230, loss: true },
+  { q: "найди email в lab/users.json", tier: "tool / rg", wall: 259, tok: 203, base: 17230, loss: true },
+  { q: "jq map keys of lab/users.json", tier: "tool / jq", wall: 261, tok: 158, base: 17120, loss: true },
+  { q: "в lab/users.json у каждого объекта есть id и email", tier: "python / check_users", wall: 269, tok: 236, base: 17120, loss: true },
+  { q: "проверь, что у каждого объекта есть id и email", tier: "python / check_users", wall: 266, tok: 192, base: 17120, loss: true },
+  { q: "у всех юзеров проверь наличие ключей", tier: "cursor-fallback", wall: 237, tok: 311, base: 17215, loss: true },
+  { q: "как проверять ключи id email у users", tier: "rag / FTS5", wall: 208, tok: 166, base: 17330 },
+  { q: "у каждого человека есть почта", tier: "rag / empty", wall: 209, tok: 22, base: 17330 },
+  { q: "отрефактори архитектуру конфигуратора", tier: "cursor-fallback", wall: 248, tok: 793, base: 17700, loss: true },
+  { q: "pipeline search-rag email path=lab", tier: "rg → rag", wall: 225, tok: 706, base: 17230, loss: true },
+  { q: "llm classify 3 users — warm", tier: "ollama local", wall: 1315, tok: 133, base: 17170, loss: true },
+  { q: "llm classify — cold load", tier: "ollama local", wall: 4195, tok: 114, base: 17170, loss: true },
 ];
 
 // Фиксированная цена хода агента (rules + system + tool schemas + reply),
@@ -156,11 +163,11 @@ const AGENT_OVERHEAD = 17043;
 // исполнителя (байты/4), base — «без greedy»: oh + промпт + контент,
 // который агент прочитал бы сам (байты/4, измерено).
 const ROWS2 = [
-  { q: "в lab/events.jsonl у каждого события есть id ts event (12,000 строк)", tier: "python / check_events · 1.2MB", wall: 141, tok: 30, base: 324474, oh: 17043 },
-  { q: "usage stats по ~/.greedy-token/usage.jsonl", tier: "python / usage-stats · 4.9MB", wall: 247, tok: 500, base: 1269421, oh: 37450 },
-  { q: "find ensure.py in scripts", tier: "tool / rg · repo-wide", wall: 444, tok: 4461, base: 44910, oh: 37450 },
-  { q: "покажи последние 50 коммитов (compact)", tier: "python / git-recent · post-fix", wall: 181, tok: 1802, base: 38388, oh: 37450, warn: true },
-  { q: "baseline calibration naive agent", tier: "rag / FTS5 · 112 chunks", wall: 99, tok: 5812, base: 47677, oh: 37450 },
+  { q: "в lab/events.jsonl у каждого события есть id ts event (12,000 строк)", tier: "python / check_events · 1.2MB", wall: 358, tok: 48, base: 324474, oh: 17043 },
+  { q: "usage stats по ~/.greedy-token/usage.jsonl", tier: "python / usage-stats · 4.9MB", wall: 519, tok: 194, base: 1269421, oh: 37450 },
+  { q: "find ensure.py in scripts", tier: "tool / rg · repo-wide + cap 30", wall: 709, tok: 755, base: 44910, oh: 37450 },
+  { q: "покажи последние 50 коммитов (compact)", tier: "python / git-recent · post-fix", wall: 479, tok: 1837, base: 38388, oh: 37450, warn: true },
+  { q: "baseline calibration naive agent", tier: "rag / FTS5 · 112 chunks", wall: 256, tok: 5812, base: 47677, oh: 37450 },
 ];
 
 // Ряд 3 — живые прогоны субагентами (2026-10-02). tok = байты контекста/4:
@@ -198,10 +205,10 @@ function render() {
   const tot$ = rates.map(() => 0);
   const body = ROWS.map(r => {
     const greedy = AGENT_OVERHEAD + r.tok;
-    const saved = Math.max(0, r.base - greedy);
+    const saved = r.base - greedy;
     totG += greedy; totBase += r.base; totSaved += saved;
     const costs = rates.map((rate, i) => { const c = saved * rate / 1e6; tot$[i] += c; return c; });
-    return `<tr${r.warn ? ' class="warn"' : ""}><td>${r.q}</td><td>${r.tier}</td><td>${r.wall}</td>` +
+    return `<tr${r.loss ? ' class="loss"' : r.warn ? ' class="warn"' : ""}><td>${r.q}</td><td>${r.tier}</td><td>${r.wall}</td>` +
            `<td>${num(greedy)}</td><td>${num(r.base)}</td><td>${num(saved)}</td>` +
            costs.map(fmt$).map(c => `<td>${c}</td>`).join("") + "</tr>";
   });
