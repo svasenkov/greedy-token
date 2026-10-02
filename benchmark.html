@@ -99,40 +99,21 @@
 </section>
 
 <section>
-  <h2>Живые прогоны — headless CLI <code>devin -p</code> (2026-10-02)</h2>
+  <h2>Живые прогоны — свежие субагенты (2026-10-02)</h2>
   <table>
     <thead><tr id="thead3"></tr></thead>
     <tbody id="tbody3"></tbody>
   </table>
-  <p class="foot">96 легов: 6 пар × 4 модели × 2 руки × 2 прогона. Каждый лег —
-  свежая сессия <code>devin -p</code>; токены — <b>фактические</b> из
-  sessions.db (input + cache_read + cache_create + output). Naive-нога в
-  нейтральном /tmp (без .greedy-token.yaml); greedy-нога в workshop через
-  CLI. Главный факт: <b>дисперсия доминирует</b> — медиана saved ≈ +1.6k tok,
-  а вся масса экономии в хвосте: когда наивный агент спиралится
-  (E-opus +1.49M tok / ~$1.5, E-swe +1.02M — бесплатная модель спиралится
-  чаще всех: 41 тула + попытка записи файлов при «код не пиши»), связанный
-  greedy-путь ограничивает ущерб. Систематически: D (llm invoke
-  --user-file) экономит у kimi/opus стабильно +14k/+22k — одна нога exec вместо
-  read+exec; E/F (route → «ответь сам») аддитивны по построению и ведут себя
-  как лотерея. Advisory-режим ≠ гарантия экономии на уровне агента;
-  гарантированная экономия — intercept (весь ход не случается). $ — реальная
-  разбивка по ставкам модели (in + cache_create по input-ставке, cache_read по
-  cached, output по output); swe-2-max — free.</p>
-</section>
-
-<section>
-  <h2>Матрица исполнителей — ollama classify (2026-10-02)</h2>
-  <table>
-    <thead><tr id="thead4"></tr></thead>
-    <tbody id="tbody4"></tbody>
-  </table>
-  <p class="foot"><code>llm invoke --profile X --user-file lab/users.json</code>,
-  без агента. cold — первый вызов (загрузка модели в VRAM), warm — второй.
-  «JSON» — вывод содержит структуру с id/email; «ловит id:2» — корректно
-  помечает запись без email. Ремоуты недоступны: qa.guru — timeout,
-  box2 — 401 без кредов. Вывод: 7b локально — лучший по формату
-  (чистый JSON) и цене ($0); gpt-oss:20b не удерживает classify-инструкцию.</p>
+  <p class="foot">12 прогонов свежими субагентами (чистый контекст на каждый).
+  «Без greedy» = 17,043 + реально прочитанные байты/4 (subagent отчитался
+  списком файлов — размеры посчитаны снаружи, не на доверии). «С greedy» =
+  17,043 + stdout исполнителя/4 (tee → /tmp/gt-live-*.out). IDE usage субагент
+  не видит — overhead остаётся калибровкой, контент измерен.
+  Красные строки — честный минус: на 100B-фикстурах обвязка роута
+  (149–600B) дороже самого файла; пара B дала ещё и неверный ответ
+  (rg построил «email|lab/users.json» по всему репо, строки из
+  users.json не вернул — F5 в draft). E: экономия — поведенческий
+  артефакт (naive-агент сам прочитал 4 файла), не свойство роута.</p>
 </section>
 
 <section>
@@ -142,15 +123,14 @@
 
 <div class="note">
   <b>Как читать</b>
-  Таблицы 1–2 — синтетика: «без greedy» (полный наивный ход) vs «с greedy»
-  (ход агента + payload исполнителя) → Saved = их разница.
+  Три колонки токенов: «без greedy» (полный наивный ход) vs «с greedy»
+  (тот же ход агента + payload исполнителя) → Saved = их разница.
   Футерное «saved ~17k» верно только при hook-режиме intercept —
   когда LLM-ход не случается вовсе; в advisory/MCP overhead платится.
+  Футер сам печатает оба числа: «saved ~N (if intercept; turn-shared
+  otherwise ~M)», а события usage.jsonl несут поле hook_mode.
   $ — по input-ставке (saved = непрочитанный контекст; output &lt;5%).
-  Таблица 3 — <b>измеренный факт</b>: свежие <code>devin -p</code> сессии,
-  токены из sessions.db без калибровки. Вывод живого бенча не такой, как у
-  синтетики: advisory-экономия в медиане ≈ 0 (кейс решает поведение агента),
-  а гарантированный эффект дают intercept-ход и защита от спирального хвоста.
+  После живых прогонов заменить base/overhead фактом из IDE usage.
 </div>
 
 <script>
@@ -198,49 +178,18 @@ const ROWS2 = [
   { q: "baseline calibration naive agent", tier: "rag / FTS5 · 112 chunks", wall: 256, tok: 5812, base: 47677, oh: 37450 },
 ];
 
-// Ряд 3 — живые прогоны headless `devin -p` (2026-10-02). n/g — медианы
-// фактических токенов сессии (in+cache_read+cache_create+out из sessions.db),
-// smed — медиана saved, lo/hi — диапазон 2 прогонов, dmed — медиана Δ$
-// по реальной разбивке ставок модели. Дисперсия — данные, не баг:
-// наивный агент спиралится недетерминированно (B-opus: 50k↔338k naive).
+// Ряд 3 — живые прогоны субагентами (2026-10-02). tok = байты контекста/4:
+// naive — реально прочитанные файлы; greedy — stdout исполнителя
+// (/tmp/gt-live-*.out). oh = 17,043. ok — корректность ответа.
+// loss: saved < 0 (обвязка > контент) или неверный ответ.
 const ROWS3 = [
-  { q: "A: check id+email keys (users.json)", model: "sol-max", n: 34172, g: 27919, smed: 6253, lo: -1246, hi: 13752, dmed: 0.0024 },
-  { q: "A: check id+email keys (users.json)", model: "kimi-k3", n: 28816, g: 29363, smed: -546, lo: -555, hi: -538, dmed: 0.0123 },
-  { q: "A: check id+email keys (users.json)", model: "opus-5.5", n: 70695, g: 47416, smed: 23278, lo: 23248, hi: 23309, dmed: 0.0212 },
-  { q: "A: check id+email keys (users.json)", model: "swe-2 · free", n: 36515, g: 29593, smed: 6922, lo: -568, hi: 14412, dmed: 0.0 },
-  { q: "B: rg email lines in lab/", model: "sol-max", n: 27625, g: 27913, smed: -288, lo: -327, hi: -250, dmed: 0.0037 },
-  { q: "B: rg email lines in lab/", model: "kimi-k3", n: 142191, g: 29500, smed: 112691, lo: -64, hi: 225446, dmed: 0.1244 },
-  { q: "B: rg email lines in lab/", model: "opus-5.5", n: 193879, g: 47820, smed: 146058, lo: 2524, hi: 289593, dmed: 0.1946 },
-  { q: "B: rg email lines in lab/", model: "swe-2 · free", n: 358170, g: 29797, smed: 328373, lo: 86532, hi: 570214, dmed: 0.0 },
-  { q: "C: RAG docs — key-check convention", model: "sol-max", n: 28164, g: 28217, smed: -52, lo: -206, hi: 101, dmed: 0.004 },
-  { q: "C: RAG docs — key-check convention", model: "kimi-k3", n: 44096, g: 29712, smed: 14384, lo: 14237, hi: 14532, dmed: 0.0081 },
-  { q: "C: RAG docs — key-check convention", model: "opus-5.5", n: 48225, g: 48370, smed: -145, lo: -952, hi: 661, dmed: 0.0192 },
-  { q: "C: RAG docs — key-check convention", model: "swe-2 · free", n: 85782, g: 29787, smed: 55995, lo: 46999, hi: 64991, dmed: 0.0 },
-  { q: "D: classify users → JSON", model: "sol-max", n: 40894, g: 28064, smed: 5800, lo: -797, hi: 12397, dmed: 0.0 },
-  { q: "D: classify users → JSON", model: "kimi-k3", n: 36275, g: 29780, smed: 14312, lo: 14304, hi: 14321, dmed: 0.0263 },
-  { q: "D: classify users → JSON", model: "opus-5.5", n: 70029, g: 47816, smed: 21732, lo: 21146, hi: 22319, dmed: -0.0004 },
-  { q: "D: classify users → JSON", model: "swe-2 · free", n: 28853, g: 37259, smed: -8406, lo: -16102, hi: -710, dmed: 0.0 },
-  { q: "E: refactor judgment", model: "sol-max", n: 53619, g: 139301, smed: -85682, lo: -107026, hi: -64338, dmed: -0.0246 },
-  { q: "E: refactor judgment", model: "kimi-k3", n: 369868, g: 314444, smed: 55424, lo: -283128, hi: 393976, dmed: 0.0546 },
-  { q: "E: refactor judgment", model: "opus-5.5", n: 924837, g: 177846, smed: 746991, lo: 3745, hi: 1490238, dmed: 0.5822 },
-  { q: "E: refactor judgment", model: "swe-2 · free", n: 970955, g: 286157, smed: 684798, lo: 353986, hi: 1015610, dmed: 0.0 },
-  { q: "F: miss-route fallback", model: "sol-max", n: 91319, g: 62633, smed: 28686, lo: -14256, hi: 71628, dmed: 0.0166 },
-  { q: "F: miss-route fallback", model: "kimi-k3", n: 43710, g: 77874, smed: -34163, lo: -36397, hi: -31930, dmed: -0.0207 },
-  { q: "F: miss-route fallback", model: "opus-5.5", n: 71807, g: 143271, smed: -71463, lo: -117102, hi: -25825, dmed: -0.14 },
-  { q: "F: miss-route fallback", model: "swe-2 · free", n: 44565, g: 68875, smed: -24310, lo: -33307, hi: -15314, dmed: 0.0 },
-];
-
-// Ряд 4 — executor-матрица ollama: llm invoke --profile X --user-file
-// lab/users.json, без агента. cold — первый вызов (загрузка модели),
-// warm — второй. json — вывод содержит структуру с полями id/email.
-// ollama.qa.guru — timeout; ollama-box2.qa.guru — 401 (нет кредов).
-const ROWS4 = [
-  { model: "qwen2.5-coder:7b (local)", cold: 5.6, warm: 1.9, json: "да", miss: "2/2", note: "лучший формат: чистый JSON" },
-  { model: "qwen2.5-coder:14b (local)", cold: 11.1, warm: 3.9, json: "да", miss: "1/2", note: "run2 — проза вместо JSON" },
-  { model: "qwen3-coder:30b (local)", cold: 11.5, warm: 3.3, json: "да", miss: "2/2", note: "проза + вложенный JSON" },
-  { model: "gpt-oss:20b (local)", cold: 15.0, warm: 6.5, json: "нет", miss: "0/2", note: "clarifying-question, не классифицирует" },
-  { model: "ollama.qa.guru (remote)", cold: "—", warm: "—", json: "—", miss: "—", note: "timeout — хост недоступен" },
-  { model: "ollama-box2.qa.guru", cold: "—", warm: "—", json: "—", miss: "—", note: "401 — нужны креды" },
+  { q: "A: в lab/users.json у каждого объекта есть id и email", tier: "python / check_users", tok: 37, base: 17068, oh: 17043, ok: "да/да" },
+  { q: "B: find email in lab/users.json", tier: "tool / rg — repo-wide, промах", tok: 956, base: 17268, oh: 17043, ok: "да/НЕТ", loss: true },
+  { q: "B: то же — после F5 (path→scope)", tier: "tool / rg · scoped", tok: 37, base: 17268, oh: 17043, ok: "да/да" },
+  { q: "C: как проверять ключи id email у users", tier: "rag / FTS5", tok: 111, base: 17266, oh: 17043, ok: "да/да" },
+  { q: "D: classify users → JSON", tier: "ollama qwen2.5-coder:7b", tok: 39, base: 17068, oh: 17043, ok: "да/да" },
+  { q: "E: отрефактори конфигуратора", tier: "cursor-fallback → ответ", tok: 167, base: 21971, oh: 17043, ok: "да/да", warn: true },
+  { q: "F: у всех юзеров проверь ключи (miss)", tier: "cursor-fallback + read", tok: 175, base: 17068, oh: 17043, ok: "да/да", loss: true },
 ];
 
 const MODELS = [
@@ -298,43 +247,33 @@ function render() {
     .map(h => "<th>" + h + "</th>").join("");
   document.getElementById("tbody2").innerHTML = body2.join("");
 
-  // Таблица 3 — живые headless-прогоны: медианы + диапазон saved (2 прогона).
-  // Класс: loss при smed < −NOISE_TOK, warn при разбросе > 100k (лотерея
-  // спирали). $ — медиана Δ$ по реальным ставкам модели строки.
+  // Таблица 3 — живые прогоны: колонка «OK?» вместо wall; saved со знаком
   document.getElementById("thead3").innerHTML =
-    ["Запрос", "Модель", "Без greedy·med", "С greedy·med", "Saved med", "Saved min…max", "$ med"]
+    ["Запрос", "Тир", "Верен?", "С greedy, tok", "Без greedy, tok", "Saved tok",
+     ...MODELS.map(m => "$ saved · " + m.name)]
     .map(h => "<th>" + h + "</th>").join("");
-  let sumSmed = 0, sumD = 0, maxTail = 0;
-  const allSaved3 = ROWS3.flatMap(r => [r.lo, r.hi]).sort((a, b) => a - b);
-  const liveMed = Math.round((allSaved3[allSaved3.length / 2 - 1] + allSaved3[allSaved3.length / 2]) / 2);
+  let totG3 = 0, totBase3 = 0, totSaved3 = 0;
+  const tot3$ = rates.map(() => 0);
   const body3 = ROWS3.map(r => {
-    sumSmed += r.smed; sumD += r.dmed; maxTail = Math.max(maxTail, r.hi);
-    const cls = r.smed < -NOISE_TOK ? ' class="loss"' : (r.hi - r.lo > 100000 ? ' class="warn"' : "");
-    return `<tr${cls}><td>${r.q}</td><td>${r.model}</td>` +
-           `<td>${num(r.n)}</td><td>${num(r.g)}</td><td>${num(r.smed)}</td>` +
-           `<td>${num(r.lo)} … ${num(r.hi)}</td><td>${fmt$(r.dmed)}</td></tr>`;
+    const greedy = r.oh + r.tok;
+    const saved = r.base - greedy;
+    totG3 += greedy; totBase3 += r.base; totSaved3 += saved;
+    const costs = rates.map((rate, i) => { const c = saved * rate / 1e6; tot3$[i] += c; return c; });
+    const cls = r.loss ? ' class="loss"' : r.warn ? ' class="warn"' : "";
+    return `<tr${cls}><td>${r.q}</td><td>${r.tier}</td><td>${r.ok}</td>` +
+           `<td>${num(greedy)}</td><td>${num(r.base)}</td><td>${num(saved)}</td>` +
+           costs.map(fmt$).map(c => `<td>${c}</td>`).join("") + "</tr>";
   });
-  body3.push(`<tr class="total"><td>МЕДИАНА (48 парных сэмплов)</td><td></td>` +
-            `<td></td><td></td><td>${num(liveMed)}</td><td>tail max ${num(maxTail)}</td>` +
-            `<td>${fmt$(sumD)}</td></tr>`);
+  body3.push(`<tr class="total"><td>ИТОГО (6 пар + пост-фикс)</td><td></td><td></td>` +
+            `<td>${num(totG3)}</td><td>${num(totBase3)}</td><td>${num(totSaved3)}</td>` +
+            tot3$.map(fmt$).map(c => `<td>${c}</td>`).join("") + "</tr>");
   document.getElementById("tbody3").innerHTML = body3.join("");
 
-  // Таблица 4 — executor-матрица ollama
-  document.getElementById("thead4").innerHTML =
-    ["Модель", "Cold, s", "Warm, s", "JSON?", "Ловит id:2", "Примечание"]
-    .map(h => "<th>" + h + "</th>").join("");
-  document.getElementById("tbody4").innerHTML = ROWS4.map(r =>
-    `<tr${r.json === "нет" ? ' class="loss"' : r.json === "—" ? ' class="warn"' : ""}>` +
-    `<td>${r.model}</td><td>${r.cold}</td><td>${r.warm}</td><td>${r.json}</td>` +
-    `<td>${r.miss}</td><td>${r.note}</td></tr>`).join("");
-
-  const allSaved = totSaved + totSaved2;
+  const allSaved = totSaved + totSaved2 + totSaved3;
   document.getElementById("stats").innerHTML =
-    `<div class="stat"><div class="v">${num(allSaved)} tok</div><div class="l">Saved · синтетика (табл. 1–2)</div></div>` +
-    `<div class="stat"><div class="v">${num(liveMed)} tok</div><div class="l">Live saved · медиана ячейки</div></div>` +
-    `<div class="stat"><div class="v">${num(maxTail)} tok</div><div class="l">Live saved · хвост (E opus)</div></div>` +
+    `<div class="stat"><div class="v">${num(allSaved)} tok</div><div class="l">Saved за все таблицы</div></div>` +
     MODELS.map((m, i) =>
-      `<div class="stat"><div class="v">${fmt$(tot$[i] + tot2$[i])}</div><div class="l">Saved $ · ${m.name}</div></div>`
+      `<div class="stat"><div class="v">${fmt$(tot$[i] + tot2$[i] + tot3$[i])}</div><div class="l">Saved $ · ${m.name}</div></div>`
     ).join("");
 }
 
