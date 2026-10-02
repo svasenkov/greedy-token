@@ -1,1 +1,1 @@
-{"id":"7dfb09016a180202f55a0181af20bfa1","fullName":"tests.test_cli_handlers#test_cmd_rag","name":"cmd_rag searches docs with optional domain","status":"passed","testResultsByEnv":{"default":"b2b1a7e0a4bdccd8220cf3f281eed0f7"}}
+{"id":"7dfb09016a180202f55a0181af20bfa1","fullName":"tests.test_cli_handlers#test_cmd_rag","name":"cmd_rag searches docs with optional domain","status":"passed","testResultsByEnv":{"default":"e039a527767f8273438aa5d87cb8adee"}}

@@ -1,1 +1,1 @@
-{"id":"7d97bae8d1ba8530d1818b2340531e35","fullName":"tests.test_pipeline#test_resolve_wrapper_args_skill","name":"_resolve_wrapper_args resolves a skill name to its SKILL.md path","status":"passed","testResultsByEnv":{"default":"c1671b7b1398d839c19c2df2905f4870"}}
+{"id":"7d97bae8d1ba8530d1818b2340531e35","fullName":"tests.test_pipeline#test_resolve_wrapper_args_skill","name":"_resolve_wrapper_args resolves a skill name to its SKILL.md path","status":"passed","testResultsByEnv":{"default":"e813e195068ae23be999c41ccd35f305"}}

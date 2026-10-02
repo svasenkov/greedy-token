@@ -1,1 +1,1 @@
-{"id":"4bab03ef8b8781d7105cabc935643471","fullName":"tests.test_coverage_gaps#test_cmd_compress_outside_workspace","name":"cmd_compress falls back to root=None outside a workspace","status":"passed","testResultsByEnv":{"default":"ab4ee5e967bf5a3ff5fe5407c272a555"}}
+{"id":"4bab03ef8b8781d7105cabc935643471","fullName":"tests.test_coverage_gaps#test_cmd_compress_outside_workspace","name":"cmd_compress falls back to root=None outside a workspace","status":"passed","testResultsByEnv":{"default":"0b155bbf0c896f7ecd90a5c8ebf44c97"}}

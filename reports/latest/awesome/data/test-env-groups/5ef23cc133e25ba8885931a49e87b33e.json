@@ -1,1 +1,1 @@
-{"id":"5ef23cc133e25ba8885931a49e87b33e","fullName":"tests.test_mcp_stdio#test_mcp_stdio_log_zero_writes_nothing","name":"MCP stdio with GREEDY_TOKEN_LOG=0 writes no usage records","status":"passed","testResultsByEnv":{"default":"da23e6a011e960fae20b99ae19389513"}}
+{"id":"5ef23cc133e25ba8885931a49e87b33e","fullName":"tests.test_mcp_stdio#test_mcp_stdio_log_zero_writes_nothing","name":"MCP stdio with GREEDY_TOKEN_LOG=0 writes no usage records","status":"passed","testResultsByEnv":{"default":"a9e98bfe3d8d66003d3699f26dbad90a"}}

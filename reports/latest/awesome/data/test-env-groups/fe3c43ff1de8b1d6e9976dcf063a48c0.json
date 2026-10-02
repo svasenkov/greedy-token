@@ -1,1 +1,1 @@
-{"id":"fe3c43ff1de8b1d6e9976dcf063a48c0","fullName":"tests.test_coverage_gaps#test_workspace_script_path_refusals","name":"_workspace_script_path refuses symlink components and non-regular files","status":"passed","testResultsByEnv":{"default":"dbed6a6d2c601f85f335f2b3ed44d634"}}
+{"id":"fe3c43ff1de8b1d6e9976dcf063a48c0","fullName":"tests.test_coverage_gaps#test_workspace_script_path_refusals","name":"_workspace_script_path refuses symlink components and non-regular files","status":"passed","testResultsByEnv":{"default":"1b7293afb70db758570ce101a5a7e21e"}}

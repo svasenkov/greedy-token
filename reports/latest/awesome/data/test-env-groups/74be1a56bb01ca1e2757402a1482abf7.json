@@ -1,1 +1,1 @@
-{"id":"74be1a56bb01ca1e2757402a1482abf7","fullName":"tests.test_doc_sync#test_guides_structural_parity","name":"guide.md and guide-RU.md share heading levels, fences, and link sets","status":"passed","testResultsByEnv":{"default":"bef3916dd8bcbbae8db53bc457a3d3f8"}}
+{"id":"74be1a56bb01ca1e2757402a1482abf7","fullName":"tests.test_doc_sync#test_guides_structural_parity","name":"guide.md and guide-RU.md share heading levels, fences, and link sets","status":"passed","testResultsByEnv":{"default":"4a8dbad49c8180342b98fbaf7013bae1"}}

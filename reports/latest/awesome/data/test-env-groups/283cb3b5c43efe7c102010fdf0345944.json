@@ -1,1 +1,1 @@
-{"id":"283cb3b5c43efe7c102010fdf0345944","fullName":"tests.test_budget_gaps#test_footer_style_from_config","name":"format_tool_footer reads the style from workspace config","status":"passed","testResultsByEnv":{"default":"8a24b5ed5195b5f8328e3b2590baf470"}}
+{"id":"283cb3b5c43efe7c102010fdf0345944","fullName":"tests.test_budget_gaps#test_footer_style_from_config","name":"format_tool_footer reads the style from workspace config","status":"passed","testResultsByEnv":{"default":"9756c243b309dc6f153a3ffbc81aa707"}}

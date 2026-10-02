@@ -1,1 +1,1 @@
-{"id":"f9a1422ab9cfd437450958ad97654acd","fullName":"tests.test_cli_handlers#test_cmd_init_routes_from_errors","name":"cmd_init --routes-from rejects missing file and files without routes","status":"passed","testResultsByEnv":{"default":"31d3eb6daa4cfa5d1d0c8a2fe88c9344"}}
+{"id":"f9a1422ab9cfd437450958ad97654acd","fullName":"tests.test_cli_handlers#test_cmd_init_routes_from_errors","name":"cmd_init --routes-from rejects missing file and files without routes","status":"passed","testResultsByEnv":{"default":"29b2dc1e4412f6e242fc599a30750352"}}

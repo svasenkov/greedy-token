@@ -1,1 +1,1 @@
-{"id":"c2ff36779c7c9a453aa9e9ca305e42d3","fullName":"tests.test_usage#test_format_report_empty","name":"Usage report handles empty event list","status":"passed","testResultsByEnv":{"default":"74125fa9364bfb777505b9cca2df0f55"}}
+{"id":"c2ff36779c7c9a453aa9e9ca305e42d3","fullName":"tests.test_usage#test_format_report_empty","name":"Usage report handles empty event list","status":"passed","testResultsByEnv":{"default":"6086442852344f7e33bdaad367762b21"}}

@@ -1,1 +1,1 @@
-{"id":"20cb58e1f3618169f96dc5b2b8b4ae24","fullName":"tests.test_retrieval_benchmark#test_latency_benchmark_reports_cold_and_warm_samples","name":"test_latency_benchmark_reports_cold_and_warm_samples","status":"passed","testResultsByEnv":{"default":"41d7f542f3f0d94e5e3a59fa2bf4f005"}}
+{"id":"20cb58e1f3618169f96dc5b2b8b4ae24","fullName":"tests.test_retrieval_benchmark#test_latency_benchmark_reports_cold_and_warm_samples","name":"test_latency_benchmark_reports_cold_and_warm_samples","status":"passed","testResultsByEnv":{"default":"c975616212b0c1150fc0594cfe88acbc"}}

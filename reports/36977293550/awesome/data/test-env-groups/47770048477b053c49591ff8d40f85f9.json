@@ -1,1 +1,1 @@
-{"id":"47770048477b053c49591ff8d40f85f9","fullName":"tests.test_settings#test_apply_ollama_env","name":"apply_ollama_env sets OLLAMA_URL, never the deprecated model names","status":"passed","testResultsByEnv":{"default":"b38e6f11d3784630a31d5630c2ccfbd9"}}
+{"id":"47770048477b053c49591ff8d40f85f9","fullName":"tests.test_settings#test_apply_ollama_env","name":"apply_ollama_env sets OLLAMA_URL, never the deprecated model names","status":"passed","testResultsByEnv":{"default":"e337ad883a4112d604ba0480df82d0b6"}}

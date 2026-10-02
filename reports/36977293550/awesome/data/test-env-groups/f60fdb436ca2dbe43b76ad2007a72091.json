@@ -1,1 +1,1 @@
-{"id":"f60fdb436ca2dbe43b76ad2007a72091","fullName":"tests.test_advisory#test_format_terminal_block_golden","name":"format_terminal_block renders the exact block","status":"passed","testResultsByEnv":{"default":"a0128707721e4b68f7f6ad4f9a141e61"}}
+{"id":"f60fdb436ca2dbe43b76ad2007a72091","fullName":"tests.test_advisory#test_format_terminal_block_golden","name":"format_terminal_block renders the exact block","status":"passed","testResultsByEnv":{"default":"911aa749ee6fb7ce97b180a13e7b773b"}}

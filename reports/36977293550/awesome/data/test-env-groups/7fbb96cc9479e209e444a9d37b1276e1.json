@@ -1,1 +1,1 @@
-{"id":"7fbb96cc9479e209e444a9d37b1276e1","fullName":"tests.test_hook_policy#test_advisory_import_failure_is_optional","name":"test_advisory_import_failure_is_optional","status":"passed","testResultsByEnv":{"default":"ef3a0443b5ec0871d5f2a9933b4f8d27"}}
+{"id":"7fbb96cc9479e209e444a9d37b1276e1","fullName":"tests.test_hook_policy#test_advisory_import_failure_is_optional","name":"test_advisory_import_failure_is_optional","status":"passed","testResultsByEnv":{"default":"1e0fef59336ac7af86ee8b904d68f80d"}}

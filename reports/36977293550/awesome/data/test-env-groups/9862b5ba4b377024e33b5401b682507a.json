@@ -1,1 +1,1 @@
-{"id":"9862b5ba4b377024e33b5401b682507a","fullName":"tests.test_settings#test_format_shell_export","name":"Shell export emits URL/provider; deprecated model envs are not exported","status":"passed","testResultsByEnv":{"default":"5c9bf6ad6d1cf11e3fa1648373cfcd95"}}
+{"id":"9862b5ba4b377024e33b5401b682507a","fullName":"tests.test_settings#test_format_shell_export","name":"Shell export emits URL/provider; deprecated model envs are not exported","status":"passed","testResultsByEnv":{"default":"9e2b49bdf8ac030b689c12aaad5dde92"}}

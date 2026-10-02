@@ -1,1 +1,1 @@
-{"id":"3fa5181694d12262d90e4cc2ea98efcb","fullName":"tests.test_cli_handlers#test_build_parser_subcommands","name":"build_parser exposes all subcommands","status":"passed","testResultsByEnv":{"default":"18ad16efd08dd51640e24d4526d053ce"}}
+{"id":"3fa5181694d12262d90e4cc2ea98efcb","fullName":"tests.test_cli_handlers#test_build_parser_subcommands","name":"build_parser exposes all subcommands","status":"passed","testResultsByEnv":{"default":"24a332af0cb18073d8fa740816989242"}}

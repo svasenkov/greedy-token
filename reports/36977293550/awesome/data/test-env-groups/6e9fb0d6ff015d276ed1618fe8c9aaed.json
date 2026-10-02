@@ -1,1 +1,1 @@
-{"id":"6e9fb0d6ff015d276ed1618fe8c9aaed","fullName":"tests.test_mcp_tools#test_mcp_crystallize_promote_reject","name":"MCP crystallize draft→approve→promote→reject follows the audited flow","status":"passed","testResultsByEnv":{"default":"1b6f026eea1a17625b697e808773fd8f"}}
+{"id":"6e9fb0d6ff015d276ed1618fe8c9aaed","fullName":"tests.test_mcp_tools#test_mcp_crystallize_promote_reject","name":"MCP crystallize draft→approve→promote→reject follows the audited flow","status":"passed","testResultsByEnv":{"default":"6044153e49503a8eb67b833155c267e9"}}

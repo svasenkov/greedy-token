@@ -1,1 +1,1 @@
-{"id":"f491a5e96c8935cf83e82f491b3184d4","fullName":"tests.test_settings#test_get_ollama_settings_alias","name":"get_ollama_settings returns url/model alias of cheap_llm settings","status":"passed","testResultsByEnv":{"default":"cfcefd336a7eb02684cf5fe7d929b22b"}}
+{"id":"f491a5e96c8935cf83e82f491b3184d4","fullName":"tests.test_settings#test_get_ollama_settings_alias","name":"get_ollama_settings returns url/model alias of cheap_llm settings","status":"passed","testResultsByEnv":{"default":"c5a9b0db2eb59c45cbd6ea5840d94418"}}

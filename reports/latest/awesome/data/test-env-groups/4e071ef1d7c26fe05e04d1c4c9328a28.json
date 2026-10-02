@@ -1,1 +1,1 @@
-{"id":"4e071ef1d7c26fe05e04d1c4c9328a28","fullName":"tests.test_coverage_gaps#test_cmd_capabilities_surface","name":"cmd_capabilities: list/show/invoke through the CLI handler","status":"passed","testResultsByEnv":{"default":"24452704f79c8850a0843b2a03c3ea74"}}
+{"id":"4e071ef1d7c26fe05e04d1c4c9328a28","fullName":"tests.test_coverage_gaps#test_cmd_capabilities_surface","name":"cmd_capabilities: list/show/invoke through the CLI handler","status":"passed","testResultsByEnv":{"default":"94b54ad20a5727740fc09a115298eb62"}}

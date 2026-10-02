@@ -1,1 +1,1 @@
-{"id":"2bf4806ede74a86301399d091c0c793c","fullName":"tests.test_spend_ledger#test_metered_spend_excludes_pending","name":"metered_spend_usd honours include_pending=False","status":"passed","testResultsByEnv":{"default":"bd877401d278d46a7041b6fbc558832d"}}
+{"id":"2bf4806ede74a86301399d091c0c793c","fullName":"tests.test_spend_ledger#test_metered_spend_excludes_pending","name":"metered_spend_usd honours include_pending=False","status":"passed","testResultsByEnv":{"default":"292822ce8c6e1e1b25edca6c62f3ba92"}}

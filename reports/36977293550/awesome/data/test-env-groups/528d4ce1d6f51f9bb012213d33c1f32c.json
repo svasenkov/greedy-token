@@ -1,1 +1,1 @@
-{"id":"528d4ce1d6f51f9bb012213d33c1f32c","fullName":"tests.test_budget_gaps#test_policy_registry_fallback_auto","name":"registry failure falls back to policy 'auto'","status":"passed","testResultsByEnv":{"default":"af7284833f6593edf3f90eaa08d38f7a"}}
+{"id":"528d4ce1d6f51f9bb012213d33c1f32c","fullName":"tests.test_budget_gaps#test_policy_registry_fallback_auto","name":"registry failure falls back to policy 'auto'","status":"passed","testResultsByEnv":{"default":"2cbf7a54ff8f9af75df80b34dc200581"}}

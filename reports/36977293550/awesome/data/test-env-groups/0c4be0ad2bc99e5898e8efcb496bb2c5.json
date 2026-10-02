@@ -1,1 +1,1 @@
-{"id":"0c4be0ad2bc99e5898e8efcb496bb2c5","fullName":"tests.test_init#test_package_version","name":"Package exposes version string","status":"passed","testResultsByEnv":{"default":"7ed55139a7c536bef0d11821f9a5a47d"}}
+{"id":"0c4be0ad2bc99e5898e8efcb496bb2c5","fullName":"tests.test_init#test_package_version","name":"Package exposes version string","status":"passed","testResultsByEnv":{"default":"4976066c2e86f12b49ebe40af0db3302"}}

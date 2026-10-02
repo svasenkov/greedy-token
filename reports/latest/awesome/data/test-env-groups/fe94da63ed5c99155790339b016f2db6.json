@@ -1,1 +1,1 @@
-{"id":"fe94da63ed5c99155790339b016f2db6","fullName":"tests.test_budget_gaps#test_footer_full_tier_billing","name":"full footer: tier-specific billing lines for rag/ollama/cursor/python","status":"passed","testResultsByEnv":{"default":"8814298eec34cbb85673d7cf26ef4beb"}}
+{"id":"fe94da63ed5c99155790339b016f2db6","fullName":"tests.test_budget_gaps#test_footer_full_tier_billing","name":"full footer: tier-specific billing lines for rag/ollama/cursor/python","status":"passed","testResultsByEnv":{"default":"e3e0a40ca213cfd528a08f470fd310b3"}}

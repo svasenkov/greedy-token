@@ -1,1 +1,1 @@
-{"id":"4837eb49e62388f1b843f00e9782bf94","fullName":"tests.test_trust#test_approval_rejects_symlink_escape","name":"Approval rejects a workspace symlink that escapes the root","status":"passed","testResultsByEnv":{"default":"b1281b9a30573f6c3c134b4f2bf43d1d"}}
+{"id":"4837eb49e62388f1b843f00e9782bf94","fullName":"tests.test_trust#test_approval_rejects_symlink_escape","name":"Approval rejects a workspace symlink that escapes the root","status":"passed","testResultsByEnv":{"default":"5952c3b812245387c70378879cbecd4a"}}

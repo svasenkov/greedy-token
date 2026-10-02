@@ -1,1 +1,1 @@
-{"id":"1694adabba7eacede50be3b83331ec95","fullName":"tests.test_metered_bulk#test_metered_bulk_ready","name":"metered_bulk_ready: needs both a fallback model and the opt-in","status":"passed","testResultsByEnv":{"default":"680c262ec7b86a35d13c1f19b68a030e"}}
+{"id":"1694adabba7eacede50be3b83331ec95","fullName":"tests.test_metered_bulk#test_metered_bulk_ready","name":"metered_bulk_ready: needs both a fallback model and the opt-in","status":"passed","testResultsByEnv":{"default":"499e1a9e301fc0b616b73e5840bb1058"}}

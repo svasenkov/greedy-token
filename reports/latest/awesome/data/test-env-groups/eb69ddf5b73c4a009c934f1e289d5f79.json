@@ -1,1 +1,1 @@
-{"id":"eb69ddf5b73c4a009c934f1e289d5f79","fullName":"tests.test_budget#test_format_savings_lines","name":"Format savings lines for MCP tool footer","status":"passed","testResultsByEnv":{"default":"bb66864942c7f7f09e06aa1b4a56f9d8"}}
+{"id":"eb69ddf5b73c4a009c934f1e289d5f79","fullName":"tests.test_budget#test_format_savings_lines","name":"Format savings lines for MCP tool footer","status":"passed","testResultsByEnv":{"default":"1c78a3c6aa4cb658a99b46738fd0cbe5"}}

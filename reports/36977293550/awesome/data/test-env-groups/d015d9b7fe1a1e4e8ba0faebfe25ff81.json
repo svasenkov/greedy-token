@@ -1,1 +1,1 @@
-{"id":"d015d9b7fe1a1e4e8ba0faebfe25ff81","fullName":"tests.test_init#test_resolve_version_raises_when_unresolvable","name":"resolve_version raises when version cannot be resolved","status":"passed","testResultsByEnv":{"default":"1b60d3c7b64444419251f8a92d5b6702"}}
+{"id":"d015d9b7fe1a1e4e8ba0faebfe25ff81","fullName":"tests.test_init#test_resolve_version_raises_when_unresolvable","name":"resolve_version raises when version cannot be resolved","status":"passed","testResultsByEnv":{"default":"946773945e93d2dc4097115fa0a29ce0"}}

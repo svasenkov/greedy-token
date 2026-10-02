@@ -1,1 +1,1 @@
-{"id":"9218ca8cb3591d52de202a1420e530f7","fullName":"tests.test_usage#test_log_path_custom","name":"log_path honors GREEDY_TOKEN_LOG env","status":"passed","testResultsByEnv":{"default":"10223061b18a8ab7378fb3923c5c1c1f"}}
+{"id":"9218ca8cb3591d52de202a1420e530f7","fullName":"tests.test_usage#test_log_path_custom","name":"log_path honors GREEDY_TOKEN_LOG env","status":"passed","testResultsByEnv":{"default":"e1be0353f76cf8a84e4d731789a593cf"}}

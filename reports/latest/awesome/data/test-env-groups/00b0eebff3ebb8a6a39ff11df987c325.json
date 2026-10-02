@@ -1,1 +1,1 @@
-{"id":"00b0eebff3ebb8a6a39ff11df987c325","fullName":"tests.test_prompt_compress#test_compress_prompt_detail_heuristic","name":"Prompt detail compression uses heuristic when Ollama disabled","status":"passed","testResultsByEnv":{"default":"538b38ca9049d71fcf0a890ae5e51ace"}}
+{"id":"00b0eebff3ebb8a6a39ff11df987c325","fullName":"tests.test_prompt_compress#test_compress_prompt_detail_heuristic","name":"Prompt detail compression uses heuristic when Ollama disabled","status":"passed","testResultsByEnv":{"default":"3995139299a382b72aacb3efe6538e2c"}}

@@ -1,1 +1,1 @@
-{"id":"2ae6274fab7ca1c4d24e954691ee8127","fullName":"tests.test_hook_host#test_intercept_serialization_and_spill_are_exact","name":"test_intercept_serialization_and_spill_are_exact[devin]","status":"passed","testResultsByEnv":{"default":"34147d28e21dad4ac494a6a87482ac67"}}
+{"id":"2ae6274fab7ca1c4d24e954691ee8127","fullName":"tests.test_hook_host#test_intercept_serialization_and_spill_are_exact","name":"test_intercept_serialization_and_spill_are_exact[cursor]","status":"passed","testResultsByEnv":{"default":"647b706aaf376647a7b29f4d750d4557"}}

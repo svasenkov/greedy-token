@@ -1,1 +1,1 @@
-{"id":"fdaa508e568947aeb0a3991a6460d30c","fullName":"tests.test_mcp_stdio#test_mcp_stdio_lists_eight_tools","name":"MCP stdio server advertises eight greedy-token tools","status":"passed","testResultsByEnv":{"default":"94f809170c2cdb55eeb641598e481e0e"}}
+{"id":"fdaa508e568947aeb0a3991a6460d30c","fullName":"tests.test_mcp_stdio#test_mcp_stdio_lists_eight_tools","name":"MCP stdio server advertises eight greedy-token tools","status":"passed","testResultsByEnv":{"default":"bdf0cba93f92e2d97e18e9e5cc5dc076"}}

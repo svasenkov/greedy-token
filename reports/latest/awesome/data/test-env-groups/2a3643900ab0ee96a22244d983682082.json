@@ -1,1 +1,1 @@
-{"id":"2a3643900ab0ee96a22244d983682082","fullName":"tests.test_tool_paths#test_resolve_rg_own_copy_beats_ide_bundles","name":"resolve_rg prefers ~/.greedy-token/bin/rg over IDE bundles","status":"passed","testResultsByEnv":{"default":"7ee9f7e6fe94804f7639864958adf02b"}}
+{"id":"2a3643900ab0ee96a22244d983682082","fullName":"tests.test_tool_paths#test_resolve_rg_own_copy_beats_ide_bundles","name":"resolve_rg prefers ~/.greedy-token/bin/rg over IDE bundles","status":"passed","testResultsByEnv":{"default":"e7a2938b50ae39aa85d8595741223713"}}

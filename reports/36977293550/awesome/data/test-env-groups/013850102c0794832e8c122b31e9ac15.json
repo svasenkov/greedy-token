@@ -1,1 +1,1 @@
-{"id":"013850102c0794832e8c122b31e9ac15","fullName":"tests.test_trust#test_trusted_argv_rejects_type_mismatches","name":"Interpreter and direct execution must match the approved script type","status":"passed","testResultsByEnv":{"default":"53a78240e299b441cb4b9bee28cfc429"}}
+{"id":"013850102c0794832e8c122b31e9ac15","fullName":"tests.test_trust#test_trusted_argv_rejects_type_mismatches","name":"Interpreter and direct execution must match the approved script type","status":"passed","testResultsByEnv":{"default":"75d845b515582bb2e58b6bb18b080c6e"}}

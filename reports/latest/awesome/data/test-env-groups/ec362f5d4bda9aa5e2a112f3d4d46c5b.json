@@ -1,1 +1,1 @@
-{"id":"ec362f5d4bda9aa5e2a112f3d4d46c5b","fullName":"tests.test_usage#test_normalize_task","name":"normalize_task collapses case and whitespace","status":"passed","testResultsByEnv":{"default":"d1e4ca47e05a132121ac2ac7a15dc35c"}}
+{"id":"ec362f5d4bda9aa5e2a112f3d4d46c5b","fullName":"tests.test_usage#test_normalize_task","name":"normalize_task collapses case and whitespace","status":"passed","testResultsByEnv":{"default":"a202f1851dd1187cd1031f42b0625ca1"}}

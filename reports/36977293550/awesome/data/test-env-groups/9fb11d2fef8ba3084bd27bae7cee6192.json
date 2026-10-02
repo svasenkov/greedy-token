@@ -1,1 +1,1 @@
-{"id":"9fb11d2fef8ba3084bd27bae7cee6192","fullName":"tests.test_advisory#test_render_result_output_truncation","name":"render_result_output caps rows and truncates wide cells","status":"passed","testResultsByEnv":{"default":"4c7fb415604e37d2058831dacc354e79"}}
+{"id":"9fb11d2fef8ba3084bd27bae7cee6192","fullName":"tests.test_advisory#test_render_result_output_truncation","name":"render_result_output caps rows and truncates wide cells","status":"passed","testResultsByEnv":{"default":"2b813201b53a2406a010e8d450ea909e"}}

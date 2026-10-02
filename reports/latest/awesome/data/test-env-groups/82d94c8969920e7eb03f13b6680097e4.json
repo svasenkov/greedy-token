@@ -1,1 +1,1 @@
-{"id":"82d94c8969920e7eb03f13b6680097e4","fullName":"tests.test_cli_handlers#test_cmd_config_export_reveal","name":"cmd_config --export --reveal prints secret with a stderr warning","status":"passed","testResultsByEnv":{"default":"52540d4b0d025dd258a9823ff14bdf5a"}}
+{"id":"82d94c8969920e7eb03f13b6680097e4","fullName":"tests.test_cli_handlers#test_cmd_config_export_reveal","name":"cmd_config --export --reveal prints secret with a stderr warning","status":"passed","testResultsByEnv":{"default":"e8e177c65d93d2d73cb0f1236118d65b"}}

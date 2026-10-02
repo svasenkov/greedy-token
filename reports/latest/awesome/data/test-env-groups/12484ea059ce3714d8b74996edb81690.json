@@ -1,1 +1,1 @@
-{"id":"12484ea059ce3714d8b74996edb81690","fullName":"tests.test_metered_bulk#test_metered_opt_in","name":"metered_opt_in: config, env tokens, cli flag, default off","status":"passed","testResultsByEnv":{"default":"5bc8ca71c75ff162cbc5c4d52d637898"}}
+{"id":"12484ea059ce3714d8b74996edb81690","fullName":"tests.test_metered_bulk#test_metered_opt_in","name":"metered_opt_in: config, env tokens, cli flag, default off","status":"passed","testResultsByEnv":{"default":"cdf83f1478490fa028dd8931f868536e"}}

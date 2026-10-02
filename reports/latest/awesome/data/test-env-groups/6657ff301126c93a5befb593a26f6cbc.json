@@ -1,1 +1,1 @@
-{"id":"6657ff301126c93a5befb593a26f6cbc","fullName":"tests.test_budget#test_format_tool_footer_compact_default","name":"Compact footer is default and shorter than full","status":"passed","testResultsByEnv":{"default":"06e464d3344292c08357adc933ab6526"}}
+{"id":"6657ff301126c93a5befb593a26f6cbc","fullName":"tests.test_budget#test_format_tool_footer_compact_default","name":"Compact footer is default and shorter than full","status":"passed","testResultsByEnv":{"default":"1db73ae7d58b25e6eb15f6d5b44d6764"}}

@@ -1,1 +1,1 @@
-{"id":"7e33e0f6269f7ae7f8f35a39c736c739","fullName":"tests.test_executors#test_plan_run_audit_skill_executable","name":"plan_run marks stdout-only audit-skill as executable","status":"passed","testResultsByEnv":{"default":"375d8f8104d73352a9c3289ae37883f7"}}
+{"id":"7e33e0f6269f7ae7f8f35a39c736c739","fullName":"tests.test_executors#test_plan_run_audit_skill_executable","name":"plan_run marks stdout-only audit-skill as executable","status":"passed","testResultsByEnv":{"default":"f92eae33e6576f5ac9e75144f99fc128"}}

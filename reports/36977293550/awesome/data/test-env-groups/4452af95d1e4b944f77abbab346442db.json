@@ -1,1 +1,1 @@
-{"id":"4452af95d1e4b944f77abbab346442db","fullName":"tests.test_budget_gaps#test_format_spent_line_exact","name":"format_spent_line pins label, indent and hint join","status":"passed","testResultsByEnv":{"default":"407c341a013034584a5843c55587d870"}}
+{"id":"4452af95d1e4b944f77abbab346442db","fullName":"tests.test_budget_gaps#test_format_spent_line_exact","name":"format_spent_line pins label, indent and hint join","status":"passed","testResultsByEnv":{"default":"229671b9ccb4f2494d499f76cc377c3d"}}

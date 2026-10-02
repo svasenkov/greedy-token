@@ -1,1 +1,1 @@
-{"id":"35222f3c10e6ea57a1cbcdc76bb89bbb","fullName":"tests.test_coverage_gaps#test_trust_home_default","name":"_trust_home falls back to ~/.greedy-token without GREEDY_TOKEN_HOME","status":"passed","testResultsByEnv":{"default":"e7a40c0e4b75012c6dbd317b245126b6"}}
+{"id":"35222f3c10e6ea57a1cbcdc76bb89bbb","fullName":"tests.test_coverage_gaps#test_trust_home_default","name":"_trust_home falls back to ~/.greedy-token without GREEDY_TOKEN_HOME","status":"passed","testResultsByEnv":{"default":"75906bbff2b6c9394626d8ac9c0a6368"}}

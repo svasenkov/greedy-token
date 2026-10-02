@@ -1,1 +1,1 @@
-{"id":"fc0dcdeec2d5643e8053ef762ce7885c","fullName":"tests.test_budget_gaps#test_deprecated_local_hint","name":"deprecated local model appends pull hint for ollama route","status":"passed","testResultsByEnv":{"default":"71268cf17fc64e460f6ef06ee029b93d"}}
+{"id":"fc0dcdeec2d5643e8053ef762ce7885c","fullName":"tests.test_budget_gaps#test_deprecated_local_hint","name":"deprecated local model appends pull hint for ollama route","status":"passed","testResultsByEnv":{"default":"627f48572d8b72b5b9def7113a039e59"}}

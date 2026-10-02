@@ -1,1 +1,1 @@
-{"id":"3b0613539472a8ed0da4faa178d1fb71","fullName":"tests.test_cli_handlers#test_cmd_config_export_masks_secret","name":"cmd_config --export masks CHEAP_LLM_API_KEY by default","status":"passed","testResultsByEnv":{"default":"fad6a545665c72d568e19c3c5fc15fc2"}}
+{"id":"3b0613539472a8ed0da4faa178d1fb71","fullName":"tests.test_cli_handlers#test_cmd_config_export_masks_secret","name":"cmd_config --export masks CHEAP_LLM_API_KEY by default","status":"passed","testResultsByEnv":{"default":"a2e2c0ea5d25e22c6ff2cf32ed025ba1"}}

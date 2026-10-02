@@ -1,1 +1,1 @@
-{"id":"b3ad8404446fe7ddfeb0fe7ffd8961ff","fullName":"tests.test_cheap_llm#test_cheap_llm_available_ollama","name":"cheap_llm_available probes Ollama /api/tags and requires the configured model","status":"passed","testResultsByEnv":{"default":"d13f1ee6ff0073f9ae4070269b96d5ae"}}
+{"id":"b3ad8404446fe7ddfeb0fe7ffd8961ff","fullName":"tests.test_cheap_llm#test_cheap_llm_available_ollama","name":"cheap_llm_available probes Ollama /api/tags and requires the configured model","status":"passed","testResultsByEnv":{"default":"6df84ef0b530bfafe9326ab28b87a27b"}}

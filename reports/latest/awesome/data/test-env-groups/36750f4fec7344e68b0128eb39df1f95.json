@@ -1,1 +1,1 @@
-{"id":"36750f4fec7344e68b0128eb39df1f95","fullName":"tests.test_budget#test_footer_saved_single_under_legacy_threshold","name":"legacy threshold env alone keeps the saved figure intercept-level","status":"passed","testResultsByEnv":{"default":"5217b43802df7ba2785dff177778a640"}}
+{"id":"36750f4fec7344e68b0128eb39df1f95","fullName":"tests.test_budget#test_footer_saved_single_under_legacy_threshold","name":"legacy threshold env alone keeps the saved figure intercept-level","status":"passed","testResultsByEnv":{"default":"b55a0eb71239f7143edf56282ebc7110"}}

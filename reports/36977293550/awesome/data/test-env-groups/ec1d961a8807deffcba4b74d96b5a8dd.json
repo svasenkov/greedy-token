@@ -1,1 +1,1 @@
-{"id":"ec1d961a8807deffcba4b74d96b5a8dd","fullName":"tests.test_mcp_handlers#test_greedy_token_usage_footer","name":"greedy_token_usage appends session totals footer","status":"passed","testResultsByEnv":{"default":"9b09341218e83cdc1b2c6424f2361f2e"}}
+{"id":"ec1d961a8807deffcba4b74d96b5a8dd","fullName":"tests.test_mcp_handlers#test_greedy_token_usage_footer","name":"greedy_token_usage appends session totals footer","status":"passed","testResultsByEnv":{"default":"946858c88ac6a3946c45c491aaf3cdc1"}}

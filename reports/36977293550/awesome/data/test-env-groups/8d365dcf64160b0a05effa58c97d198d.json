@@ -1,1 +1,1 @@
-{"id":"8d365dcf64160b0a05effa58c97d198d","fullName":"tests.test_usage#test_recommendation_event_contract","name":"Recommendation event: phase=recommended, no executed, no credited savings","status":"passed","testResultsByEnv":{"default":"f46180fd42a9b248051b2f8b291084d2"}}
+{"id":"8d365dcf64160b0a05effa58c97d198d","fullName":"tests.test_usage#test_recommendation_event_contract","name":"Recommendation event: phase=recommended, no executed, no credited savings","status":"passed","testResultsByEnv":{"default":"f0cc8918dd7c496545770820bbb5a24e"}}

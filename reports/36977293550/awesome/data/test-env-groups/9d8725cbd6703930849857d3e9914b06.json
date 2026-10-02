@@ -1,1 +1,1 @@
-{"id":"9d8725cbd6703930849857d3e9914b06","fullName":"tests.test_usage#test_append_event_hook_mode","name":"hook_mode is stamped from env/config so cursor_saved can be judged","status":"passed","testResultsByEnv":{"default":"8abf825363b2f5783b941b05ef054fe6"}}
+{"id":"9d8725cbd6703930849857d3e9914b06","fullName":"tests.test_usage#test_append_event_hook_mode","name":"hook_mode is stamped from env/config so cursor_saved can be judged","status":"passed","testResultsByEnv":{"default":"9b048217e51a356a584507ff8d9539a0"}}

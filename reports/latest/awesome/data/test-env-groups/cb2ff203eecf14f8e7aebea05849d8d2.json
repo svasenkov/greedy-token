@@ -1,1 +1,1 @@
-{"id":"cb2ff203eecf14f8e7aebea05849d8d2","fullName":"tests.test_cli_handlers#test_cmd_init_bad_profile","name":"cmd_init rejects unknown profile","status":"passed","testResultsByEnv":{"default":"466a03c5bc2984bc7c94154ef964404d"}}
+{"id":"cb2ff203eecf14f8e7aebea05849d8d2","fullName":"tests.test_cli_handlers#test_cmd_init_bad_profile","name":"cmd_init rejects unknown profile","status":"passed","testResultsByEnv":{"default":"3523a236a2e344cadc9b3dd57e734137"}}

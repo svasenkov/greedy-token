@@ -1,1 +1,1 @@
-{"id":"6645fb26e4da36b3fc1f3769515cc305","fullName":"tests.test_settings#test_get_hook_settings_no_root","name":"get_hook_settings without root → unconfigured","status":"passed","testResultsByEnv":{"default":"99963733cd94eabd0b9f81236c839b32"}}
+{"id":"6645fb26e4da36b3fc1f3769515cc305","fullName":"tests.test_settings#test_get_hook_settings_no_root","name":"get_hook_settings without root → unconfigured","status":"passed","testResultsByEnv":{"default":"0e03b960678c4f01c716499b4f2a6a3a"}}

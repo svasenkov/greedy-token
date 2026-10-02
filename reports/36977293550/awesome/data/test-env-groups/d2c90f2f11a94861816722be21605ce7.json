@@ -1,1 +1,1 @@
-{"id":"d2c90f2f11a94861816722be21605ce7","fullName":"tests.test_code_search_gaps#test_load_ignore_specs_hidden_ancestor","name":"_load_ignore_specs: .ignore under a hidden ancestor is skipped","status":"passed","testResultsByEnv":{"default":"e662dd57bb070e9330e23a24a5e928de"}}
+{"id":"d2c90f2f11a94861816722be21605ce7","fullName":"tests.test_code_search_gaps#test_load_ignore_specs_hidden_ancestor","name":"_load_ignore_specs: .ignore under a hidden ancestor is skipped","status":"passed","testResultsByEnv":{"default":"92a412349f31bd24d93f569ef28bf0fe"}}

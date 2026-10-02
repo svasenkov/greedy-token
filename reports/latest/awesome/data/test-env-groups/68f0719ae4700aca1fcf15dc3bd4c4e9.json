@@ -1,1 +1,1 @@
-{"id":"68f0719ae4700aca1fcf15dc3bd4c4e9","fullName":"tests.test_hook_policy#test_non_enforcing_modes_keep_advisory_events","name":"test_non_enforcing_modes_keep_advisory_events[advisory-0.65-advisory]","status":"passed","testResultsByEnv":{"default":"682bcee5056437aee511a81546ad8c45"}}
+{"id":"68f0719ae4700aca1fcf15dc3bd4c4e9","fullName":"tests.test_hook_policy#test_non_enforcing_modes_keep_advisory_events","name":"test_non_enforcing_modes_keep_advisory_events[intercept-0.8-low_confidence]","status":"passed","testResultsByEnv":{"default":"5b744dc151b8e61d44c4df5c0639d6c2"}}

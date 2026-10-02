@@ -1,1 +1,1 @@
-{"id":"64edef369e9ccfd9ca7e98ea8e65f338","fullName":"tests.test_router#test_score_patterns_accumulates","name":"_score_patterns accumulates per-match weight and length bonus","status":"passed","testResultsByEnv":{"default":"3635d2d1b2bba047cb7bc3c9892975bc"}}
+{"id":"64edef369e9ccfd9ca7e98ea8e65f338","fullName":"tests.test_router#test_score_patterns_accumulates","name":"_score_patterns accumulates per-match weight and length bonus","status":"passed","testResultsByEnv":{"default":"b35225ac5e20ca457676d1b07bfe9eb4"}}

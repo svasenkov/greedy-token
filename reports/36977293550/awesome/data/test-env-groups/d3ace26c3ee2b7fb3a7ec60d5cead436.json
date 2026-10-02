@@ -1,1 +1,1 @@
-{"id":"d3ace26c3ee2b7fb3a7ec60d5cead436","fullName":"tests.test_prompt_compress#test_compress_ollama_detail","name":"compress_ollama_detail calls stub server","status":"passed","testResultsByEnv":{"default":"49f09824faddd85441749002ad886100"}}
+{"id":"d3ace26c3ee2b7fb3a7ec60d5cead436","fullName":"tests.test_prompt_compress#test_compress_ollama_detail","name":"compress_ollama_detail calls stub server","status":"passed","testResultsByEnv":{"default":"e68aa3421bc832f2cd4b00bf6c171656"}}

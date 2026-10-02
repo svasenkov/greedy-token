@@ -1,1 +1,1 @@
-{"id":"e150471a818bff142a0ffb1634cd4f8c","fullName":"tests.test_budget_gaps#test_wrap_mcp_response_body_strip","name":"wrap_mcp_response strips only trailing body whitespace","status":"passed","testResultsByEnv":{"default":"6fc86a3739d17c78525daff4d3a0b70b"}}
+{"id":"e150471a818bff142a0ffb1634cd4f8c","fullName":"tests.test_budget_gaps#test_wrap_mcp_response_body_strip","name":"wrap_mcp_response strips only trailing body whitespace","status":"passed","testResultsByEnv":{"default":"2a2e2e155239811114021a52d0cfc93d"}}

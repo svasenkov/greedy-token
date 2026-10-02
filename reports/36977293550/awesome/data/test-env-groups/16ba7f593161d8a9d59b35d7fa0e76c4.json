@@ -1,1 +1,1 @@
-{"id":"16ba7f593161d8a9d59b35d7fa0e76c4","fullName":"tests.test_prompt_compress#test_compress_heuristic_short_unchanged","name":"Heuristic compression keeps short prompts unchanged","status":"passed","testResultsByEnv":{"default":"eca5ccec362e153bd00ec5521d26d06f"}}
+{"id":"16ba7f593161d8a9d59b35d7fa0e76c4","fullName":"tests.test_prompt_compress#test_compress_heuristic_short_unchanged","name":"Heuristic compression keeps short prompts unchanged","status":"passed","testResultsByEnv":{"default":"ef123f780eec8ade432c5b2eb30b92f7"}}

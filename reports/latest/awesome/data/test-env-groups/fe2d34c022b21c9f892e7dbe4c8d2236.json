@@ -1,1 +1,1 @@
-{"id":"fe2d34c022b21c9f892e7dbe4c8d2236","fullName":"tests.test_cli_gaps#test_cmd_llm_list","name":"cmd_llm_list prints registry and models","status":"passed","testResultsByEnv":{"default":"9ecf12d20ae41716d4e78395524c9268"}}
+{"id":"fe2d34c022b21c9f892e7dbe4c8d2236","fullName":"tests.test_cli_gaps#test_cmd_llm_list","name":"cmd_llm_list prints registry and models","status":"passed","testResultsByEnv":{"default":"5400341b10bc391bfdbfe79f0d965694"}}

@@ -1,1 +1,1 @@
-{"id":"f3836278f56dde4085bfa3c78d17f656","fullName":"tests.test_trust#test_bare_trusted_paths_do_not_authorize_argv","name":"Bare trusted_script_paths is a deprecated refusal, never authority","status":"passed","testResultsByEnv":{"default":"f3e21fef20a944ff09ef7119c967528d"}}
+{"id":"f3836278f56dde4085bfa3c78d17f656","fullName":"tests.test_trust#test_bare_trusted_paths_do_not_authorize_argv","name":"Bare trusted_script_paths is a deprecated refusal, never authority","status":"passed","testResultsByEnv":{"default":"132b02ba09de27326a0848456d0d1e94"}}

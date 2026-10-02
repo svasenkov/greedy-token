@@ -1,1 +1,1 @@
-{"id":"45543719d8faab98b64058782ea06143","fullName":"tests.test_ci_install_profile#test_pyproject_still_uses_xdist","name":"pyproject keeps xdist in dev deps and -n auto in addopts","status":"passed","testResultsByEnv":{"default":"8c47b836e6201d606d0524ce4dc38cc1"}}
+{"id":"45543719d8faab98b64058782ea06143","fullName":"tests.test_ci_install_profile#test_pyproject_still_uses_xdist","name":"pyproject keeps xdist in dev deps and -n auto in addopts","status":"passed","testResultsByEnv":{"default":"d983bada271f1886fbe43b577473ba41"}}

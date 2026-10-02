@@ -1,1 +1,1 @@
-{"id":"e9ea005002952280f02d5e6a06cd15e3","fullName":"tests.test_coverage_gaps#test_mcp_crystallize_actions","name":"greedy_token_crystallize validates crystal_id and approves","status":"passed","testResultsByEnv":{"default":"332ff3d2182df0999721dda23740f57c"}}
+{"id":"e9ea005002952280f02d5e6a06cd15e3","fullName":"tests.test_coverage_gaps#test_mcp_crystallize_actions","name":"greedy_token_crystallize validates crystal_id and approves","status":"passed","testResultsByEnv":{"default":"71da0e64da02f5cd85d1bc14a1303dcb"}}

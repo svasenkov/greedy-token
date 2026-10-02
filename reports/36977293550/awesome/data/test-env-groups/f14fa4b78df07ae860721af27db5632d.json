@@ -1,1 +1,1 @@
-{"id":"f14fa4b78df07ae860721af27db5632d","fullName":"tests.test_hook_host#test_parse_prompt_handles_absent_and_invalid_values","name":"test_parse_prompt_handles_absent_and_invalid_values[None--cursor]","status":"passed","testResultsByEnv":{"default":"84b2cc95778655fe4ea4fb9dd1966e11"}}
+{"id":"f14fa4b78df07ae860721af27db5632d","fullName":"tests.test_hook_host#test_parse_prompt_handles_absent_and_invalid_values","name":"test_parse_prompt_handles_absent_and_invalid_values[--devin]","status":"passed","testResultsByEnv":{"default":"899ee1b2c9e159e71a6f5d8d954fba6a"}}

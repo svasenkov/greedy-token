@@ -1,1 +1,1 @@
-{"id":"1d76f5105e7e24c083aa8725d2c2006f","fullName":"tests.test_crystallize_l3#test_draft_with_ollama_stub","name":"draft with ollama stub: cheap_llm-generated body","status":"passed","testResultsByEnv":{"default":"1a8303067e601762cbb7cfb332384c11"}}
+{"id":"1d76f5105e7e24c083aa8725d2c2006f","fullName":"tests.test_crystallize_l3#test_draft_with_ollama_stub","name":"draft with ollama stub: cheap_llm-generated body","status":"passed","testResultsByEnv":{"default":"94e81bfa7fe8394d998ce5e4d903e448"}}

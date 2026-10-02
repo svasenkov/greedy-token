@@ -1,1 +1,1 @@
-{"id":"f61c4ccff99904709946829068c68032","fullName":"tests.test_trust#test_malformed_manifests_fail_closed","name":"Malformed, absolute-path, duplicate, and symlink manifests fail closed","status":"passed","testResultsByEnv":{"default":"94606d8bf3c9e4479969707a24704eb0"}}
+{"id":"f61c4ccff99904709946829068c68032","fullName":"tests.test_trust#test_malformed_manifests_fail_closed","name":"Malformed, absolute-path, duplicate, and symlink manifests fail closed","status":"passed","testResultsByEnv":{"default":"d4136ddd9bf13fdcdc1e0198473abc66"}}

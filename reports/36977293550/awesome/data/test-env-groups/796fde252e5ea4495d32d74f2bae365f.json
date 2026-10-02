@@ -1,1 +1,1 @@
-{"id":"796fde252e5ea4495d32d74f2bae365f","fullName":"tests.test_search#test_extract_search_query","name":"Extract search query `prometheus` from task","status":"passed","testResultsByEnv":{"default":"da982497090eab895dbb8b5b02b49eef"}}
+{"id":"796fde252e5ea4495d32d74f2bae365f","fullName":"tests.test_search#test_extract_search_query","name":"Extract search query `phase-manifest.json` from task","status":"passed","testResultsByEnv":{"default":"9c9681945b2471a5832d655b4853ee82"}}

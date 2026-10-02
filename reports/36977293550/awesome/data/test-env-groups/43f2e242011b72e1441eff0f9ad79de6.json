@@ -1,1 +1,1 @@
-{"id":"43f2e242011b72e1441eff0f9ad79de6","fullName":"tests.test_settings#test_get_ollama_settings_no_root","name":"get_ollama_settings tolerates missing workspace root","status":"passed","testResultsByEnv":{"default":"ae5b857c1880d416d11530d15260863a"}}
+{"id":"43f2e242011b72e1441eff0f9ad79de6","fullName":"tests.test_settings#test_get_ollama_settings_no_root","name":"get_ollama_settings tolerates missing workspace root","status":"passed","testResultsByEnv":{"default":"bd2a0c021f9177fed30c02e8e44f0907"}}

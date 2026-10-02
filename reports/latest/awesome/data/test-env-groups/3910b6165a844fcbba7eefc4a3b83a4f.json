@@ -1,1 +1,1 @@
-{"id":"3910b6165a844fcbba7eefc4a3b83a4f","fullName":"tests.test_cheap_llm#test_model_is_served_latest_alias","name":"Untagged model matches the :latest tag Ollama reports","status":"passed","testResultsByEnv":{"default":"bd89541bd9670100530e613690e6034d"}}
+{"id":"3910b6165a844fcbba7eefc4a3b83a4f","fullName":"tests.test_cheap_llm#test_model_is_served_latest_alias","name":"Untagged model matches the :latest tag Ollama reports","status":"passed","testResultsByEnv":{"default":"7141479d2a221d0501e5543af46be59c"}}

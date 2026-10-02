@@ -1,1 +1,1 @@
-{"id":"2e8674d3d9879aeab21d4ae3982447f1","fullName":"tests.test_hook_host#test_ask_prefix_normalization","name":"test_ask_prefix_normalization[?request-request-True]","status":"passed","testResultsByEnv":{"default":"642d2a5666a45a1da610a47cda60ffe8"}}
+{"id":"2e8674d3d9879aeab21d4ae3982447f1","fullName":"tests.test_hook_host#test_ask_prefix_normalization","name":"test_ask_prefix_normalization[ask:-ask:-True]","status":"passed","testResultsByEnv":{"default":"f6479a2f10bff7a503199df0ce55a196"}}

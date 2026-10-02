@@ -1,1 +1,1 @@
-{"id":"41d65de3e387fddbd1cc4920d4c8e54d","fullName":"tests.test_rag_index_gaps#test_strip_frontmatter_offsets_exact","name":"closer search starts past the opening delimiter and picks the first close","status":"passed","testResultsByEnv":{"default":"d2d340557fdb7618d5f35f6516e15930"}}
+{"id":"41d65de3e387fddbd1cc4920d4c8e54d","fullName":"tests.test_rag_index_gaps#test_strip_frontmatter_offsets_exact","name":"closer search starts past the opening delimiter and picks the first close","status":"passed","testResultsByEnv":{"default":"cc221881d12712ae6de8a76f51797457"}}

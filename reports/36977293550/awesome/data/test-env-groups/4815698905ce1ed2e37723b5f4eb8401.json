@@ -1,1 +1,1 @@
-{"id":"4815698905ce1ed2e37723b5f4eb8401","fullName":"tests.test_paths#test_bundled_routes_are_generic","name":"Bundled routes.yaml is generic: rg over '.', rag, cursor — no workspace ids","status":"passed","testResultsByEnv":{"default":"d44ff16929a9b6dbb21dea9621a4688e"}}
+{"id":"4815698905ce1ed2e37723b5f4eb8401","fullName":"tests.test_paths#test_bundled_routes_are_generic","name":"Bundled routes.yaml is generic: rg over '.', rag, cursor — no workspace ids","status":"passed","testResultsByEnv":{"default":"f2285779e1015bd2026ae9430fc06f74"}}

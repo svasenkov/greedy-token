@@ -1,1 +1,1 @@
-{"id":"b0fd7aed30a2ddda6398f09ca9f12f11","fullName":"tests.test_cli_handlers#test_cmd_init_apply_writes_policy","name":"cmd_init --apply writes config with profile policy","status":"passed","testResultsByEnv":{"default":"1f58e9c898cbfbe89d954fce1fcb0297"}}
+{"id":"b0fd7aed30a2ddda6398f09ca9f12f11","fullName":"tests.test_cli_handlers#test_cmd_init_apply_writes_policy","name":"cmd_init --apply writes config with profile policy","status":"passed","testResultsByEnv":{"default":"ba1ac04417521509cd48190a6d1bd87d"}}

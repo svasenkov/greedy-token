@@ -1,1 +1,1 @@
-{"id":"4b7f2eb3f38971b9957c5616899c97d9","fullName":"tests.test_spend_ledger#test_spend_log_path_full_default","name":"no env vars at all → ~/.greedy-token/spend.jsonl","status":"passed","testResultsByEnv":{"default":"b79106adea8692e3415690bf178a0b82"}}
+{"id":"4b7f2eb3f38971b9957c5616899c97d9","fullName":"tests.test_spend_ledger#test_spend_log_path_full_default","name":"no env vars at all → ~/.greedy-token/spend.jsonl","status":"passed","testResultsByEnv":{"default":"a1a8d5ea709747a84715ffa7adbfe377"}}

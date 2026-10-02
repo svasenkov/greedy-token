@@ -1,1 +1,1 @@
-{"id":"ec908292f98c099c7bec79e0e8edc2b7","fullName":"tests.test_cli_handlers#test_cmd_init_no_workspace","name":"cmd_init tolerates a missing workspace root","status":"passed","testResultsByEnv":{"default":"03a7d7193fa8fcd9ba9e4bb57ff77ccc"}}
+{"id":"ec908292f98c099c7bec79e0e8edc2b7","fullName":"tests.test_cli_handlers#test_cmd_init_no_workspace","name":"cmd_init tolerates a missing workspace root","status":"passed","testResultsByEnv":{"default":"85427a6431404003baf3b53d5ac611cc"}}

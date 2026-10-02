@@ -1,1 +1,1 @@
-{"id":"43b0afb71429bf534784f54d79df2660","fullName":"tests.test_portability#test_usage_metered_spend_utf8_on_ascii_locale","name":"usage_metered_spend_usd reads UTF-8 under an ASCII locale","status":"passed","testResultsByEnv":{"default":"69e17b2af51501475259a95d6fb4d3c2"}}
+{"id":"43b0afb71429bf534784f54d79df2660","fullName":"tests.test_portability#test_usage_metered_spend_utf8_on_ascii_locale","name":"usage_metered_spend_usd reads UTF-8 under an ASCII locale","status":"passed","testResultsByEnv":{"default":"c69496635618a18c6e72b76ca617ebe0"}}

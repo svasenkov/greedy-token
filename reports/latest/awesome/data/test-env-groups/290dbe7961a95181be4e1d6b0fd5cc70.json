@@ -1,1 +1,1 @@
-{"id":"290dbe7961a95181be4e1d6b0fd5cc70","fullName":"tests.test_spend_guard_gaps#test_today_utc_is_utc_calendar_day","name":"_today_utc uses UTC calendar date, not local","status":"passed","testResultsByEnv":{"default":"a94b744843b1aa493d38ed56abbeca84"}}
+{"id":"290dbe7961a95181be4e1d6b0fd5cc70","fullName":"tests.test_spend_guard_gaps#test_today_utc_is_utc_calendar_day","name":"_today_utc uses UTC calendar date, not local","status":"passed","testResultsByEnv":{"default":"e781f4c5560f9d7b2e1f87e8fe30fabe"}}

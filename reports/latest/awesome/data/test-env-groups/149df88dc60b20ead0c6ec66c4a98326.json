@@ -1,1 +1,1 @@
-{"id":"149df88dc60b20ead0c6ec66c4a98326","fullName":"tests.test_code_search_gaps#test_ignore_specs_scope_ancestors","name":"scope ancestors' .ignore files apply, like rg parent-dir handling","status":"passed","testResultsByEnv":{"default":"ed375b4f944ea8e33941d54ac6a03d9b"}}
+{"id":"149df88dc60b20ead0c6ec66c4a98326","fullName":"tests.test_code_search_gaps#test_ignore_specs_scope_ancestors","name":"scope ancestors' .ignore files apply, like rg parent-dir handling","status":"passed","testResultsByEnv":{"default":"6fe33454a4eead8d65c73345d6897fc1"}}

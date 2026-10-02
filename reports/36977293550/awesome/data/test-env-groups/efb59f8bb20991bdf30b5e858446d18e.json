@@ -1,1 +1,1 @@
-{"id":"efb59f8bb20991bdf30b5e858446d18e","fullName":"tests.test_budget#test_footer_saved_single_under_intercept","name":"saved shows a single figure when the hook mode is intercept","status":"passed","testResultsByEnv":{"default":"fcbc95d0250a23214995a42310c7480d"}}
+{"id":"efb59f8bb20991bdf30b5e858446d18e","fullName":"tests.test_budget#test_footer_saved_single_under_intercept","name":"saved shows a single figure when the hook mode is intercept","status":"passed","testResultsByEnv":{"default":"e2c86f7acf04c95b1b2c9373a34eee5f"}}

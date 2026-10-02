@@ -1,1 +1,1 @@
-{"id":"c611c6b86f41a0a6d701e4753a6177ec","fullName":"tests.test_cli_handlers#test_cmd_rag_payload_cap","name":"cmd_rag reports truncated/hits_dropped when rag.max_payload_tokens drops the hit","status":"passed","testResultsByEnv":{"default":"22af07aabccfa096d3f819b2a387b278"}}
+{"id":"c611c6b86f41a0a6d701e4753a6177ec","fullName":"tests.test_cli_handlers#test_cmd_rag_payload_cap","name":"cmd_rag reports truncated/hits_dropped when rag.max_payload_tokens drops the hit","status":"passed","testResultsByEnv":{"default":"ea1bb38786480688c8de1d1a9f149cb3"}}

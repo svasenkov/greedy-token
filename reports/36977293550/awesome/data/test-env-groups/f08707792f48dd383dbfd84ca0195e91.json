@@ -1,1 +1,1 @@
-{"id":"f08707792f48dd383dbfd84ca0195e91","fullName":"tests.test_spend_ledger#test_unknown_price_denied","name":"unknown or non-finite price is denied before opt-in","status":"passed","testResultsByEnv":{"default":"312c086fd48f774e0e5c4c0f80d3c702"}}
+{"id":"f08707792f48dd383dbfd84ca0195e91","fullName":"tests.test_spend_ledger#test_unknown_price_denied","name":"unknown or non-finite price is denied before opt-in","status":"passed","testResultsByEnv":{"default":"666eff45e74022eeb00abb8efa49280d"}}

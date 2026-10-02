@@ -1,1 +1,1 @@
-{"id":"dbd08b24341361e2151e961b6d36a24a","fullName":"tests.test_capabilities#test_invoke_route_structured_usage_refusal","name":"params:[args] route — bare usage refusal is a produced contract, args work","status":"passed","testResultsByEnv":{"default":"3a00d6f032b6b652ae05629c543b197c"}}
+{"id":"dbd08b24341361e2151e961b6d36a24a","fullName":"tests.test_capabilities#test_invoke_route_structured_usage_refusal","name":"params:[args] route — bare usage refusal is a produced contract, args work","status":"passed","testResultsByEnv":{"default":"ad78f43234235e890022e2564d551b34"}}

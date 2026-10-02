@@ -1,1 +1,1 @@
-{"id":"66228a88f2104ae42808a43497aac4d9","fullName":"tests.test_capabilities#test_invoke_route_args_workspace_confined","name":"params:[args] route — caller args stay workspace-confined","status":"passed","testResultsByEnv":{"default":"c1324bcc39742b9d481bfea8e5bb14a9"}}
+{"id":"66228a88f2104ae42808a43497aac4d9","fullName":"tests.test_capabilities#test_invoke_route_args_workspace_confined","name":"params:[args] route — caller args stay workspace-confined","status":"passed","testResultsByEnv":{"default":"3fdc4c82847adbd73fca3d63d1ba0af8"}}

@@ -1,1 +1,1 @@
-{"id":"15529e86575ec9d5f84bc608dabefdb7","fullName":"tests.test_coverage_gaps#test_mcp_capabilities_and_invoke","name":"greedy_token_capabilities + greedy_token_invoke through the MCP tools","status":"passed","testResultsByEnv":{"default":"15fd9ef9494e77a5d4327088eecb6ff4"}}
+{"id":"15529e86575ec9d5f84bc608dabefdb7","fullName":"tests.test_coverage_gaps#test_mcp_capabilities_and_invoke","name":"greedy_token_capabilities + greedy_token_invoke through the MCP tools","status":"passed","testResultsByEnv":{"default":"f47e0a292d43489cda197bd444cced41"}}

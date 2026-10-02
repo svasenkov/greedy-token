@@ -1,1 +1,1 @@
-{"id":"a2055d7745f243652d6dc1a782f9a6ea","fullName":"tests.test_meta_stats#test_workspace_meta_inventory","name":"workspace_meta_inventory counts skills/rules/adr/rag/meta on disk","status":"passed","testResultsByEnv":{"default":"1330cd4828a5876b2184953e420df751"}}
+{"id":"a2055d7745f243652d6dc1a782f9a6ea","fullName":"tests.test_meta_stats#test_workspace_meta_inventory","name":"workspace_meta_inventory counts skills/rules/adr/rag/meta on disk","status":"passed","testResultsByEnv":{"default":"6eb43fb7dd24661aab4e74190493e071"}}

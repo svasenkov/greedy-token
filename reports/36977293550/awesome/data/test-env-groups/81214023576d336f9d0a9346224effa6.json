@@ -1,1 +1,1 @@
-{"id":"81214023576d336f9d0a9346224effa6","fullName":"tests.test_spend_guard_gaps#test_checks_thread_root_into_daily_cap","name":"check_*_allowed thread root into _daily_cap_usd","status":"passed","testResultsByEnv":{"default":"e9c3cb13dbddbf3afd5fd5064838e366"}}
+{"id":"81214023576d336f9d0a9346224effa6","fullName":"tests.test_spend_guard_gaps#test_checks_thread_root_into_daily_cap","name":"check_*_allowed thread root into _daily_cap_usd","status":"passed","testResultsByEnv":{"default":"ea1ab67100b72375e6c5f378c20f9da1"}}

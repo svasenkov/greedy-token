@@ -1,1 +1,1 @@
-{"id":"046914f3a20c067fc7accec47daa0532","fullName":"tests.test_settings#test_resolve_hook_empty","name":"_resolve_hook: missing/junk config → unconfigured","status":"passed","testResultsByEnv":{"default":"49b5cf707746c8fd6948749937d464bf"}}
+{"id":"046914f3a20c067fc7accec47daa0532","fullName":"tests.test_settings#test_resolve_hook_empty","name":"_resolve_hook: missing/junk config → unconfigured","status":"passed","testResultsByEnv":{"default":"4f44fe696caa9b2be7e3e6d4194a79d3"}}

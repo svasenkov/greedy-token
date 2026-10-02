@@ -1,1 +1,1 @@
-{"id":"86604185274aa3a6bdb34802b21fa24d","fullName":"tests.test_paths#test_workspace_trusted_script_paths_are_local_only","name":"Trusted script paths come only from local workspace config","status":"passed","testResultsByEnv":{"default":"f1d15bd9db8c3eab0437edcce89f8376"}}
+{"id":"86604185274aa3a6bdb34802b21fa24d","fullName":"tests.test_paths#test_workspace_trusted_script_paths_are_local_only","name":"Trusted script paths come only from local workspace config","status":"passed","testResultsByEnv":{"default":"e8819bfaeea6e37b813ff5c02a417272"}}

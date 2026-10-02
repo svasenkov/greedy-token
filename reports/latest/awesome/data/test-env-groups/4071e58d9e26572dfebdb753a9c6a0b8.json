@@ -1,1 +1,1 @@
-{"id":"4071e58d9e26572dfebdb753a9c6a0b8","fullName":"tests.test_router#test_route_skips_unavailable_ollama","name":"Route skips Ollama tier when server is unavailable","status":"passed","testResultsByEnv":{"default":"ad555ebddfcf557d84a2f5f8b15ebc27"}}
+{"id":"4071e58d9e26572dfebdb753a9c6a0b8","fullName":"tests.test_router#test_route_skips_unavailable_ollama","name":"Route skips Ollama tier when server is unavailable","status":"passed","testResultsByEnv":{"default":"e6b1afab3fb94a3dc4f8a5710bd00c0c"}}

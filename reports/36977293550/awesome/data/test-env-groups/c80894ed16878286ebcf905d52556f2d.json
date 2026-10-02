@@ -1,1 +1,1 @@
-{"id":"c80894ed16878286ebcf905d52556f2d","fullName":"tests.test_portability#test_spend_ledger_utf8_on_ascii_locale","name":"spend ledger writes and reads UTF-8 under an ASCII locale","status":"passed","testResultsByEnv":{"default":"b88b03f2547d3163fd71df8f40fb3998"}}
+{"id":"c80894ed16878286ebcf905d52556f2d","fullName":"tests.test_portability#test_spend_ledger_utf8_on_ascii_locale","name":"spend ledger writes and reads UTF-8 under an ASCII locale","status":"passed","testResultsByEnv":{"default":"6438409634deb413c02acde00a0299c3"}}

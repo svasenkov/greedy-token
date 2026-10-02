@@ -1,1 +1,1 @@
-{"id":"91f0e787def4fb97e3744ece211c47bf","fullName":"tests.test_capabilities#test_invoke_tool_op_task_path_scoping","name":"Invoke task= preserves prompt path scoping for the rg op","status":"passed","testResultsByEnv":{"default":"5bbc7cce4b508e1f09fa24ea98a00a40"}}
+{"id":"91f0e787def4fb97e3744ece211c47bf","fullName":"tests.test_capabilities#test_invoke_tool_op_task_path_scoping","name":"Invoke task= preserves prompt path scoping for the rg op","status":"passed","testResultsByEnv":{"default":"429c59127009267fdf944489d19ecd50"}}

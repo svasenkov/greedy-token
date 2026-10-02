@@ -1,1 +1,1 @@
-{"id":"db39796c573c2c644bab7226c53f7d08","fullName":"tests.test_budget_gaps#test_metered_exhausted_ollama_available","name":"metered exhausted returns ollama when locally available","status":"passed","testResultsByEnv":{"default":"2eb1676cc49468d5932d95b2f1464aaf"}}
+{"id":"db39796c573c2c644bab7226c53f7d08","fullName":"tests.test_budget_gaps#test_metered_exhausted_ollama_available","name":"metered exhausted returns ollama when locally available","status":"passed","testResultsByEnv":{"default":"e2217cf1ebb6d1a5973361c8a1d5b46a"}}

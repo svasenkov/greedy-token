@@ -1,1 +1,1 @@
-{"id":"c385f6b98c195196420c225496f52e76","fullName":"tests.test_spend_ledger#test_spend_log_path","name":"spend_log_path: env override wins, GREEDY_TOKEN_HOME is the default base","status":"passed","testResultsByEnv":{"default":"1ebf03f80fe15fcc3e93c309e52127c4"}}
+{"id":"c385f6b98c195196420c225496f52e76","fullName":"tests.test_spend_ledger#test_spend_log_path","name":"spend_log_path: env override wins, GREEDY_TOKEN_HOME is the default base","status":"passed","testResultsByEnv":{"default":"c4a23daf0cba3449d398fd3f6d91db7d"}}

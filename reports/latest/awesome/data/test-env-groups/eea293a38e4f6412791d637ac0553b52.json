@@ -1,1 +1,1 @@
-{"id":"eea293a38e4f6412791d637ac0553b52","fullName":"tests.test_cli_handlers#test_cmd_init_apply_write_error","name":"cmd_init --apply returns 1 when writing the config fails","status":"passed","testResultsByEnv":{"default":"f77d08ae4c62bd34a8c447f5abc69b6d"}}
+{"id":"eea293a38e4f6412791d637ac0553b52","fullName":"tests.test_cli_handlers#test_cmd_init_apply_write_error","name":"cmd_init --apply returns 1 when writing the config fails","status":"passed","testResultsByEnv":{"default":"b296fa812c2f0ed7a7d077ae679ddb48"}}

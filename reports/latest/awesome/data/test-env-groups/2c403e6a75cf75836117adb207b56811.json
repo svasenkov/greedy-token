@@ -1,1 +1,1 @@
-{"id":"2c403e6a75cf75836117adb207b56811","fullName":"tests.test_prompt_compress#test_compress_heuristic_splits_long","name":"Heuristic compression splits long sentences","status":"passed","testResultsByEnv":{"default":"728fea015d31fe0e2103a5dbc76c0d63"}}
+{"id":"2c403e6a75cf75836117adb207b56811","fullName":"tests.test_prompt_compress#test_compress_heuristic_splits_long","name":"Heuristic compression splits long sentences","status":"passed","testResultsByEnv":{"default":"8731c84d50fd941efc3e1523f39d1988"}}

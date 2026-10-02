@@ -1,1 +1,1 @@
-{"id":"348a51cd2194c115419609b6f7b654ed","fullName":"tests.test_trust#test_cmd_trust_verify_json","name":"CLI trust verify --json emits per-entry codes and summary counts","status":"passed","testResultsByEnv":{"default":"379956f1634f37f16d2f2f56ba7e7ade"}}
+{"id":"348a51cd2194c115419609b6f7b654ed","fullName":"tests.test_trust#test_cmd_trust_verify_json","name":"CLI trust verify --json emits per-entry codes and summary counts","status":"passed","testResultsByEnv":{"default":"898d77bf74be35d0da347043798064b6"}}

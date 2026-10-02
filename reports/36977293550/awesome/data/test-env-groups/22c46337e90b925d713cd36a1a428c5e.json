@@ -1,1 +1,1 @@
-{"id":"22c46337e90b925d713cd36a1a428c5e","fullName":"tests.test_rag_search#test_search_rag_empty_query","name":"RAG search returns empty list for blank query","status":"passed","testResultsByEnv":{"default":"9e9b62823f3f79cbd989c620084e5b05"}}
+{"id":"22c46337e90b925d713cd36a1a428c5e","fullName":"tests.test_rag_search#test_search_rag_empty_query","name":"RAG search returns empty list for blank query","status":"passed","testResultsByEnv":{"default":"fb599d43fbc56f6dba462612be2b34fe"}}

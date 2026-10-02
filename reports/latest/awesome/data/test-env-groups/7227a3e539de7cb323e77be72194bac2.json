@@ -1,1 +1,1 @@
-{"id":"7227a3e539de7cb323e77be72194bac2","fullName":"tests.test_metered_bulk#test_check_metered_allowed_delegation_args","name":"check_metered_allowed: expensive delegation forwards exact args","status":"passed","testResultsByEnv":{"default":"7bbd3a2ceb53bfd0d8a928a56c7ab276"}}
+{"id":"7227a3e539de7cb323e77be72194bac2","fullName":"tests.test_metered_bulk#test_check_metered_allowed_delegation_args","name":"check_metered_allowed: expensive delegation forwards exact args","status":"passed","testResultsByEnv":{"default":"67cc43306492ad91e26f7119f6963ec7"}}

@@ -1,1 +1,1 @@
-{"id":"e8762b86a8d483fe01410d5a5f89c1ff","fullName":"tests.test_coverage_gaps#test_mcp_icons_and_main","name":"MCP icons raise when static assets missing; __main__ entry","status":"passed","testResultsByEnv":{"default":"a2bad3c758533537df2795a4ebcfa62a"}}
+{"id":"e8762b86a8d483fe01410d5a5f89c1ff","fullName":"tests.test_coverage_gaps#test_mcp_icons_and_main","name":"MCP icons raise when static assets missing; __main__ entry","status":"passed","testResultsByEnv":{"default":"ce21e0972daf138644146f6b90fc0574"}}

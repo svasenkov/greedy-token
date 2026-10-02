@@ -1,1 +1,1 @@
-{"id":"a513f7d36166ede3f8cf33068462626c","fullName":"tests.test_mcp_tools#test_mcp_rag_returns_hits_with_footer","name":"MCP RAG tool returns hits with Greedy token footer","status":"passed","testResultsByEnv":{"default":"ee79bf99e53409e00497a1f4b4deb8e9"}}
+{"id":"a513f7d36166ede3f8cf33068462626c","fullName":"tests.test_mcp_tools#test_mcp_rag_returns_hits_with_footer","name":"MCP RAG tool returns hits with Greedy token footer","status":"passed","testResultsByEnv":{"default":"d2980dd5b8566ba7bedc8c9ea7288956"}}
