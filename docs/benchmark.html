@@ -95,6 +95,24 @@
 </section>
 
 <section>
+  <h2>Живые прогоны — свежие субагенты (2026-10-02)</h2>
+  <table>
+    <thead><tr id="thead3"></tr></thead>
+    <tbody id="tbody3"></tbody>
+  </table>
+  <p class="foot">12 прогонов свежими субагентами (чистый контекст на каждый).
+  «Без greedy» = 17,043 + реально прочитанные байты/4 (subagent отчитался
+  списком файлов — размеры посчитаны снаружи, не на доверии). «С greedy» =
+  17,043 + stdout исполнителя/4 (tee → /tmp/gt-live-*.out). IDE usage субагент
+  не видит — overhead остаётся калибровкой, контент измерен.
+  Красные строки — честный минус: на 100B-фикстурах обвязка роута
+  (149–600B) дороже самого файла; пара B дала ещё и неверный ответ
+  (rg построил «email|lab/users.json» по всему репо, строки из
+  users.json не вернул — F5 в draft). E: экономия — поведенческий
+  артефакт (naive-агент сам прочитал 4 файла), не свойство роута.</p>
+</section>
+
+<section>
   <h2>Итог</h2>
   <div class="stats" id="stats"></div>
 </section>
@@ -143,6 +161,19 @@ const ROWS2 = [
   { q: "find ensure.py in scripts", tier: "tool / rg · repo-wide", wall: 444, tok: 4461, base: 44910, oh: 37450 },
   { q: "покажи последние 50 коммитов (compact)", tier: "python / git-recent · post-fix", wall: 181, tok: 1802, base: 38388, oh: 37450, warn: true },
   { q: "baseline calibration naive agent", tier: "rag / FTS5 · 112 chunks", wall: 99, tok: 5812, base: 47677, oh: 37450 },
+];
+
+// Ряд 3 — живые прогоны субагентами (2026-10-02). tok = байты контекста/4:
+// naive — реально прочитанные файлы; greedy — stdout исполнителя
+// (/tmp/gt-live-*.out). oh = 17,043. ok — корректность ответа.
+// loss: saved < 0 (обвязка > контент) или неверный ответ.
+const ROWS3 = [
+  { q: "A: в lab/users.json у каждого объекта есть id и email", tier: "python / check_users", tok: 37, base: 17068, oh: 17043, ok: "да/да" },
+  { q: "B: find email in lab/users.json", tier: "tool / rg — repo-wide, промах", tok: 956, base: 17268, oh: 17043, ok: "да/НЕТ", loss: true },
+  { q: "C: как проверять ключи id email у users", tier: "rag / FTS5", tok: 111, base: 17266, oh: 17043, ok: "да/да" },
+  { q: "D: classify users → JSON", tier: "ollama qwen2.5-coder:7b", tok: 39, base: 17068, oh: 17043, ok: "да/да" },
+  { q: "E: отрефактори конфигуратора", tier: "cursor-fallback → ответ", tok: 167, base: 21971, oh: 17043, ok: "да/да", warn: true },
+  { q: "F: у всех юзеров проверь ключи (miss)", tier: "cursor-fallback + read", tok: 175, base: 17068, oh: 17043, ok: "да/да", loss: true },
 ];
 
 const MODELS = [
@@ -196,11 +227,33 @@ function render() {
   document.getElementById("thead2").innerHTML = document.getElementById("thead").innerHTML;
   document.getElementById("tbody2").innerHTML = body2.join("");
 
-  const allSaved = totSaved + totSaved2;
+  // Таблица 3 — живые прогоны: колонка «OK?» вместо wall; saved со знаком
+  document.getElementById("thead3").innerHTML =
+    ["Запрос", "Тир", "Верен?", "С greedy, tok", "Без greedy, tok", "Saved tok",
+     ...MODELS.map(m => "$ saved · " + m.name)]
+    .map(h => "<th>" + h + "</th>").join("");
+  let totG3 = 0, totBase3 = 0, totSaved3 = 0;
+  const tot3$ = rates.map(() => 0);
+  const body3 = ROWS3.map(r => {
+    const greedy = r.oh + r.tok;
+    const saved = r.base - greedy;
+    totG3 += greedy; totBase3 += r.base; totSaved3 += saved;
+    const costs = rates.map((rate, i) => { const c = saved * rate / 1e6; tot3$[i] += c; return c; });
+    const cls = r.loss ? ' class="loss"' : r.warn ? ' class="warn"' : "";
+    return `<tr${cls}><td>${r.q}</td><td>${r.tier}</td><td>${r.ok}</td>` +
+           `<td>${num(greedy)}</td><td>${num(r.base)}</td><td>${num(saved)}</td>` +
+           costs.map(fmt$).map(c => `<td>${c}</td>`).join("") + "</tr>";
+  });
+  body3.push(`<tr class="total"><td>ИТОГО (6 пар)</td><td></td><td></td>` +
+            `<td>${num(totG3)}</td><td>${num(totBase3)}</td><td>${num(totSaved3)}</td>` +
+            tot3$.map(fmt$).map(c => `<td>${c}</td>`).join("") + "</tr>");
+  document.getElementById("tbody3").innerHTML = body3.join("");
+
+  const allSaved = totSaved + totSaved2 + totSaved3;
   document.getElementById("stats").innerHTML =
-    `<div class="stat"><div class="v">${num(allSaved)} tok</div><div class="l">Saved за обе таблицы</div></div>` +
+    `<div class="stat"><div class="v">${num(allSaved)} tok</div><div class="l">Saved за все таблицы</div></div>` +
     MODELS.map((m, i) =>
-      `<div class="stat"><div class="v">${fmt$(tot$[i] + tot2$[i])}</div><div class="l">Saved $ · ${m.name}</div></div>`
+      `<div class="stat"><div class="v">${fmt$(tot$[i] + tot2$[i] + tot3$[i])}</div><div class="l">Saved $ · ${m.name}</div></div>`
     ).join("");
 }
 
