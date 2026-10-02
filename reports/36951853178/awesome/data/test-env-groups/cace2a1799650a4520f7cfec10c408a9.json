@@ -1,0 +1,1 @@
+{"id":"cace2a1799650a4520f7cfec10c408a9","fullName":"tests.test_paths#test_find_workspace_root_cwd_markers","name":"find_workspace_root falls back to marker pair walked from cwd","status":"passed","testResultsByEnv":{"default":"86f2c5f75653419e13da093207e8d833"}}

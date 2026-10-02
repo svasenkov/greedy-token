@@ -1,0 +1,1 @@
+{"id":"2b4457fdecba712dbb0ce49836e4401a","fullName":"tests.test_router_gaps#test_extract_search_targets_scoped","name":"_extract_search_targets: paths leave the pattern, become scope","status":"passed","testResultsByEnv":{"default":"49ea5c4b24458ed7b07e1c860c078050"}}

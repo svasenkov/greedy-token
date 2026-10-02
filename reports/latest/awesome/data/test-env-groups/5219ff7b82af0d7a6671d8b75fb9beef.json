@@ -1,0 +1,1 @@
+{"id":"5219ff7b82af0d7a6671d8b75fb9beef","fullName":"tests.test_hook_policy#test_intent_params_args_op","name":"has_invocation_intent: params args-op needs verb or alias, no spec stays skipped","status":"passed","testResultsByEnv":{"default":"9a855e7c03017ec488fbb1723a54ccd4"}}

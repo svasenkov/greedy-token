@@ -1,0 +1,1 @@
+{"id":"115b27229323683db6c825dcb0081181","fullName":"tests.test_capabilities#test_invoke_nonquery_op_ignores_task","name":"task= is ignored for ops without the query contract","status":"passed","testResultsByEnv":{"default":"4f49c4a555f26b60da716bb50696bc22"}}

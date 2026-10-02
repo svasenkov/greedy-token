@@ -1,0 +1,1 @@
+{"id":"fcc0e40c154d136d3c4a276d05c2a5b9","fullName":"tests.test_rag_search_gaps#test_cap_default_from_settings","name":"default cap comes from rag.max_payload_tokens settings","status":"passed","testResultsByEnv":{"default":"1f1c6b85114e5247539c318c16e2a3f3"}}

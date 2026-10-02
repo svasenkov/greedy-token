@@ -1,0 +1,1 @@
+{"id":"0acdf3091b15f11475cfd24005654bc8","fullName":"tests.test_hook_policy#test_params_args_op_derived_args_still_need_request_verb","name":"params:[args] op — number without request verb is not an invoke intent","status":"passed","testResultsByEnv":{"default":"009713b3f5567cf19db7b07e574d9610"}}

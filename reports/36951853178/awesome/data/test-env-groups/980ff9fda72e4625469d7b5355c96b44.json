@@ -1,0 +1,1 @@
+{"id":"980ff9fda72e4625469d7b5355c96b44","fullName":"tests.test_rag_fts#test_connect_closes_connection_on_non_operational_error","name":"test_connect_closes_connection_on_non_operational_error","status":"passed","testResultsByEnv":{"default":"a613fd2435e414aa3657d7e261ef4f1f"}}

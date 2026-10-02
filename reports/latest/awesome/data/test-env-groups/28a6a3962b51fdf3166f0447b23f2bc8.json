@@ -1,0 +1,1 @@
+{"id":"28a6a3962b51fdf3166f0447b23f2bc8","fullName":"tests.test_rag_search_gaps#test_cap_skip_not_break","name":"an oversized hit is skipped, smaller later hits still fit (continue, not break)","status":"passed","testResultsByEnv":{"default":"61262d77ee197fc2dabda72870b47b4a"}}

@@ -1,0 +1,1 @@
+{"id":"aa61a59c702b524d324bee14b3aff28c","fullName":"tests.test_paths#test_find_workspace_root_cwd_yaml","name":"find_workspace_root resolves the nearest .greedy-token.yaml up from cwd","status":"passed","testResultsByEnv":{"default":"42583bbcdd58f43f56262a1138aa92ff"}}

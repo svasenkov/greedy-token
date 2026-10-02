@@ -1,0 +1,1 @@
+{"id":"4c655e17849b74140bcd4bc13f8b38be","fullName":"tests.test_router_gaps#test_score_patterns_invalid_regex","name":"_score_patterns: invalid re: regex never matches (fail-open)","status":"passed","testResultsByEnv":{"default":"3cd8593bb436f8ab004870b756c4ad8c"}}

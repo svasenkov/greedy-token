@@ -1,0 +1,1 @@
+{"id":"ec908292f98c099c7bec79e0e8edc2b7","fullName":"tests.test_cli_handlers#test_cmd_init_no_workspace","name":"cmd_init tolerates a missing workspace root","status":"passed","testResultsByEnv":{"default":"ee349de2cb7d7f3a0fea15441cd8ccd9"}}

@@ -1,0 +1,1 @@
+{"id":"8ed12b9e2096293624ff6daa2725560d","fullName":"tests.test_executors#test_execute_task_tool_output_cap","name":"Tool output is capped with a truncation marker","status":"passed","testResultsByEnv":{"default":"3190072a231a88e9a0d861ff8daf904f"}}

@@ -1,0 +1,1 @@
+{"id":"3190ef9a423fe38bc3e41e0c41656d9f","fullName":"tests.test_executors_gaps#test_plan_run_prompt_derived_args_confined","name":"plan_run: a prompt-derived arg escaping the workspace is refused","status":"passed","testResultsByEnv":{"default":"c5aa0da3c5cdad5f6838d68f8aa47620"}}

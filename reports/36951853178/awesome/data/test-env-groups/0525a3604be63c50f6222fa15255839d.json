@@ -1,0 +1,1 @@
+{"id":"0525a3604be63c50f6222fa15255839d","fullName":"tests.test_hook_policy#test_derive_prompt_args_edges","name":"derive_prompt_args covers malformed spec entries and template errors","status":"passed","testResultsByEnv":{"default":"97797557b8ee3204c7ecfbe58e5484f8"}}

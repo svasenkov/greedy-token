@@ -1,0 +1,1 @@
+{"id":"b2442d78aaf5acae40b145be96263124","fullName":"tests.test_hook_policy#test_args_from_prompt_spec_edges","name":"_args_from_prompt_spec fails open: error, missing route, non-list spec","status":"passed","testResultsByEnv":{"default":"210d5751fdd5cfc9b3e351f7238b9267"}}

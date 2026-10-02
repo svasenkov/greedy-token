@@ -1,0 +1,1 @@
+{"id":"766fdee10763a3b3668fdf7919db708b","fullName":"tests.test_advisory#test_effective_hook_mode","name":"effective_hook_mode: unset → advisory; legacy ≤1.0 threshold → intercept","status":"passed","testResultsByEnv":{"default":"00892ba734eb3a8dbcb2476bccb9f2ba"}}

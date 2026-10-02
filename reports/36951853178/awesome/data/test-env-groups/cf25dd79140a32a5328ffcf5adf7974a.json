@@ -1,0 +1,1 @@
+{"id":"cf25dd79140a32a5328ffcf5adf7974a","fullName":"tests.test_search#test_extract_query_note_path_scoped","name":"_extract_query_note reports the content pattern, not the path scope","status":"passed","testResultsByEnv":{"default":"da35d803203288d2ad7ca5d9458868a7"}}

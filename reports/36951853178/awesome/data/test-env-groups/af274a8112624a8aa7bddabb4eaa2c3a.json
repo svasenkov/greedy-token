@@ -1,0 +1,1 @@
+{"id":"af274a8112624a8aa7bddabb4eaa2c3a","fullName":"tests.test_executors_gaps#test_prompt_derived_args_task_and_loader_edges","name":"_prompt_derived_args: blank task and loader failure are fail-open","status":"passed","testResultsByEnv":{"default":"60f54946d99494b8c4bda60c05a565ec"}}
