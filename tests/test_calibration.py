@@ -811,6 +811,7 @@ def test_outcome_cache_write_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     cache = oc._outcome_cache_path()
     old = cache.read_text(encoding="utf-8")
     path.write_text(path.read_text(encoding="utf-8").replace("success", "failure"), encoding="utf-8")
+    _bump_mtime(path)
     with patch.object(Path, "replace", side_effect=OSError("cache read-only")):
         result = confidence_for_outcome(2.5, route_id="python-x")
     assert result.confidence == 0.0
