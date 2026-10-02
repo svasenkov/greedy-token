@@ -170,6 +170,7 @@ const ROWS2 = [
 const ROWS3 = [
   { q: "A: в lab/users.json у каждого объекта есть id и email", tier: "python / check_users", tok: 37, base: 17068, oh: 17043, ok: "да/да" },
   { q: "B: find email in lab/users.json", tier: "tool / rg — repo-wide, промах", tok: 956, base: 17268, oh: 17043, ok: "да/НЕТ", loss: true },
+  { q: "B: то же — после F5 (path→scope)", tier: "tool / rg · scoped", tok: 37, base: 17268, oh: 17043, ok: "да/да" },
   { q: "C: как проверять ключи id email у users", tier: "rag / FTS5", tok: 111, base: 17266, oh: 17043, ok: "да/да" },
   { q: "D: classify users → JSON", tier: "ollama qwen2.5-coder:7b", tok: 39, base: 17068, oh: 17043, ok: "да/да" },
   { q: "E: отрефактори конфигуратора", tier: "cursor-fallback → ответ", tok: 167, base: 21971, oh: 17043, ok: "да/да", warn: true },
@@ -244,7 +245,7 @@ function render() {
            `<td>${num(greedy)}</td><td>${num(r.base)}</td><td>${num(saved)}</td>` +
            costs.map(fmt$).map(c => `<td>${c}</td>`).join("") + "</tr>";
   });
-  body3.push(`<tr class="total"><td>ИТОГО (6 пар)</td><td></td><td></td>` +
+  body3.push(`<tr class="total"><td>ИТОГО (6 пар + пост-фикс)</td><td></td><td></td>` +
             `<td>${num(totG3)}</td><td>${num(totBase3)}</td><td>${num(totSaved3)}</td>` +
             tot3$.map(fmt$).map(c => `<td>${c}</td>`).join("") + "</tr>");
   document.getElementById("tbody3").innerHTML = body3.join("");
