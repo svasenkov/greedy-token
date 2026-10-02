@@ -105,6 +105,17 @@ def _write_log(events: list[dict]) -> Path:
     return path
 
 
+def _bump_mtime(path: Path) -> None:
+    """Force a distinct (mtime_ns, size) signature on coarse-mtime filesystems.
+
+    Windows may defer mtime updates until handle close, so a same-size
+    rewrite can keep an identical signature and the toctou guard never
+    triggers. +1s is beyond any realistic mtime granularity.
+    """
+    st = path.stat()
+    os.utime(path, ns=(st.st_atime_ns, st.st_mtime_ns + 1_000_000_000))
+
+
 @allure.story("Formula fallback")
 @allure.title("formula_confidence keeps the legacy min(0.95, 0.45 + score*0.12)")
 def test_formula_confidence() -> None:
@@ -731,6 +742,7 @@ def test_outcome_cache_toctou(monkeypatch: pytest.MonkeyPatch) -> None:
     def changed_during_read(*args, **kwargs):
         result = read(*args, **kwargs)
         path.write_text(path.read_text(encoding="utf-8").replace("success", "failure"), encoding="utf-8")
+        _bump_mtime(path)
         return result
 
     with monkeypatch.context() as m:
@@ -823,6 +835,7 @@ def test_outcome_cache_disk_hit_toctou(monkeypatch: pytest.MonkeyPatch) -> None:
         result = read(self, *args, **kwargs)
         if self == cache:
             path.write_text(read(path, encoding="utf-8").replace("success", "failure"), encoding="utf-8")
+            _bump_mtime(path)
         return result
 
     with monkeypatch.context() as m:
