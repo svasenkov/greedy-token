@@ -73,10 +73,13 @@
   </table>
   <p class="foot">«С greedy, tok» = agent overhead ~17,043 (измерен <code>calibrate</code>:
   rules + system + schemas + reply) + payload исполнителя — greedy-вызов не бесплатен,
-  ход агента платится. Wall включает старт CLI (~200ms). Красные строки — честный минус:
-  на 100B-фикстурах route-карта (150–240 tok) дороже самого файла; промахи платят и
-  наивный ход, и шапку роута. Плюсы: rag-хит и rag-empty (пустой ответ дешевле чтения docs).
-  Стоимость по input-ставке.</p>
+  ход агента платится. Wall включает старт CLI (~200ms). Конверт tool-вызова (~±60 tok:
+  Read-обёртка у наивного, Bash/MCP у greedy) не учтён симметрично — сокращается.
+  Красные строки — честный минус, saved &lt; −50 tok (ниже — шум аппроксимации):
+  на 100B-фикстурах route-карта (150–800 tok) дороже самого файла; промахи платят и
+  наивный ход, и шапку роута. «Intercept, tok» — тот же запрос в intercept-режиме:
+  ход агента не случается вообще, saved ≈ весь наивный ход (у ollama −~115 eval-токенов
+  локальной модели, billing $0). Стоимость по input-ставке.</p>
 </section>
 
 <section>
@@ -138,25 +141,30 @@
 // честный минус почти по всей таблице. Промахи (fallback/judgment)
 // считаются base + карта: агент платит и наивный ход, и шапку роута.
 const ROWS = [
-  { q: "find email in lab/users.json", tier: "tool / rg", wall: 266, tok: 202, base: 17230, loss: true },
-  { q: "найди email в lab/users.json", tier: "tool / rg", wall: 259, tok: 203, base: 17230, loss: true },
-  { q: "jq map keys of lab/users.json", tier: "tool / jq", wall: 261, tok: 158, base: 17120, loss: true },
-  { q: "в lab/users.json у каждого объекта есть id и email", tier: "python / check_users", wall: 269, tok: 236, base: 17120, loss: true },
-  { q: "проверь, что у каждого объекта есть id и email", tier: "python / check_users", wall: 266, tok: 192, base: 17120, loss: true },
-  { q: "у всех юзеров проверь наличие ключей", tier: "cursor-fallback", wall: 237, tok: 311, base: 17215, loss: true },
+  { q: "find email in lab/users.json", tier: "tool / rg", wall: 266, tok: 202, base: 17230 },
+  { q: "найди email в lab/users.json", tier: "tool / rg", wall: 259, tok: 203, base: 17230 },
+  { q: "jq map keys of lab/users.json", tier: "tool / jq", wall: 261, tok: 158, base: 17120 },
+  { q: "в lab/users.json у каждого объекта есть id и email", tier: "python / check_users", wall: 269, tok: 236, base: 17120 },
+  { q: "проверь, что у каждого объекта есть id и email", tier: "python / check_users", wall: 266, tok: 192, base: 17120 },
+  { q: "у всех юзеров проверь наличие ключей", tier: "cursor-fallback", wall: 237, tok: 311, base: 17215 },
   { q: "как проверять ключи id email у users", tier: "rag / FTS5", wall: 208, tok: 166, base: 17330 },
   { q: "у каждого человека есть почта", tier: "rag / empty", wall: 209, tok: 22, base: 17330 },
-  { q: "отрефактори архитектуру конфигуратора", tier: "cursor-fallback", wall: 248, tok: 793, base: 17700, loss: true },
-  { q: "pipeline search-rag email path=lab", tier: "rg → rag", wall: 225, tok: 706, base: 17230, loss: true },
-  { q: "llm classify 3 users — warm", tier: "ollama local", wall: 1315, tok: 133, base: 17170, loss: true },
-  { q: "llm classify — cold load", tier: "ollama local", wall: 4195, tok: 114, base: 17170, loss: true },
+  { q: "отрефактори архитектуру конфигуратора", tier: "cursor-fallback", wall: 248, tok: 793, base: 17700 },
+  { q: "pipeline search-rag email path=lab", tier: "rg → rag", wall: 225, tok: 706, base: 17230 },
+  { q: "llm classify 3 users — warm", tier: "ollama local", wall: 1315, tok: 133, base: 17170, llm: 115 },
+  { q: "llm classify — cold load", tier: "ollama local", wall: 4195, tok: 114, base: 17170, llm: 115 },
 ];
 
 // Фиксированная цена хода агента (rules + system + tool schemas + reply),
 // измерена `greedy-token calibrate`. Платится и при greedy-вызове:
 // «с greedy» = overhead + payload исполнителя. «saved ~N» верно только в
 // hook-режиме intercept — футер показывает оба числа (turn-shared = M).
+// Конверт tool-вызова (~±60 tok) не учтён симметрично с обеих сторон:
+// у наивного — Read-обёртка, у greedy — Bash/MCP-обёртка; сокращается.
 const AGENT_OVERHEAD = 17043;
+// |saved| <= NOISE_TOK — ниже точности аппроксимации (байты/4 + разброс
+// токенизатора): строка не красится.
+const NOISE_TOK = 50;
 
 // Ряд 2 — большие объёмы (/tmp/gt-bench-big.jsonl). oh — agent overhead
 // воркспейса: workshop 17,043 · monorepo ~37,450. tok — реальный payload
@@ -197,23 +205,24 @@ function render() {
   const rates = MODELS.map((m, i) => parseFloat(document.getElementById("rate" + i).value) || 0);
 
   document.getElementById("thead").innerHTML =
-    ["Запрос", "Тир", "Wall ms", "С greedy, tok", "Без greedy, tok", "Saved tok",
+    ["Запрос", "Тир", "Wall ms", "С greedy, tok", "Без greedy, tok", "Saved tok", "Intercept, tok",
      ...MODELS.map(m => "$ saved · " + m.name)]
     .map(h => "<th>" + h + "</th>").join("");
 
-  let totG = 0, totBase = 0, totSaved = 0;
+  let totG = 0, totBase = 0, totSaved = 0, totInt = 0;
   const tot$ = rates.map(() => 0);
   const body = ROWS.map(r => {
     const greedy = AGENT_OVERHEAD + r.tok;
     const saved = r.base - greedy;
-    totG += greedy; totBase += r.base; totSaved += saved;
+    const intercept = r.base - (r.llm || 0);
+    totG += greedy; totBase += r.base; totSaved += saved; totInt += intercept;
     const costs = rates.map((rate, i) => { const c = saved * rate / 1e6; tot$[i] += c; return c; });
-    return `<tr${r.loss ? ' class="loss"' : r.warn ? ' class="warn"' : ""}><td>${r.q}</td><td>${r.tier}</td><td>${r.wall}</td>` +
-           `<td>${num(greedy)}</td><td>${num(r.base)}</td><td>${num(saved)}</td>` +
+    return `<tr${saved < -NOISE_TOK ? ' class="loss"' : ""}><td>${r.q}</td><td>${r.tier}</td><td>${r.wall}</td>` +
+           `<td>${num(greedy)}</td><td>${num(r.base)}</td><td>${num(saved)}</td><td>${num(intercept)}</td>` +
            costs.map(fmt$).map(c => `<td>${c}</td>`).join("") + "</tr>";
   });
   body.push(`<tr class="total"><td>ИТОГО (12 прогонов)</td><td></td><td></td>` +
-            `<td>${num(totG)}</td><td>${num(totBase)}</td><td>${num(totSaved)}</td>` +
+            `<td>${num(totG)}</td><td>${num(totBase)}</td><td>${num(totSaved)}</td><td>${num(totInt)}</td>` +
             tot$.map(fmt$).map(c => `<td>${c}</td>`).join("") + "</tr>");
   document.getElementById("tbody").innerHTML = body.join("");
 
@@ -232,7 +241,10 @@ function render() {
   body2.push(`<tr class="total"><td>ИТОГО (5 прогонов)</td><td></td><td></td>` +
             `<td>${num(totG2)}</td><td>${num(totBase2)}</td><td>${num(totSaved2)}</td>` +
             tot2$.map(fmt$).map(c => `<td>${c}</td>`).join("") + "</tr>");
-  document.getElementById("thead2").innerHTML = document.getElementById("thead").innerHTML;
+  document.getElementById("thead2").innerHTML =
+    ["Запрос", "Тир", "Wall ms", "С greedy, tok", "Без greedy, tok", "Saved tok",
+     ...MODELS.map(m => "$ saved · " + m.name)]
+    .map(h => "<th>" + h + "</th>").join("");
   document.getElementById("tbody2").innerHTML = body2.join("");
 
   // Таблица 3 — живые прогоны: колонка «OK?» вместо wall; saved со знаком
