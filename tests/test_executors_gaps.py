@@ -831,3 +831,152 @@ def test_task_result_gate_python_silent(minimal_workspace: Path) -> None:
     assert gate.tier == "python"
     assert gate.may_answer is False
     assert gate.savings_eligible is False
+
+
+# --- plan_run: prompt-derived args (args_from_prompt) — fail-open taxonomy ---
+
+_ARGS_SPEC = [{"regex": r"([0-9]+) коммит", "args": "--count {0}"}]
+
+
+def _args_route(spec=_ARGS_SPEC, **kw) -> dict:
+    route = {
+        "id": "python-git-recent",
+        "target": "python",
+        "read_only": True,
+        "command": "python scripts/git-recent.py",
+        "params": ["args"],
+        "args_from_prompt": spec,
+    }
+    route.update(kw)
+    return route
+
+
+def _routes_cfg(route: dict) -> dict:
+    return {"routes": [route]}
+
+
+def _args_dec() -> RouteDecision:
+    return _dec(
+        "python",
+        route_id="python-git-recent",
+        command="python scripts/git-recent.py",
+        read_only=True,
+    )
+
+
+@allure.title("_prompt_derived_args: blank task and loader failure are fail-open")
+def test_prompt_derived_args_task_and_loader_edges(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dec = _args_dec()
+    assert ex._prompt_derived_args("", dec, minimal_workspace) == ()
+    assert ex._prompt_derived_args("   ", dec, minimal_workspace) == ()
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("routes gone")
+
+    monkeypatch.setattr("greedy_token.paths.load_routes_config", boom)
+    assert ex._prompt_derived_args("5 коммитов", dec, minimal_workspace) == ()
+
+
+@allure.title("_prompt_derived_args: unknown route, missing args contract, bad spec → ()")
+def test_prompt_derived_args_contract_gates(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dec = _args_dec()
+    cfgs = [
+        {"routes": ["junk", {"id": "python-other"}]},  # route id not found
+        _routes_cfg(_args_route(params=[])),  # no params: [args] contract
+        _routes_cfg(_args_route("nope")),  # args_from_prompt is not a list
+    ]
+    for cfg in cfgs:
+        monkeypatch.setattr(
+            "greedy_token.paths.load_routes_config",
+            lambda *a, _cfg=cfg, **k: _cfg,
+        )
+        assert ex._prompt_derived_args("5 коммитов", dec, minimal_workspace) == ()
+
+
+@allure.title("_prompt_derived_args: scalar params normalise to the args contract")
+def test_prompt_derived_args_scalar_params(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "greedy_token.paths.load_routes_config",
+        lambda *a, **k: _routes_cfg(_args_route(params="args")),
+    )
+    assert ex._prompt_derived_args(
+        "покажи 5 коммитов", _args_dec(), minimal_workspace
+    ) == ("--count", "5")
+
+
+@allure.title("_prompt_derived_args: regex miss, whitespace render, unparseable render → ()")
+def test_prompt_derived_args_render_edges(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dec = _args_dec()
+    cfg = _routes_cfg(_args_route())
+    monkeypatch.setattr(
+        "greedy_token.paths.load_routes_config", lambda *a, **k: cfg
+    )
+    # The spec regex never hits a prompt without digits.
+    assert ex._prompt_derived_args("покажи коммиты", dec, minimal_workspace) == ()
+
+    cfg["routes"][0]["args_from_prompt"] = [
+        {"regex": "([0-9]+)", "args": "   "}
+    ]
+    assert ex._prompt_derived_args("5", dec, minimal_workspace) == ()
+
+    cfg["routes"][0]["args_from_prompt"] = [
+        {"regex": "([0-9]+)", "args": "--count '{0}"}
+    ]
+    assert ex._prompt_derived_args("5", dec, minimal_workspace) == ()
+
+
+@allure.title("plan_run: derived args land after the fixed command argv")
+def test_plan_run_prompt_derived_args_order(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _untrusted_py(minimal_workspace)
+    approve_script(minimal_workspace, "scripts/x.py")
+    monkeypatch.setattr(
+        "greedy_token.paths.load_routes_config",
+        lambda *a, **k: _routes_cfg(_args_route()),
+    )
+    dec = _dec(
+        "python",
+        route_id="python-git-recent",
+        command="python scripts/x.py --fixed",
+        read_only=True,
+        command_argv=("python", "scripts/x.py", "--fixed"),
+        command_cwd=minimal_workspace,
+    )
+    plan = plan_run(dec, "покажи 5 коммитов", minimal_workspace)
+    assert plan.executable is True
+    # The fixed command args stay ahead — same contract as invoke --args.
+    assert plan.argv is not None
+    assert plan.argv[-3:] == ("--fixed", "--count", "5")
+
+
+@allure.title("plan_run: a prompt-derived arg escaping the workspace is refused")
+def test_plan_run_prompt_derived_args_confined(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _untrusted_py(minimal_workspace)
+    approve_script(minimal_workspace, "scripts/x.py")
+    spec = [{"regex": r"show (.*)", "args": "{0}"}]
+    monkeypatch.setattr(
+        "greedy_token.paths.load_routes_config",
+        lambda *a, **k: _routes_cfg(_args_route(spec)),
+    )
+    dec = _dec(
+        "python",
+        route_id="python-git-recent",
+        command="python scripts/x.py",
+        read_only=True,
+        command_argv=("python", "scripts/x.py"),
+        command_cwd=minimal_workspace,
+    )
+    plan = plan_run(dec, "show ../secrets", minimal_workspace)
+    assert plan.executable is False
+    assert "escapes workspace" in plan.refusal_reason

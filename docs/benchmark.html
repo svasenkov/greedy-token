@@ -87,10 +87,11 @@
   <p class="foot">oh = agent overhead воркспейса: workshop 17,043 / monorepo ~37,450.
   Наивный pull — измеренный объём (байты/4), который агент прочитал бы:
   1.2MB JSONL, 4.9MB usage-лог, guide.md, git log. Красная строка —
-  после фикса --compact (hook-путь): 7.2KB ≈ 1.8k tok vs naive 0.9k —
-  листинг всё ещё лёгкий минус; «что изменилось» выигрывает. Через
-  <code>run</code> CLI args_from_prompt не применяются (находка F4) —
-  compact доезжает только по hook/intercept.</p>
+  после фикса --compact: 7.2KB ≈ 1.8k tok vs naive 0.9k —
+  листинг всё ещё лёгкий минус; «что изменилось» выигрывает.
+  <code>run</code> CLI тоже применяет args_from_prompt (F4 закрыт):
+  plan_run приклеивает derived-argv к команде — compact доезжает
+  и по hook/intercept, и по run --execute.</p>
 </section>
 
 <section>

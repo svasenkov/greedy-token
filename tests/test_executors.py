@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from unittest.mock import patch
 
@@ -714,4 +715,54 @@ def test_plan_run_rag_format_args(minimal_workspace: Path) -> None:
     assert plan.dry_run_output == "FMT"
     assert seen["task"] == "baseUrl question"
     assert seen["hits"] == ["h1", "h2"]
+
+
+_GIT_RECENT_STUB = (
+    "import json, sys\n"
+    "print(json.dumps({'ok': True, 'argv': sys.argv[1:]}))\n"
+)
+
+
+def _approved_git_recent(root: Path) -> None:
+    from greedy_token.trust import approve_script
+
+    script = root / "scripts" / "git-recent.py"
+    script.write_text(_GIT_RECENT_STUB, encoding="utf-8")
+    script.chmod(0o755)
+    approve_script(root, "scripts/git-recent.py")
+
+
+@allure.story("Prompt-derived args")
+@allure.title("run --execute passes prompt-derived --count/--compact to the script")
+def test_execute_task_derives_prompt_args(minimal_workspace: Path) -> None:
+    _approved_git_recent(minimal_workspace)
+    with allure.step("Numbered listing prompt routes to python-git-recent"):
+        result = execute_task("покажи последние 50 коммитов", minimal_workspace)
+        attach_json(
+            "result",
+            {
+                "route_id": result.decision.route_id,
+                "exit_code": result.exit_code,
+                "started": result.started,
+            },
+        )
+    with allure.step("argv carries the first-match args_from_prompt render"):
+        assert result.decision.route_id == "python-git-recent"
+        assert result.started is True
+        assert result.exit_code == 0
+        argv = json.loads(result.output.strip().splitlines()[-1])["argv"]
+        assert argv == ["--count", "50", "--compact"]
+
+
+@allure.story("Prompt-derived args")
+@allure.title("prompt without an args_from_prompt match runs the fixed argv")
+def test_execute_task_no_prompt_args_match(minimal_workspace: Path) -> None:
+    _approved_git_recent(minimal_workspace)
+    with allure.step("Alias prompt routes to python-git-recent but matches no spec"):
+        result = execute_task("what changed in recent commits", minimal_workspace)
+    with allure.step("argv stays the route's fixed command args"):
+        assert result.decision.route_id == "python-git-recent"
+        assert result.exit_code == 0
+        argv = json.loads(result.output.strip().splitlines()[-1])["argv"]
+        assert argv == []
 

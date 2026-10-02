@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shlex
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -78,6 +79,51 @@ class TaskRunResult:
     result_status: str = RESULT_NOT_EVALUATED
 
 
+def _prompt_derived_args(task: str, decision: RouteDecision, root: Path) -> tuple[str, ...]:
+    """Prompt-derived argv tail for ``params: [args]`` routes.
+
+    Same first-match ``args_from_prompt`` rule order as the hook intercept
+    path (``hook_policy.derive_prompt_args``): the first spec entry whose
+    regex hits the task renders its ``args`` template.  Fail-open — a route
+    without the args contract, a missed regex or an unparseable template
+    yields no extra tokens.  Whatever is returned still passes through
+    ``trusted_script_argv`` confinement exactly like invoke ``--args``.
+    """
+    text = task.strip()
+    if not text:
+        return ()
+    try:
+        from greedy_token.hook_policy import derive_prompt_args
+        from greedy_token.paths import load_routes_config
+
+        routes = load_routes_config(root).get("routes", [])
+    except (Exception, SystemExit):
+        return ()
+    route = next(
+        (
+            r
+            for r in routes
+            if isinstance(r, dict) and r.get("id") == decision.route_id
+        ),
+        None,
+    )
+    if not isinstance(route, dict):
+        return ()
+    declared = route.get("params") or []
+    if not isinstance(declared, (list, tuple)):
+        declared = [declared]
+    spec = route.get("args_from_prompt")
+    if "args" not in declared or not isinstance(spec, list):
+        return ()
+    derived = derive_prompt_args(text, spec)
+    if not derived.strip():
+        return ()
+    try:
+        return tuple(shlex.split(derived))
+    except ValueError:
+        return ()
+
+
 def plan_run(decision: RouteDecision, task: str, root: Path | None = None) -> RunPlan:
     root = root or find_workspace_root()
     target = decision.target
@@ -140,6 +186,11 @@ def plan_run(decision: RouteDecision, task: str, root: Path | None = None) -> Ru
                 )
                 argv = tuple(parsed_argv)
                 cwd = parsed_cwd or root
+            derived = _prompt_derived_args(task, decision, root)
+            if derived:
+                # Prompt-derived tail goes after the fixed command argv —
+                # same contract as invoke --args; confinement runs below.
+                argv = (*argv, *derived)
             invocation = trusted_script_argv(
                 argv,
                 cwd=cwd,
