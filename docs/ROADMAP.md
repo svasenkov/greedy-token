@@ -149,6 +149,7 @@ Per-release detail: `CUT-v*.md` checklists in the repo root.
 
 | Version | Focus |
 |---------|-------|
+| **v0.18.4** | Bench-driven fixes: workspace root resolves from the nearest `.greedy-token.yaml` up from cwd (PyPI installs work without `GREEDY_TOKEN_ROOT`); remote LLM calls clamp to 20 s timeout; `args_from_prompt` applies on `run`/`execute_task` (not hook-only); `git-recent --compact` + output cap; `hook_mode` stamped on usage events + dual saved footer under non-intercept; `rag.max_payload_tokens` cap; path-aware rg scoping (prompt path tokens → operands) + 30-line tool output cap |
 | **v0.18.3** | Hook-tier polish: bare `python`/`python3` in trusted argv pins to the running interpreter (PATH shadowing closed); nested dicts render as readable lines in intercept output; hot-path caching — budget snapshot by ledger signature, disk-cached GPU probe, memoized YAML; +187 RU/EN patterns in the workspace route overlay |
 | **v0.18.2** | Mutation hardening: ~160 kill tests across spend_ledger / llm_invoke / usage / budget* / advisory; proven-equivalent registry (`docs/mutation-equivalents.yaml` + `# equivalent:` markers + drift guard); 100% line+branch coverage; flaky latency assert dropped |
 | **v0.18.1** | Crystallize candidates: canonical `rank_candidates` SSOT — dedup by `crystal_id` + `operation_id`, sandbox/fixture filters; per-host skills dir (`HOST_SKILLS_DIR`); host-internal search exclusions; shared CLI/MCP result formatters |
