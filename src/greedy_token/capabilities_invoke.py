@@ -269,7 +269,7 @@ def invoke_capability(
                 read_only=cap.read_only,
                 exit_code=2,
             )
-        if '"' in query or "'" in query:
+        if not task.strip() and ('"' in query or "'" in query):
             return refused(
                 REFUSAL_INVALID_PARAMS,
                 "query must not contain quote characters",

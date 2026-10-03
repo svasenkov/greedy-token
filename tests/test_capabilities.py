@@ -962,8 +962,9 @@ def test_cli_show(
 
 @allure.story("Invoke")
 @allure.title("Invoke task= preserves prompt path scoping for the rg op")
+@pytest.mark.parametrize("query", ["zzz", '"zzz"', "'zzz'"])
 def test_invoke_tool_op_task_path_scoping(
-    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch, query: str
 ) -> None:
     _fake_rg(
         minimal_workspace,
@@ -989,12 +990,14 @@ def test_invoke_tool_op_task_path_scoping(
         result = invoke_capability(
             minimal_workspace,
             "tool-rg-search",
-            query="zzz",
-            task="find email in lab/users.json",
+            query=query,
+            task='  find "email" in lab/users.json  ',
         )
+        assert result.executed is True
+        assert result.exit_code == 0
         echoed = result.output.splitlines()
         sep = echoed.index("--")
-        assert echoed[sep + 1] == "email"
+        assert echoed[sep + 1 :] == ["email", "lab/users.json"]
 
     with allure.step("query= alone keeps the legacy verbatim-pattern behavior"):
         result = invoke_capability(
@@ -1004,6 +1007,23 @@ def test_invoke_tool_op_task_path_scoping(
         sep = echoed.index("--")
         assert echoed[sep + 1] == "lab/users.json"
         assert echoed[sep + 2] == "projects"  # route-declared scope, not the file
+
+
+@allure.story("Invoke")
+@allure.title("Quoted query is refused when task is absent or blank")
+@pytest.mark.parametrize("task", ["", " \t\n "])
+@pytest.mark.parametrize("query", ['"zzz"', "'zzz'"])
+def test_invoke_tool_op_quoted_query_without_task_refuses(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch, task: str, query: str
+) -> None:
+    _fake_rg(minimal_workspace, monkeypatch, "#!/bin/sh\nprintf '%s\\n' \"$@\"\n")
+    result = invoke_capability(
+        minimal_workspace, "tool-rg-search", task=task, query=query
+    )
+    assert result.executed is False
+    assert result.exit_code == 2
+    assert result.refusal_code == REFUSAL_INVALID_PARAMS
+    assert result.refusal_reason == "query must not contain quote characters"
 
 
 @allure.story("Invoke")
