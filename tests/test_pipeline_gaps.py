@@ -197,8 +197,8 @@ def test_run_step_rag_fields(minimal_workspace: Path, monkeypatch: pytest.Monkey
 
     est_calls: dict = {}
 
-    def fake_estimate(step_arg, output, root):
-        est_calls.update(step=step_arg, output=output, root=root)
+    def fake_estimate(step_arg, output, root, rag_hits):
+        est_calls.update(step=step_arg, output=output, root=root, rag_hits=rag_hits)
         return 0
 
     monkeypatch.setattr(pl, "search_rag", fake_search_rag)
@@ -218,6 +218,7 @@ def test_run_step_rag_fields(minimal_workspace: Path, monkeypatch: pytest.Monkey
 
     with allure.step("_estimate_step_tokens gets the real step, full output, and root (not None)"):
         assert est_calls["step"] is step
+        assert est_calls["rag_hits"] == ["hit-obj"]
         assert est_calls["root"] == minimal_workspace  # kills root→None
         assert est_calls["output"] == sr.output  # kills output→None; exact full rag output
 
@@ -562,8 +563,8 @@ def test_footer_exact_mixed(minimal_workspace: Path, monkeypatch: pytest.MonkeyP
         "  short                        tool          5        0 FAIL (dry)",
         "",
         "Spent by executor:",
-        "  rg (disk search) (0 LLM spend)   steps=1  ~0 tok",
-        "  ollama (cheap LLM) (prov/mod, cheap) steps=1  ~30 tok",
+        "  rg (disk search)                 steps=1  ~0 tok",
+        "  ollama (cheap LLM) (prov/mod)    steps=1  ~30 tok",
         "",
         "Pipeline total: 0.0 s · ~30 LLM tokens spent",
         "",
@@ -629,7 +630,7 @@ def test_footer_exact_model_id(minimal_workspace: Path, monkeypatch: pytest.Monk
     result = PipelineResult(task="t", steps=[_footer_sr("s1", "ollama", est_tokens=30, duration_ms=1)])
     footer = pl.format_pipeline_footer(result, minimal_workspace)
     with allure.step("exact executor line uses <model_id>/<llm.model>"):
-        assert "  ollama (cheap LLM) (qwen:7b/mod, cheap) steps=1  ~30 tok" in footer.split("\n")
+        assert "  ollama (cheap LLM) (qwen:7b/mod) steps=1  ~30 tok" in footer.split("\n")
 
 
 @allure.title("format_pipeline_footer: same-tier steps accumulate; total duration uses /1000")
@@ -642,7 +643,7 @@ def test_footer_tier_accumulation_and_duration(minimal_workspace: Path, monkeypa
     ]
     footer = pl.format_pipeline_footer(PipelineResult(task="t", steps=steps), minimal_workspace).split("\n")
     with allure.step("two ollama steps accumulate to steps=2 / ~50 tok (kills by_tier.get(None))"):
-        assert "  ollama (cheap LLM) (prov/mod, cheap) steps=2  ~50 tok" in footer
+        assert "  ollama (cheap LLM) (prov/mod)    steps=2  ~50 tok" in footer
     with allure.step("total duration divides ms by 1000 (kills /1001)"):
         assert "Pipeline total: 100.0 s · ~50 LLM tokens spent" in footer
 
@@ -669,7 +670,7 @@ def test_footer_exact_pure_dry(minimal_workspace: Path, monkeypatch: pytest.Monk
         "  s1                           tool          0        0 OK (dry)",
         "",
         "Spent by executor:",
-        "  rg (disk search) (0 LLM spend)   steps=1  ~0 tok",
+        "  rg (disk search)                 steps=1  ~0 tok",
         "",
         "Pipeline total: 0.0 s · ~0 LLM tokens spent",
         "",
@@ -765,7 +766,7 @@ def test_estimate_step_tokens_gaps(minimal_workspace: Path, monkeypatch: pytest.
         monkeypatch.setattr("greedy_token.budget.rag_est_tokens",
                             lambda hits, root: seen.update(root=root) or 42)
         step = PipelineStep("x", "rag", "l", args="q")
-        est = pl._estimate_step_tokens(step, "out", minimal_workspace)
+        est = pl._estimate_step_tokens(step, "out", minimal_workspace, ["h"])
         assert seen["root"] == minimal_workspace
         assert est == 42 + count_tokens("q").tokens
 
@@ -1200,7 +1201,7 @@ def test_step_result_status_empty(minimal_workspace: Path, monkeypatch: pytest.M
     with allure.step("rag with no hits → result_status='empty'"):
         monkeypatch.setattr(pl, "search_rag", lambda q, r, limit: [])
         monkeypatch.setattr(pl, "format_hits", lambda q, h: f"No RAG hits for: {q}")
-        monkeypatch.setattr(pl, "_estimate_step_tokens", lambda s, o, r: 5)
+        monkeypatch.setattr(pl, "_estimate_step_tokens", lambda s, o, r, h: 5)
         sr = pl._run_step(_step("rag", tier="rag", args="nope"), minimal_workspace, execute=True)
         assert sr.executed is True
         assert sr.ok is True

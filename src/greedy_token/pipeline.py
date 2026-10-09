@@ -28,9 +28,10 @@ from greedy_token.code_search import (
 )
 from greedy_token.context_audit import HOST_SKILLS_DIR, resolve_host
 from greedy_token.estimator import cursor_baseline
+from greedy_token.executors import ProductInvocation
 from greedy_token.model_select import apply_model_env, resolve_model
 from greedy_token.paths import find_workspace_root
-from greedy_token.rag_search import format_hits, search_rag
+from greedy_token.rag_search import RagHit, format_hits, search_rag
 from greedy_token.result_contract import (
     RESULT_EMPTY,
     RESULT_INVALID,
@@ -605,14 +606,17 @@ def _resolve_wrapper_args(step_id: str, args: str) -> str:
     return str(skill_path.relative_to(root.resolve()))
 
 
-def _estimate_step_tokens(step: PipelineStep, output: str, root: Path) -> int:
+def _estimate_step_tokens(
+    step: PipelineStep, output: str, root: Path, rag_hits: list[RagHit] | None = None,
+) -> int:
     if step.tier in ("tool", "python"):
         return 0
     if step.tier == "rag":
-        hits = search_rag(step.args, root, limit=5)
+        if rag_hits is None:
+            raise ValueError("RAG token estimate requires producer hits")
         from greedy_token.budget import rag_est_tokens
 
-        return rag_est_tokens(hits, root) + count_tokens(step.args).tokens
+        return rag_est_tokens(rag_hits, root) + count_tokens(step.args).tokens
     if step.tier == "ollama":
         # output tokens + rough input (skill file or prompt)
         extra = 0
@@ -712,6 +716,7 @@ def _run_step(
     *,
     execute: bool,
     prior_search_output: str | None = None,
+    product_invocation: ProductInvocation | None = None,
 ) -> StepResult:
     t0 = time.perf_counter()
     executed = False
@@ -769,7 +774,7 @@ def _run_step(
         else:
             output = f"(dry-run) rag {step.args!r}"
         duration_ms = int((time.perf_counter() - t0) * 1000)
-        est = _estimate_step_tokens(step, output, root) if execute else 0
+        est = _estimate_step_tokens(step, output, root, hits) if execute else 0
         return StepResult(
             step=step,
             ok=True,
@@ -862,6 +867,7 @@ def _run_step(
                 est_tokens=0,
                 executed=False,
             )
+        timeout = SCRIPT_TIMEOUT
         try:
             wrapper = WRAPPERS.get(step.step_id)
             if wrapper is None:
@@ -872,14 +878,43 @@ def _run_step(
                 root=root,
                 registered_script_paths=(wrapper.path,),
             )
-            proc = subprocess.run(
-                list(invocation.argv),
-                shell=False,
-                capture_output=True,
-                text=True,
-                cwd=invocation.cwd,
-                timeout=SCRIPT_TIMEOUT,
-            )
+            if product_invocation is not None:
+                timeout = product_invocation.timeout(SCRIPT_TIMEOUT)
+            from greedy_token.cheap_llm import observation_armed
+
+            if observation_armed() and invocation.script_type == "python":
+                # Observed run: spawn the registered wrapper through the
+                # canonical trusted runner — parent admission joins the
+                # child's own source/FD binding, no plain Popen.
+                from greedy_token.executors import _spawn_observed_python_child
+                from greedy_token.trust import _open_script, _sha256_fd
+
+                if len(invocation.argv) < 2:
+                    raise UnsafeCommandError(
+                        "wrapper Python invocation has no script argv"
+                    )
+                child_fd, _fd_stat = _open_script(root, invocation.script_path)
+                try:
+                    proc = _spawn_observed_python_child(
+                        argv=tuple(invocation.argv[2:]),
+                        script_path=invocation.argv[1],
+                        cwd=invocation.cwd,
+                        authority=invocation.authorization,
+                        fd=child_fd,
+                        source_sha256=_sha256_fd(child_fd),
+                        timeout=timeout,
+                    )
+                finally:
+                    os.close(child_fd)
+            else:
+                proc = subprocess.run(
+                    list(invocation.argv),
+                    shell=False,
+                    capture_output=True,
+                    text=True,
+                    cwd=invocation.cwd,
+                    timeout=timeout,
+                )
         except UnsafeCommandError as exc:
             duration_ms = int((time.perf_counter() - t0) * 1000)
             return StepResult(
@@ -919,7 +954,7 @@ def _run_step(
                 step=step,
                 ok=False,
                 exit_code=124,
-                output=f"Step timed out after {SCRIPT_TIMEOUT}s: {step.command}",
+                output=f"Step timed out after {timeout}s: {step.command}",
                 duration_ms=duration_ms,
                 est_tokens=0,
                 executed=True,
@@ -982,21 +1017,71 @@ def run_pipeline(
     max_output_per_step: int = 4000,
     profile: str = "",
     log: bool = True,
+    invocation: ProductInvocation | None = None,
+    request_id: str | None = None,
+    input_version: str | int | None = None,
+) -> PipelineResult:
+    root = root or find_workspace_root()
+    params = dict(
+        execute=execute, stop_on_error=stop_on_error,
+        max_output_per_step=max_output_per_step, profile=profile, log=log,
+    )
+    if invocation is None:
+        return _run_pipeline(task, root, **params)
+    return invocation.run(
+        lambda: _run_pipeline(task, root, invocation=invocation, **params),
+        root=root, op="pipeline", params=(task, params),
+        request_id=request_id, input_version=input_version,
+    )
+
+
+def _run_pipeline(
+    task: str,
+    root: Path,
+    *,
+    execute: bool,
+    stop_on_error: bool,
+    max_output_per_step: int,
+    profile: str,
+    log: bool,
+    invocation: ProductInvocation | None = None,
 ) -> PipelineResult:
     root = root or find_workspace_root()
     steps = parse_pipeline(task, profile=profile)
     result = PipelineResult(task=task)
     last_search_output: str | None = None
+    prev_tier = ""
+    prev_step_id = ""
 
     for step in steps:
-        step_result = _run_step(
-            step,
-            root,
-            execute=execute,
-            prior_search_output=last_search_output,
-        )
+        if execute and prev_tier and prev_tier != step.tier:
+            # The declared step sequence crossing a tier is an explicit
+            # handoff — record it as such, distinct from a dynamic fallback.
+            from greedy_token.cheap_llm import observe_transition
+
+            observe_transition(
+                f"{prev_tier}->{step.tier}",
+                request_kind="explicit_sequence",
+                from_step=prev_step_id,
+                to_step=step.step_id,
+            )
+        if invocation is None:
+            step_result = _run_step(
+                step, root, execute=execute, prior_search_output=last_search_output,
+            )
+        else:
+            step_result = invocation.dispatch(
+                lambda step=step, prior=last_search_output: _run_step(
+                    step, root, execute=execute, prior_search_output=prior,
+                    product_invocation=invocation,
+                ),
+                cause="step",
+            )
         if step.step_id == "search" and step_result.executed:
             last_search_output = step_result.output
+        if step_result.executed:
+            prev_tier = step.tier
+            prev_step_id = step.step_id
         if len(step_result.output) > max_output_per_step:
             step_result.output = (
                 step_result.output[: max_output_per_step - 40] + "\n… (truncated)"
@@ -1187,12 +1272,12 @@ def format_pipeline_footer(result: PipelineResult, root: Path) -> str:
         if executor == "ollama":
             # equivalent: unset → "" and None are both falsy for the check below.
             model_id = os.environ.get("GREEDY_LLM_MODEL_ID", "")  # pragma: no mutate
+            # Model identity only — registry billing class is configuration,
+            # not observed spend; local executors carry no spend claim.
             if model_id:
-                note += f" ({model_id}/{llm.model}, cheap)"
+                note += f" ({model_id}/{llm.model})"
             else:
-                note += f" ({llm.provider}/{llm.model}, cheap)"
-        elif executor in ("rg", "python"):
-            note += " (0 LLM spend)"
+                note += f" ({llm.provider}/{llm.model})"
         lines.append(f"  {note:<32} steps={count}  ~{tokens:,} tok")
 
     lines.extend(

@@ -28,6 +28,102 @@ pytestmark = [
 ]
 
 
+def test_p5_rag_estimate_requires_producer_snapshot(minimal_workspace, monkeypatch):
+    from unittest.mock import Mock
+
+    import greedy_token.pipeline as pipeline
+
+    producer = Mock(side_effect=AssertionError("estimator must not execute the producer"))
+    monkeypatch.setattr(pipeline, "search_rag", producer)
+    step = PipelineStep("rag", "rag", "rag fixture", args="fixture")
+    with pytest.raises(ValueError, match="producer hits"):
+        pipeline._estimate_step_tokens(step, "terminal", minimal_workspace)
+    producer.assert_not_called()
+
+
+def test_p5_rag_terminal_result_does_not_repeat_search(minimal_workspace, monkeypatch):
+    from unittest.mock import Mock
+
+    import greedy_token.pipeline as pipeline
+
+    search = Mock(wraps=pipeline.search_rag)
+    monkeypatch.setattr(pipeline, "search_rag", search)
+    result = run_pipeline("rag baseUrl", minimal_workspace, execute=True, log=False)
+    assert result.steps[0].result_status == "produced"
+    search.assert_called_once_with("baseUrl", minimal_workspace, limit=5)
+
+
+@pytest.mark.parametrize("change", [None, "version", "params", "independent_id"])
+def test_p5_pipeline_request_and_parameter_identity(minimal_workspace, monkeypatch, change):
+    from unittest.mock import Mock
+
+    import greedy_token.pipeline as pipeline
+    from greedy_token.executors import ProductInvocation
+
+    runner = Mock(side_effect=lambda step, root, **kw: StepResult(
+        step, True, 0, "terminal", 0, 0, True, result_status="produced",
+    ))
+    monkeypatch.setattr(pipeline, "_run_step", runner)
+    params = {
+        "execute": True, "log": False, "request_id": "request-1", "input_version": 1,
+    }
+    with ProductInvocation(minimal_workspace) as invocation:
+        first = run_pipeline("rag fixture", minimal_workspace, invocation=invocation, **params)
+        if change == "version":
+            params["input_version"] = 2
+        elif change == "params":
+            params["max_output_per_step"] = 100
+        elif change == "independent_id":
+            params["request_id"] = "request-2"
+        second = run_pipeline("rag fixture", minimal_workspace, invocation=invocation, **params)
+        assert first.steps[0].output == second.steps[0].output
+    assert runner.call_count == (1 if change is None else 2)
+
+
+def test_p5_pipeline_deadline_timeout_uses_the_observed_bound(minimal_workspace, monkeypatch):
+    import subprocess
+    import time
+    from unittest.mock import Mock
+
+    import greedy_token.pipeline as pipeline
+    from greedy_token.executors import ProductInvocation
+
+    runner = Mock(side_effect=subprocess.TimeoutExpired("isolated-fixture", 1))
+    monkeypatch.setattr(pipeline.subprocess, "run", runner)
+    with ProductInvocation(minimal_workspace, deadline=time.monotonic() + 2) as invocation:
+        result = run_pipeline(
+            "check-meta-sync", minimal_workspace, execute=True, log=False,
+            invocation=invocation, request_id="request-1", input_version=1,
+        )
+        bound = runner.call_args.kwargs["timeout"]
+        assert 0 < bound <= 2
+        assert result.steps[0].exit_code == 124
+        assert f"timed out after {bound}s" in result.steps[0].output
+        assert invocation.counts["retries"] == 0
+    runner.assert_called_once()
+
+
+def test_p5_pipeline_step_limit_is_shared_by_the_owned_chain(minimal_workspace, monkeypatch):
+    from unittest.mock import Mock
+
+    import greedy_token.pipeline as pipeline
+    from greedy_token.executors import ProductInvocation, ProductLifecycleError
+
+    runner = Mock(side_effect=lambda step, root, **kw: StepResult(
+        step, True, 0, "terminal", 0, 0, True, result_status="produced",
+    ))
+    monkeypatch.setattr(pipeline, "_run_step", runner)
+    with ProductInvocation(minimal_workspace, max_attempts=2) as invocation:
+        for _ in range(2):
+            with pytest.raises(ProductLifecycleError, match="attempt limit"):
+                run_pipeline(
+                    "rag one then rag two then rag three", minimal_workspace,
+                    execute=True, log=False, invocation=invocation,
+                    request_id="request-1", input_version=1,
+                )
+    assert runner.call_count == 2
+
+
 @allure.story("Named recipes")
 @allure.title("Parse meta-audit named pipeline recipe")
 def test_parse_named_pipeline_meta_audit() -> None:
@@ -378,11 +474,14 @@ def test_pipeline_search_step_billing_uses_rg(minimal_workspace: Path) -> None:
         assert any(
             sr.step.step_id == "search" and sr.executed for sr in result.steps
         )
-        # executor column + billing hint (not "script — 0 LLM spend")
+        # executor column + billing hint (a label, never a spend claim)
         assert "  search" in footer
         assert "rg" in footer
-        assert "ripgrep on disk — 0 LLM spend" in footer
-        assert "script — 0 LLM spend" not in footer.split("search")[1].split("\n")[0]
+        assert "ripgrep on disk" in footer
+        assert "0 LLM spend" not in footer
+        assert footer.split("search")[1].split("\n")[0].strip().endswith(
+            "ripgrep on disk"
+        )
 
 
 @allure.story("Token footer")
@@ -407,10 +506,10 @@ def test_pipeline_search_step_billing_uses_python_fallback(
         rows = compute_step_savings(result, minimal_workspace)
         search_row = next(r for r in rows if r.step_id == "search")
         assert search_row.executor_sub == "python"
-        assert "script — 0 LLM spend" in search_row.billing
+        assert search_row.billing == "script"
         assert "ripgrep" not in search_row.billing
         assert "python" in footer
-        assert "script — 0 LLM spend" in footer
+        assert "0 LLM spend" not in footer
         assert "python (script)" in footer
         assert "rg (disk search)" not in footer
 
@@ -484,7 +583,7 @@ def test_pipeline_step_timeout(mock_run, minimal_workspace: Path) -> None:
 def _row(**kw) -> StepSavingsRow:
     base = dict(
         index=1, step_id="check-meta-sync", tier="python", duration_ms=83,
-        spent=0, baseline=9487, saved=9487, billing="script — 0 LLM spend",
+        spent=0, baseline=9487, saved=9487, billing="script",
         executor_sub="script",
     )
     base.update(kw)
@@ -508,7 +607,7 @@ def test_format_savings_table_exact() -> None:
     # Exact data row pins the format string and numeric grouping.
     assert lines[2] == (
         f"  {1:>2}  {'check-meta-sync':<22} {'script':<8} {83:>6} "
-        f"{0:>7,} {9487:>9,} {9487:>9,}  script — 0 LLM spend"
+        f"{0:>7,} {9487:>9,} {9487:>9,}  script"
     )
 
 
@@ -700,7 +799,7 @@ def test_estimate_step_tokens_branches(minimal_workspace: Path, monkeypatch: pyt
     import greedy_token.pipeline as P
     from greedy_token.tokens import count_tokens
 
-    with allure.step("tool/python executors cost 0 LLM tokens"):
+    with allure.step("tool/python executors cost 0 est. LLM tokens"):
         assert P._estimate_step_tokens(PipelineStep("x", "tool", "l"), "big output", minimal_workspace) == 0
         assert P._estimate_step_tokens(PipelineStep("x", "python", "l"), "big output", minimal_workspace) == 0
 
@@ -718,24 +817,24 @@ def test_estimate_step_tokens_branches(minimal_workspace: Path, monkeypatch: pyt
 
 
 @allure.story("Estimate tokens")
-@allure.title("_estimate_step_tokens: rag branch threads root/limit into search_rag")
+@allure.title("_estimate_step_tokens: rag branch reuses producer hits and forwards root")
 def test_estimate_step_tokens_rag(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from unittest.mock import Mock
+
     import greedy_token.pipeline as P
+    from greedy_token.rag_search import RagHit
     from greedy_token.tokens import count_tokens
 
-    seen: dict = {}
-
-    def fake_search_rag(args, root, limit):
-        seen["call"] = (args, root, limit)
-        return ["hit"]
-
-    monkeypatch.setattr(P, "search_rag", fake_search_rag)
-    monkeypatch.setattr("greedy_token.budget.rag_est_tokens", lambda hits, root: 42)
+    hits = [RagHit("fixture", "fixture.md", "fixture", 1.0, "hit", body="hit")]
+    producer = Mock(side_effect=AssertionError("estimator must not execute the producer"))
+    estimator = Mock(return_value=42)
+    monkeypatch.setattr(P, "search_rag", producer)
+    monkeypatch.setattr("greedy_token.budget.rag_est_tokens", estimator)
     step = PipelineStep("x", "rag", "l", args="myquery")
-    with allure.step("rag estimate = rag_est_tokens + tokens(query); search_rag(args, root, limit=5)"):
-        est = P._estimate_step_tokens(step, "out", minimal_workspace)
-        attach_json("search_rag call", [str(x) for x in seen["call"]])
-        assert seen["call"] == ("myquery", minimal_workspace, 5)
+    with allure.step("rag estimate reuses terminal hits without another producer call"):
+        est = P._estimate_step_tokens(step, "out", minimal_workspace, hits)
+        producer.assert_not_called()
+        estimator.assert_called_once_with(hits, minimal_workspace)
         assert est == 42 + count_tokens("myquery").tokens
 
 
@@ -849,9 +948,9 @@ def test_format_pipeline_footer_spent_by_executor(minimal_workspace: Path, monke
 
     footer = P.format_pipeline_footer(result, minimal_workspace)
     with allure.step("Each executor renders once, in canonical order, with the right note"):
-        assert f"  {'rg (disk search) (0 LLM spend)':<32} steps=1  ~10 tok" in footer
-        assert f"  {'python (script) (0 LLM spend)':<32} steps=1  ~20 tok" in footer
-        assert f"  {'ollama (cheap LLM) (prov/mod, cheap)':<32} steps=1  ~30 tok" in footer
+        assert f"  {'rg (disk search)':<32} steps=1  ~10 tok" in footer
+        assert f"  {'python (script)':<32} steps=1  ~20 tok" in footer
+        assert f"  {'ollama (cheap LLM) (prov/mod)':<32} steps=1  ~30 tok" in footer
         assert f"  {'rag (docs/rag read)':<32} steps=1  ~40 tok" in footer
         assert f"  {'cursor (expensive LLM)':<32} steps=1  ~50 tok" in footer
 

@@ -3,11 +3,14 @@ from __future__ import annotations
 import json
 import os
 import re
+import shlex
 import time
+from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
+from greedy_token.executors import ProductInvocation
 from greedy_token.hook_host import BYPASS_PREFIXES, extract_hit_files, strip_ask_prefix
 
 #
@@ -91,14 +94,42 @@ def _args_from_prompt_spec(op_id: str, root: Path | None) -> list[dict]:
     return spec if isinstance(spec, list) else []
 
 
-def derive_prompt_args(prompt: str, spec: list[dict]) -> str:
+def derive_prompt_args(
+    prompt: str, spec: list[dict], *, root: Path | None = None, path_hint: str | None = None,
+) -> str:
     """Render the first matching args_from_prompt entry as an args string.
 
     ``{0}``..``{n}`` in ``args`` map to regex capture groups; a spec whose
     regex misses or whose template does not line up yields "" — fail-open,
     the fixed argv still stands.
     """
-    text = " ".join(str(prompt).split())
+    from greedy_token.router import (
+        _JSON_KEYS_HINT,
+        parse_json_keys_intent,
+        parse_recent_commits_intent,
+    )
+    from greedy_token.subprocess_safe import UnsafeCommandError, _validate_script_args
+
+    text = prompt.strip()
+    if _JSON_KEYS_HINT.search(text):
+        if root is None:
+            from greedy_token.paths import find_workspace_root
+
+            try:
+                root = find_workspace_root()
+            except SystemExit as exc:
+                raise UnsafeCommandError("prompt derivation workspace is unresolved") from exc
+        slots = parse_json_keys_intent(prompt, root, path_hint=path_hint)
+    else:
+        slots = parse_recent_commits_intent(prompt)
+    allowed = None
+    if slots is not None and slots.intent == "json_keys":
+        keys = ",".join(slots.keys)
+        allowed = {
+            ("--path", slots.path, "--keys", keys), (slots.path, "--keys", keys),
+        }
+    elif slots is not None:
+        allowed = {("--count", str(slots.count)), ("--count", str(slots.count), "--compact")} if slots.count is not None else {("--compact",)}
     for entry in spec:
         if not isinstance(entry, dict):
             continue
@@ -113,14 +144,46 @@ def derive_prompt_args(prompt: str, spec: list[dict]) -> str:
         if match is None:
             continue
         try:
-            return template.format(*(g or "" for g in match.groups()))
-        except (IndexError, KeyError):
+            derived = template.format(*(g or "" for g in match.groups()))
+            argv = tuple(shlex.split(derived))
+        except (IndexError, KeyError, ValueError, AttributeError):
             continue
+        if not argv:
+            return ""
+        if root is None:
+            from greedy_token.paths import find_workspace_root
+
+            try:
+                root = find_workspace_root()
+            except SystemExit as exc:
+                raise UnsafeCommandError("prompt derivation workspace is unresolved") from exc
+        _validate_script_args(argv, root)
+        if allowed is None:
+            raise UnsafeCommandError("unsupported prompt derivation intent")
+        if argv not in allowed:
+            raise UnsafeCommandError("prompt derivation contradicts admitted slots")
+        return derived
     return ""
 
 
 def has_invocation_intent(prompt: str, op: Any, *, root: Path | None = None) -> bool:
-    from greedy_token.router import has_edit_verbs, is_read_only_tool_intent
+    from greedy_token.subprocess_safe import UnsafeCommandError
+
+    try:
+        return _has_invocation_intent(prompt, op, root=root)
+    except UnsafeCommandError:
+        return False
+
+
+def _has_invocation_intent(prompt: str, op: Any, *, root: Path | None = None) -> bool:
+    from greedy_token.router import (
+        _JSON_KEYS_HINT,
+        _has_repository_scope,
+        _json_route_intent,
+        has_edit_verbs,
+        is_read_only_tool_intent,
+        parse_recent_commits_intent,
+    )
 
     args_spec: list[dict] = []
     if op.params and op.params != ("query",):
@@ -129,6 +192,29 @@ def has_invocation_intent(prompt: str, op: Any, *, root: Path | None = None) -> 
             return False
     if op.tier == "tool":
         return is_read_only_tool_intent(prompt)
+    if _has_repository_scope(prompt):
+        return False
+    if _JSON_KEYS_HINT.search(prompt):
+        if root is None:
+            from greedy_token.paths import find_workspace_root
+
+            try:
+                root = find_workspace_root()
+            except SystemExit:
+                return False
+        route = {
+            "target": op.tier, "read_only": op.read_only, "patterns": op.patterns,
+            "command": getattr(op, "command", ""), "argv": getattr(op, "argv", ()),
+            "params": op.params, "args_from_prompt": args_spec,
+        }
+        return _json_route_intent(prompt, route, root) is not None
+    if args_spec:
+        slots = parse_recent_commits_intent(prompt)
+        if slots is not None and slots.count is not None:
+            return bool(derive_prompt_args(prompt, args_spec, root=root))
+        derive_prompt_args(prompt, args_spec, root=root)
+        if slots is None and re.search(r"\b(?:коммит\w*|commits?)\b|(?:^|\s)--?\w|[=$<>|]", prompt, re.IGNORECASE):
+            return False
     text = re.sub(r"^(?:please|пожалуйста)[,\s]+", "", prompt.strip(), flags=re.IGNORECASE)
     if re.search(
         r"""["'`«»“”‘’]|[;,\r\n]|\b(?:не|нет|нельзя|никогда|not|never|no|without|instead|"""
@@ -157,7 +243,7 @@ def has_invocation_intent(prompt: str, op: Any, *, root: Path | None = None) -> 
     )
     if request is None:
         return False
-    if args_spec and derive_prompt_args(prompt, args_spec):
+    if args_spec and derive_prompt_args(prompt, args_spec, root=root):
         return True
     suffixes = {
         "", "now", "please", "сейчас", "пожалуйста", "проекта", "workspace",
@@ -271,6 +357,34 @@ def _handle_cursor_route(
 
 def evaluate(
     prompt: str, data: dict[str, Any], *, soft_gate: bool = False,
+    invocation: ProductInvocation | None = None,
+) -> HookResponse:
+    if invocation is None:
+        return _evaluate(prompt, data, soft_gate=soft_gate)
+    from greedy_token.paths import find_workspace_root
+
+    data = deepcopy(data)
+    root = find_workspace_root()
+    adv = _try_advisory()
+    mode = adv.hook_mode() if adv is not None else ""
+    threshold = adv.hook_min_confidence() if adv is not None else min_confidence_threshold()
+    attachments = tuple(adv.parse_attachments(data)) if adv is not None else ()
+    overkill_gate = adv.overkill_gate_enabled() if adv is not None else False
+    return invocation.run(
+        lambda: _evaluate(prompt, data, soft_gate=soft_gate, invocation=invocation, root=root),
+        root=root, op="hook_policy",
+        params=(
+            prompt, data.get("session_id") or data.get("conversation_id"), attachments,
+            soft_gate, mode, threshold, overkill_gate,
+        ),
+        request_id=data.get("request_id"), prompt_id=data.get("prompt_id"),
+        input_version=data.get("input_version"),
+    )
+
+
+def _evaluate(
+    prompt: str, data: dict[str, Any], *, soft_gate: bool = False,
+    invocation: ProductInvocation | None = None, root: Path | None = None,
 ) -> HookResponse:
     session_id = data.get("session_id") or data.get("conversation_id")
     if not prompt or len(prompt) < MIN_PROMPT_LEN:
@@ -294,7 +408,7 @@ def evaluate(
     except ImportError:
         return HookResponse()
 
-    root = find_workspace_root()
+    root = root or find_workspace_root()
     decision = route_task(prompt, root)
     adv = _try_advisory()
 
@@ -352,17 +466,22 @@ def evaluate(
             "user_message": adv.format_gate_user_message(prompt, op_id=decision.route_id),
         })
 
-    if op.params == ("query",):
-        # Raw prompt as task: the rg argv builder extracts the pattern AND
-        # prompt path scopes itself — a verbatim --query would lose the path.
-        params = {"task": prompt}
-    elif op.params == ("args",):
-        derived = derive_prompt_args(prompt, _args_from_prompt_spec(op.id, root))
-        params = {"args": derived} if derived else {}
-    else:
-        params = {}
     try:
-        result = invoke_capability(root, op.id, **params)
+        if op.params == ("query",):
+            # Raw prompt as task: the rg argv builder extracts the pattern AND
+            # prompt path scopes itself — a verbatim --query would lose the path.
+            params = {"task": prompt}
+        elif op.params == ("args",):
+            derived = derive_prompt_args(prompt, _args_from_prompt_spec(op.id, root), root=root)
+            params = {"args": derived} if derived else {}
+        else:
+            params = {}
+        if invocation is None:
+            result = invoke_capability(root, op.id, **params)
+        else:
+            result = invocation.dispatch(
+                lambda: invoke_capability(root, op.id, **params), cause="executor",
+            )
     except Exception:
         return _pass_to_agent(prompt, data, decision, adv, "execution_error")
     # One policy rules on the run result: a refusal (not_started), an invalid

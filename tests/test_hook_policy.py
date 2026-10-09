@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import builtins
 import json
+import re
 from dataclasses import replace
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -10,6 +11,33 @@ import pytest
 
 import allure
 from greedy_token import advisory, capabilities, capabilities_invoke, hook_policy, paths, router
+from greedy_token.capabilities_invoke import invoke_capability as rework_real_invoke
+from greedy_token.subprocess_safe import UnsafeCommandError
+from tests.test_router import (
+    P1_ADVERSARIAL_CASES,
+    P1_COUNT_POSITIVE_CASES,
+    P1_COUNT_SPEC,
+    P1_POSITIVE_CASES,
+    P1_REPOSITORY_ADVISORY_CASES,
+    P1_REPOSITORY_REFUSAL_CASES,
+    P1_REWORK_CONFLICTS,
+    P1_REWORK_DERIVATIONS,
+    P1_REWORK_QUOTED,
+    P1_REWORK_WHITESPACE,
+    p1_commits_route,
+    p1_json_route,
+    p1_rework_conflicting_route,
+    p1_rework_derivation_route,
+)
+from tests.test_router import (
+    p1_rework_driver as p1_rework_driver,
+)
+from tests.test_router import (
+    p1_workspace as p1_workspace,
+)
+from tests.test_router import (
+    route_task as rework_real_route_task,
+)
 
 pytestmark = [
     allure.epic("Greedy token"),
@@ -66,6 +94,81 @@ def evaluate(state, prompt=PROMPT, *, soft_gate=False, data=None):
 
 def last_event(state):
     return json.loads((state.root / "advisory.jsonl").read_text(encoding="utf-8").splitlines()[-1])
+
+
+@pytest.mark.parametrize("identity", ["request_id", "prompt_id"])
+def test_p5_policy_uses_only_declared_request_identity(policy_state, identity):
+    from greedy_token.executors import ProductInvocation
+
+    state = policy_state
+    data = {"session_id": "owned-fixture", identity: "request-1", "input_version": 1}
+    with ProductInvocation(state.root) as invocation:
+        first = hook_policy.evaluate(PROMPT, data, invocation=invocation)
+        second = hook_policy.evaluate(PROMPT, data, invocation=invocation)
+    assert first.kind == second.kind == "intercept"
+    assert state.route.call_count == state.runner.call_count == 1
+
+
+@pytest.mark.parametrize("data", [
+    {"session_id": "owned-fixture", "input_version": 1},
+    {"session_id": "owned-fixture", "operation_id": "not-a-host-request", "input_version": 1},
+    {"session_id": "owned-fixture", "prompt_id": "" , "input_version": 1},
+    {"session_id": "owned-fixture", "request_id": "request-1"},
+])
+def test_p5_policy_missing_ids_or_versions_are_not_inferred(policy_state, data):
+    from greedy_token.executors import ProductInvocation
+
+    state = policy_state
+    with ProductInvocation(state.root) as invocation:
+        for _ in range(2):
+            assert hook_policy.evaluate(PROMPT, data, invocation=invocation).kind == "intercept"
+    assert state.runner.call_count == 2
+
+
+@pytest.mark.parametrize("negative", ["validation", "delivery_refusal", "execution_error"])
+def test_p5_policy_negative_terminal_does_not_restart_producer(policy_state, negative):
+    from greedy_token.executors import ProductInvocation
+
+    state = policy_state
+    if negative == "validation":
+        state.result.result_status = "invalid"
+    elif negative == "delivery_refusal":
+        state.result.gate_action = "refused"
+        state.result.gate_reason = "delivery_refusal"
+    else:
+        state.runner.side_effect = RuntimeError("terminal execution refusal")
+    data = {"session_id": "owned-fixture", "prompt_id": "prompt-1", "input_version": 1}
+    with ProductInvocation(state.root) as invocation:
+        for _ in range(2):
+            assert hook_policy.evaluate(PROMPT, data, invocation=invocation).kind == "pass"
+    assert state.runner.call_count == 1
+
+
+def test_p5_policy_delivery_metadata_does_not_split_request(policy_state):
+    from greedy_token.executors import ProductInvocation
+
+    state = policy_state
+    data = {
+        "session_id": "owned-fixture", "prompt_id": "prompt-1", "input_version": 1,
+        "operation_id": "telemetry-1", "timestamp": 1,
+    }
+    with ProductInvocation(state.root) as invocation:
+        assert hook_policy.evaluate(PROMPT, data, invocation=invocation).kind == "intercept"
+        redelivery = {**data, "operation_id": "telemetry-2", "timestamp": 2}
+        assert hook_policy.evaluate(PROMPT, redelivery, invocation=invocation).kind == "intercept"
+    assert state.runner.call_count == 1
+
+
+def test_p5_policy_mode_is_a_parameter_not_request_identity(policy_state, monkeypatch):
+    from greedy_token.executors import ProductInvocation
+
+    state = policy_state
+    data = {"session_id": "owned-fixture", "prompt_id": "prompt-1", "input_version": 1}
+    with ProductInvocation(state.root) as invocation:
+        assert hook_policy.evaluate(PROMPT, data, invocation=invocation).kind == "intercept"
+        monkeypatch.setenv("GREEDY_HOOK_MODE", "advisory")
+        assert hook_policy.evaluate(PROMPT, data, invocation=invocation).kind == "pass"
+    assert state.runner.call_count == 1
 
 
 def test_intercept_returns_neutral_payload_and_never_prints(policy_state, capsys):
@@ -432,3 +535,321 @@ def test_intent_params_args_op(policy_state, monkeypatch, prompt, with_spec, exp
         hook_policy.has_invocation_intent(prompt, cap, root=policy_state.root)
         is expected
     )
+
+
+def assert_rejected_derivation(prompt, spec, *, root=None):
+    if any(re.search(entry["regex"], prompt.strip(), re.IGNORECASE) for entry in spec):
+        with pytest.raises(UnsafeCommandError, match="unsupported|contradicts|escapes"):
+            hook_policy.derive_prompt_args(prompt, spec, root=root)
+    else:
+        assert hook_policy.derive_prompt_args(prompt, spec, root=root) == ""
+
+
+def _p1_capability(state, monkeypatch, path="lab/users.json", keys=("id", "email")):
+    lab = state.root / "lab"
+    lab.mkdir(exist_ok=True)
+    for name in ("users.json", "events.json", "User Data.json", "Users.json"):
+        (lab / name).write_text("[]", encoding="utf-8")
+    route = p1_json_route(path, keys)
+    cap = replace(state.cap, id=route["id"], command=route["command"], patterns=tuple(route["patterns"]))
+    state.probe.return_value = cap
+    state.decision.route_id = cap.id
+    state.decision.confidence = 0.95
+    monkeypatch.setattr(paths, "load_routes_config", lambda *a, **kw: {"routes": [route]})
+    return cap
+
+
+def test_p1_archive_ru_original_regression(policy_state, monkeypatch):
+    prompt = "в lab/users.json у каждого объекта есть id и email"
+    cap = _p1_capability(policy_state, monkeypatch)
+    assert hook_policy.has_invocation_intent(prompt, cap, root=policy_state.root) is True
+    assert evaluate(policy_state, prompt).kind == "intercept"
+    policy_state.runner.assert_called_once_with(policy_state.root, cap.id)
+
+
+@pytest.mark.parametrize("case_id,prompt,path,keys", P1_POSITIVE_CASES, ids=[c[0] for c in P1_POSITIVE_CASES])
+def test_p1_positive_policy_preserves_exact_slots(policy_state, monkeypatch, case_id, prompt, path, keys):
+    cap = _p1_capability(policy_state, monkeypatch, path, keys)
+    slots = router.parse_json_keys_intent(prompt, policy_state.root)
+    assert (slots.intent, slots.path, slots.keys) == ("json_keys", path, keys)
+    assert hook_policy.has_invocation_intent(prompt, cap, root=policy_state.root)
+    assert evaluate(policy_state, prompt).kind == "intercept"
+    policy_state.runner.assert_called_once_with(policy_state.root, cap.id)
+
+
+@pytest.mark.parametrize("mode", ["intercept", "gate"])
+@pytest.mark.parametrize("case_id,prompt", P1_ADVERSARIAL_CASES, ids=[c[0] for c in P1_ADVERSARIAL_CASES])
+def test_p1_adversarial_no_false_intercept(policy_state, monkeypatch, mode, case_id, prompt):
+    cap = _p1_capability(policy_state, monkeypatch)
+    cap = replace(cap, patterns=("каждого объекта", "each object", "check json keys"))
+    if case_id == "omitted-path":
+        cap = replace(cap, command="python lab/check_users.py")
+    policy_state.probe.return_value = cap
+    monkeypatch.setenv("GREEDY_HOOK_MODE", mode)
+    assert hook_policy.has_invocation_intent(prompt, cap, root=policy_state.root) is False
+    assert evaluate(policy_state, prompt).kind == "pass"
+    policy_state.runner.assert_not_called()
+
+
+@pytest.mark.parametrize("prompt", [
+    "покажи последних 11 коммитов с неизвестным параметром",
+    "покажи последних 11 коммитов --force",
+    "show last 11 commits and send report",
+    "покажи последних 11 коммитов path=../outside",
+    "покажи последних 0 коммитов",
+    "покажи последних 10000 коммитов",
+    "покажи последних 11 коммитов $(id)",
+    "не покажи последних 11 коммитов",
+])
+def test_p1_partial_args_spec_cannot_admit_extra_text(policy_state, monkeypatch, prompt):
+    _patch_args_spec(monkeypatch, policy_state.cap.id)
+    cap = replace(policy_state.cap, params=("args",))
+    policy_state.probe.return_value = cap
+    assert_rejected_derivation(prompt, ARGS_SPEC)
+    assert hook_policy.has_invocation_intent(prompt, cap, root=policy_state.root) is False
+    assert evaluate(policy_state, prompt).kind == "pass"
+    policy_state.runner.assert_not_called()
+
+
+@pytest.mark.parametrize("template", ["--force {0}", "--count {0} --unknown", "--count {0}; send", "--count {0} --count {0}"])
+def test_p1_unknown_derived_parameters_are_not_admitted(policy_state, monkeypatch, template):
+    spec = [{"regex": r"([0-9]{1,4}) +коммит", "args": template}]
+    _patch_args_spec(monkeypatch, policy_state.cap.id, spec)
+    cap = replace(policy_state.cap, params=("args",))
+    assert_rejected_derivation("покажи последних 11 коммитов", spec)
+    assert hook_policy.has_invocation_intent("покажи последних 11 коммитов", cap, root=policy_state.root) is False
+
+
+def test_p1_json_params_thread_exact_path_and_keys(policy_state, monkeypatch):
+    cap = _p1_capability(policy_state, monkeypatch, "lab/User Data.json")
+    cap = replace(cap, params=("args",), command="python lab/check_users.py")
+    spec = [{"regex": r'check json keys path="([^"]+)" keys=([A-Za-z_,]+)', "args": '--path "{0}" --keys {1}'}]
+    _patch_args_spec(monkeypatch, cap.id, spec)
+    policy_state.probe.return_value = cap
+    prompt = 'check json keys path="lab/User Data.json" keys=id,email'
+    assert hook_policy.has_invocation_intent(prompt, cap, root=policy_state.root)
+    assert evaluate(policy_state, prompt).kind == "intercept"
+    policy_state.runner.assert_called_once_with(policy_state.root, cap.id, args='--path "lab/User Data.json" --keys id,email')
+
+
+@pytest.mark.parametrize("case_id,prompt,count", P1_COUNT_POSITIVE_CASES, ids=[c[0] for c in P1_COUNT_POSITIVE_CASES])
+def test_p1_count_policy_exact_parameter(policy_state, monkeypatch, case_id, prompt, count):
+    _patch_args_spec(monkeypatch, policy_state.cap.id, P1_COUNT_SPEC)
+    cap = replace(policy_state.cap, params=("args",))
+    policy_state.probe.return_value = cap
+    assert hook_policy.derive_prompt_args(prompt, P1_COUNT_SPEC) == f"--count {count}"
+    assert evaluate(policy_state, prompt).kind == "intercept"
+    policy_state.runner.assert_called_once_with(policy_state.root, cap.id, args=f"--count {count}")
+
+
+@pytest.mark.parametrize("command", [
+    "python lab/check_users.py --path lab/events.json --keys id,email",
+    "python lab/check_users.py --path lab/users.json --keys id,role",
+    "python lab/check_users.py",
+])
+def test_p1_fixed_policy_command_cannot_contradict_slots(policy_state, monkeypatch, command):
+    cap = _p1_capability(policy_state, monkeypatch)
+    cap = replace(cap, command=command)
+    policy_state.probe.return_value = cap
+    prompt = "в lab/users.json у каждого объекта есть id и email"
+    assert not hook_policy.has_invocation_intent(prompt, cap, root=policy_state.root)
+    assert evaluate(policy_state, prompt).kind == "pass"
+    policy_state.runner.assert_not_called()
+
+
+def test_p1_fixed_json_slots_do_not_guess_defaults(policy_state, monkeypatch):
+    cap = _p1_capability(policy_state, monkeypatch)
+    omitted = "проверь, что у каждого объекта есть id и email"
+    assert hook_policy.has_invocation_intent(omitted, cap, root=policy_state.root)
+    for prompt in ("в lab/events.json у каждого объекта есть id и email", "в lab/users.json у каждого объекта есть id и role"):
+        assert not hook_policy.has_invocation_intent(prompt, cap, root=policy_state.root)
+    ambiguous = replace(cap, patterns=(*cap.patterns, "в lab/events.json у каждого объекта есть id и email"))
+    assert not hook_policy.has_invocation_intent(omitted, ambiguous, root=policy_state.root)
+    assert not hook_policy.has_invocation_intent(omitted, replace(cap, command="python lab/check_users.py", patterns=("каждого объекта", "id и email")), root=policy_state.root)
+
+
+@pytest.mark.parametrize("mode,threshold,changes", [
+    ("advisory", "0.65", {}), ("intercept", "0.99", {}),
+    ("intercept", "0.65", {"read_only": False}),
+    ("intercept", "0.65", {"readiness": "not_approved", "invocable": False}),
+    ("intercept", "0.65", {"readiness": "stale_bytes", "invocable": False}),
+])
+def test_p1_json_admission_does_not_relax_policy(policy_state, monkeypatch, mode, threshold, changes):
+    cap = _p1_capability(policy_state, monkeypatch)
+    policy_state.probe.return_value = replace(cap, **changes)
+    monkeypatch.setenv("GREEDY_HOOK_MODE", mode)
+    monkeypatch.setenv("GREEDY_HOOK_MIN_CONFIDENCE", threshold)
+    assert evaluate(policy_state, "в lab/users.json у каждого объекта есть id и email").kind == "pass"
+    policy_state.runner.assert_not_called()
+
+
+@pytest.mark.parametrize("params", [(), ("args",)])
+@pytest.mark.parametrize("prompt", P1_REPOSITORY_ADVISORY_CASES)
+def test_p1_repository_exact_alias_never_authorizes_unbound_scope(policy_state, monkeypatch, prompt, params):
+    route = p1_commits_route()
+    cap = replace(policy_state.cap, id=route["id"], command=route["command"],
+                  params=params, patterns=(prompt, *route["patterns"]))
+    _patch_args_spec(monkeypatch, cap.id, route["args_from_prompt"])
+    assert not hook_policy.has_invocation_intent(prompt, cap, root=policy_state.root)
+    assert_rejected_derivation(prompt, route["args_from_prompt"], root=policy_state.root)
+
+
+@pytest.mark.parametrize("mode,soft", [("intercept", False), ("gate", False), ("gate", True)])
+@pytest.mark.parametrize("prompt", P1_REPOSITORY_ADVISORY_CASES)
+def test_p1_repository_ready_high_confidence_recommendation_only_passes(policy_state, monkeypatch, prompt, mode, soft):
+    route = p1_commits_route()
+    cap = replace(policy_state.cap, id=route["id"], command=route["command"],
+                  params=("args",), patterns=(prompt, *route["patterns"]))
+    policy_state.probe.return_value = cap
+    policy_state.decision.route_id = cap.id
+    policy_state.decision.confidence = 1.0
+    policy_state.decision.command = None
+    _patch_args_spec(monkeypatch, cap.id, route["args_from_prompt"])
+    monkeypatch.setenv("GREEDY_HOOK_MODE", mode)
+    response = evaluate(policy_state, prompt, soft_gate=soft)
+    assert response.kind == "pass"
+    assert response.payload == {}
+    policy_state.runner.assert_not_called()
+    event = last_event(policy_state)
+    assert event["action"] == "intent_skip"
+    assert event["blocked"] is False
+
+
+@pytest.mark.parametrize("mode", ["intercept", "gate"])
+@pytest.mark.parametrize("prompt", P1_REPOSITORY_REFUSAL_CASES)
+def test_p1_repository_invalid_exact_alias_cannot_bypass_policy(policy_state, monkeypatch, prompt, mode):
+    route = p1_commits_route()
+    cap = replace(policy_state.cap, id=route["id"], command=route["command"],
+                  params=("args",), patterns=(prompt, *route["patterns"]))
+    policy_state.probe.return_value = cap
+    policy_state.decision.route_id = cap.id
+    policy_state.decision.confidence = 1.0
+    _patch_args_spec(monkeypatch, cap.id, route["args_from_prompt"])
+    monkeypatch.setenv("GREEDY_HOOK_MODE", mode)
+    assert not hook_policy.has_invocation_intent(prompt, cap, root=policy_state.root)
+    assert_rejected_derivation(prompt, route["args_from_prompt"], root=policy_state.root)
+    assert evaluate(policy_state, prompt).kind == "pass"
+    policy_state.runner.assert_not_called()
+
+
+@pytest.mark.parametrize("prompt", P1_REPOSITORY_ADVISORY_CASES[:2])
+def test_p1_repository_real_routing_recommendation_is_not_hook_execution(policy_state, monkeypatch, prompt):
+    import greedy_token.budget_policy as budget_policy
+    from tests.test_router import route_task as real_route_task
+
+    route = p1_commits_route()
+    monkeypatch.setattr(router, "load_routes_config", lambda root: {"routes": [route]})
+    monkeypatch.setattr(router, "_token_estimate_for_route", lambda target, **kw: ("low", 0, "mock"))
+    monkeypatch.setattr(budget_policy, "apply_budget_policy", lambda decision, *a: decision)
+    _patch_args_spec(monkeypatch, route["id"], route["args_from_prompt"])
+    decision = real_route_task(prompt, policy_state.root)
+    assert decision.target == "python"
+    decision.confidence = 1.0
+    policy_state.route.return_value = decision
+    policy_state.probe.return_value = replace(
+        policy_state.cap, id=route["id"], command=route["command"],
+        params=("args",), patterns=(prompt, *route["patterns"]),
+    )
+    assert evaluate(policy_state, prompt).kind == "pass"
+    policy_state.runner.assert_not_called()
+    assert last_event(policy_state)["action"] == "intent_skip"
+
+
+@pytest.fixture
+def p1_rework_policy(policy_state, p1_rework_driver, monkeypatch):
+    runner = Mock(wraps=rework_real_invoke)
+    monkeypatch.setattr(capabilities_invoke, "invoke_capability", runner)
+
+    def route(prompt, root):
+        decision = rework_real_route_task(prompt, root)
+        decision.confidence = 1.0
+        return decision
+
+    monkeypatch.setattr(router, "route_task", route)
+    return SimpleNamespace(state=policy_state, driver=p1_rework_driver, runner=runner)
+
+
+@pytest.mark.parametrize("mode,soft", [("intercept", False), ("gate", False), ("gate", True)])
+@pytest.mark.parametrize("conflict", P1_REWORK_CONFLICTS)
+def test_p1_rework_conflicting_binding_neutral_policy(p1_rework_policy, monkeypatch, conflict, mode, soft):
+    ctx = p1_rework_policy
+    ctx.driver.install(p1_rework_conflicting_route(conflict, ctx.driver.root))
+    monkeypatch.setenv("GREEDY_HOOK_MODE", mode)
+    response = evaluate(ctx.state, "check json keys path=lab/users.json keys=id,email", soft_gate=soft)
+    assert (response.kind, response.payload) == ("pass", {})
+    ctx.runner.assert_not_called()
+    ctx.driver.execute.assert_not_called()
+    assert not (ctx.state.root / "ask-gate" / "fixture.active").exists()
+
+
+@pytest.mark.parametrize("mode,soft", [("intercept", False), ("gate", False), ("gate", True)])
+@pytest.mark.parametrize("prompt", P1_REWORK_WHITESPACE)
+def test_p1_rework_whitespace_neutral_policy(p1_rework_policy, monkeypatch, prompt, mode, soft):
+    ctx = p1_rework_policy
+    route = p1_json_route()
+    route["patterns"].append(prompt)
+    ctx.driver.install(route)
+    monkeypatch.setenv("GREEDY_HOOK_MODE", mode)
+    response = evaluate(ctx.state, prompt, soft_gate=soft)
+    assert (response.kind, response.payload) == ("pass", {})
+    ctx.runner.assert_not_called()
+    ctx.driver.execute.assert_not_called()
+
+
+@pytest.mark.parametrize("mode,soft", [("intercept", False), ("gate", False), ("gate", True)])
+@pytest.mark.parametrize("prompt", P1_REWORK_DERIVATIONS)
+def test_p1_rework_rejected_derivation_neutral_policy(p1_rework_policy, monkeypatch, prompt, mode, soft):
+    ctx = p1_rework_policy
+    cap = ctx.driver.install(p1_rework_derivation_route(prompt))
+    monkeypatch.setenv("GREEDY_HOOK_MODE", mode)
+    response = evaluate(ctx.state, prompt, soft_gate=soft)
+    assert (response.kind, response.payload) == ("pass", {})
+    assert not hook_policy.has_invocation_intent(prompt, cap, root=ctx.driver.root)
+    ctx.runner.assert_not_called()
+    ctx.driver.execute.assert_not_called()
+
+
+@pytest.mark.parametrize("prompt,path,keys", P1_REWORK_QUOTED)
+def test_p1_rework_quoted_literal_actual_invocation(p1_rework_policy, prompt, path, keys):
+    ctx = p1_rework_policy
+    route = p1_json_route(path, keys)
+    route["argv"] = ["python", "lab/check_users.py", "--path", path, "--keys", ",".join(keys)]
+    cap = ctx.driver.install(route)
+    response = evaluate(ctx.state, prompt)
+    print(json.dumps({"finding": "F4", "prompt": prompt, "response": response.kind,
+                      "execute_plan_calls": ctx.driver.execute.call_count}, sort_keys=True))
+    assert response.kind == "intercept"
+    ctx.runner.assert_called_once_with(ctx.driver.root, cap.id)
+    ctx.driver.planner.assert_called_once()
+    ctx.driver.execute.assert_called_once()
+    plan = ctx.driver.execute.call_args.args[0]
+    assert plan.argv[1:] == tuple(route["argv"][1:])
+    assert (plan.cwd, plan.executable) == (ctx.driver.root, True)
+
+
+@pytest.mark.parametrize("derived", [False, True])
+def test_p1_rework_planner_produced_capability_argv(p1_rework_policy, monkeypatch, derived):
+    ctx = p1_rework_policy
+    path, keys = ("lab/User Data.json", ("ID", "eMail")) if derived else ("lab/users.json", ("id", "email"))
+    prompt = f'check json keys path="{path}" keys={",".join(keys)}'
+    route = p1_json_route(path, keys)
+    if derived:
+        route.update(command="python lab/check_users.py", params=["args"], args_from_prompt=[
+            {"regex": r'check json keys path="([^"]+)" keys=([A-Za-z_,]+)', "args": '--path "{0}" --keys {1}'},
+        ])
+    cap = ctx.driver.install(route)
+    readiness, reason, authorization, script_path, argv, script_type = capabilities._probe_script_route(
+        route, ctx.driver.root, {"lab/check_users.py": SimpleNamespace(ok=True)},
+    )
+    assert readiness == "ready"
+    cap = replace(cap, argv=argv, authorization=authorization, script_path=script_path, script_type=script_type)
+    monkeypatch.setattr(capabilities, "capability_by_id", lambda *a: cap)
+    monkeypatch.setattr(capabilities_invoke, "capability_by_id", lambda *a: cap)
+    response = evaluate(ctx.state, prompt)
+    assert response.kind == "intercept", (reason, argv)
+    ctx.driver.execute.assert_called_once()
+    plan = ctx.driver.execute.call_args.args[0]
+    assert plan.argv[-4:] == ("--path", path, "--keys", ",".join(keys))
+    assert plan.cwd == ctx.driver.root
+    print(json.dumps({"case": "derived" if derived else "fixed", "actual_argv": plan.argv,
+                      "cwd": str(plan.cwd), "execution": "mock-only"}, sort_keys=True))

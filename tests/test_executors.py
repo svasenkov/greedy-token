@@ -1,13 +1,23 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import os
+import textwrap
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from pathlib import Path
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 import pytest
 
 import allure
+import greedy_token.executors as product
 from greedy_token.executors import execute_task
+from greedy_token.router import RouteDecision
 from tests.allure_reporting import attach_json, attach_text
 
 pytestmark = [
@@ -16,6 +26,645 @@ pytestmark = [
     allure.feature("Task execution"),
     allure.suite("Task execution"),
 ]
+
+
+@pytest.fixture
+def p5_boundary(minimal_workspace, monkeypatch):
+    decision = RouteDecision(
+        target="python", route_id="owned-fixture", confidence=1.0,
+        matched=[], command="python scripts/fixture.py", note="", domains=[],
+        read_only=True,
+    )
+    plan = product.RunPlan(
+        decision=decision, command=decision.command, dry_run_output="fixture",
+        executable=True, argv=("python", "scripts/fixture.py"),
+        cwd=minimal_workspace, authorization="registered:fixture",
+    )
+    runner = Mock(return_value=product.PlanRunResult(
+        0, '{"ok": true}', started=True, result_status="produced",
+    ))
+    monkeypatch.setattr(product, "execute_plan", runner)
+    return SimpleNamespace(root=minimal_workspace, decision=decision, plan=plan, runner=runner)
+
+
+def _p5_execute(state, invocation, task="owned task", **params):
+    options = {
+        "request_id": "request-1", "input_version": "v1",
+        "decision": state.decision, "plan": state.plan,
+    }
+    options.update(params)
+    return execute_task(task, state.root, invocation=invocation, **options)
+
+
+def test_p5_same_request_input_is_one_chain(p5_boundary):
+    state = p5_boundary
+    with product.ProductInvocation(state.root) as invocation:
+        first = _p5_execute(state, invocation)
+        first.output = "consumer mutation"
+        second = _p5_execute(state, invocation)
+        assert second.output == '{"ok": true}'
+        assert state.runner.call_count == 1
+        assert invocation.counts["duplicates"] == 1
+        assert invocation.counts["source"] == "owned_product_boundary"
+        assert invocation.counts["scope"] == "declared_product_invocation"
+    assert invocation.closed
+    assert invocation.retained_results == 0
+
+
+@pytest.mark.parametrize("change", [
+    "version", "task", "op", "params", "independent_id", "missing_id", "missing_version",
+    "typed_version",
+])
+def test_p5_changed_or_missing_identity_never_replays(p5_boundary, change):
+    state = p5_boundary
+    with product.ProductInvocation(state.root) as invocation:
+        _p5_execute(state, invocation, input_version=1)
+        params = {"input_version": 1}
+        task = "owned task"
+        if change == "version":
+            params["input_version"] = 2
+        elif change == "typed_version":
+            params["input_version"] = "1"
+        elif change == "task":
+            task = "changed input"
+        elif change == "op":
+            params["decision"] = replace(state.decision, route_id="independent-op")
+        elif change == "params":
+            params["plan"] = replace(state.plan, argv=(*state.plan.argv, "--count", "2"))
+        elif change == "independent_id":
+            params["request_id"] = "request-2"
+        elif change == "missing_id":
+            params["request_id"] = None
+        else:
+            params["input_version"] = None
+        _p5_execute(state, invocation, task, **params)
+        assert state.runner.call_count == 2
+
+
+def test_p5_owned_input_snapshot_does_not_mix_concurrent_versions(p5_boundary):
+    state = p5_boundary
+    entered = threading.Event()
+    release = threading.Event()
+    argv = state.plan.argv
+
+    def producer(plan, **kwargs):
+        if state.runner.call_count == 1:
+            entered.set()
+            assert release.wait(2)
+        return product.PlanRunResult(
+            0, " ".join(plan.argv), started=True, result_status="produced",
+        )
+
+    state.runner.side_effect = producer
+    with product.ProductInvocation(state.root) as invocation, ThreadPoolExecutor(1) as pool:
+        first = pool.submit(_p5_execute, state, invocation)
+        try:
+            assert entered.wait(2)
+            state.plan.argv = (*argv, "--count", "2")
+            second = _p5_execute(state, invocation, input_version="v2")
+        finally:
+            release.set()
+        assert first.result(timeout=2).output == " ".join(argv)
+        assert second.output == " ".join(state.plan.argv)
+        assert state.runner.call_count == 2
+
+
+def test_p5_missing_ids_are_independent_even_with_identical_text(p5_boundary):
+    state = p5_boundary
+    with product.ProductInvocation(state.root) as invocation:
+        for _ in range(2):
+            _p5_execute(state, invocation, request_id=None)
+    assert state.runner.call_count == 2
+
+
+def test_p5_lifetime_cleanup_and_root_confinement(p5_boundary):
+    state = p5_boundary
+    with product.ProductInvocation(state.root) as first:
+        _p5_execute(state, first)
+        with pytest.raises(product.ProductLifecycleError, match="root"):
+            execute_task(
+                "owned task", state.root / "outside", invocation=first,
+                request_id="request-1", input_version="v1",
+            )
+    with pytest.raises(product.ProductLifecycleError, match="closed"):
+        _p5_execute(state, first)
+    with product.ProductInvocation(state.root) as second:
+        _p5_execute(state, second)
+    assert state.runner.call_count == 2
+    assert first.retained_results == second.retained_results == 0
+
+
+def test_p5_concurrent_duplicate_joins_one_producer(p5_boundary):
+    state = p5_boundary
+    ready = threading.Barrier(3)
+    entered = threading.Event()
+    release = threading.Event()
+    terminal = state.runner.return_value
+
+    def producer(*args, **kwargs):
+        entered.set()
+        assert release.wait(2)
+        return terminal
+
+    def request(invocation):
+        ready.wait(timeout=2)
+        return _p5_execute(state, invocation)
+
+    state.runner.side_effect = producer
+    with product.ProductInvocation(state.root) as invocation, ThreadPoolExecutor(2) as pool:
+        futures = [pool.submit(request, invocation) for _ in range(2)]
+        try:
+            ready.wait(timeout=2)
+            assert entered.wait(2)
+        finally:
+            release.set()
+        results = [future.result(timeout=2) for future in futures]
+        assert results[0].output == results[1].output
+        assert state.runner.call_count == 1
+        assert invocation.counts["duplicates"] == 1
+
+
+@pytest.mark.parametrize("status,code,started", [
+    ("produced", 0, True), ("invalid", 0, True), ("empty", 0, True),
+    ("not_evaluated", 0, True), ("not_evaluated", 1, False),
+])
+def test_p5_terminal_result_is_not_a_retry_signal(p5_boundary, status, code, started):
+    state = p5_boundary
+    state.runner.return_value = product.PlanRunResult(
+        code, "terminal result", started=started, result_status=status,
+    )
+    with product.ProductInvocation(state.root, max_retries=2) as invocation:
+        first = _p5_execute(state, invocation)
+        second = _p5_execute(state, invocation)
+        assert (first.exit_code, first.result_status) == (second.exit_code, second.result_status)
+        assert state.runner.call_count == 1
+        assert invocation.counts["retries"] == 0
+
+
+def test_p5_terminal_exception_is_not_retried(p5_boundary):
+    state = p5_boundary
+    state.runner.side_effect = RuntimeError("terminal refusal")
+    with product.ProductInvocation(state.root, max_retries=2) as invocation:
+        for _ in range(2):
+            with pytest.raises(RuntimeError, match="terminal refusal"):
+                _p5_execute(state, invocation)
+    assert state.runner.call_count == 1
+
+
+@pytest.mark.parametrize("succeeds", [True, False])
+def test_p5_explicit_retry_is_bounded_and_terminal_is_retained(p5_boundary, succeeds):
+    state = p5_boundary
+    retry = product.ProductRetryError("isolated pre-terminal transport failure")
+    state.runner.side_effect = [
+        retry, state.runner.return_value if succeeds else retry,
+    ]
+    with product.ProductInvocation(state.root, max_retries=1) as invocation:
+        for _ in range(2):
+            if succeeds:
+                assert _p5_execute(state, invocation).result_status == "produced"
+            else:
+                with pytest.raises(product.ProductLifecycleError, match="retry limit"):
+                    _p5_execute(state, invocation)
+        assert invocation.counts["retries"] == 1
+        assert invocation.counts["dispatch_attempts"] == 2
+    assert state.runner.call_count == 2
+
+
+def test_p5_total_attempt_limit_stops_before_another_dispatch(p5_boundary):
+    state = p5_boundary
+    state.runner.side_effect = product.ProductRetryError("pre-terminal failure")
+    with product.ProductInvocation(state.root, max_attempts=1, max_retries=2) as invocation:
+        with pytest.raises(product.ProductLifecycleError, match="attempt limit"):
+            _p5_execute(state, invocation)
+    assert state.runner.call_count == 1
+
+
+@pytest.mark.parametrize("limit", [0, 1])
+def test_p5_fallback_limit_does_not_restart_terminal_executor(p5_boundary, monkeypatch, limit):
+    state = p5_boundary
+    state.decision.target = "tool"
+    state.runner.return_value = product.PlanRunResult(1, "", started=True)
+    search = Mock(return_value=[])
+    monkeypatch.setattr(product, "search_rag", search)
+    with product.ProductInvocation(state.root, max_fallbacks=limit) as invocation:
+        for _ in range(2):
+            with pytest.raises(product.ProductLifecycleError, match="fallback limit"):
+                _p5_execute(state, invocation, "find test config")
+    assert state.runner.call_count == 1
+    assert search.call_count == limit
+
+
+def test_p5_request_bound_never_evicts_and_reexecutes(p5_boundary):
+    state = p5_boundary
+    with product.ProductInvocation(state.root, max_requests=1) as invocation:
+        _p5_execute(state, invocation)
+        with pytest.raises(product.ProductLifecycleError, match="request limit"):
+            _p5_execute(state, invocation, request_id="request-2")
+        _p5_execute(state, invocation)
+        assert state.runner.call_count == 1
+
+
+@pytest.fixture
+def p5_manifest_boundary(minimal_workspace, monkeypatch):
+    script_path = "scripts/meta-sync-check.py"
+    decision = RouteDecision(
+        target="python", route_id="manifest-fixture", confidence=1.0,
+        matched=[], command=f"python {script_path}", note="", domains=[], read_only=True,
+    )
+    plan = product.RunPlan(
+        decision=decision, command=decision.command, dry_run_output="manifest fixture",
+        executable=True, argv=("python", script_path), cwd=minimal_workspace,
+        authorization=f"manifest:{script_path}", script_path=script_path, script_type="python",
+    )
+    verified = product.VerifiedScript(
+        entry=SimpleNamespace(script_type="python"),
+        fd=os.open(minimal_workspace / script_path, os.O_RDONLY),
+    )
+    close = Mock(wraps=verified.close)
+    monkeypatch.setattr(verified, "close", close)
+    verifier = Mock(return_value=verified)
+    binder = product.bind_verified_argv
+    bind = Mock(wraps=binder)
+    confinement = Mock(wraps=product.trusted_script_argv)
+    native = Mock(return_value=SimpleNamespace(
+        returncode=0, stdout='{"ok": true}', stderr="",
+    ))
+    observer = Mock()
+    monkeypatch.setattr(product, "verify_script", verifier)
+    monkeypatch.setattr(product, "bind_verified_argv", bind)
+    monkeypatch.setattr(product, "trusted_script_argv", confinement)
+    monkeypatch.setattr(product.subprocess, "run", native)
+    monkeypatch.setattr("greedy_token.cheap_llm._observe_emit", observer)
+    try:
+        yield SimpleNamespace(
+            root=minimal_workspace, decision=decision, plan=plan, verified=verified,
+            close=close, verifier=verifier, bind=bind, binder=binder,
+            confinement=confinement, native=native, observer=observer,
+        )
+    finally:
+        if verified.fd >= 0:
+            verified.close()
+
+
+def test_p5_timeout_uses_one_clock_sample(minimal_workspace, monkeypatch):
+    clock = Mock(side_effect=[0.9, 1.1])
+    monkeypatch.setattr(product, "time", SimpleNamespace(monotonic=clock))
+    invocation = product.ProductInvocation(minimal_workspace, deadline=1.0)
+    budget = invocation.timeout(10.0)
+    print(f"P5_TIMEOUT_EVIDENCE budget={budget!r} clock_calls={clock.call_count}")
+    assert budget == pytest.approx(0.1)
+    clock.assert_called_once()
+
+
+@pytest.mark.parametrize("now", [1.0, 1.1])
+def test_p5_timeout_denies_nonpositive_remaining(minimal_workspace, monkeypatch, now):
+    clock = Mock(return_value=now)
+    monkeypatch.setattr(product, "time", SimpleNamespace(monotonic=clock))
+    invocation = product.ProductInvocation(minimal_workspace, deadline=1.0)
+    with pytest.raises(product.ProductLifecycleError, match="deadline"):
+        invocation.timeout(10.0)
+    clock.assert_called_once()
+
+
+@pytest.mark.parametrize("default", [0.0, -1.0, float("nan")])
+def test_p5_timeout_denies_impossible_default(minimal_workspace, default):
+    invocation = product.ProductInvocation(minimal_workspace)
+    with pytest.raises(product.ProductLifecycleError, match="budget"):
+        invocation.timeout(default)
+
+
+@pytest.mark.parametrize("stage", ["verification", "binding"])
+@pytest.mark.parametrize("stop", ["deadline", "cancel"])
+def test_p5_launch_admission_denies_stop_during_trust(p5_manifest_boundary, monkeypatch, stage, stop):
+    state = p5_manifest_boundary
+    clock = [0.0]
+    monkeypatch.setattr(product, "time", SimpleNamespace(monotonic=lambda: clock[0]))
+    with product.ProductInvocation(state.root, deadline=5.0, max_retries=2) as invocation:
+        def stopped():
+            if stop == "cancel":
+                invocation.cancel()
+            else:
+                clock[0] = 6.0
+
+        if stage == "verification":
+            def verify(*args):
+                stopped()
+                return state.verified
+
+            state.verifier.side_effect = verify
+        else:
+            def bind(*args):
+                bound = state.binder(*args)
+                stopped()
+                return bound
+
+            state.bind.side_effect = bind
+        result = None
+        denial = None
+        try:
+            result = _p5_execute(state, invocation)
+        except product.ProductLifecycleError as exc:
+            denial = exc
+        print(
+            f"P5_ADMISSION_EVIDENCE stage={stage} stop={stop} clock={clock[0]} "
+            f"native_calls={state.native.call_count} "
+            f"timeout={state.native.call_args.kwargs['timeout'] if state.native.called else None} "
+            f"started={result.started if result is not None else False} "
+            f"exit_code={result.exit_code if result is not None else None} denial={denial!r} "
+            f"fd={state.verified.fd} close_calls={state.close.call_count}"
+        )
+        state.close.assert_called_once_with()
+        assert state.verified.fd == -1
+        state.native.assert_not_called()
+        assert result is None and stop in str(denial)
+        with pytest.raises(product.ProductLifecycleError, match=stop):
+            _p5_execute(state, invocation)
+        state.verifier.assert_called_once_with(state.root, state.plan.script_path)
+        state.bind.assert_called_once_with(state.verified, state.plan.argv)
+        state.confinement.assert_called_once_with(
+            state.plan.argv, cwd=state.root, root=state.root,
+            manifest_script_paths=(state.plan.script_path,),
+        )
+        assert invocation.retained_results == 1
+        assert invocation.counts["requests"] == invocation.counts["dispatch_attempts"] == 1
+        assert invocation.counts["retries"] == invocation.counts["fallbacks"] == 0
+        assert invocation.counts["active"] == 0
+    calls = state.observer.call_args_list
+    assert [call.args[0] for call in calls] == [
+        "product_attempt", "product_attempt_end", "product_close",
+    ]
+    assert calls[1].kwargs["outcome"] == "error"
+    assert calls[1].kwargs["attempt_id"] == calls[0].kwargs["attempt_id"]
+    assert calls[2].kwargs["active"] == 0
+    assert all(call.kwargs["source"] == "owned_product_boundary" for call in calls)
+    assert all(call.kwargs["scope"] == "declared_product_invocation" for call in calls)
+    assert len({call.kwargs["product_invocation_id"] for call in calls}) == 1
+    assert invocation.closed and invocation.retained_results == 0
+
+
+def test_p5_launch_admission_recomputes_budget_after_verification(p5_manifest_boundary, monkeypatch):
+    state = p5_manifest_boundary
+    clock = [0.0]
+    monkeypatch.setattr(product, "time", SimpleNamespace(monotonic=lambda: clock[0]))
+
+    def verify(*args):
+        clock[0] = 3.0
+        return state.verified
+
+    state.verifier.side_effect = verify
+    fd = state.verified.fd
+    with product.ProductInvocation(state.root, deadline=5.0) as invocation:
+        result = _p5_execute(state, invocation)
+        assert result.started and result.exit_code == 0
+        assert state.native.call_args.kwargs["timeout"] == 2.0
+        assert state.native.call_args.kwargs["pass_fds"] == (fd,)
+        assert state.native.call_args.args[0][2:] == [str(fd), state.plan.script_path]
+    state.native.assert_called_once()
+    state.close.assert_called_once_with()
+    assert state.verified.fd == -1
+
+
+@pytest.mark.parametrize("timeout", [0.0, -1.0, float("nan")])
+def test_p5_launch_admission_denies_impossible_timeout(p5_manifest_boundary, timeout):
+    state = p5_manifest_boundary
+    with pytest.raises(product.ProductLifecycleError, match="budget"):
+        product.execute_plan(state.plan, timeout=timeout)
+    state.native.assert_not_called()
+    state.close.assert_called_once_with()
+    assert state.verified.fd == -1
+
+
+@pytest.mark.parametrize("stop", ["cancel", "deadline"])
+def test_p5_launch_admitted_work_drains_before_fd_cleanup(p5_manifest_boundary, monkeypatch, stop):
+    state = p5_manifest_boundary
+    clock = [0.0]
+    monkeypatch.setattr(product, "time", SimpleNamespace(monotonic=lambda: clock[0]))
+    entered = threading.Event()
+    release = threading.Event()
+    terminal = state.native.return_value
+    fd = state.verified.fd
+
+    def native(*args, **kwargs):
+        assert kwargs["timeout"] == 5.0
+        assert kwargs["pass_fds"] == (fd,)
+        entered.set()
+        assert release.wait(2)
+        return terminal
+
+    state.native.side_effect = native
+    invocation = product.ProductInvocation(state.root, deadline=5.0)
+    with invocation, ThreadPoolExecutor(1) as pool:
+        future = pool.submit(_p5_execute, state, invocation)
+        closer = threading.Thread(target=invocation.close)
+        try:
+            assert entered.wait(2)
+            if stop == "cancel":
+                invocation.cancel()
+            else:
+                clock[0] = 6.0
+            with pytest.raises(product.ProductLifecycleError, match=stop):
+                _p5_execute(state, invocation)
+            closer.start()
+            assert not invocation.closed and invocation.counts["active"] == 1
+            assert state.verified.fd == fd
+            state.close.assert_not_called()
+            assert "product_close" not in [call.args[0] for call in state.observer.call_args_list]
+        finally:
+            release.set()
+            if closer.ident is not None:
+                closer.join(timeout=2)
+        result = future.result(timeout=2)
+        assert result.started and result.exit_code == 0
+        assert not closer.is_alive()
+    state.native.assert_called_once()
+    state.close.assert_called_once_with()
+    assert state.verified.fd == -1
+    assert invocation.closed and invocation.retained_results == invocation.counts["active"] == 0
+    assert [call.args[0] for call in state.observer.call_args_list] == [
+        "product_attempt", "product_attempt_end", "product_close",
+    ]
+    assert state.observer.call_args_list[1].kwargs["outcome"] == "terminal"
+
+
+@pytest.mark.parametrize("stage", ["verification", "binding"])
+@pytest.mark.parametrize("stop", ["deadline", "cancel"])
+def test_p5_d1_launch_admission_denial_is_covered(minimal_workspace, tmp_path, stage, stop):
+    from bench import evidence_benchmark as benchmark
+    from tests.test_evidence_benchmark import _bootstrapped_ledger
+
+    ledger = _bootstrapped_ledger(tmp_path)
+    source_hashes = {
+        "executor": hashlib.sha256(Path(product.__file__).read_bytes()).hexdigest(),
+        "regression": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+    }
+    code = textwrap.dedent(f"""
+        import hashlib
+        from pathlib import Path
+        from unittest.mock import Mock
+        from pytest import MonkeyPatch
+        import greedy_token.executors as product
+        import tests.test_executors as regression
+        from greedy_token.cheap_llm import _observe_emit
+        from tests.test_executors import (
+            p5_manifest_boundary, test_p5_launch_admission_denies_stop_during_trust,
+        )
+        assert hashlib.sha256(Path(product.__file__).read_bytes()).hexdigest() == {source_hashes['executor']!r}
+        assert hashlib.sha256(Path(regression.__file__).read_bytes()).hexdigest() == {source_hashes['regression']!r}
+        native_guard = product.subprocess.run
+        with MonkeyPatch.context() as patcher:
+            fixture = p5_manifest_boundary.__wrapped__(Path({str(minimal_workspace)!r}), patcher)
+            state = next(fixture)
+            state.native.side_effect = native_guard
+            state.observer = Mock(wraps=_observe_emit)
+            patcher.setattr('greedy_token.cheap_llm._observe_emit', state.observer)
+            try:
+                test_p5_launch_admission_denies_stop_during_trust(
+                    state, patcher, {stage!r}, {stop!r},
+                )
+            finally:
+                fixture.close()
+    """)
+    raw = benchmark._run_observed_exec(
+        code, root=minimal_workspace, ledger_path=ledger,
+        case_id=f"p5-launch-admission-{stop}-{stage}", method="isolated_lifecycle", timeout=30.0,
+    )
+    observation = raw["observation"]
+    print(raw["output"])
+    print("P5_D1_ADMISSION_EVIDENCE " + json.dumps({
+        "run_id": raw["run_id"], "source": "D1 independent JSONL ledger",
+        "scope": observation["scope"], "coverage": observation["coverage"],
+        "source_sha256": source_hashes,
+        "python_scope": observation["python_scope"], "invocation": observation["invocation"],
+        "events_sha256": observation["events_sha256"],
+        "ledger_sha256": observation["ledger"]["file_sha256"],
+        "expected": observation["ledger"]["expected"],
+    }, sort_keys=True))
+    assert raw["exit_code"] == 0, raw["output"]
+    assert observation["coverage"]["complete"]
+    assert observation["python_scope"]["native_launch_denied"] == 0
+    assert observation["python_scope"]["native_launch_allowed"] == 0
+    for metric in ("model_attempts", "llm_requests_sent"):
+        assert observation["invocation"][metric] == {
+            "value": 0, "status": "observed", "scope": "invocation",
+        }
+    events = observation["events"]
+    owned = [event for event in events if event["kind"].startswith("product_")]
+    assert [event["kind"] for event in owned] == [
+        "product_attempt", "product_attempt_end", "product_close",
+    ]
+    assert owned[1]["outcome"] == "error"
+    assert owned[1]["attempt_id"] == owned[0]["attempt_id"]
+    assert owned[2]["active"] == 0
+    assert owned[2]["epoch"] <= next(event["epoch"] for event in events if event["kind"] == "child_exit")
+    assert all(event["source"] == "owned_product_boundary" for event in owned)
+    assert all(event["scope"] == "declared_product_invocation" for event in owned)
+    replay = benchmark._replay_observation(observation)
+    assert replay["coverage"] == observation["coverage"]
+    assert replay["invocation"] == observation["invocation"]
+
+
+def test_p5_expired_deadline_denies_before_dispatch(p5_boundary):
+    state = p5_boundary
+    with product.ProductInvocation(state.root, deadline=time.monotonic() - 1) as invocation:
+        with pytest.raises(product.ProductLifecycleError, match="deadline"):
+            _p5_execute(state, invocation)
+    state.runner.assert_not_called()
+
+
+@pytest.mark.parametrize("stop", ["cancel", "deadline"])
+def test_p5_cancel_or_deadline_stops_retry_without_late_dispatch(p5_boundary, monkeypatch, stop):
+    state = p5_boundary
+    clock = [0.0]
+    monkeypatch.setattr(product.time, "monotonic", lambda: clock[0])
+    with product.ProductInvocation(state.root, deadline=5.0, max_retries=2) as invocation:
+        def producer(*args, **kwargs):
+            if stop == "cancel":
+                invocation.cancel()
+            else:
+                clock[0] = 6.0
+            raise product.ProductRetryError("pre-terminal failure")
+
+        state.runner.side_effect = producer
+        with pytest.raises(product.ProductLifecycleError, match=stop):
+            _p5_execute(state, invocation)
+    assert state.runner.call_count == 1
+    assert invocation.closed
+
+
+def test_p5_close_drains_owned_background_before_cleanup(p5_boundary):
+    state = p5_boundary
+    entered = threading.Event()
+    release = threading.Event()
+    terminal = state.runner.return_value
+
+    def producer(*args, **kwargs):
+        entered.set()
+        assert release.wait(2)
+        return terminal
+
+    state.runner.side_effect = producer
+    invocation = product.ProductInvocation(state.root)
+    with invocation, ThreadPoolExecutor(1) as pool:
+        future = pool.submit(_p5_execute, state, invocation)
+        closer = threading.Thread(target=invocation.close)
+        try:
+            assert entered.wait(2)
+            closer.start()
+            assert not invocation.closed
+            assert invocation.counts["active"] == 1
+        finally:
+            release.set()
+        assert future.result(timeout=2).result_status == "produced"
+        closer.join(timeout=2)
+        assert not closer.is_alive()
+        assert invocation.closed
+        assert invocation.counts["active"] == 0
+        assert invocation.retained_results == 0
+
+
+def test_p5_duplicate_deadline_does_not_abandon_owned_producer(p5_boundary):
+    state = p5_boundary
+    entered = threading.Event()
+    release = threading.Event()
+    terminal = state.runner.return_value
+
+    def producer(*args, **kwargs):
+        entered.set()
+        assert release.wait(2)
+        return terminal
+
+    state.runner.side_effect = producer
+    with product.ProductInvocation(state.root, deadline=time.monotonic() + 0.1) as invocation:
+        with ThreadPoolExecutor(1) as pool:
+            future = pool.submit(_p5_execute, state, invocation)
+            try:
+                assert entered.wait(2)
+                with pytest.raises(product.ProductLifecycleError, match="deadline"):
+                    _p5_execute(state, invocation)
+                assert invocation.counts["active"] == 1
+            finally:
+                release.set()
+            assert future.result(timeout=2).result_status == "produced"
+    assert invocation.closed and invocation.counts["active"] == 0
+    assert state.runner.call_count == 1
+
+
+def test_p5_recursive_same_request_is_denied_instead_of_looping(p5_boundary):
+    state = p5_boundary
+    with product.ProductInvocation(state.root) as invocation:
+        state.runner.side_effect = lambda *a, **k: _p5_execute(state, invocation)
+        with pytest.raises(product.ProductLifecycleError, match="recursive"):
+            _p5_execute(state, invocation)
+    assert state.runner.call_count == 1
+
+
+@pytest.mark.parametrize("params", [
+    {"max_requests": 0}, {"max_attempts": 0}, {"max_retries": -1},
+    {"max_fallbacks": -1}, {"deadline": float("nan")},
+])
+def test_p5_invalid_lifecycle_bounds_are_rejected(p5_boundary, params):
+    with pytest.raises(ValueError):
+        product.ProductInvocation(p5_boundary.root, **params)
 
 
 def _tool_invocation(root: Path) -> dict:
