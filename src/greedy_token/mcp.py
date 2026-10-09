@@ -30,8 +30,9 @@ from greedy_token.pipeline import format_pipeline_response, list_pipelines, run_
 from greedy_token.rag_search import format_hits, search_rag
 from greedy_token.result_contract import RESULT_EMPTY, RESULT_PRODUCED
 from greedy_token.router import format_decision
-from greedy_token.settings import apply_ollama_env
+from greedy_token.settings import apply_ollama_env, get_footer_settings
 from greedy_token.tokens import count_tokens
+from greedy_token.tool_output import format_machine_output
 from greedy_token.usage import aggregate_events, format_report, load_events, log_path, parse_since
 
 # Keep short: tool-map + exceptions live in alwaysApply rule (examples/cursor/rules/greedy-token.mdc).
@@ -102,26 +103,56 @@ def mcp_icons() -> list[Icon]:
 mcp = FastMCP("greedy-token", instructions=MCP_INSTRUCTIONS)
 
 
+def _machine_mode(root: Path | None) -> bool:
+    """Opt-in machine output — ``footer.style: machine`` / GREEDY_TOKEN_FOOTER_STYLE."""
+    return get_footer_settings(root).style == "machine"
+
+
 @mcp.tool()
 def greedy_token_route(task: str) -> str:
     """Recommend executor tier (tool | python | ollama | rag | cursor). Not for code search — use greedy_token_search directly."""
     t0 = time.perf_counter()
     root = find_workspace_root()
     estimate = estimate_task(task, root)
+    decision_pre = estimate.decision
+    if decision_pre.target == "cursor":
+        from greedy_token.cheap_llm import observe_transition
+
+        observe_transition(
+            f"{decision_pre.escalated_from or 'direct'}->cursor",
+            request_kind="route_decision",
+            route_id=decision_pre.route_id,
+        )
     body = format_decision(estimate.decision, task, root)
     duration_ms = int((time.perf_counter() - t0) * 1000)
+    decision = estimate.decision
     return wrap_mcp_response(
         body,
         task=task,
-        tier=estimate.decision.target,
+        tier=decision.target,
         est_tokens=estimate.est_tokens,
-        route_id=estimate.decision.route_id,
+        route_id=decision.route_id,
         root=root,
         duration_ms=duration_ms,
-        executor_sub=estimate.decision.target if estimate.decision.target != "tool" else "rg",
+        executor_sub=decision.target if decision.target != "tool" else "rg",
         # Advice only: this tool never runs the tier it recommends.
         executed=False,
-        decision=estimate.decision,
+        decision=decision,
+        # Machine mode: structured decision fields, not the human route card.
+        machine_payload={
+            "op": "route",
+            "task": task,
+            "route_id": decision.route_id,
+            "target": decision.target,
+            "complexity": decision.complexity,
+            "est_tokens": estimate.est_tokens,
+            "confidence": round(decision.confidence, 4),
+            "read_only": decision.read_only,
+            "matched": list(decision.matched),
+            "note": decision.note,
+            "output": f"{decision.target} via {decision.route_id}",
+            "result_status": RESULT_PRODUCED,
+        },
     )
 
 
@@ -149,6 +180,23 @@ def greedy_token_rag(query: str, domain: str = "") -> str:
         outcome="success" if hits else "failure",
         outcome_layer="retrieval",
         result_status=RESULT_PRODUCED if hits else RESULT_EMPTY,
+        machine_payload={
+            "op": "rag",
+            "query": query,
+            "domains": domains or [],
+            "count": len(hits),
+            "hits": [
+                {
+                    "chunk_id": h.chunk_id,
+                    "path": h.path,
+                    "domain": h.domain,
+                    "score": round(h.score, 4),
+                }
+                for h in hits
+            ],
+            "output": body,
+            "result_status": RESULT_PRODUCED if hits else RESULT_EMPTY,
+        },
     )
 
 
@@ -184,6 +232,18 @@ def greedy_token_search(query: str, path: str = "", context: str = "") -> str:
         outcome="success" if result.hit_count else "failure",
         outcome_layer="executor",
         result_status=RESULT_PRODUCED if result.hit_count else RESULT_EMPTY,
+        machine_payload={
+            "op": "search",
+            "query": query,
+            "path": path or "",
+            "context": ctx or "",
+            "count": result.hit_count,
+            "engine": result.engine,
+            "enriched_files": result.enriched_files,
+            "context_tokens": result.context_tokens,
+            "output": body,
+            "result_status": RESULT_PRODUCED if result.hit_count else RESULT_EMPTY,
+        },
     )
 
 
@@ -215,6 +275,24 @@ def greedy_token_usage(since: str = "7d") -> str:
     footer_lines.extend(["", f"Log: {path}"])
     if skipped:
         footer_lines.append(f"({skipped} malformed log lines skipped)")
+    if _machine_mode(find_workspace_root()):
+        return format_machine_output(
+            payload={
+                "op": "usage",
+                "since": since,
+                "count": len(events),
+                "skipped_lines": skipped,
+                "totals": {
+                    "baseline": totals_baseline,
+                    "saved": totals_saved,
+                    "spent": totals_spent,
+                },
+                "output": body + "\n".join(footer_lines),
+                "result_status": RESULT_PRODUCED if events else RESULT_EMPTY,
+            },
+            ok=True,
+            executed=False,
+        )
     return body + "\n".join(footer_lines)
 
 
@@ -240,6 +318,31 @@ def greedy_token_pipeline(task: str, execute: bool = False, profile: str = "") -
         stop_on_error=True,
         profile=profile.strip(),
     )
+    if _machine_mode(root):
+        return format_machine_output(
+            payload={
+                "op": "pipeline",
+                "task": result.task,
+                "execute": execute,
+                "ok": result.all_ok,
+                "step_count": len(result.steps),
+                "steps": [
+                    {
+                        "step_id": s.step.step_id,
+                        "tier": s.step.tier,
+                        "ok": s.ok,
+                        "exit_code": s.exit_code,
+                        "executed": s.executed,
+                        "result_status": s.result_status,
+                        "duration_ms": s.duration_ms,
+                    }
+                    for s in result.steps
+                ],
+                "stopped_early": result.stopped_early,
+                "output": format_pipeline_response(result, root),
+                "result_status": RESULT_PRODUCED if result.steps else RESULT_EMPTY,
+            }
+        )
     return format_pipeline_response(result, root)
 
 
@@ -301,6 +404,16 @@ def greedy_token_invoke(op_id: str, args: str = "", query: str = "") -> str:
         executor_sub=result.tier,
         outcome=result.outcome or None,
         executed=result.executed,
+        result_status=result.result_status or None,
+        machine_payload={
+            **result.to_dict(),
+            "ok": result.outcome == "success",
+        },
+        machine_error=(
+            None
+            if result.invocable
+            else {"code": result.refusal_code, "message": result.refusal_reason}
+        ),
     )
 
 
@@ -321,6 +434,16 @@ def greedy_token_crystallize(
     root = find_workspace_root()
     act = action.strip().lower()
     actor = by.strip() or "mcp"
+    machine = _machine_mode(root)
+
+    def _machine_result(text: str) -> str:
+        # Lifecycle ops raise on failure — reaching this point means success.
+        if machine:
+            return format_machine_output(
+                text, ok=True, result_status=RESULT_PRODUCED
+            )
+        return text
+
     if act == "candidates":
         from greedy_token.hub.crystallize import list_crystals
 
@@ -340,7 +463,7 @@ def greedy_token_crystallize(
             )
         except ValueError as exc:
             raise ValueError(f"crystallize draft: {exc}") from exc
-        return format_draft_result(result)
+        return _machine_result(format_draft_result(result))
     if act == "approve":
         try:
             result = approve_crystal(
@@ -348,7 +471,7 @@ def greedy_token_crystallize(
             )
         except ValueError as exc:
             raise ValueError(f"crystallize approve: {exc}") from exc
-        return format_approve_result(result)
+        return _machine_result(format_approve_result(result))
     if act == "promote":
         try:
             result = promote_crystal(
@@ -356,10 +479,10 @@ def greedy_token_crystallize(
             )
         except ValueError as exc:
             raise ValueError(f"crystallize promote: {exc}") from exc
-        return format_promote_result(result, crystal_id)
+        return _machine_result(format_promote_result(result, crystal_id))
     if act == "reject":
         result = reject_crystal(crystal_id, root=root, actor=actor, reason=reason)
-        return format_reject_result(result, crystal_id)
+        return _machine_result(format_reject_result(result, crystal_id))
     raise ValueError(
         f"crystallize: unknown action {action!r} "
         "(expected candidates, status, draft/propose, approve, promote, or reject)"

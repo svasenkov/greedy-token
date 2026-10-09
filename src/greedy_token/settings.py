@@ -12,7 +12,7 @@ import yaml
 from greedy_token.paths import load_yaml
 
 CheapLlmProvider = Literal["ollama", "openai_compat"]
-FooterStyle = Literal["compact", "markdown", "full"]
+FooterStyle = Literal["compact", "markdown", "full", "machine"]
 DEFAULT_FOOTER_STYLE: FooterStyle = "compact"
 
 # Agent host — which chat client's context conventions to audit (rules files
@@ -111,7 +111,7 @@ def _normalize_footer_style(value: str | None) -> FooterStyle | None:
     if not value:
         return None
     normalized = value.strip().lower()
-    if normalized in ("compact", "markdown", "full"):
+    if normalized in ("compact", "markdown", "full", "machine"):
         return normalized  # type: ignore[return-value]
     return None
 
@@ -603,7 +603,7 @@ def format_config(settings: CheapLlmSettings | OllamaSettings | None = None, *, 
         f"  source:   {settings.source}",
         "",
         "Footer (MCP tool responses):",
-        f"  style:    {footer.style}  (compact | markdown | full)",
+        f"  style:    {footer.style}  (compact | markdown | full | machine)",
         f"  source:   {footer.source}",
         "",
         "Config files (low → high priority):",
@@ -761,7 +761,7 @@ def example_workspace_config() -> str:
         f"  url: {DEFAULT_CHEAP_LLM_URL}\n"
         f"  model: {DEFAULT_CHEAP_LLM_MODEL}\n"
         "footer:\n"
-        f"  style: {DEFAULT_FOOTER_STYLE}  # compact | markdown | full\n"
+        f"  style: {DEFAULT_FOOTER_STYLE}  # compact | markdown | full | machine\n"
         "# UserPromptSubmit hook policy (opt-in; env still overrides)\n"
         "# hook:\n"
         "#   mode: intercept  # advisory | gate | intercept\n"

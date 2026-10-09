@@ -32,6 +32,10 @@ from greedy_token.settings import (
     list_preset_names,
 )
 from greedy_token.tokens import TokenEstimate, collect_paths, count_files, format_size_table
+from greedy_token.tool_output import (
+    MACHINE_OUTPUT_MAX_BYTES,
+    shrink_json_payload,
+)
 from greedy_token.trust import (
     TrustError,
     approve_script,
@@ -73,10 +77,24 @@ def _configure_stream_errors(stream: object) -> None:
         reconfigure(errors="replace")
 
 
+def _observe_route_transition(decision) -> None:
+    """Bound route-decision transition for the observation ledger."""
+    if decision.target != "cursor":
+        return
+    from greedy_token.cheap_llm import observe_transition
+
+    observe_transition(
+        f"{decision.escalated_from or 'direct'}->cursor",
+        request_kind="route_decision",
+        route_id=decision.route_id,
+    )
+
+
 def cmd_route(args: argparse.Namespace) -> int:
     t0 = time.perf_counter()
     root = find_workspace_root()
     decision = route_task(args.task, root)
+    _observe_route_transition(decision)
     tier_scan = build_tier_scan(args.task, root)
     duration_ms = int((time.perf_counter() - t0) * 1000)
     print(format_decision(decision, args.task, root))
@@ -101,6 +119,7 @@ def cmd_estimate(args: argparse.Namespace) -> int:
     t0 = time.perf_counter()
     root = find_workspace_root()
     estimate = estimate_task(args.task, root)
+    _observe_route_transition(estimate.decision)
     tier_scan = build_tier_scan(args.task, root)
     duration_ms = int((time.perf_counter() - t0) * 1000)
     print(format_estimate(estimate, args.task, root))
@@ -133,7 +152,9 @@ def cmd_run(args: argparse.Namespace) -> int:
     used_rag_fallback = False
     gate = None
     if args.execute:
-        result = execute_task(args.task, root)
+        # One operation, one plan: reuse this call's decision/plan instead of
+        # letting execute_task route and plan the task a second time.
+        result = execute_task(args.task, root, decision=decision, plan=plan)
         if result.output:
             print(result.output)
         if result.used_rag_fallback:
@@ -628,7 +649,33 @@ def cmd_capabilities(args: argparse.Namespace) -> int:
             log=not getattr(args, "no_log", False),
         )
         if args.json:
-            print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
+            # --json is opt-in machine output: the whole payload is capped
+            # structurally (verdict/count/truncated survive); the cap covers
+            # the emitted form, print()'s trailing newline included.
+            try:
+                doc = shrink_json_payload(
+                    result.to_dict(),
+                    max_bytes=MACHINE_OUTPUT_MAX_BYTES - 1,
+                    indent=2,
+                )
+            except ValueError:
+                # Technical delivery refusal — bounded, and never an echo
+                # of the unrepresentable identity as if it were the real
+                # op_id: a size diagnostic replaces oversized content.
+                doc = {
+                    "ok": False,
+                    "error": {"code": "unrepresentable"},
+                    "truncated": True,
+                    "cap_bytes": MACHINE_OUTPUT_MAX_BYTES,
+                }
+                op_id_bytes = len(result.op_id.encode("utf-8"))
+                if op_id_bytes <= 128:
+                    doc["op_id"] = result.op_id
+                else:
+                    doc["op_id_bytes"] = op_id_bytes
+                print(json.dumps(doc, ensure_ascii=False, indent=2))
+                return result.exit_code or 2
+            print(json.dumps(doc, ensure_ascii=False, indent=2))
         elif result.invocable:
             print(format_invocation_result(result))
         else:
