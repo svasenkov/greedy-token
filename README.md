@@ -242,11 +242,30 @@ formatted hits name the engine and BM25 score.
 **end-to-end evidence** layer: frozen synthetic RU/EN fixtures, task-specific
 file/line, exit-code, chunk-ID and escalation oracles, temporary workspaces,
 and comparisons for direct `rg`/script, greedy CLI, greedy MCP stdio, and an
-agent baseline. The deterministic agent is labelled `contract_stub`; a real
-host baseline is manual. The JSON scorecard reports routing and task success
+agent baseline. `bench/evidence_corpus.p6.yaml` (+ SHA-256 lock) is the frozen
+P6 extension corpus: disjoint independent RU/EN cases covering adversarial,
+malformed and large inputs. The deterministic agent is labelled
+`contract_stub`; a real host baseline is manual. The JSON scorecard reports routing and task success
 separately, executor/retrieval/escalation success, attempts, p50/p95, and
 authoritative billing only. Cursor cost remains `unknown` when billing data is
 unavailable; failed work never counts as saved. See [benchmark contract](bench/README.md).
+
+The final deterministic corpus cycle under the observed `python_provider`
+profile passes all acceptance gates on both frozen corpora (12 unique RU/EN
+tasks × 3 repetitions each, 72 measured applicable greedy rows per corpus):
+v1 reports route 12/12, zero false-cheap, executor/retrieval/escalation all
+1.0, and 24 zero-completed rows (4 unique tasks); P6 reports route 12/12,
+zero false-cheap, executor 0.875 ≥ 0.5, retrieval 0.833 ≥ 0.8, escalation
+1.0, and 33 zero-completed rows (6 unique tasks). Every zero-completed row
+has complete coverage and observed 0/0 model-attempt/request counters;
+transitions are bound to independent ledger events, not output text. Six P6
+CLI rows remain honest oracle negatives (noise-level RAG fallback hits; an
+EN-only corpus miss for the RU fallback task). Historical blocked/NO-GO
+verdicts are preserved in [benchmark contract](bench/README.md); replay of
+each fresh scorecard reproduces every coverage verdict without re-execution.
+No Desktop savings or full-native proof is claimed;
+`docs/benchmark.html` remains the D1 snapshot.
+
 Live workshop numbers (greedy vs naive, per-model $, honest negatives):
 [benchmark.html](https://svasenkov.github.io/greedy-token/benchmark.html) —
 source `docs/benchmark.html`, deployed via `gh-pages`.

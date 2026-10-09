@@ -52,108 +52,105 @@
           border-radius: 8px; padding: 12px 16px; font-size: 13px; }
   .note b { display: block; margin-bottom: 4px; }
   .foot { color: var(--muted); font-size: 12px; margin-top: 8px; }
+  .table-scroll { overflow-x: auto; max-width: 100%; }
+  code, .source { overflow-wrap: anywhere; }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 32rem; overflow: auto; }
+  .stat a { font-size: 11px; color: var(--muted); }
+  td details { white-space: normal; min-width: 180px; max-width: 320px; }
 </style>
 </head>
 <body>
 
-<h1>greedy-token — benchmark</h1>
-<p class="sub">greedy-token-workshop · M2 Max · v0.18.4 · 2026-10-02 · медиана 3 прогонов ·
-«без greedy» = measured baseline ~17,043 tok overhead + ~25.7s</p>
+<h1>greedy-token — benchmark evidence</h1>
+<p class="sub">Локальная P0b-проекция · v0.18.4 · существующий D1 snapshot, не новый прогон · без публикации</p>
 
-<section>
-  <h2>Модели и ставки</h2>
-  <div class="models" id="models"></div>
+<section class="note">
+  <b>Что подтверждено, а что нет</b>
+  D1 принят только в ограниченном <code>product_direct / python_provider</code> scope.
+  Корректный маршрут, terminal result по oracle и zero-completed — разные показатели.
+  Native/descendant coverage, full-native proof и P6 не приняты.
+  <p id="host-summary">Desktop host requests, consume/skip, skipped turn и Desktop tokens/USD/savings:
+  <strong>unknown</strong>, value=null. Product-direct не является Desktop evidence.
+  Fallback и rag-empty не считаются успешным intercept.</p>
+</section>
+
+<section id="source-provenance">
+  <h2>Источник measured product_direct</h2>
+  <p id="source-summary">Источник ещё не проверен: unknown. При недоступном или повреждённом snapshot числа не показываются.</p>
+  <p class="foot">Внутри этого HTML сохранён gzip/base64 snapshot выбранных полей принятого D1 scorecard:
+  все observation rows, полный raw ledger каждого наблюдённого run, route observation, gates и frozen oracle corpus.
+  Удалён только дублирующий attributed events view; raw events не фильтруются.
+  Это проверяемая локальная копия evidence, не восстановление исторических измерений.</p>
+  <details><summary>Показать сохранённый evidence JSON</summary><pre id="evidence-json"></pre></details>
 </section>
 
 <section>
-  <h2>Матрица: greedy vs без greedy</h2>
-  <table>
-    <thead><tr id="thead"></tr></thead>
-    <tbody id="tbody"></tbody>
-  </table>
-  <p class="foot">«С greedy, tok» = agent overhead ~17,043 (измерен <code>calibrate</code>:
-  rules + system + schemas + reply) + payload исполнителя — greedy-вызов не бесплатен,
-  ход агента платится. Wall включает старт CLI (~200ms). Конверт tool-вызова (~±60 tok:
-  Read-обёртка у наивного, Bash/MCP у greedy) не учтён симметрично — сокращается.
-  Красные строки — честный минус, saved &lt; −50 tok (ниже — шум аппроксимации):
-  на 100B-фикстурах route-карта (150–800 tok) дороже самого файла; промахи платят и
-  наивный ход, и шапку роута. «Intercept, tok» — тот же запрос в intercept-режиме:
-  ход агента не случается вообще, saved ≈ весь наивный ход (у ollama −~115 eval-токенов
-  локальной модели, billing $0). Стоимость по input-ставке.</p>
-</section>
-
-<section>
-  <h2>Большие объёмы — где greedy реально окупается</h2>
-  <table>
-    <thead><tr id="thead2"></tr></thead>
-    <tbody id="tbody2"></tbody>
-  </table>
-  <p class="foot">oh = agent overhead воркспейса: workshop 17,043 / monorepo ~37,450.
-  Наивный pull — измеренный объём (байты/4), который агент прочитал бы:
-  1.2MB JSONL, 4.9MB usage-лог, guide.md, git log. Красная строка —
-  после фикса --compact: 7.2KB ≈ 1.8k tok vs naive 0.9k —
-  листинг всё ещё лёгкий минус; «что изменилось» выигрывает.
-  <code>run</code> CLI тоже применяет args_from_prompt (F4 закрыт):
-  plan_run приклеивает derived-argv к команде — compact доезжает
-  и по hook/intercept, и по run --execute.</p>
-</section>
-
-<section>
-  <h2>Живые прогоны — headless CLI <code>devin -p</code> (2026-10-02)</h2>
-  <table>
-    <thead><tr id="thead3"></tr></thead>
-    <tbody id="tbody3"></tbody>
-  </table>
-  <p class="foot">96 легов: 6 пар × 4 модели × 2 руки × 2 прогона. Каждый лег —
-  свежая сессия <code>devin -p</code>; токены — <b>фактические</b> из
-  sessions.db (input + cache_read + cache_create + output). Naive-нога в
-  нейтральном /tmp (без .greedy-token.yaml); greedy-нога в workshop через
-  CLI. Главный факт: <b>дисперсия доминирует</b> — медиана saved ≈ +1.6k tok,
-  а вся масса экономии в хвосте: когда наивный агент спиралится
-  (E-opus +1.49M tok / ~$1.5, E-swe +1.02M — бесплатная модель спиралится
-  чаще всех: 41 тула + попытка записи файлов при «код не пиши»), связанный
-  greedy-путь ограничивает ущерб. Систематически: D (llm invoke
-  --user-file) экономит у kimi/opus стабильно +14k/+22k — одна нога exec вместо
-  read+exec; E/F (route → «ответь сам») аддитивны по построению и ведут себя
-  как лотерея. Advisory-режим ≠ гарантия экономии на уровне агента;
-  гарантированная экономия — intercept (весь ход не случается). $ — реальная
-  разбивка по ставкам модели (in + cache_create по input-ставке, cache_read по
-  cached, output по output); swe-2-max — free.</p>
-</section>
-
-<section>
-  <h2>Матрица исполнителей — ollama classify (2026-10-02)</h2>
-  <table>
-    <thead><tr id="thead4"></tr></thead>
-    <tbody id="tbody4"></tbody>
-  </table>
-  <p class="foot"><code>llm invoke --profile X --user-file lab/users.json</code>,
-  без агента. cold — первый вызов (загрузка модели в VRAM), warm — второй.
-  «JSON» — вывод содержит структуру с id/email; «ловит id:2» — корректно
-  помечает запись без email. Ремоуты недоступны: qa.guru — timeout,
-  box2 — 401 без кредов. Вывод: 7b локально — лучший по формату
-  (чистый JSON) и цене ($0); gpt-oss:20b не удерживает classify-инструкцию.</p>
-</section>
-
-<section>
-  <h2>Итог</h2>
+  <h2>Measured product_direct — ограниченный deterministic corpus</h2>
+  <p id="product-status" role="status" data-status="unknown">unknown · snapshot не проверен</p>
   <div class="stats" id="stats"></div>
+  <p id="product-summary" class="foot"></p>
+  <div class="table-scroll" tabindex="0" role="region" aria-label="Product evidence по всем task runs">
+    <table><thead><tr id="thead"></tr></thead><tbody id="tbody"></tbody></table>
+  </div>
+  <p class="foot">Completion-oracle проверяет terminal result исходной задачи (file/line/content или chunk ID + frozen excerpt).
+  Это не доказательство завершения непокрытых descendants. Contract-only, fallback-only, routing-only и agent contract stub
+  не входят в completion numerator. Даже правильный результат при incomplete coverage не получает zero-completed.</p>
+  <p id="money-summary"></p>
 </section>
 
-<div class="note">
-  <b>Как читать</b>
-  Таблицы 1–2 — синтетика: «без greedy» (полный наивный ход) vs «с greedy»
-  (ход агента + payload исполнителя) → Saved = их разница.
-  Футерное «saved ~17k» верно только при hook-режиме intercept —
-  когда LLM-ход не случается вовсе; в advisory/MCP overhead платится.
-  $ — по input-ставке (saved = непрочитанный контекст; output &lt;5%).
-  Таблица 3 — <b>измеренный факт</b>: свежие <code>devin -p</code> сессии,
-  токены из sessions.db без калибровки. Вывод живого бенча не такой, как у
-  синтетики: advisory-экономия в медиане ≈ 0 (кейс решает поведение агента),
-  а гарантированный эффект дают intercept-ход и защита от спирального хвоста.
-</div>
+<section>
+  <h2>D1 benchmark gates — ограничения не скрыты</h2>
+  <div class="table-scroll" tabindex="0" role="region" aria-label="Исходные D1 benchmark gates">
+    <table><thead><tr><th>Gate из source</th><th>Verdict</th></tr></thead><tbody id="gates"></tbody></table>
+  </div>
+  <p class="foot">Это verdict существующего D1 benchmark, не приёмка P0b. Native denial — безопасный отказ до spawn,
+  не успешное исполнение. Native gate FAIL не исправлен форматированием и не заменён fallback success.</p>
+</section>
 
-<script>
+<section>
+  <h2>Measured live — источник не подтверждён</h2>
+  <p id="live-summary">unknown · historical raw JSONL и подтверждённые benchmark sid отсутствуют</p>
+  <div class="table-scroll" tabindex="0" role="region" aria-label="Неизвестные исторические live metrics">
+    <table><thead><tr><th>Архивная пара</th><th>Tokens</th><th>USD / savings</th><th>Oracle / identity</th></tr></thead><tbody id="tbody3"></tbody></table>
+  </div>
+  <p class="foot">Принят P0a protocol <code>greedy-token-workshop/notes/live-agent-bench.md</code>, SHA-256:
+  <code>02f91eb1bba8927dfd1867b391bc3ac3b7150414a8aff2870f2fc1139f483f33</code>.
+  <code>recovered_sources=[]</code>; recovered historical measurements: 0, не нулевые tokens или USD.
+  Архивный planned denominator: 6 пар × 4 модели × 2 руки × 2 repeats; фактические attempts, retries и failures unknown.
+  B с разными scopes остаётся non-comparable; D retry/failure billing unknown; C/E/F требуют independent manual review.
+  Архивные таблицы, screenshots и прежняя калибровка без raw/sid не участвуют в текущих measured totals.</p>
+</section>
+
+<section>
+  <h2>Optimized direct baseline — отдельно от агента</h2>
+  <p id="baseline-summary">unknown · not_applicable: native direct baseline в D1 не исполнялся</p>
+  <p>Локальная детерминированная операция без router/agent overhead — самостоятельный baseline, не «весь ход Desktop».
+  Для измеренного сравнения нужны одинаковые case/input/scope/oracle, все failure/retry costs и своё coverage.
+  Никаких измеренных baseline tokens, USD, latency или savings здесь нет.</p>
+</section>
+
+<section>
+  <h2>Synthetic potential — калькулятор предположений, не measured</h2>
+  <p class="foot">Иллюстративные значения, не данные D1/live и не тарифы провайдера. Сравниваются только заданные context payloads;
+  host turn, executor/provider output, cache и retries этим расчётом не измерены. Отрицательная разница сохраняется.</p>
+  <div class="models" id="models">
+    <div class="card"><label for="potential-naive">Предполагаемый naive context, tokens</label><div class="rate"><input id="potential-naive" type="number" min="0" step="1" value="100"></div></div>
+    <div class="card"><label for="potential-direct">Предполагаемый optimized direct payload, tokens</label><div class="rate"><input id="potential-direct" type="number" min="0" step="1" value="30"></div></div>
+    <div class="card"><label for="potential-rate">Предполагаемая input-ставка, USD / 1M tokens</label><div class="rate"><input id="potential-rate" type="number" min="0" step="0.01" value="2"></div></div>
+  </div>
+  <p id="potential-summary" data-status="not_applicable"></p>
+</section>
+
+<section>
+  <h2>Архив executor/Ollama comparisons — не текущие measured данные</h2>
+  <p>Исторические cold/warm latency, format/correctness, attempts и стоимость: <strong>unknown</strong> без подтверждённого raw.
+  Выбор local-модели и старый footer «$0» не являются authoritative billing или request ledger.
+  Эти прогоны не повторялись. Сохранённый неисполняемый script-архив ниже не используется в вычислениях.</p>
+</section>
+
+<noscript>Все product/live числовые metrics: unknown, пока integrity snapshot не проверена. JavaScript нужен только для локального отображения; команды и агенты не запускаются.</noscript>
+
+<script type="text/plain" id="benchmark-archive">
 // Ряд 1 — малые фикстуры, v0.18.4 (2026-10-02, /tmp/gt-bench-v0184.jsonl,
 // медиана 3 прогонов). tok = измеренный payload в контекст агента
 // (stdout байты/4; для rag/llm — est_tokens из телеметрии).
@@ -347,6 +344,495 @@ document.getElementById("models").innerHTML = MODELS.map((m, i) => `
   </div>`).join("");
 
 render();
+</script>
+
+<script id="d1-evidence" type="application/gzip" data-encoding="gzip/base64" data-sha256="e8e28f925aefc8d52d051aac889dbb1a95de4b88e3d56ddfd63983a38fed2551">
+H4sIAAAAAAACE+y93XJcyZEm+CrH2JoRq6aQDA+PX2gls1KJLWlEFWVV1LRpxTIofsnsAjIxmYmiODKVqTUzPXOxZms71rdr
+e7G2V3Oj7W1Za7tHWjM9AesV+knW4+QPEshM4GTiAESyDksigfMTJ8LDPcI9/IsvfvVgHF6mE3f0RRqN+8PBg0P44MGLNEgj
+N0nxyE0eHD7gjKsDYAdMPOPskNlDNP/zgw8e+DQIL0/c6PMHh7960I/04ItRSvH1wWT4eRocnJ754344SDwdpC/6kR5O9FIY
+jk7PxudfewA91mN042QYE/0a0ySNTvqD/njSD3R5lE7TpD+hZ8d11WbvHw9D/dlTN3lJb80/cDS93fsCeq/dyTG9P37puFT0
+SDA8Ul2iSD4bMDbZLDF7pbR3UgETXjFndeLAorAMbOaKR+edikZm1FRW+uVpCkUqbRZKkujnfiLxTUZn6dcfPOifnB6nkzSY
+uEktoV/NxHpUi3VJcqwHpidKG4dno7rtJyd96q/B2fExCW54NinXBrn/okjol66UO35UXx8/ejUcfT4+dSEdTC/M5bX82nk7
+U9A62RCCCjxgYkJnppQ0kRsNVoAGhaBtSAGCFTyr7JNQkBUP2UuhH1C70uCL/mg4KC2re+715GXdDOyBqDXg9NhN8nB0QtdO
+XHj66QHXPX7gRidKlL8PlPD9ycGPXXh58LTUtH9KgjmdtpfK9/3j4/7gxdHpkNTudfnESdGlosSn/SN3fDx8VaSc3fE4fUB6
+lt3Z8aTWuMHrUtzZcdG/Z0XI48oNYvXTT79XuVGqTpIbn1E51XBw/LrKo+FJ5c6o8qN+6aIvUjU6G0z6J+nR6WhY9HBURTdx
+36qGk5dp9Ko/TlWp4aOzweeD4atB78GvqbIvyLrGpY5L+nx0URXmfUFVOZq48edH47MQ0nh8NE6nrljnpcdCOBu50vDp1bqd
+R2Tb7vSoPH30H9JoOL8506j0yxTOJsPRvOiFdGb3R2ky6qcv3PH5Axfepy+O6e00Du54pq3zj/ePSfBFyegj4fgs0m9Fckdj
+9wV10qKg6RfGdSPPixmTApJMzyWx3JOznqN/B0uymlUlDMeTo0EiSVJx1CnTQWx8NO/D+eOD4dHZYH5xXqmjcOz6J0uPjBI1
+vQxMx0exT9YyCS+X7haBHr3qkyacTY4ydTF9nT7sXix6pn6CzJIMr9RjlP79WX+UxvNLSwKbv3n0grqL6kUimOnL0gdJCi+H
+kRo+Iq2LRzOFnz8w9OM0KtfDSzcYUJX7g0iDJ/1VDG76DFnB0akbjxeG8OuFxR/TZdK+MOvHn5NqOlKgelyfDIfHB+PkRmR6
+aUDGcuwG9aBSfs7upH9Mavdg+sDyODlxoxdpMiuAbrgwOSOJXr48rcH5l0YvDhZlDT9fo9DnVkwqX+p7dEIaJWlAVObXH2yq
++ejsvOb1z/em5qIH1l6s+HR4PBgHGuYmVwm9fmBt1Wcj7GrlFzeWqj/7HqmYOxi/HoQDqi5NsVs1A3to5FXNuKIH7lEzeM+A
+uNgMMs2DxWB4RW/EYRivbQQVsKYF06tL1S/fOR4OPz873a7KwBSpEF5V6c2yb6PSo7Od6q16wog1FjsZHpRS6ZVj78LnV0h8
+/sjbM17sWc0vtqF+7KB+5yDF/uTq+l94dG07ppPbmpYsbiy1ZXpt9t3plJq21KYev2wAKy3arE73sUWsZ4S+2KJZoTGN+y8G
+V3TQq/6oTLJtNWJJX7esP1ys//D42J24qfd+RfWn/XB8fLK2BdNC1rRgcWOpBbMv9gdfkEcxHL3e1kwUt1c0YbNCtd8Ed1ZU
+afw5OVDbTtRS/fqzecS1FIA+mpycPppHoTTdDUcpuFE8iDDC3l+P62lqEU05m732kLSWFFVxmVXUYDhKBkGrbJQLAnVQMTIu
+g2UqiuCyCDnkXKKvEiuNhvEsTI6oqqVdzKSA3EevKRJTFJNxJjVoTNLQ3yoy+skKBvOo/TyyMxCCYKiUdT7nzKUIKB1qH5hz
+ykXJPCI3XGlOj5QyTNJO2sy4sBQIlnaF4WkJneZ1iuTjhsmj6VR8NA+KyoPpmG5Mg9eFiCqKeI7juPo3FVlGNXKvKgrqjt3r
+igKIFxTrfquKZ6fHxS9NlZvQbOapN2OVihKOqy/66VU1pLCXrn2rxGb/IQ2qIcVBx6mahlZVfzCNPx4sfN2pp7wIrxf1X6kw
+BXZTvWEpOi2YdiYZkQR1Ucw5mQSoufceHpx78HWJFBiekbo8oG/PvP/6idmPc9Wi8GJcr2v8/MGgjiSPjt1Z6R2q5ZiqcB5P
+fEZ1n1VvVttfPZjGJSSSdHI6KWMEmc/xSR1kUOgzXsRHl6+P63iArl785vxxWLmzCJ1ZrXe1cI7m49j44mX6wafpSk1/ePRy
+Mjldrsf80qLE8rHwsn8cj077sQhCcsZ1aS2NMsOw6KLLbf3VA3JpztJ8rWMh73nMdK6US+X8eq0gdiuqrGfUGnhuST6gYZGn
+bDFjjNGTadN/gjntE4vWCR69I00KXDttM3idlWbCBjLYoIoOTVW+1Gla+KUwrOjQNLara7OI7o7KAHNcaxgpzaJCoCM6qpCn
+0F1FSGSz2ZrAyMpZhqSU9DlE5YR3oLWOgIlHw4I3WWimimmn02EJeUFbACGkkj1TRirzwYPP6ful0cPhZDwZudN6BW8wnAwH
+/UAutALVY8g5R1KOUvnSsYJ+XvyCS+a1PIisGTX+PRVYZg4a2b84b17GwKg2zigJVkeXjbA+kIBd5iFpbiTdEzrE5LyiDkAa
+6DRzSH0Tkhe8yGsh2qOjdWHw0dFtCJUqFClwT0cXpat4kS6vF8qOPk+v63Hhu48//ugHRz9++r3HT+jN73/y+PH3fnb07OmP
+Hn989JdPnz57/MnRp89+9uTx5Xs/ePrjlWtPnn7/8qWn3/308Sf/7vGGy0cfffjpxns/ePbsJ0cfPnny9K82PfHJTz++fOsT
+qjJdm9XuyYcflxo9+aiUQz88ffLkwx9/ePTTT8ovP/nw2Q/KPz979oOnH3/89KdU5qc/fPZ4cenC/Z8++0tDvzz78U++98NP
+Hnw2FeH5Ii0LlgtvhYUEISFPRikvJBoUpCJJJRdU0kZxHXjURgrtovdOmkxdw+UGO+AgeRmnTs8m599SCNk7G1wU0WrlJEqa
+HyTpg7HJJR1zRLRUlWSZFPSoFOiUNE6llBUvU/vMsopx+PSiX0ag6cJPubhurWat5Ulhmlheg4mttj96Z3x2ejoc1cvfG2x1
+ZqOhfvyisXoyVp0CuT1WkRcDSihyd7JOnFvw1DPAOH2bvCLhpTGRa2sVR7Jh8niEKpkAPzwbRDd6XY99kzQ6HZVFwSMasEcT
+qkM6mvsf/ZNSz6bmvdq1ViiLoviaaXmVYdYv0+mq/uoayQPTyNWS5PWy5MUOkqeZdPKSPIV41J+u5BltpUIlDFvcGbiTUtUf
+u/7gWX1l3hVfsOJqvR6HSR0HX+iSMgsZ4TyAd14AuXOa/MQMnKrDtcDkUwKqozecahbII0xRSxNcUpoUWjYVcEyhP8tYzFyB
+VaGTyjJj7Pm8csEDWSdnVSbXq+Rc+1b1PH6uuLNSF27VDt3B2+gOcmOKtub+cT3DXeyXyHOm4UMzq1LWHFHS3xCldgmN8Iym
+FhqzJLoy36XEXDSOg3XZKm9E7ZG32i+W/rdNv1A08Rb6BXful2ajxCCeDvuD87iyRF7Hk5frZQZAX1/I7KJzvE5omnONbQ4a
+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
+5X7kZFTZjqob5WQMw+X1vJukZJCvpmS4kko4SVVPOrrIynpFZGAMOB2Tc0lBLhv1QswpUV28dZbHbEEFy4C5+5SSUQK7lEzb
+KRkyK2a54ykJ4MYln4RAjhpiYoqFjA4Sjd3oVJCKoZCZJQdMaBmFZfXq4zr9RwotVlIyLJQdoFA24yqDTnMP2RYiV9SYyeAN
+RhExJfDeBOPQmMDpL04fj8nXhN834YGYWhvZZhNzazCVTY0O95sHolGGQnOSzm55mdJ9ainnXIbF9QmLphLfjwM+1qVEGtBA
+QA+sElI2pIGAXpEMg6vkuyUNRNNuuKW8UfMDPmpZWaF5wwM+amFZA6ZNZbyNAz6uVp2NtPwkD87IuTJb8vIXuSjJ+c7HT2xW
+uW316q4O+LiJhJXVahcJ69rPu48SlneT6CbhAeISP9oViW4SmMYa1dGeqao7SHQv1jdWG49gtZRbJrqhVw75Yu16LKJZohts
+BmvIpVKJ/rUZOTklSF4afQSQfPpCChLJV4lSCBaTSZIZ5yzFbMglqNVEdxQJlUdkGJIXXpInqcmdTJ6X2E5kKp+n6IWNlonA
+Q+ApkwcYIlOenNRtVxpuKdHdghd7y4nuFoK+tmOEqxLdFC10ie4u0X23ie6OWqfLdN+nTHfbZDt3nOyefW+bbPfa3PW1PDuy
+49npeHa6Xe5fp13uo+GrOUOOq+Zon2q62nsw25lNitrx5HQ8OXfCk3ORJa/jyel4cjqenI4np/MgOp6cjien48nZ2ZH4evLk
+zCHQC5j0OSj8MvD5zZ/e/P0VwPdlZLeVHLTaDHyf3v66I7v59TsI2gJ1r9lBcE92ClxNDqNMT8KFg+sskxC4kiZqwaV1Knvr
+UWWphfe5O7hurw6uu74zO3KY68lhNOwfOUxQyYYITiuMmivqfo48R039rxlyr6z1PsbEhIyZY2KGCxkwWW/oat4LIDL0kIM0
+TYDIBWgAFkVLSGS5ikQGL4SzYGPJ6AvIVH/pqeDgWIqWmq08oEJvhfUALNcQO6mU1Q6Dwqu2rt/tiXRYxMo7JHLrJ9Jp50Rk
+wENGHlnW2aAISnBNKiJthKDRJMczzzk7cE4yphWpFVmyj7VFrjMAUl67Sg4TOH2HpcRdEiBZCDpL721QvGiL40FYGQLGJFW2
+KXgueYgZHI8iWWF2J4cphsZRNzui6frpaWpu6obkMFpkTD4G57Km8YJGxhzL+UyOzCdkGxiZKIfAIhMsWq28QeUFGalmonRa
+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
+</script>
+<script>
+const SOURCE_SHA256 = 'a9fb7b1e7757e925f6d71823501c76f86ac437c6dd025c906d4caf4cfcffc3e0';
+const SNAPSHOT_SHA256 = 'e8e28f925aefc8d52d051aac889dbb1a95de4b88e3d56ddfd63983a38fed2551';
+const $ = id => document.getElementById(id);
+const finite = value => typeof value === 'number' && Number.isFinite(value);
+const num = value => finite(value) ? value.toLocaleString('en-US') : 'unknown';
+const fmt$ = value => finite(value) ? (value < 0 ? '-$' : '$') + Math.abs(value).toLocaleString('en-US', {minimumFractionDigits:4, maximumFractionDigits:6}) : 'unknown';
+const escapeHtml = value => String(value ?? 'unknown').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
+let evidence = null;
+
+function knownSum(values) {
+  const known = values.filter(finite), subtotal = known.length ? known.reduce((a, b) => a + b, 0) : null;
+  return {value:known.length === values.length ? subtotal : null, known_subtotal:subtotal, known:known.length, unknown:values.length-known.length};
+}
+function taskCompletion(row) {
+  return row.evidence_level === 'measured' && row.applicable === true && row.success === true && row.completion_eligible === true &&
+    ['frozen_search','rag_excerpt'].includes(row.completion_evidence?.category) && row.completion_evidence?.satisfied === true;
+}
+function invocationValue(observation, key) {
+  const metric = observation?.invocation?.[key];
+  return observation?.ledger && observation.coverage?.complete === true && metric?.status === 'observed' && finite(metric.value) ? metric.value : null;
+}
+function zeroCompleted(row) {
+  return taskCompletion(row) && row.zero_completed === true && row.observation?.scope === 'python_provider' &&
+    invocationValue(row.observation, 'model_attempts') === 0 && invocationValue(row.observation, 'llm_requests_sent') === 0;
+}
+function productRows(source) { return source.observations.filter(row => ['greedy_cli','greedy_mcp_stdio'].includes(row.method)); }
+function summarizeProduct(source) {
+  const rows = productRows(source), count = test => rows.filter(test).length;
+  const partialSum = key => knownSum(rows.map(row => row.observation?.ledger ? row.observation.python_scope?.[key] : null)).value;
+  return {
+    runs:rows.length, tasks:new Set(rows.map(row => row.case_id)).size,
+    eligible:count(row => row.completion_eligible === true), terminal_completed:count(taskCompletion), zero_completed:count(zeroCompleted),
+    oracle_pass:count(row => row.success === true), oracle_fail:count(row => row.success === false),
+    complete:count(row => row.observation?.coverage?.complete === true), incomplete:count(row => row.observation?.coverage?.status === 'incomplete'),
+    unobserved:count(row => !row.observation?.ledger), native_denied:partialSum('native_launch_denied'),
+    python_model_attempts:partialSum('model_attempts'), python_sent:partialSum('llm_requests_sent'),
+    invocation_unknown:count(row => invocationValue(row.observation, 'model_attempts') === null || invocationValue(row.observation, 'llm_requests_sent') === null),
+  };
+}
+function moneyValue(metric) {
+  return metric && ['observed','measured'].includes(metric.status) && metric.authoritative === true &&
+    typeof metric.source === 'string' && metric.source.trim() && finite(metric.value) ? metric.value : null;
+}
+function renderProduct(source) {
+  const s = summarizeProduct(source), rows = productRows(source), routes = source.route_classification;
+  const routingHits = routes.filter(row => row.ok === true && row.expected_target === row.actual_target).length;
+  const terminalIncomplete = rows.filter(row => taskCompletion(row) && !row.observation.coverage.complete).length;
+  const scope = 'product_direct / python_provider', oracleHash = source.benchmark.corpus_lock.sha256;
+  $('source-summary').innerHTML = `D1 scorecard: <code>${escapeHtml(source.source.path)}</code><br>Source SHA-256: <code>${SOURCE_SHA256}</code><br>` +
+    `Embedded snapshot SHA-256: <code>${SNAPSHOT_SHA256}</code><br>Product HEAD: <code>${escapeHtml(source.source.product_head)}</code><br>` +
+    `Benchmark code SHA-256: <code>${escapeHtml(source.source.bench_sha256)}</code><br>Frozen oracle corpus v${escapeHtml(source.benchmark.corpus_version)} SHA-256: <code>${escapeHtml(oracleHash)}</code><br>` +
+    `Scope: <code>${scope}</code> · source generated_at: <code>${escapeHtml(source.generated_at)}</code>. Coverage и независимый oracle привязаны к каждому run ниже.`;
+  $('evidence-json').textContent = JSON.stringify(source, null, 2);
+  $('product-status').dataset.status = 'observed';
+  $('product-status').textContent = 'observed · только сохранённое accepted partial D1 evidence; не full-native или Desktop proof';
+  const cards = [
+    ['routing', `${routingHits} / ${routes.length}`, 'Routing correctness, не completion', `route classification; ${source.route_observation.coverage.status}`],
+    ['terminal_completed', `${s.terminal_completed} / ${s.runs}`, 'Terminal result по completion-oracle', `${s.complete} complete / ${s.incomplete} incomplete`],
+    ['zero_completed', `${s.zero_completed} / ${s.runs}`, 'Zero-completed только supported scope', `${s.complete} complete / ${s.incomplete} incomplete`],
+    ['oracle_fail', `${s.oracle_fail} / ${s.runs}`, 'Failed oracle/contract verdicts', 'failures сохранены'],
+    ['complete', `${s.complete} / ${s.runs}`, 'Complete coverage выбранных Python путей', 'native не доказан'],
+    ['invocation_unknown', `${s.invocation_unknown} / ${s.runs}`, 'Whole invocation counters unknown', 'incomplete не превращён в zero'],
+    ['native_denied', num(s.native_denied), 'Native launches denied до spawn', 'outside coverage'],
+  ];
+  $('stats').innerHTML = cards.map(([key, value, label, coverage]) => `<div class="stat" data-metric="${key}" data-status="observed" data-source="${SOURCE_SHA256}" data-scope="${scope}" data-oracle="${oracleHash}" data-coverage="${escapeHtml(coverage)}"><div class="v">${value}</div><div class="l">${label}</div><a href="#source-provenance">D1 source / oracle / scope</a><div class="l">${escapeHtml(coverage)}</div></div>`).join('');
+  $('product-summary').textContent = `${s.tasks} уникальных задач × CLI/MCP stdio × ${source.benchmark.repetitions} repeat = ${s.runs} task invocations. ` +
+    `Completion-eligible: ${s.eligible}/${s.runs}; terminal results: ${s.terminal_completed}/${s.runs} (${terminalIncomplete} с incomplete coverage). ` +
+    `Все oracle/contract verdicts: ${s.oracle_pass} PASS, ${s.oracle_fail} FAIL; ${s.unobserved} unobserved. ` +
+    `Partial Python/provider counters: model_attempts=${num(s.python_model_attempts)}, llm_requests_sent=${num(s.python_sent)}. Это не нули для ${s.invocation_unknown} непокрытых invocations. ` +
+    `Pipeline stages attempts/retries: unknown; label-derived нули и stdout/footer не используются. ` +
+    `Отдельный route-classification run: ${routes.length} cases, ${source.route_observation.coverage.status} coverage, ${num(source.route_observation.python_scope.native_launch_denied)} native denials вне task denominator. ` +
+    `Source также сохраняет unexecuted direct baseline и agent contract stub: они не measured agent evidence.`;
+  $('thead').innerHTML = ['Case / transport', 'Category', 'Oracle verdict', 'Task terminal result', 'Coverage', 'Model attempts · invocation', 'LLM sent · invocation', 'Zero-completed', 'Source / oracle / ledger'].map(text => `<th>${text}</th>`).join('');
+  const cases = new Map(source.corpus.cases.map(row => [row.id, row]));
+  $('tbody').innerHTML = rows.map(row => {
+    const o = row.observation, ledger = o.ledger, events = ledger?.events ?? [];
+    const begin = events.find(e => e.kind === 'run_begin'), end = events.find(e => e.kind === 'run_end');
+    const oracleVerdict = row.success === true ? 'PASS' : row.success === false ? 'FAIL' : 'unknown';
+    const terminal = taskCompletion(row) ? 'oracle PASS' : row.completion_eligible ? (row.success === null ? 'unknown' : 'oracle FAIL') : 'not_applicable';
+    const zero = zeroCompleted(row) ? 'observed · yes' : !o.coverage.complete ? 'unknown · incomplete' : !row.completion_eligible ? 'not_applicable' : 'observed · no';
+    const details = {source_sha256:SOURCE_SHA256, scope, run_id:o.run_id, case_id:row.case_id, repetition:row.repetition,
+      input:ledger?.expected, begin_epoch:begin?.epoch ?? null, end_epoch:end?.epoch ?? null, coverage:o.coverage,
+      oracle_corpus_sha256:oracleHash, expected_oracle:cases.get(row.case_id)?.oracle, actual_completion_evidence:row.completion_evidence,
+      actual_exit_code:row.exit_code, output_excerpt:row.output_excerpt, raw_events_sha256:ledger?.events_sha256, ledger_file_sha256:ledger?.file_sha256};
+    return `<tr${row.success === false ? ' class="loss"' : !o.coverage.complete ? ' class="warn"' : ''} data-case="${escapeHtml(row.case_id)}" data-method="${escapeHtml(row.method)}" data-source="${SOURCE_SHA256}" data-scope="${scope}" data-oracle="${oracleHash}" data-coverage="${escapeHtml(o.coverage.status)}"><td>${escapeHtml(row.case_id)}<br>${escapeHtml(row.method)}</td><td>${escapeHtml(row.completion_evidence.category)}</td><td>${oracleVerdict}</td><td>${terminal}</td><td>${escapeHtml(o.coverage.status)}</td><td>${num(invocationValue(o, 'model_attempts'))}</td><td>${num(invocationValue(o, 'llm_requests_sent'))}</td><td>${zero}</td><td><details><summary>Run evidence</summary><pre>${escapeHtml(JSON.stringify(details, null, 2))}</pre><a href="#source-provenance">Полный raw ledger в snapshot</a></details></td></tr>`;
+  }).join('');
+  $('gates').innerHTML = Object.entries(source.gates).map(([key, value]) => `<tr data-status="${value === true ? 'PASS' : value === false ? 'FAIL' : 'unknown'}"${value === false ? ' class="loss"' : ''}><td>${escapeHtml(key)}</td><td>${value === true ? 'PASS' : value === false ? 'FAIL' : 'unknown'}</td></tr>`).join('');
+  const tokens = knownSum(rows.map(row => moneyValue(row.llm_tokens))), costs = knownSum(rows.map(row => moneyValue(row.actual_cost_usd)));
+  $('money-summary').innerHTML = `Product tokens: ${num(tokens.value)}; USD: ${fmt$(costs.value)}; measured savings: unknown. ` +
+    `Known tokens subtotal: ${num(tokens.known_subtotal)}; Known billing subtotal: ${fmt$(costs.known_subtotal)} (не общий total). ` +
+    `Known tokens rows: ${tokens.known}/${s.runs}; unknown: ${tokens.unknown}/${s.runs}. Known billing rows: ${costs.known}/${s.runs}; unknown: ${costs.unknown}/${s.runs}. ` +
+    `Unknown не суммируется как ноль. Model request count и названия методов не являются authoritative billing. Source: <a href="#source-provenance">D1 snapshot</a>; scope ${scope}; billing coverage unknown.`;
+}
+function potentialResult(naive, direct, rate) {
+  const saved = finite(naive) && finite(direct) ? naive - direct : null;
+  return {evidence_level:'synthetic_potential', measurement_status:'not_applicable', tokens_saved:saved, cost_saved_usd:finite(saved) && finite(rate) ? saved * rate / 1e6 : null};
+}
+function renderPotential() {
+  const read = id => $(id).value.trim() === '' ? null : Number($(id).value);
+  const result = potentialResult(read('potential-naive'), read('potential-direct'), read('potential-rate'));
+  $('potential-summary').textContent = `synthetic_potential · measurement_status=not_applicable · context difference: ${num(result.tokens_saved)} tokens; potential USD: ${fmt$(result.cost_saved_usd)}. Source: введённые предположения; oracle и runtime coverage not_applicable. Не measured savings или skipped turn.`;
+}
+$('live-summary').innerHTML = 'Tokens / USD / savings / correctness / pair identity: unknown (value=null). No confirmed historical raw/sid; measured live не показан.';
+$('baseline-summary').innerHTML = 'Tokens / USD / latency / savings: unknown. D1 direct baseline: not_applicable — native path не исполнен под принятым coverage. Это не agent baseline.';
+$('tbody3').innerHTML = ['A: key presence', 'B: email search · non-comparable scopes', 'C: RAG · manual oracle unknown', 'D: classify · retry/failure cost unknown', 'E: judgment · manual oracle unknown', 'F: fallback · manual oracle unknown'].map(label => `<tr><td>${label}</td><td>unknown</td><td>unknown</td><td>unknown</td></tr>`).join('');
+for (const id of ['potential-naive','potential-direct','potential-rate']) $(id).addEventListener('input', renderPotential);
+renderPotential();
+async function loadEvidence() {
+  const node = $('d1-evidence'), bytes = Uint8Array.from(atob(node.textContent.replace(/\s+/g, '')), c => c.charCodeAt(0));
+  const decoded = await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+  const digest = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', decoded)), b => b.toString(16).padStart(2, '0')).join('');
+  if (digest !== SNAPSHOT_SHA256 || node.dataset.sha256 !== SNAPSHOT_SHA256) throw Error('snapshot integrity mismatch');
+  const source = JSON.parse(new TextDecoder().decode(decoded));
+  if (source.source.sha256 !== SOURCE_SHA256 || source.benchmark.mode !== 'deterministic' || source.source.scope !== 'product_direct/python_provider') throw Error('source binding mismatch');
+  return source;
+}
+const benchmarkReady = loadEvidence().then(source => { evidence = source; renderProduct(source); }).catch(() => {
+  evidence = null;
+  $('product-status').dataset.status = 'unknown';
+  $('product-status').textContent = 'unknown · snapshot unavailable/invalid; measured product numbers не показаны';
+  $('source-summary').textContent = 'Source integrity/decoder unavailable: unknown. Не восстанавливать числа по архиву или method name.';
+  $('product-summary').textContent = '';
+  $('evidence-json').textContent = '';
+  $('stats').innerHTML = '';
+  $('tbody').innerHTML = '';
+  $('gates').innerHTML = '';
+  $('money-summary').textContent = 'Tokens / USD / savings: unknown (value=null).';
+});
 </script>
 </body>
 </html>
