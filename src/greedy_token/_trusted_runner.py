@@ -19,6 +19,13 @@ _READ_CHUNK = 128 * 1024
 
 
 def main() -> None:
+    observed = bool(os.environ.get("GREEDY_TOKEN_OBSERVE", "").strip())
+    if observed:
+        # Bootstrap guards/channel before any product or script code runs.
+        from greedy_token.cheap_llm import install_observation
+
+        install_observation()
+
     fd = int(sys.argv[1])
     script_path = sys.argv[2]
     script_args = sys.argv[3:]
@@ -29,8 +36,21 @@ def main() -> None:
         if not chunk:
             break
         chunks.append(chunk)
+    fd_stat = os.fstat(fd)
     os.close(fd)
     source = b"".join(chunks)
+
+    if observed:
+        # Bind the consumed buffer — the same bytes compile() gets — back
+        # to the parent's admission record; never a second path read.
+        from greedy_token.cheap_llm import observe_trusted_child_bind
+
+        observe_trusted_child_bind(
+            source=source,
+            script_path=script_path,
+            fd_identity=(fd_stat.st_dev, fd_stat.st_ino),
+            runner_path=os.path.abspath(__file__),
+        )
 
     sys.argv = [script_path, *script_args]
     script_dir = os.path.dirname(os.path.abspath(script_path))

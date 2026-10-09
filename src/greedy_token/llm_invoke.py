@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from greedy_token.calibration import SOURCE_FIXED
-from greedy_token.cheap_llm import MalformedResponseError
+from greedy_token.cheap_llm import MalformedResponseError, observe_model_attempt
 from greedy_token.expensive_llm import llm_chat
 from greedy_token.model_select import (
     ModelSpec,
@@ -362,8 +362,21 @@ def invoke_profile(
     # truthiness, so a None initial value behaves identically to False.
     delivered = False
 
+    prev_attempt_id = ""
     for index, candidate in enumerate(candidates):
         attempts.append(candidate.model_id)
+        # Model intent is a ledger fact before the spend guard can refuse —
+        # a denied reservation still counts as an observed attempt, and the
+        # first leaf binds this candidate without double counting.
+        prev_attempt_id = observe_model_attempt(
+            profile=profile,
+            model_id=candidate.model_id,
+            provider=candidate.spec.provider,
+            billing=candidate.spec.billing,
+            index=index,
+            cause="candidate" if index == 0 else "candidate_escalation",
+            parent_attempt_id=prev_attempt_id,
+        ) or prev_attempt_id
         reservation: SpendReservation | None = None
         if candidate.spec.billing == "metered":
             # ADR-0002: every metered call is spend-guarded — expensive tier

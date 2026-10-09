@@ -6,7 +6,12 @@ import json
 import urllib.error
 import urllib.request
 
-from greedy_token.cheap_llm import MalformedResponseError, _chat_openai_compat
+from greedy_token.cheap_llm import (
+    MalformedResponseError,
+    _chat_openai_compat,
+    observe_provider_dispatch,
+    observe_provider_fallback,
+)
 from greedy_token.model_select import ModelSpec, ResolvedModel
 
 
@@ -22,7 +27,8 @@ def yandex_gpt_chat(
         return _chat_openai_compat(resolved.settings, system=system, user=user, timeout=timeout)
 
     folder_id = _folder_from_env(spec)
-    if folder_id and spec.api_key:
+    native_attempted = bool(folder_id and spec.api_key)
+    if native_attempted:
         try:
             return _chat_yandex_native(
                 api_key=spec.api_key,
@@ -40,6 +46,8 @@ def yandex_gpt_chat(
             pass
 
     if resolved.settings.url:
+        if native_attempted:
+            observe_provider_fallback("yandex_gpt", "native->openai_compat")
         return _chat_openai_compat(resolved.settings, system=system, user=user, timeout=timeout)
 
     raise RuntimeError(
@@ -62,6 +70,7 @@ def _chat_yandex_native(
     user: str,
     timeout: float,
 ) -> tuple[str, int | None]:
+    observe_provider_dispatch("yandex_gpt", "yandex_gpt_native")
     uri = f"gpt://{folder_id}/{model}/latest"
     body = json.dumps(
         {

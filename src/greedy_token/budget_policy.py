@@ -80,11 +80,16 @@ def apply_budget_policy(
 
     # Deprecated local model warning in rationale
     try:
-        report = run_doctor(quick=True)
-        if report.deprecated_installed and decision.target == "ollama":
-            rec = report.recommended[0] if report.recommended else ""
-            extra = f" Local: deprecated model — consider ollama pull {rec}."
-            return replace(decision, rationale=(decision.rationale + extra).strip())
+        from greedy_token.cheap_llm import observe_resource_probe
+
+        if observe_resource_probe("run_doctor"):
+            report = run_doctor(quick=True)
+            if report.deprecated_installed and decision.target == "ollama":
+                rec = report.recommended[0] if report.recommended else ""
+                extra = f" Local: deprecated model — consider ollama pull {rec}."
+                return replace(
+                    decision, rationale=(decision.rationale + extra).strip()
+                )
     except (OSError, ValueError, RuntimeError):
         pass
 
@@ -102,9 +107,11 @@ def policy_footer_extras(*, root: Path | None = None) -> list[str]:
     lines: list[str] = []
     try:
         from greedy_token.budget_ledger import format_budget_line
+        from greedy_token.cheap_llm import observe_resource_probe
 
         lines.append(format_budget_line(root=root, compact=True))
-        lines.append(local_health_line())
+        if observe_resource_probe("local_health_line"):
+            lines.append(local_health_line())
     except (OSError, ValueError, RuntimeError):
         pass
     return lines

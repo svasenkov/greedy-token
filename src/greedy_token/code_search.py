@@ -803,6 +803,18 @@ def search_code(
         resolved = path_detail.path
 
     rg_bin = resolve_rg()
+    from greedy_token.cheap_llm import observation_armed, observe_search_backend
+
+    armed = observation_armed()
+    if armed:
+        # An observed run never launches rg: select the in-process backend
+        # before any native attempt and record the choice on the ledger.
+        rg_bin = None
+        observe_search_backend(
+            engine="python",
+            scope=path.strip() if path else "workspace",
+            native="skipped",
+        )
 
     if resolved and resolved.is_file():
         scope = resolved.relative_to(root).as_posix()
@@ -846,10 +858,15 @@ def search_code(
         if lines:
             # Python file scan emits the same POSIX workspace-relative path as rg.
             body = "\n".join(lines)
+            note = (
+                "(observed run: native rg skipped — python file scan)"
+                if armed
+                else "(rg not in PATH — python file scan)"
+            )
             return _finalize_search(
                 header=(
                     f"Search: {query!r} in {scope} [python]\n"
-                    f"(rg not in PATH — python file scan)"
+                    f"{note}"
                 ),
                 body=body,
                 engine="python",
@@ -916,7 +933,12 @@ def search_code(
         limit=limit,
     )
     if lines:
-        note = "(rg not in PATH — python tree scan)" if not rg_bin else ""
+        if armed:
+            note = "(observed run: native rg skipped — python tree scan)"
+        elif not rg_bin:
+            note = "(rg not in PATH — python tree scan)"
+        else:
+            note = ""
         header = f"Search: {query!r} in {scope} [python]"
         if note:
             header = f"{header}\n{note}"
