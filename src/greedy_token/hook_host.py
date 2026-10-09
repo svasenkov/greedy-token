@@ -147,15 +147,74 @@ class HostProfile:
     def serialize_pass(self, payload: dict[str, Any] | None = None) -> str:
         return self._encoder(payload or {"continue": True})
 
+    def _record_observation(
+        self, action: str, serialized: bool, payload: dict[str, Any]
+    ) -> None:
+        """Ledger fact: the product-side boundary serialization act.
+
+        Records only what this process observed — the requested action and
+        whether the host-facing response was produced (``serialized``).
+        Whether the host then skipped the model turn is a host-side fact
+        this boundary cannot attest; ``build_hook_observation_event`` keeps
+        it unknown.  Telemetry must never break the hook boundary, so
+        failures are swallowed (append_event already degrades on OSError).
+        """
+        try:
+            from greedy_token.usage import (
+                append_event,
+                build_hook_observation_event,
+            )
+
+            append_event(
+                build_hook_observation_event(
+                    host=self.name,
+                    action=action,
+                    serialized=serialized,
+                    task=str(payload.get("task") or payload.get("prompt") or ""),
+                    root=payload.get("root") or None,
+                    route_id=payload.get("op_id") or payload.get("route_id"),
+                    operation_id=payload.get("operation_id"),
+                )
+            )
+        except (OSError, ValueError, TypeError, AttributeError):
+            pass
+
+    def _emit_observed(
+        self, action: str, payload: dict[str, Any], encode: Callable[[], str]
+    ) -> str:
+        """Serialize the response, then record the fact of that act.
+
+        A failed serialization means no response reached the host — the
+        observation records ``serialized=False`` and the error propagates.
+        """
+        try:
+            out = encode()
+        except Exception:
+            self._record_observation(action, False, payload)
+            raise
+        self._record_observation(action, True, payload)
+        return out
+
     def serialize_gate(self, payload: dict[str, Any]) -> str:
         if self.soft_gate_enabled and self._context_encoder is not None and (
             op_id := payload.get("op_id")
         ):
-            return self._context_encoder(format_devin_gate_context(op_id))
-        return self._encoder({
+            # Context is injected but the prompt still reaches the agent —
+            # the turn is shared, not replaced.
+            return self._emit_observed(
+                "soft_gate",
+                payload,
+                lambda: self._context_encoder(format_devin_gate_context(op_id)),
+            )
+        resp = {
             "continue": False,
             "user_message": payload.get("user_message") or "greedy-token",
-        })
+        }
+        if not self.supported:
+            return self._encoder(resp)
+        # Emitting a blocking response is a skip request, not a proven host
+        # skip — the observation records the serialized act only.
+        return self._emit_observed("gate", payload, lambda: self._encoder(resp))
 
     def serialize_intercept(self, payload: dict[str, Any]) -> str:
         if not self.supported:
@@ -164,7 +223,11 @@ class HostProfile:
             payload["target"], payload["prompt"], payload["body"], payload.get("pretty"),
             full=self.can_render_full, link_style=self.link_style, root=payload.get("root"),
         )
-        return self._encoder({"continue": False, "user_message": message})
+        return self._emit_observed(
+            "intercept",
+            payload,
+            lambda: self._encoder({"continue": False, "user_message": message}),
+        )
 
     def serialize(self, kind: str, payload: dict[str, Any] | None = None) -> str:
         serializer = {
@@ -276,7 +339,10 @@ def format_user_message(
     prompt_preview = _preview(prompt, MAX_PROMPT_PREVIEW)
 
     lines = [
-        f"greedy-token → {target} · AI пропущен",
+        # Honest claim: the answer was produced locally and a blocking
+        # response was emitted — whether the host skipped the model turn is
+        # a host-side fact this process cannot attest.
+        f"greedy-token → {target} · локальный ответ",
         "",
         f"Q: {prompt_preview}",
     ]

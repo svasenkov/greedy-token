@@ -205,7 +205,18 @@ def test_build_route_event_golden(minimal_workspace: Path) -> None:
         "confidence": round(0.91234, 4),
         "task_language": usage.detect_task_language(task),
         "est_tokens": 7,
-        "cursor_saved": usage.cursor_saved_for(root, task, 7, "tool"),
+        # Undeclared invocation → unknown scope: earned stays unknown, both
+        # formula deltas are labelled potentials.
+        "savings_scope": "unknown",
+        "cursor_saved": None,
+        "cursor_saved_potential": usage.cursor_saved_for(
+            root, task, 7, "tool"
+        ),
+        "cursor_saved_potential_shared": min(
+            usage.cursor_saved_for(root, task, 7, "tool"),
+            max(0, baseline - usage.cursor_overhead() - 7),
+        ),
+        "baseline_source": usage.baseline_source(),
         "token_counter_method": usage.count_tokens(task).method,
         "tier_scan": [{"tier": "tool"}],
         "executor": {
@@ -215,6 +226,7 @@ def test_build_route_event_golden(minimal_workspace: Path) -> None:
         "result_status": "produced",
         "gate_action": "accepted",
         "gate_reason": "accepted",
+        "gate_outcome": "success",
         "operation_id": "op-1",
         "parent_operation_id": "op-0",
         "authorized": True,
@@ -227,7 +239,7 @@ def test_build_route_event_golden(minimal_workspace: Path) -> None:
         "shadow_route_id": "shadow-1",
         "shadow": True,
         "duration_ms": 42,
-        "time_saved_ms": usage.time_saved_ms(baseline, 42, "tool"),
+        "time_saved_ms_potential": usage.time_saved_ms(baseline, 42, "tool"),
         "profile": "p",
         "escalated_from": "cheap",
         "billing_tier": "metered",
@@ -318,6 +330,7 @@ def test_build_outcome_event_golden(minimal_workspace: Path) -> None:
         "result_status": "produced",
         "gate_action": "accepted",
         "gate_reason": "accepted",
+        "gate_outcome": "success",
         "operation_id": "op-1",
         "parent_operation_id": "op-0",
         "calibration_segment": "seg-1",
@@ -327,7 +340,7 @@ def test_build_outcome_event_golden(minimal_workspace: Path) -> None:
     dec = _rich_decision()
     with pytest.raises(
         ValueError,
-        match=r"outcome must be one of: escalated, failure, success, unknown",
+        match=r"outcome must be one of: escalated, failure, refused, success, unknown",
     ):
         usage.build_outcome_event(
             task="t", root=minimal_workspace, decision=dec,
@@ -375,7 +388,15 @@ def test_build_script_event_golden(minimal_workspace: Path) -> None:
         "confidence": 1.0,
         "confidence_source": "fixed",
         "est_tokens": 0,
-        "cursor_saved": baseline,
+        # scripts --run has no declared invocation — unknown scope: earned
+        # stays unknown, both formula deltas stay labelled potentials.
+        "savings_scope": "unknown",
+        "cursor_saved": None,
+        "cursor_saved_potential": baseline,
+        "cursor_saved_potential_shared": max(
+            0, baseline - usage.cursor_overhead()
+        ),
+        "baseline_source": usage.baseline_source(),
         "token_counter_method": usage.count_tokens(
             "scripts --run meta-sync-check"
         ).method,
@@ -385,7 +406,7 @@ def test_build_script_event_golden(minimal_workspace: Path) -> None:
         "phase": "executed",
         "operation_id": "op-9",
         "duration_ms": 15,
-        "time_saved_ms": usage.time_saved_ms(baseline, 15, "python"),
+        "time_saved_ms_potential": usage.time_saved_ms(baseline, 15, "python"),
         "cursor_baseline_ms": usage.naive_agent_ms(baseline),
     }
     # dry run → not executed exclusion + potential
@@ -1025,9 +1046,9 @@ def test_append_event(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -
     )
     usage.append_event({"a": "é"}, path=target)
     line = target.read_bytes()
-    # hook_mode is stamped on every appended event (savings attribution).
-    assert line == '{"a":"é","hook_mode":"advisory"}\n'.encode()
-    assert spy == [{"a": "é", "hook_mode": "advisory"}]
+    # configured_hook_mode is stamped on every appended event as context.
+    assert line == '{"a":"é","configured_hook_mode":"advisory"}\n'.encode()
+    assert spy == [{"a": "é", "configured_hook_mode": "advisory"}]
     # emit_auto_override=False skips the override emitter
     usage.append_event({"b": 1}, path=target, emit_auto_override=False)
     assert len(spy) == 1
@@ -1186,11 +1207,13 @@ def test_report_summary_to_dict(monkeypatch: pytest.MonkeyPatch) -> None:
         "by_tier": {
             "tool": {
                 "count": 2, "est_tokens": 10, "saved_vs_cursor": 90,
+                "saved_unknown": 0,
                 "duration_ms": 5, "time_saved_ms": 50, "duration_samples": 1,
             },
         },
         "totals": {
             "cursor_baseline": 100, "est_tokens": 10, "saved_vs_cursor": 90,
+            "saved_unknown": 0,
             "duration_ms": 5, "time_saved_ms": 50, "duration_samples": 1,
         },
         "top_routes": [{"route_id": "r1", "count": 2}],
@@ -1523,7 +1546,8 @@ def test_build_script_event_forwarding(
     )
     assert seen["baseline"] == (root, "scripts --run x")
     assert seen["tsm"] == (50, 5, "python")
-    assert e["time_saved_ms"] == 9
+    # Undeclared origin → unknown scope: the wall-clock delta is a potential.
+    assert e["time_saved_ms_potential"] == 9
     # failed run with duration → exclusion suppresses time_saved_ms
     e = usage.build_script_event(
         script_id="x", root=root, duration_ms=5, executed=True,

@@ -21,14 +21,17 @@ pytestmark = [
 
 def _assert_greedy_token_footer(text: str) -> None:
     assert "Greedy token" in text
-    assert "saved **~" in text
+    assert "saved **" in text
+    assert "potential" in text
     assert "> spent ~" in text
 
 
 def _assert_search_backend_billing(text: str) -> None:
-    rg_billing = "ripgrep on disk — 0 LLM spend" in text
-    python_billing = "script — 0 LLM spend" in text
+    # Executor labels describe the tool — they are never a spend claim.
+    rg_billing = "ripgrep on disk" in text
+    python_billing = "(script)" in text
     assert rg_billing or python_billing
+    assert "0 LLM spend" not in text
     if rg_billing:
         assert "rg (disk search)" in text
     else:
@@ -92,7 +95,8 @@ def test_mcp_stdio_search_finds_match(minimal_workspace: Path) -> None:
         attach_text("search response", text)
     with allure.step("Verify baseUrl match and Greedy token footer"):
         assert "baseUrl" in text
-        assert "free tier" in text
+        assert "unmetered" in text
+        assert "free tier" not in text
         _assert_greedy_token_footer(text)
 
 
@@ -439,3 +443,93 @@ def test_mcp_stdio_pipeline_operation_correlation(
         assert outcome["event"] == "route_outcome"
         assert outcome["outcome"] == "failure"
         assert outcome["outcome_layer"] == "pipeline"
+
+
+@allure.story("Machine output")
+@allure.title("Machine envelope caps the payload; observed ledger matches human mode")
+def test_mcp_stdio_machine_output_cap_and_ledger(
+    minimal_workspace: Path, tmp_path: Path
+) -> None:
+    import json
+    from collections import Counter
+
+    from bench import evidence_benchmark as benchmark
+
+    async def _route(session):
+        return await session.call_tool(
+            "greedy_token_route", {"task": "find baseUrl in sample.js"}
+        )
+
+    def _events(ledger: Path) -> list[dict]:
+        return [
+            json.loads(line)
+            for line in ledger.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+
+    ledger_human = tmp_path / "observed-human.jsonl"
+    benchmark._observe_bootstrap(ledger_human)
+    with allure.step("Observed stdio run — human mode baseline"):
+        res_h = run_mcp(
+            minimal_workspace,
+            _route,
+            observe={
+                "ledger_path": ledger_human,
+                "run_id": "p3-human",
+                "case_id": "route",
+            },
+        )
+        text_h = tool_text(res_h)
+        assert "Greedy token" in text_h
+
+    cfg = minimal_workspace / ".greedy-token.yaml"
+    cfg.write_text(
+        cfg.read_text(encoding="utf-8") + "footer:\n  style: machine\n",
+        encoding="utf-8",
+    )
+    ledger_machine = tmp_path / "observed-machine.jsonl"
+    benchmark._observe_bootstrap(ledger_machine)
+    with allure.step("Observed stdio run — machine mode"):
+        res_m = run_mcp(
+            minimal_workspace,
+            _route,
+            observe={
+                "ledger_path": ledger_machine,
+                "run_id": "p3-machine",
+                "case_id": "route",
+            },
+        )
+        text_m = tool_text(res_m)
+        attach_text("machine envelope", text_m)
+    with allure.step("Verify capped JSON envelope, no route card/footer"):
+        doc = json.loads(text_m)
+        assert "Greedy token" not in text_m
+        assert len(text_m.encode("utf-8")) <= doc["cap_bytes"]
+        assert doc["ok"] is True
+        assert doc["result_status"] == "produced"
+        assert doc["route_id"] == "tool-rg-search"
+        assert doc["target"] == "tool"
+    with allure.step("Ledger is formatter-independent — machine adds nothing"):
+        kinds_h = Counter(e.get("kind") for e in _events(ledger_human))
+        kinds_m = Counter(e.get("kind") for e in _events(ledger_machine))
+        attach_text(
+            "ledger kinds",
+            json.dumps({"human": kinds_h, "machine": kinds_m}, default=dict, indent=2),
+        )
+        # Machine mode introduces no new event kinds — the human-only extras
+        # are denied footer-path probes (ollama_available), never execution.
+        extra = kinds_m - kinds_h
+        assert not extra
+        for denied in ("model_attempt", "llm_request"):
+            assert denied not in kinds_m
+            assert denied not in kinds_h
+        # Native launches must never be allowed in an observed run; io_http
+        # "allowed" is only the allowlisted ollama health probe at server
+        # start — neither is a model attempt or extra execution.
+        decisions_m = {
+            (e.get("kind"), e.get("decision")) for e in _events(ledger_machine)
+        }
+        assert ("native_launch", "allowed") not in decisions_m
+        assert all(
+            d in ("denied", "allowed") for k, d in decisions_m if k == "io_http"
+        )

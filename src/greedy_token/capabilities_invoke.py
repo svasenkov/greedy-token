@@ -195,7 +195,10 @@ def invoke_capability(
     ) -> InvocationResult:
         duration_ms = int((time.perf_counter() - t0) * 1000)
         gate = evaluate_result_gate(
-            started=False, result_status=RESULT_NOT_EVALUATED, tier=tier, ok=False
+            started=False, result_status=RESULT_NOT_EVALUATED, tier=tier,
+            # The refusal is the caller's declared boundary fact — it must
+            # surface as ``refused``, not launder into a bare ``failure``.
+            ok=False, refused=True,
         )
         operation_id = ""
         if log:

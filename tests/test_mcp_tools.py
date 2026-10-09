@@ -29,14 +29,17 @@ pytestmark = [
 
 def _assert_greedy_token_footer(text: str) -> None:
     assert "Greedy token" in text
-    assert "saved **~" in text
+    assert "saved **" in text
+    assert "potential" in text
     assert "> spent ~" in text
 
 
 def _assert_search_backend_billing(text: str) -> None:
-    rg_billing = "ripgrep on disk — 0 LLM spend" in text
-    python_billing = "script — 0 LLM spend" in text
+    # Executor labels describe the tool — they are never a spend claim.
+    rg_billing = "ripgrep on disk" in text
+    python_billing = "(script)" in text
     assert rg_billing or python_billing
+    assert "0 LLM spend" not in text
     if rg_billing:
         assert "rg (disk search)" in text
     else:
@@ -63,7 +66,8 @@ def test_mcp_search_finds_match_in_workspace(minimal_workspace: Path) -> None:
         attach_text("search response", out)
     with allure.step("Verify match and Greedy token footer"):
         assert "baseUrl" in out
-        assert "free tier" in out
+        assert "unmetered" in out
+        assert "free tier" not in out
         _assert_greedy_token_footer(out)
 
 

@@ -45,7 +45,9 @@ LAYER_BY_MODULE: dict[str, str] = {
     # use minimal_workspace fixtures; keep the file at the heavier layer.
     "test_result_gate": "component",
     "test_routing_corpus": "component",
+    "test_benchmark_html": "component",
     "test_evidence_benchmark": "component",
+    "test_p6_corpus": "component",
     "test_retrieval_benchmark": "component",
     "test_scripts_lint_gaps": "unit",
     "test_code_search_gaps": "unit",
@@ -97,6 +99,7 @@ LAYER_BY_MODULE: dict[str, str] = {
     "test_hook_host": "component",
     "test_hook_policy": "component",
     "test_capabilities": "component",
+    "test_machine_output": "component",
     # integration — subprocess CLI, real rg, workspace checkout
     "test_cli": "integration",
     "test_cli_commands": "integration",

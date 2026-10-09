@@ -90,10 +90,12 @@ def format_estimate(estimate: TaskEstimate, task: str, root: Path) -> str:
     target = d.target
     spent = estimate.est_tokens
     spent_line = f"Spent (MCP executor, LLM tokens): ~{spent:,}"
+    # Executor-class labels only: provider usage and spend are unmetered,
+    # so no suffix may claim "0 spend" or a price class.
     if target in ("tool", "python"):
-        spent_line += "  (0 LLM spend)"
+        spent_line += "  (local executor — unmetered)"
     elif target == "ollama":
-        spent_line += "  (cheap LLM — local/cheap spend)"
+        spent_line += "  (cheap LLM — unmetered)"
     elif target == "rag":
         spent_line += "  (docs/rag chunks read into context)"
     elif target == "cursor":

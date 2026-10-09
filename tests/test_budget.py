@@ -5,8 +5,10 @@ from pathlib import Path
 import pytest
 
 import allure
+from greedy_token.baseline import cursor_overhead
 from greedy_token.budget import format_savings_lines, format_tool_footer, wrap_mcp_response
 from greedy_token.estimator import cursor_baseline
+from greedy_token.usage import TurnSkipEvidence
 from tests.allure_reporting import attach_text
 
 pytestmark = [
@@ -33,7 +35,7 @@ def test_format_savings_lines() -> None:
         assert lines == [
             "Saved vs naive agent chat (baseline: default-estimate)",
             "  Baseline (naive agent chat):  ~11,607  (default-estimate)",
-            "  Spent (MCP executor, LLM tokens): ~0  (ripgrep on disk — 0 LLM spend)",
+            "  Spent (est. payload tokens): ~0  (ripgrep on disk)",
             "  Saved:             ~11,607  (= baseline − spent; baseline: default-estimate)",
         ]
 
@@ -65,10 +67,11 @@ def test_format_tool_footer_detailed_breakdown(minimal_workspace: Path) -> None:
         assert "cursor (expensive LLM)" in footer
         assert "← this call" in footer
         assert "Baseline (naive agent chat):" in footer
-        assert "Spent (MCP executor, LLM tokens):" in footer
-        assert "ripgrep on disk — 0 LLM spend" in footer
+        assert "Spent (est. payload tokens):" in footer
+        assert "ripgrep on disk" in footer
         assert "Saved:" in footer
-        assert "(= baseline − spent; baseline: default-estimate)" in footer
+        assert "unknown" in footer
+        assert "potential" in footer
         baseline = cursor_baseline(minimal_workspace, task)
         assert f"~{baseline:,}" in footer
 
@@ -92,8 +95,12 @@ def test_format_tool_footer_failed_outcome(minimal_workspace: Path) -> None:
 
 
 @allure.story("Tool footer")
-@allure.title("Cursor tier footer shows zero savings")
-def test_format_tool_footer_cursor_no_savings(minimal_workspace: Path) -> None:
+@allure.title("Cursor tier footer keeps earned savings unknown without a source")
+def test_format_tool_footer_cursor_no_savings(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("greedy_token.budget._policy_footer_lines", lambda root: [])
+    monkeypatch.setattr("greedy_token.budget.route_task_all_tiers", lambda *a: [])
     task = "refactor header layout"
     with allure.step("Format tool footer for cursor tier"):
         footer = format_tool_footer(
@@ -106,10 +113,11 @@ def test_format_tool_footer_cursor_no_savings(minimal_workspace: Path) -> None:
             style="full",
         )
         attach_text("footer", footer)
-    with allure.step("Verify zero savings for cursor tier"):
+    with allure.step("Verify unknown earned savings and zero formula potential"):
         assert "Executor: cursor" in footer
         assert "Baseline (naive agent chat):" in footer
-        assert "Saved:             ~0" in footer
+        assert "Saved:             unknown" in footer
+        assert "potential ~0 only if the agent turn was skipped" in footer
 
 
 @allure.story("MCP response")
@@ -209,7 +217,7 @@ def test_format_tool_footer_rag_tier_alternatives_match_spent(
     assert "← this call" in footer
     rag_line = next(ln for ln in footer.splitlines() if "rag (docs/rag read)" in ln)
     assert "9,091" in rag_line and "← this call" in rag_line
-    assert f"Spent (MCP executor, LLM tokens): ~{spent:,}" in footer
+    assert f"Spent (est. payload tokens): ~{spent:,}" in footer
 
 
 @allure.story("Footer style")
@@ -375,15 +383,12 @@ def test_full_footer_not_executed_note(minimal_workspace: Path) -> None:
 
 
 @allure.story("Savings footer")
-@allure.title("saved shows both figures when the hook mode is not intercept")
-def test_footer_saved_dual_under_advisory(
+@allure.title("undeclared origin keeps earned savings unknown, potential labelled")
+def test_footer_saved_scoped_under_advisory(
     minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from greedy_token.baseline import cursor_overhead
-
     task = "probe task"
     baseline = cursor_baseline(minimal_workspace, task)
-    turn_shared = baseline - cursor_overhead()
     monkeypatch.setenv("GREEDY_HOOK_MODE", "advisory")
     footer = format_tool_footer(
         task,
@@ -394,8 +399,8 @@ def test_footer_saved_dual_under_advisory(
         executor_sub="rg",
     )
     attach_text("advisory footer", footer)
-    assert f"saved **~{baseline:,}**" in footer
-    assert f"(if intercept; turn-shared otherwise ~{turn_shared:,})" in footer
+    assert "saved **unknown**" in footer
+    assert f"potential ~{baseline:,} only if the agent turn was skipped" in footer
 
     monkeypatch.setenv("GREEDY_HOOK_MODE", "gate")
     footer = format_tool_footer(
@@ -407,14 +412,16 @@ def test_footer_saved_dual_under_advisory(
         executor_sub="rg",
     )
     attach_text("gate footer", footer)
-    assert f"turn-shared otherwise ~{turn_shared:,}" in footer
+    assert f"potential ~{baseline:,} only if the agent turn was skipped" in footer
 
 
 @allure.story("Savings footer")
-@allure.title("saved shows a single figure when the hook mode is intercept")
-def test_footer_saved_single_under_intercept(
+@allure.title("configured intercept alone does not lift the claim")
+def test_footer_saved_scoped_under_configured_intercept(
     minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """mode=intercept is config, not evidence: without a declared turn-skip
+    origin with an authoritative source the earned figure stays unknown."""
     task = "probe task"
     baseline = cursor_baseline(minimal_workspace, task)
     monkeypatch.setenv("GREEDY_HOOK_MODE", "intercept")
@@ -427,13 +434,152 @@ def test_footer_saved_single_under_intercept(
         executor_sub="rg",
     )
     attach_text("intercept footer", footer)
-    assert f"saved **~{baseline:,}**" in footer
-    assert "turn-shared" not in footer
+    assert "saved **unknown**" in footer
+    assert f"potential ~{baseline:,} only if the agent turn was skipped" in footer
 
 
 @allure.story("Savings footer")
-@allure.title("legacy threshold env alone keeps the saved figure intercept-level")
-def test_footer_saved_single_under_legacy_threshold(
+@allure.title("bare hook skip and synthetic DTO both keep earned savings unknown")
+@pytest.mark.parametrize("source", ["not-a-source", "host-ledger:r1", "", " ", "host-ledger"])
+@pytest.mark.parametrize("style", ["compact", "markdown", "full"])
+def test_footer_saved_full_under_hook_turn_replacement(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch, source: str, style: str,
+) -> None:
+    monkeypatch.setattr("greedy_token.budget._policy_footer_lines", lambda root: [])
+    monkeypatch.setattr("greedy_token.budget.ollama_available", lambda: False)
+    monkeypatch.setattr("greedy_token.router.ollama_available", lambda: False)
+    task = "probe task"
+    baseline = cursor_baseline(minimal_workspace, task)
+    floor = baseline - cursor_overhead()
+    unproven = format_tool_footer(
+        task,
+        minimal_workspace,
+        tier="tool",
+        est_tokens=0,
+        route_id="mcp-search",
+        executor_sub="rg",
+        invocation="hook",
+        turn_replaced=True,
+    )
+    attach_text("hook footer (self-declared)", unproven)
+    # A bare turn_replaced=True is the boundary's own claim — without a host
+    # evidence source the earned figure stays unknown.
+    assert "saved **unknown**" in unproven
+    assert f"potential ~{baseline:,} only if the agent turn was skipped" in unproven
+
+    referenced = format_tool_footer(
+        task,
+        minimal_workspace,
+        tier="tool",
+        est_tokens=0,
+        route_id="mcp-search",
+        executor_sub="rg",
+        invocation="hook",
+        turn_replaced=True,
+        turn_evidence="host-ledger:req-77",
+    )
+    attach_text("hook footer (reference string)", referenced)
+    # A reference string is metadata, never proof — the qualifier stays.
+    assert "saved **unknown**" in referenced
+    assert f"potential ~{baseline:,} only if the agent turn was skipped" in referenced
+
+    footer = format_tool_footer(
+        task,
+        minimal_workspace,
+        tier="tool",
+        est_tokens=0,
+        route_id="mcp-search",
+        executor_sub="rg",
+        invocation="hook",
+        turn_replaced=True,
+        turn_evidence=TurnSkipEvidence(
+            source=source, saved_tokens=4_321, saved_ms=123,
+        ),
+        duration_ms=42,
+        style=style,
+    )
+    attach_text("hook footer (synthetic reported DTO)", footer)
+    # The caller-reported figure is not a source measurement; earned stays
+    # unknown and the formula deltas remain separate labelled potentials.
+    assert "unknown" in footer
+    assert "measured by" not in footer
+    assert "4,321" not in footer
+    assert "123ms" not in footer
+    assert f"potential ~{baseline:,} only if the agent turn was skipped" in footer
+    assert floor >= 0
+
+
+@allure.story("Savings footer")
+@allure.title("formula potentials never validate earned footer savings for any metadata form")
+@pytest.mark.parametrize("potential", [0, 4_321])
+@pytest.mark.parametrize("style", ["compact", "markdown", "full"])
+@pytest.mark.parametrize(
+    "evidence",
+    [None, "host-ledger:r1", " ", TurnSkipEvidence(source="host-ledger", saved_tokens=0, saved_ms=0)],
+    ids=["none", "reference", "whitespace", "dto"],
+)
+def test_footer_reported_turn_evidence_zero_potential(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch,
+    potential: int, style: str, evidence: str | TurnSkipEvidence | None,
+) -> None:
+    from greedy_token import budget
+
+    monkeypatch.setattr(budget, "cursor_saved_for", lambda *a: potential)
+    monkeypatch.setattr(budget, "_policy_footer_lines", lambda root: [])
+    monkeypatch.setattr(budget, "route_task_all_tiers", lambda *a: [])
+    kwargs = dict(
+        tier="tool", est_tokens=0, task_success=True,
+        invocation="hook", turn_replaced=True, duration_ms=42,
+        turn_evidence=evidence,
+    )
+    ctx = budget._build_tool_footer_context("probe task", minimal_workspace, **kwargs)
+    assert ctx.savings_scope == "unknown"
+    assert ctx.saved is None
+    assert ctx.saved_source == ""
+    assert ctx.saved_potential == potential
+    assert ctx.time_measured is False
+    assert ctx.time_saved == budget.time_saved_ms(ctx.baseline, 42, "tool")
+    assert ctx.time_saved != 0
+    footer = budget.format_tool_footer("probe task", minimal_workspace, style=style, **kwargs)
+    assert "unknown" in footer
+    assert f"potential ~{potential:,} only if the agent turn was skipped" in footer
+    assert "measured by" not in footer
+    assert "saved **~0**" not in footer
+    assert "Saved:             ~0" not in footer
+
+
+@allure.story("Savings footer")
+@allure.title("MCP origin footer marks the shared agent turn")
+def test_footer_saved_shared_under_mcp(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("GREEDY_HOOK_MODE", "intercept")
+    task = "probe task"
+    baseline = cursor_baseline(minimal_workspace, task)
+    floor = baseline - cursor_overhead()
+    footer = format_tool_footer(
+        task,
+        minimal_workspace,
+        tier="tool",
+        est_tokens=0,
+        route_id="mcp-search",
+        executor_sub="rg",
+        invocation="mcp",
+    )
+    attach_text("mcp footer", footer)
+    # MCP is an entrypoint fact, not a proven model-turn skip: earned stays
+    # unknown and the shared-turn formula delta is a labelled assumption.
+    assert "saved **unknown**" in footer
+    assert (
+        f"potential ~{floor:,} if the call shared a live agent turn"
+        " — assumed, not observed" in footer
+    )
+    assert floor < baseline
+
+
+@allure.story("Savings footer")
+@allure.title("legacy threshold env alone does not lift the scope qualifier")
+def test_footer_saved_scoped_under_legacy_threshold(
     minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv("GREEDY_HOOK_MODE", raising=False)
@@ -446,11 +592,11 @@ def test_footer_saved_single_under_legacy_threshold(
         route_id="mcp-search",
         executor_sub="rg",
     )
-    assert "turn-shared" not in footer
+    assert "only if the agent turn was skipped" in footer
 
 
 @allure.story("Savings footer")
-@allure.title("no saved claim → no dual qualifier even in advisory mode")
+@allure.title("no saved claim → no scope qualifier even in advisory mode")
 def test_footer_saved_dual_suppressed_without_savings(
     minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -466,4 +612,5 @@ def test_footer_saved_dual_suppressed_without_savings(
     )
     attach_text("not-executed footer", footer)
     assert "not executed" in footer
-    assert "turn-shared" not in footer
+    assert "scope unknown" not in footer
+    assert "agent turn" not in footer

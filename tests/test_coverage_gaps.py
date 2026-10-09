@@ -72,7 +72,7 @@ def test_budget_footer_public(minimal_workspace: Path) -> None:
     with patch("greedy_token.budget.spent_hint", return_value=""):
         line = format_spent_line(0, tier="unknown")
     # Label has its own parentheses; without hint there is no trailing note.
-    assert line == "  Spent (MCP executor, LLM tokens): ~0"
+    assert line == "  Spent (est. payload tokens): ~0"
 
     lines = format_savings_lines(baseline=100, spent=50, saved=None)
     assert lines[-1].startswith("  Saved:")

@@ -7,23 +7,29 @@ from pathlib import Path
 import pytest
 
 import allure
+from greedy_token.baseline import cursor_overhead
 from greedy_token.estimator import cursor_baseline, cursor_saved_for
 from greedy_token.router import RouteDecision
 from greedy_token.usage import (
     SCHEMA_VERSION,
+    TurnSkipEvidence,
     aggregate_events,
     append_event,
+    build_hook_observation_event,
     build_outcome_event,
     build_route_event,
     build_script_event,
     build_script_override_event,
+    count_operations,
     format_report,
     load_events,
     log_archive_paths,
     logging_enabled,
     max_log_bytes,
     parse_since,
+    quality_metrics,
     rotate_log_if_needed,
+    savings_scope_for,
 )
 from tests.allure_reporting import attach_json, attach_text
 
@@ -135,8 +141,9 @@ def test_append_event_no_session_source_omits_field(log_file: Path) -> None:
     event = {"v": SCHEMA_VERSION, "cmd": "route", "task": "find baseUrl"}
     append_event(dict(event), path=log_file, emit_auto_override=False)
     payload = json.loads(log_file.read_text(encoding="utf-8"))
-    # hook_mode is stamped unconditionally — the savings claim depends on it.
-    assert payload == {**event, "hook_mode": "advisory"}
+    # The configured mode stamp is context for readers, never evidence that
+    # the agent turn was skipped — that fact lives in invocation/scope fields.
+    assert payload == {**event, "configured_hook_mode": "advisory"}
 
 
 @allure.story("Event logging")
@@ -215,16 +222,18 @@ def test_session_id_on_all_event_kinds(
 
 
 @allure.story("Event logging")
-@allure.title("hook_mode is stamped from env/config so cursor_saved can be judged")
-def test_append_event_hook_mode(
+@allure.title("configured_hook_mode stamps the resolved profile as context")
+def test_append_event_configured_hook_mode(
     log_file: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv("GREEDY_HOOK_MODE", raising=False)
     monkeypatch.delenv("GREEDY_HOOK_MIN_CONFIDENCE", raising=False)
     event = {"v": SCHEMA_VERSION, "cmd": "route", "task": "find baseUrl"}
     append_event(dict(event), path=log_file, emit_auto_override=False)
-    # Unset profile is advisory — cursor_saved is a turn-shared estimate.
-    assert json.loads(log_file.read_text(encoding="utf-8"))["hook_mode"] == "advisory"
+    payload = json.loads(log_file.read_text(encoding="utf-8"))
+    # Unset profile resolves to advisory — a config fact, not an observation.
+    assert payload["configured_hook_mode"] == "advisory"
+    assert "hook_mode" not in payload
 
     monkeypatch.setenv("GREEDY_HOOK_MODE", "intercept")
     append_event(dict(event), path=log_file, emit_auto_override=False)
@@ -233,12 +242,12 @@ def test_append_event_hook_mode(
         for line in log_file.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
-    assert rows[-1]["hook_mode"] == "intercept"
+    assert rows[-1]["configured_hook_mode"] == "intercept"
 
     # An explicit field on the event wins over the ambient resolution.
     monkeypatch.setenv("GREEDY_HOOK_MODE", "gate")
     append_event(
-        {**event, "hook_mode": "intercept"},
+        {**event, "configured_hook_mode": "intercept"},
         path=log_file,
         emit_auto_override=False,
     )
@@ -247,7 +256,396 @@ def test_append_event_hook_mode(
         for line in log_file.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
-    assert rows[-1]["hook_mode"] == "intercept"
+    assert rows[-1]["configured_hook_mode"] == "intercept"
+
+
+@allure.story("Savings scope")
+@allure.title("invocation origin scopes the savings claim — configured mode does not")
+def test_request_event_savings_scope_by_invocation(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Same configured intercept mode, different declared origins → different
+    potential scopes; without validated host evidence earned stays unknown."""
+    monkeypatch.setenv("GREEDY_HOOK_MODE", "intercept")
+    task = "probe task"
+    est = 10
+    baseline = cursor_baseline(minimal_workspace, task)
+    full = baseline - est
+    floor = max(0, baseline - cursor_overhead() - est)
+    decision = RouteDecision(
+        target="tool",
+        route_id="mcp-search",
+        confidence=0.9,
+        matched=[],
+        command=None,
+        note="",
+        domains=[],
+        est_tokens=est,
+    )
+
+    with allure.step("MCP origin is an entrypoint fact — earned stays unknown"):
+        mcp_ev = build_route_event(
+            cmd="capability", task=task, root=minimal_workspace,
+            decision=decision, executed=True, outcome_success=True,
+            tier_scan=[], invocation="mcp",
+        )
+        assert mcp_ev["invocation"] == "mcp"
+        assert mcp_ev["savings_scope"] == "turn_shared"
+        # Earned savings are never a formula floor: without an authoritative
+        # turn-skip source the figure is null, and both formula deltas are
+        # labelled potential.
+        assert mcp_ev["cursor_saved"] is None
+        assert mcp_ev["cursor_saved_potential"] == full
+        assert mcp_ev["cursor_saved_potential_shared"] == floor
+        assert "turn_replaced" not in mcp_ev
+
+    with allure.step("a self-declared hook skip is not a measured full claim"):
+        hook_ev = build_route_event(
+            cmd="capability", task=task, root=minimal_workspace,
+            decision=decision, executed=True, outcome_success=True,
+            tier_scan=[], invocation="hook", turn_replaced=True,
+        )
+        assert hook_ev["invocation"] == "hook"
+        assert hook_ev["savings_scope"] == "unknown"
+        assert hook_ev["turn_replaced"] is True
+        assert hook_ev["cursor_saved"] is None
+        assert hook_ev["cursor_saved_potential"] == full
+        assert hook_ev["cursor_saved_potential_shared"] == floor
+
+    with allure.step("a reference string is reported metadata, never proof"):
+        ref = build_route_event(
+            cmd="capability", task=task, root=minimal_workspace,
+            decision=decision, executed=True, outcome_success=True,
+            tier_scan=[], invocation="hook", turn_replaced=True,
+            turn_evidence="host-ledger:req-77",
+        )
+        assert ref["savings_scope"] == "unknown"
+        assert ref["turn_replaced"] is True
+        # The reference may still be logged for correlation — it simply
+        # admits nothing.
+        assert ref["turn_evidence"] == "host-ledger:req-77"
+        assert ref["cursor_saved"] is None
+        assert ref["cursor_saved_potential"] == full
+
+    with allure.step("synthetic DTO is reported metadata, not host evidence"):
+        reported = build_route_event(
+            cmd="capability", task=task, root=minimal_workspace,
+            decision=decision, executed=True, outcome_success=True,
+            tier_scan=[], invocation="hook", turn_replaced=True,
+            turn_evidence=TurnSkipEvidence(
+                source="host-ledger", saved_tokens=4_321,
+            ),
+        )
+        assert reported["savings_scope"] == "unknown"
+        assert reported["turn_replaced"] is True
+        # Caller-reported savings have no validated source — never a
+        # measurement or a replacement for the formula potential.
+        assert reported["cursor_saved"] is None
+        assert reported["turn_evidence_reported"]["saved_tokens"] == 4_321
+        assert "saved_source" not in reported
+        assert reported["cursor_saved_potential"] == full
+
+    with allure.step("undeclared origin stays unknown — no earned figure"):
+        plain = build_route_event(
+            cmd="capability", task=task, root=minimal_workspace,
+            decision=decision, executed=True, outcome_success=True,
+            tier_scan=[],
+        )
+        assert "invocation" not in plain
+        assert plain["savings_scope"] == "unknown"
+        assert plain["cursor_saved"] is None
+        assert plain["cursor_saved_potential"] == full
+        assert plain["cursor_saved_potential_shared"] == floor
+
+    with allure.step("a junk origin is not recorded as a boundary"):
+        bogus = build_route_event(
+            cmd="capability", task=task, root=minimal_workspace,
+            decision=decision, executed=True, outcome_success=True,
+            tier_scan=[], invocation="carrier-pigeon",
+        )
+        assert "invocation" not in bogus
+        assert bogus["savings_scope"] == "unknown"
+        assert bogus["cursor_saved"] is None
+
+    with allure.step("an excluded call earns a factual zero, not unknown"):
+        skipped = build_route_event(
+            cmd="capability", task=task, root=minimal_workspace,
+            decision=decision, executed=False, tier_scan=[],
+            invocation="mcp",
+        )
+        assert skipped["cursor_saved"] == 0
+        assert skipped["savings_exclusion"] == "not_executed"
+
+
+@allure.story("Savings scope")
+@allure.title("outcome and script events carry the declared invocation too")
+def test_outcome_and_script_events_carry_invocation(
+    minimal_workspace: Path,
+) -> None:
+    decision = RouteDecision(
+        target="tool", route_id="mcp-search", confidence=0.9,
+        matched=[], command=None, note="", domains=[], est_tokens=10,
+    )
+    outcome = build_outcome_event(
+        task="t", root=minimal_workspace, decision=decision,
+        outcome="success", layer="executor", invocation="mcp",
+    )
+    assert outcome["invocation"] == "mcp"
+    # An outcome record is an observation, not a savings claim — no scope.
+    assert "savings_scope" not in outcome
+
+    script = build_script_event(
+        script_id="meta-sync-check", root=minimal_workspace,
+        executed=True, outcome_success=True, invocation="hook",
+        turn_replaced=True,
+    )
+    assert script["invocation"] == "hook"
+    # A bare self-declared skip keeps the scope unknown and the claim null.
+    assert script["savings_scope"] == "unknown"
+    assert script["cursor_saved"] is None
+
+    ref = build_script_event(
+        script_id="meta-sync-check", root=minimal_workspace,
+        executed=True, outcome_success=True, invocation="hook",
+        turn_replaced=True, turn_evidence="host-ledger:req-9",
+    )
+    # A caller-supplied reference string is correlation metadata — it
+    # admits nothing.
+    assert ref["savings_scope"] == "unknown"
+    assert ref["turn_evidence"] == "host-ledger:req-9"
+    assert ref["cursor_saved"] is None
+    assert ref["cursor_saved_potential"] == ref["cursor_baseline"]
+
+    reported = build_script_event(
+        script_id="meta-sync-check", root=minimal_workspace,
+        executed=True, outcome_success=True, invocation="hook",
+        turn_replaced=True, turn_evidence=TurnSkipEvidence(
+            source="host-ledger", saved_tokens=4_321,
+        ),
+    )
+    assert reported["savings_scope"] == "unknown"
+    # Caller-reported savings have no validated host source; the formula
+    # baseline delta remains a separate potential.
+    assert reported["cursor_saved"] is None
+    assert reported["turn_evidence_reported"]["saved_tokens"] == 4_321
+    assert "saved_source" not in reported
+    assert reported["cursor_saved_potential"] == reported["cursor_baseline"]
+
+
+@allure.story("Savings scope")
+@allure.title("caller-created TurnSkipEvidence never opens the turn claim")
+@pytest.mark.parametrize("source", ["not-a-source", "host-ledger:r1", "", " ", "host-ledger"])
+def test_savings_scope_evidence_admission(source: str) -> None:
+    """Strings and synthetic DTOs are reported metadata, never proof.
+    No full host source exists in the current contour, so every
+    string/blank/unknown-origin and caller-created DTO stays unknown."""
+    evidence = TurnSkipEvidence(source=source, saved_tokens=4_321, saved_ms=123)
+
+    with allure.step("reference strings admit nothing"):
+        for ref in ("not-a-source", "host-ledger:r1", " ", ""):
+            assert savings_scope_for("hook", True, turn_evidence=ref) == "unknown"
+
+    with allure.step("an unknown origin with a self-declared skip stays unknown"):
+        assert savings_scope_for(None, True, turn_evidence=" ") == "unknown"
+        assert savings_scope_for("cli", True, turn_evidence=" ") == "unknown"
+
+    with allure.step("reported DTO at a non-hook boundary is not a turn claim"):
+        # An mcp-declared origin contradicts a replaced turn outright — the
+        # call sat inside it — and a reported DTO cannot resolve that.
+        assert savings_scope_for("mcp", True, turn_evidence=evidence) == "unknown"
+        assert savings_scope_for("cli", True, turn_evidence=evidence) == "unknown"
+        assert savings_scope_for(None, True, turn_evidence=evidence) == "unknown"
+        assert savings_scope_for("unknown", True, turn_evidence=evidence) == "unknown"
+
+    with allure.step("reported DTO at the hook boundary still admits nothing"):
+        assert savings_scope_for("hook", True, turn_evidence=evidence) == "unknown"
+
+    with allure.step("turn_replaced is required — evidence alone cannot open it"):
+        assert savings_scope_for("hook", False, turn_evidence=evidence) == "turn_shared"
+        assert savings_scope_for("hook", None, turn_evidence=evidence) == "unknown"
+
+
+@allure.story("Savings scope")
+@allure.title("reported DTO survives serialization without entering earned aggregates")
+@pytest.mark.parametrize("source", ["not-a-source", "host-ledger:r1", "", " ", "host-ledger"])
+@pytest.mark.parametrize("builder", ["route", "script"])
+@pytest.mark.parametrize("duration_ms", [42, None])
+def test_reported_turn_evidence_is_not_earned(
+    minimal_workspace: Path, source: str, builder: str, duration_ms: int | None,
+) -> None:
+    evidence = TurnSkipEvidence(source=source, saved_tokens=4_321, saved_ms=123)
+    kwargs = dict(
+        root=minimal_workspace, executed=True, outcome_success=True,
+        invocation="hook", turn_replaced=True, turn_evidence=evidence,
+        duration_ms=duration_ms, operation_id="reported-op-1",
+    )
+    if builder == "route":
+        event = build_route_event(
+            cmd="route", task="probe task", tier_scan=[], result_status="produced",
+            decision=RouteDecision(
+                target="tool", route_id="mcp-search", confidence=0.9,
+                matched=[], command=None, note="", domains=[], est_tokens=0,
+            ),
+            **kwargs,
+        )
+    else:
+        event = build_script_event(script_id="meta-sync-check", **kwargs)
+    assert event["savings_scope"] == "unknown"
+    assert event["cursor_saved"] is None
+    assert "saved_source" not in event
+    assert "time_saved_ms" not in event
+    assert event["turn_evidence"] == source
+    assert event["turn_evidence_status"] == "reported"
+    assert event["turn_evidence_reported"] == {
+        "source": source, "saved_tokens": 4_321, "saved_ms": 123,
+    }
+    assert event["cursor_saved_potential"] == event["cursor_baseline"]
+    if duration_ms is not None:
+        from greedy_token.baseline import time_saved_ms
+
+        assert event["duration_ms"] == 42
+        assert event["time_saved_ms_potential"] == time_saved_ms(
+            event["cursor_baseline"], 42, event["selected_tier"],
+        )
+        assert event["time_saved_ms_potential"] != evidence.saved_ms
+    else:
+        assert "time_saved_ms_potential" not in event
+    serialized = json.loads(json.dumps(event))
+    assert serialized == event
+    totals = aggregate_events([serialized]).to_dict()["totals"]
+    assert totals["saved_unknown"] == 1
+    assert totals["saved_vs_cursor"] == 0
+    assert totals["time_saved_ms"] == 0
+
+
+@allure.story("Savings scope")
+@allure.title("formula potentials never validate earned savings for any metadata form")
+@pytest.mark.parametrize("builder", ["route", "script"])
+@pytest.mark.parametrize("potential", [0, 4_321])
+@pytest.mark.parametrize(
+    "evidence",
+    [None, "host-ledger:r1", " ", TurnSkipEvidence(source="host-ledger", saved_tokens=0)],
+    ids=["none", "reference", "whitespace", "dto"],
+)
+def test_reported_turn_evidence_cannot_earn_formula_zero(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch, builder: str,
+    potential: int, evidence: str | TurnSkipEvidence | None,
+) -> None:
+    monkeypatch.setattr("greedy_token.usage.cursor_baseline", lambda *a: potential)
+    monkeypatch.setattr("greedy_token.usage.cursor_saved_for", lambda *a: potential)
+    kwargs = dict(
+        root=minimal_workspace, executed=True, outcome_success=True,
+        invocation="hook", turn_replaced=True, duration_ms=42,
+        turn_evidence=evidence,
+    )
+    if builder == "route":
+        event = build_route_event(
+            cmd="route", task="probe task", tier_scan=[], result_status="produced",
+            decision=RouteDecision(
+                target="tool", route_id="mcp-search", confidence=0.9,
+                matched=[], command=None, note="", domains=[], est_tokens=0,
+            ),
+            **kwargs,
+        )
+    else:
+        event = build_script_event(script_id="meta-sync-check", **kwargs)
+    assert event["savings_scope"] == "unknown"
+    assert event["cursor_saved"] is None
+    assert "savings_exclusion" not in event
+    assert "time_saved_ms" not in event
+    assert "saved_source" not in event
+    if potential:
+        assert event["cursor_saved_potential"] == potential
+    else:
+        assert "cursor_saved_potential" not in event
+    assert event["cursor_saved_potential_shared"] == 0
+    if isinstance(evidence, TurnSkipEvidence):
+        assert event["turn_evidence_status"] == "reported"
+        assert event["turn_evidence_reported"] == {
+            "source": "host-ledger", "saved_tokens": 0, "saved_ms": None,
+        }
+    elif evidence is not None:
+        assert event["turn_evidence_status"] == "reported"
+        assert event["turn_evidence"] == evidence
+        assert "turn_evidence_reported" not in event
+    else:
+        assert "turn_evidence" not in event
+        assert "turn_evidence_status" not in event
+        assert "turn_evidence_reported" not in event
+    serialized = json.loads(json.dumps(event))
+    assert serialized == event
+    totals = aggregate_events([serialized]).to_dict()["totals"]
+    assert totals["saved_unknown"] == 1
+    assert totals["saved_vs_cursor"] == 0
+    assert totals["time_saved_ms"] == 0
+
+
+@allure.story("Savings scope")
+@allure.title("synthetic baseline never becomes an earned claim without measured evidence")
+def test_synthetic_baseline_is_potential_not_earned(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """build_route_event must not write the formula delta (here a
+    synthetic 17045-style baseline) into cursor_saved when no
+    authoritative source measured a skipped turn."""
+    monkeypatch.setattr(
+        "greedy_token.usage.cursor_baseline", lambda _root, _task: 17_045
+    )
+    monkeypatch.setattr(
+        "greedy_token.usage.cursor_saved_for",
+        lambda _root, _task, est, _target: 17_045 - est,
+    )
+    decision = RouteDecision(
+        target="tool",
+        route_id="mcp-search",
+        confidence=0.9,
+        matched=[],
+        command=None,
+        note="",
+        domains=[],
+        est_tokens=0,
+    )
+    event = build_route_event(
+        cmd="route", task="t", root=minimal_workspace,
+        decision=decision, executed=True, outcome_success=True,
+        tier_scan=[], invocation="hook",
+        turn_replaced=True, turn_evidence="host-ledger:r1",
+    )
+    assert event["cursor_baseline"] == 17_045
+    assert event["cursor_saved"] is None
+    assert event["cursor_saved_potential"] == 17_045
+    assert event["savings_scope"] == "unknown"
+
+
+@allure.story("Hook observation")
+@allure.title("hook_observation records a boundary fact — never an operation")
+def test_hook_observation_event(minimal_workspace: Path) -> None:
+    ev = build_hook_observation_event(
+        host="cursor", action="intercept", serialized=True,
+        task="why slow cpu", root=minimal_workspace,
+        route_id="python-check", operation_id="op-9",
+    )
+    assert ev["event"] == "hook_observation"
+    assert ev["invocation"] == "hook"
+    assert ev["host"] == "cursor"
+    assert ev["hook_action"] == "intercept"
+    # The response was serialized locally; host skip stays unknown.
+    assert ev["serialize_status"] == "emitted"
+    assert ev["turn_replaced"] is None
+    assert ev["operation_id"] == "op-9"
+    # A serialization failure never claims a replacement.
+    failed = build_hook_observation_event(
+        host="cursor", action="intercept", serialized=False, task="t",
+    )
+    assert failed["serialize_status"] == "error"
+    assert failed["turn_replaced"] is False
+    # A boundary observation is not an operation, a tier row, or a cheap hit.
+    assert count_operations([ev]) == 0
+    summary = aggregate_events([ev])
+    assert summary.events == 1
+    assert summary.operations == 0
+    assert summary.by_tier == {}
+    assert quality_metrics([ev])["cheap_hits"] == 0
 
 
 @allure.story("Route events")
@@ -1328,7 +1726,11 @@ def test_executed_event_phases(minimal_workspace: Path) -> None:
     # The request record reports the furthest observed stage; the verdict lives
     # in the route_outcome record and in savings eligibility.
     assert ok["phase"] == "executed"
-    assert ok["cursor_saved"] > 0
+    # No declared boundary → earned savings stay unknown; the formula delta
+    # is carried only as a labelled potential.
+    assert ok["cursor_saved"] is None
+    assert ok["savings_scope"] == "unknown"
+    assert ok["cursor_saved_potential"] > 0
     # Eligible is the default; only exclusions are stamped.
     assert "savings_exclusion" not in ok
 

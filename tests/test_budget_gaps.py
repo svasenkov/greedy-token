@@ -362,22 +362,22 @@ def footer_env(minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch) -> Path
 
 @allure.title("_billing_short renders every tier label exactly")
 def test_billing_short_labels(footer_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    assert budget._billing_short("tool") == "free tier"
-    assert budget._billing_short("python") == "free tier"
+    assert budget._billing_short("tool") == "unmetered (local executor)"
+    assert budget._billing_short("python") == "unmetered (local executor)"
     assert budget._billing_short("rag") == "docs/rag"
     assert budget._billing_short("rag", rag_hits=3) == "docs/rag, 3 chunk(s)"
     assert budget._billing_short("cursor") == "expensive LLM"
     assert budget._billing_short("zzz") == "zzz"
     llm = budget.get_cheap_llm_settings()
     assert budget._billing_short("ollama", ollama_eval_tokens=1234, root=footer_env) == (
-        f"cheap LLM ({llm.model}, ~1,234 eval, local free)"
+        f"cheap LLM ({llm.model}, ~1,234 eval, configured: local free)"
     )
     assert budget._billing_short("ollama", root=footer_env) == (
-        f"cheap LLM ({llm.model}, local free)"
+        f"cheap LLM ({llm.model}, configured: local free)"
     )
     monkeypatch.setenv("GREEDY_LLM_MODEL_ID", "m9")
     assert budget._billing_short("ollama", root=footer_env) == (
-        f"cheap LLM (m9/{llm.model}, local free)"
+        f"cheap LLM (m9/{llm.model}, configured: local free)"
     )
 
 
@@ -400,26 +400,33 @@ def test_cheap_billing_note(footer_env: Path, monkeypatch: pytest.MonkeyPatch) -
 
 @allure.title("spent_hint renders every branch exactly")
 def test_spent_hint_variants() -> None:
-    assert budget.spent_hint("tool", 0) == "script — 0 LLM spend"
-    assert budget.spent_hint("tool", 0, "rg") == "ripgrep on disk — 0 LLM spend"
-    assert budget.spent_hint("python", 0, "rg") == "ripgrep on disk — 0 LLM spend"
-    assert budget.spent_hint("ollama", 5) == "cheap LLM — local/cheap spend"
+    # Executor labels describe the tool; provider usage/billing stay
+    # unmetered — no "0 spend" claim may be derived from a label.
+    assert budget.spent_hint("tool", 0) == "script"
+    assert budget.spent_hint("tool", 0, "rg") == "ripgrep on disk"
+    assert budget.spent_hint("python", 0, "rg") == "ripgrep on disk"
+    assert budget.spent_hint("ollama", 5) == "cheap LLM"
     assert budget.spent_hint("rag", 0) == "docs/rag — no chunks counted"
     assert budget.spent_hint("rag", 1) == "docs/rag chunks read into context"
-    assert budget.spent_hint("cursor", 9) == "expensive LLM path — same order as baseline"
+    assert budget.spent_hint("cursor", 9) == "expensive LLM path"
     assert budget.spent_hint("zzz", 5) == ""
 
 
 @allure.title("format_spent_line pins label, indent and hint join")
 def test_format_spent_line_exact() -> None:
     assert budget.format_spent_line(1234, tier="tool", executor_sub="rg") == (
-        "  Spent (MCP executor, LLM tokens): ~1,234  (ripgrep on disk — 0 LLM spend)"
+        "  Spent (est. payload tokens): ~1,234  (ripgrep on disk)"
+    )
+    # Estimated payload tokens are shown separately; the label never
+    # claims zero LLM spend.
+    assert budget.format_spent_line(0, tier="python") == (
+        "  Spent (est. payload tokens): ~0  (script)"
     )
     assert budget.format_spent_line(0, tier="zzz") == (
-        "  Spent (MCP executor, LLM tokens): ~0"
+        "  Spent (est. payload tokens): ~0"
     )
     assert budget.format_spent_line(5, note="custom", indent="-") == (
-        "-Spent (MCP executor, LLM tokens): ~5  (custom)"
+        "-Spent (est. payload tokens): ~5  (custom)"
     )
 
 
@@ -432,8 +439,8 @@ def test_format_savings_lines_exact() -> None:
     assert lines == [
         "T (baseline: measured)",
         "  Baseline (naive agent chat):  ~100  (measured)",
-        "  Spent (MCP executor, LLM tokens): ~30"
-        "  (expensive LLM path — same order as baseline)",
+        "  Spent (est. payload tokens): ~30"
+        "  (expensive LLM path)",
         "  Saved:             ~70  (= baseline − spent; baseline: measured)",
     ]
 
@@ -448,7 +455,7 @@ def test_tier_alternatives_exact(footer_env: Path, monkeypatch: pytest.MonkeyPat
     )
     suffix_by_tier = {
         "tool": "  ← this call",
-        "python": "  · 0 LLM",
+        "python": "  · local exec",
         "ollama": "  · unavailable (would fall back to expensive LLM)",
     }
     label_by_tier = {
@@ -472,7 +479,7 @@ def test_tier_alternatives_exact(footer_env: Path, monkeypatch: pytest.MonkeyPat
         "probe task", footer_env, "cursor", selected_spent=999
     )
     row = next(line for line in lines if "ollama" in line)
-    assert row.endswith(f"  · {llm.provider}/{llm.model}, cheap")
+    assert row.endswith(f"  · {llm.provider}/{llm.model}")
     cursor_row = next(line for line in lines if "cursor (expensive LLM)" in line)
     assert cursor_row.endswith("~   999  ← this call")
 
@@ -488,7 +495,7 @@ def test_footer_context_fields(footer_env: Path) -> None:
     assert "not executed" in ctx.saved_note
     assert ctx.time_saved is None
     assert ctx.sub_label == "ripgrep on disk"
-    assert ctx.billing_short == "free tier"
+    assert ctx.billing_short == "unmetered (local executor)"
     assert ctx.breakdown.rules == 6
     assert ctx.breakdown.task == budget.count_tokens("probe task").tokens
     assert ctx.breakdown.overhead == 6000
@@ -534,10 +541,10 @@ def test_footer_compact_exact(footer_env: Path) -> None:
     )
     assert footer == (
         "\n---\n"
-        "> **Greedy token** · `rg` · 42ms · saved **~6,008**"
-        " (if intercept; turn-shared otherwise ~8) · ~16s"
+        "> **Greedy token** · `rg` · 42ms · saved **unknown**"
+        " (potential ~6,008 only if the agent turn was skipped) · ~16s (potential)"
         " (baseline: default-estimate)\n"
-        "> spent ~0 · naive ~6,008 · free tier · mcp-search\n"
+        "> spent ~0 · naive ~6,008 · unmetered (local executor) · mcp-search\n"
         "---"
     )
 
@@ -556,10 +563,10 @@ def test_footer_markdown_exact(footer_env: Path) -> None:
         "|:--|--:|--:|\n"
         "| spent | ~0 | 42ms |\n"
         "| naive agent chat (default-estimate) | ~6,008 | ~16s (default-estimate) |\n"
-        "| **saved** (baseline: default-estimate) | **~6,008**"
-        " (if intercept; turn-shared otherwise ~8) | **~16s** |\n"
+        "| **saved** (baseline: default-estimate) | **unknown**"
+        " (potential ~6,008 only if the agent turn was skipped) | ~16s (potential) |\n"
         "\n"
-        "free tier · `mcp-search`\n"
+        "unmetered (local executor) · `mcp-search`\n"
         "---"
     )
 
@@ -578,8 +585,8 @@ def test_footer_full_exact(footer_env: Path) -> None:
         "  Executor: rg — ripgrep on disk\n"
         "  Route: mcp-search\n"
         "  Duration: 42 ms\n"
-        "  Spent (MCP executor, LLM tokens): ~0  (ripgrep on disk — 0 LLM spend)\n"
-        "  Billing: free tier — not expensive LLM\n"
+        "  Spent (est. payload tokens): ~0  (ripgrep on disk)\n"
+        "  Billing: unmetered — local executor\n"
         "\n"
         "Agent chat (naive — same task, no MCP tool)\n"
         "  Always-on rules: ~6  (measured)\n"
@@ -590,7 +597,7 @@ def test_footer_full_exact(footer_env: Path) -> None:
         "\n"
         "Tier alternatives (estimated):\n"
         "  rg (disk search)           ~     0  ← this call\n"
-        "  python (script)            ~     0  · 0 LLM\n"
+        "  python (script)            ~     0  · local exec\n"
         "  ollama (cheap LLM)         ~ 6,002  · unavailable (would fall back to"
         " expensive LLM)\n"
         "  rag (docs/rag read)        ~ 1,802\n"
@@ -598,11 +605,12 @@ def test_footer_full_exact(footer_env: Path) -> None:
         "\n"
         "Saved vs naive agent chat (baseline: default-estimate)\n"
         "  Baseline (naive agent chat):  ~6,008  (default-estimate)\n"
-        "  Spent (MCP executor, LLM tokens): ~0  (ripgrep on disk — 0 LLM spend)\n"
-        "  Saved:             ~6,008 (if intercept; turn-shared otherwise ~8)  "
-        "(= baseline − spent; baseline: default-estimate)\n"
-        "  Time saved:      ~16s  (= naive wall-clock − duration; time baseline:"
-        " default-estimate)\n"
+        "  Spent (est. payload tokens): ~0  (ripgrep on disk)\n"
+        "  Saved:             unknown"
+        "  (potential ~6,008 only if the agent turn was skipped; "
+        "= baseline − spent; baseline: default-estimate)\n"
+        "  Time saved:      ~16s (potential; = naive wall-clock − duration; "
+        "time baseline: default-estimate)\n"
         "\n"
         "Note: MCP in Agent chat still uses agent tokens for rules + your message +\n"
         "agent reply. Only cheap LLM / rg / rag rows avoid the expensive LLM path.\n"
@@ -701,10 +709,11 @@ def test_wrap_mcp_response_exact(footer_env: Path, monkeypatch: pytest.MonkeyPat
     assert out == (
         "result line"
         "\n---\n"
-        "> **Greedy token** · `rg` · 42ms · saved **~6,008**"
-        " (if intercept; turn-shared otherwise ~8) · ~16s"
+        "> **Greedy token** · `rg` · 42ms · saved **unknown**"
+        " (potential ~8 if the call shared a live agent turn — assumed,"
+        " not observed) · ~16s (potential)"
         " (baseline: default-estimate)\n"
-        "> spent ~0 · naive ~6,008 · free tier · mcp-search\n"
+        "> spent ~0 · naive ~6,008 · unmetered (local executor) · mcp-search\n"
         "---"
     )
     rows = [
@@ -762,6 +771,151 @@ def test_wrap_mcp_response_no_log(footer_env: Path, monkeypatch: pytest.MonkeyPa
         "body", task="probe task", tier="tool", est_tokens=0, root=footer_env, log=False
     )
     assert not (footer_env / "usage.jsonl").exists()
+
+
+def _usage_rows(path: Path) -> list[dict]:
+    return [
+        json.loads(line)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+
+
+@allure.title("a boundary-declared refusal reaches gate, outcome record and envelope")
+def test_wrap_mcp_response_refusal_not_failure(
+    footer_env: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """machine_error with a refusal-class code = the boundary declined the
+    work: the gate rules refused, the outcome record says ``refused`` (never
+    ``failure``), and the machine envelope reports it too."""
+    monkeypatch.setenv("GREEDY_TOKEN_LOG", str(footer_env / "usage.jsonl"))
+    out = budget.wrap_mcp_response(
+        "Refused: python-check [not_approved] — no trust entry",
+        task="invoke python-check",
+        tier="python",
+        est_tokens=0,
+        route_id="python-check",
+        root=footer_env,
+        log=True,
+        executed=False,
+        outcome="failure",
+        result_status="not_evaluated",
+        style="machine",
+        machine_error={"code": "not_approved", "message": "no trust entry"},
+    )
+    doc = json.loads(out)
+    assert doc["ok"] is False
+    assert doc["error"]["code"] == "not_approved"
+    # The response reports the refusal outcome, not a bare failure.
+    assert doc["outcome"] == "refused"
+    rows = _usage_rows(footer_env / "usage.jsonl")
+    req = next(row for row in rows if row.get("cmd") == "mcp")
+    assert req["phase"] == "planned"
+    assert req["executor"]["executed"] is False
+    assert req["savings_exclusion"] == "not_executed"
+    assert req["cursor_saved"] == 0
+    assert req["gate_outcome"] == "refused"
+    outcome = next(row for row in rows if row.get("event") == "route_outcome")
+    assert outcome["outcome"] == "refused"
+    assert outcome["result_status"] == "not_evaluated"
+    assert outcome["gate_action"] == "bypassed"
+    assert outcome["operation_id"] == req["operation_id"]
+
+
+@allure.title("a pre-start crash without a refusal code stays a failure")
+def test_wrap_mcp_response_crash_stays_failure(
+    footer_env: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("GREEDY_TOKEN_LOG", str(footer_env / "usage.jsonl"))
+    out = budget.wrap_mcp_response(
+        "",
+        task="probe task",
+        tier="python",
+        est_tokens=0,
+        root=footer_env,
+        log=True,
+        executed=False,
+        outcome="failure",
+        result_status="not_evaluated",
+        style="machine",
+        machine_error={"code": "spawn_timeout", "message": "executor died"},
+    )
+    doc = json.loads(out)
+    assert doc["outcome"] == "failure"
+    outcome = next(
+        row
+        for row in _usage_rows(footer_env / "usage.jsonl")
+        if row.get("event") == "route_outcome"
+    )
+    assert outcome["outcome"] == "failure"
+    assert outcome["gate_outcome"] == "failure"
+
+
+@allure.title("refusal classification is identical with and without logging")
+def test_wrap_mcp_response_refusal_log_matrix(
+    footer_env: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The boundary fact is classified before the log branch: ``log`` only
+    controls persistence, never the verdict — and an explicit refusal code
+    is sufficient without a caller-declared outcome."""
+    monkeypatch.setenv("GREEDY_TOKEN_LOG", str(footer_env / "usage.jsonl"))
+
+    def call(log: bool, outcome: str | None) -> dict:
+        out = budget.wrap_mcp_response(
+            "Refused: python-check [not_approved] — no trust entry",
+            task="invoke python-check",
+            tier="python",
+            est_tokens=0,
+            route_id="python-check",
+            root=footer_env,
+            log=log,
+            executed=False,
+            outcome=outcome,
+            result_status="not_evaluated",
+            style="machine",
+            machine_error={"code": "not_approved", "message": "no trust entry"},
+        )
+        return json.loads(out)
+
+    for log in (True, False):
+        for outcome in ("failure", None):
+            doc = call(log, outcome)
+            assert doc["ok"] is False
+            assert doc["error"]["code"] == "not_approved"
+            assert doc["executed"] is False
+            assert doc["result_status"] == "not_evaluated"
+            # The refusal outcome never laundered into "failure" — same
+            # verdict with and without persistence.
+            assert doc["outcome"] == "refused", (log, outcome)
+
+    # Persistence is the only difference: the two logged calls each wrote a
+    # request + a refused outcome record; the refusal survives even when the
+    # caller declared no outcome.
+    rows = _usage_rows(footer_env / "usage.jsonl")
+    outcomes = [row for row in rows if row.get("event") == "route_outcome"]
+    assert len(outcomes) == 2
+    assert all(row["outcome"] == "refused" for row in outcomes)
+
+    # A genuine pre-start crash (non-refusal code) stays a failure under both
+    # logging modes; an undeclared outcome on a normal call stays absent.
+    for log in (True, False):
+        doc_crash = json.loads(
+            budget.wrap_mcp_response(
+                "", task="probe task", tier="python", est_tokens=0,
+                root=footer_env, log=log, executed=False,
+                outcome="failure", result_status="not_evaluated",
+                style="machine",
+                machine_error={"code": "spawn_timeout", "message": "died"},
+            )
+        )
+        assert doc_crash["outcome"] == "failure", log
+        doc_plain = json.loads(
+            budget.wrap_mcp_response(
+                "body", task="probe task", tier="tool", est_tokens=0,
+                root=footer_env, log=log, style="machine",
+            )
+        )
+        assert "outcome" not in doc_plain, log
 
 
 # ---------------------------------------------------------------------------
@@ -827,15 +981,15 @@ def test_format_savings_lines_boundary() -> None:
     )
 
 
-@allure.title("tier alternatives keep the 0-LLM suffix on non-selected tool/python")
+@allure.title("tier alternatives keep the local-exec suffix on non-selected tool/python")
 def test_tier_alternatives_tool_python_suffix(footer_env: Path) -> None:
     lines = budget._format_tier_alternatives(
         "probe task", footer_env, "cursor", selected_spent=999
     )
     tool_row = next(line for line in lines if "rg (disk search)" in line)
-    assert tool_row.endswith("· 0 LLM")
+    assert tool_row.endswith("· local exec")
     python_row = next(line for line in lines if "python (script)" in line)
-    assert python_row.endswith("· 0 LLM")
+    assert python_row.endswith("· local exec")
 
 
 @allure.title("tier alternatives pass the workspace root to the router")
@@ -867,14 +1021,15 @@ def test_footer_context_unknown_sub(footer_env: Path) -> None:
     assert ctx.sub_label == "mysub"
 
 
-@allure.title("footer context: cursor tier earns no savings and no time saved")
+@allure.title("footer context: cursor tier keeps earned unknown and time potential zero")
 def test_footer_context_cursor_tier(footer_env: Path) -> None:
     ctx = budget._build_tool_footer_context(
         "probe task", footer_env, tier="cursor", est_tokens=100,
         duration_ms=42,
     )
-    assert ctx.saved == 0
+    assert ctx.saved is None
     assert ctx.time_saved == 0
+    assert ctx.time_measured is False
     assert ctx.billing_short == "expensive LLM"
 
 
@@ -891,7 +1046,9 @@ def test_footer_context_billing_variants(
         ollama_eval_tokens=1234,
     )
     llm = budget.get_cheap_llm_settings()
-    assert ctx.billing_short == f"cheap LLM ({llm.model}, ~1,234 eval, local free)"
+    assert ctx.billing_short == (
+        f"cheap LLM ({llm.model}, ~1,234 eval, configured: local free)"
+    )
     # a metered cheap model under this root flips the note
     import yaml
 
@@ -906,7 +1063,7 @@ def test_footer_context_billing_variants(
     ctx = budget._build_tool_footer_context(
         "probe task", footer_env, tier="ollama", est_tokens=50,
     )
-    assert ctx.billing_short == "cheap LLM (metered-m/x, metered)"
+    assert ctx.billing_short == "cheap LLM (metered-m/x, configured: metered)"
 
 
 @allure.title("footer context helpers receive the workspace root")
@@ -950,10 +1107,10 @@ def test_footer_compact_minimal(footer_env: Path) -> None:
     )
     assert footer == (
         "\n---\n"
-        "> **Greedy token** · `rg` · saved **~6,008**"
-        " (if intercept; turn-shared otherwise ~8)"
+        "> **Greedy token** · `rg` · saved **unknown**"
+        " (potential ~6,008 only if the agent turn was skipped)"
         " (baseline: default-estimate)\n"
-        "> spent ~0 · naive ~6,008 · free tier\n"
+        "> spent ~0 · naive ~6,008 · unmetered (local executor)\n"
         "---"
     )
     assert "XXXX" not in footer and "Nonems" not in footer
@@ -989,10 +1146,10 @@ def test_footer_markdown_no_duration(footer_env: Path) -> None:
         "|:--|--:|--:|\n"
         "| spent | ~0 | — |\n"
         "| naive agent chat (default-estimate) | ~6,008 | ~16s (default-estimate) |\n"
-        "| **saved** (baseline: default-estimate) | **~6,008**"
-        " (if intercept; turn-shared otherwise ~8) | **~—** |\n"
+        "| **saved** (baseline: default-estimate) | **unknown**"
+        " (potential ~6,008 only if the agent turn was skipped) | ~— |\n"
         "\n"
-        "free tier\n"
+        "unmetered (local executor)\n"
         "---"
     )
 
@@ -1003,12 +1160,12 @@ def test_footer_full_tier_billing(footer_env: Path) -> None:
         "probe task", footer_env, tier="rag", est_tokens=50, rag_hits=3,
         executor_sub="rg", style="full",
     )
-    assert "  Billing: read docs/rag, 3 chunk(s) — small context vs expensive LLM chat" in footer
+    assert "  Billing: unmetered — docs/rag read, 3 chunk(s)" in footer
     footer = budget.format_tool_footer(
         "probe task", footer_env, tier="rag", est_tokens=50, rag_hits=None,
         executor_sub="rg", style="full",
     )
-    assert "  Billing: read docs/rag — small context vs expensive LLM chat" in footer
+    assert "  Billing: unmetered — docs/rag read" in footer
     assert "chunk(s)" not in footer
     footer = budget.format_tool_footer(
         "probe task", footer_env, tier="ollama", est_tokens=50,
@@ -1021,21 +1178,21 @@ def test_footer_full_tier_billing(footer_env: Path) -> None:
     )
     llm = budget.get_cheap_llm_settings()
     assert (
-        f"\n  Billing: cheap LLM ({llm.provider}/{llm.model}, local free)"
-        " — not expensive path\n"
+        f"\n  Billing: unmetered — cheap LLM ({llm.provider}/{llm.model};"
+        " configured: local free)\n"
     ) in footer
     footer = budget.format_tool_footer(
         "probe task", footer_env, tier="cursor", est_tokens=50,
         executor_sub="rg", style="full",
     )
     assert (
-        "\n  Billing: expensive LLM (agent chat) — full context + reply\n"
+        "\n  Billing: unmetered — expensive LLM (agent chat)\n"
     ) in footer
     footer = budget.format_tool_footer(
         "probe task", footer_env, tier="python", est_tokens=0,
         executor_sub="rg", style="full",
     )
-    assert "  Billing: free tier — not expensive LLM" in footer
+    assert "  Billing: unmetered — local executor" in footer
 
 
 @allure.title("policy footer lines receive the workspace root")
@@ -1145,7 +1302,13 @@ def test_wrap_mcp_response_forwards_all_fields(
         retries=1, escalations=["ollama"], executed=True,
         result_status="produced",
     )
-    assert "body" in out and "saved **~6,001**" in out
+    # MCP origin → shared-turn scope: earned savings stay unknown; the
+    # shared-turn formula delta (~1) is shown only as a labelled assumption.
+    assert "body" in out and "saved **unknown**" in out
+    assert (
+        "potential ~1 if the call shared a live agent turn — assumed,"
+        " not observed" in out
+    )
     footer_args, footer_kwargs = captured["footer"][0]
     assert footer_args == ("probe task", footer_env)
     assert footer_kwargs == {
@@ -1158,9 +1321,12 @@ def test_wrap_mcp_response_forwards_all_fields(
         "ollama_eval_tokens": 9,
         "task_success": True,
         "executed": True,
+        "style": "compact",
+        "invocation": "mcp",
     }
     (log_kwargs,) = captured["log"]
     assert log_kwargs["cmd"] == "mcp"
+    assert log_kwargs["invocation"] == "mcp"
     assert log_kwargs["task"] == "probe task"
     assert log_kwargs["root"] == footer_env
     assert log_kwargs["executed"] is True
@@ -1186,6 +1352,7 @@ def test_wrap_mcp_response_forwards_all_fields(
         "result_status": "produced",
         "tier": "tool",
         "ok": True,
+        "refused": False,
     }
     (outcome_event,) = captured["outcome"]
     assert outcome_event["root"] == str(footer_env)

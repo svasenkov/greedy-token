@@ -187,7 +187,7 @@ def test_intercept_serialization_and_spill_are_exact(devin, tmp_path):
     body = "one\ntwo"
     payload = {"target": "PYTHON", "prompt": "why slow cpu", "body": body, "root": tmp_path}
     spill = tmp_path / ".greedy-token" / "last-intercept.md"
-    message = "greedy-token → PYTHON · AI пропущен\n\nQ: why slow cpu"
+    message = "greedy-token → PYTHON · локальный ответ\n\nQ: why slow cpu"
     if devin:
         message += f'\n\none\ntwo\n\nПолный ответ → <ref_file file="{spill}" />'
     else:
@@ -281,3 +281,81 @@ def test_custom_profile_controls_parsing_protocol_and_context(tmp_path):
     assert "Полный ответ → " + str(tmp_path / ".greedy-token" / "last-intercept.md") in payload["text"]
     assert "file://" not in payload["text"]
     assert "<ref_file" not in payload["text"]
+
+
+def _logged_events() -> list[dict]:
+    from greedy_token.usage import load_events, log_path
+
+    path = log_path()
+    if not path.is_file():
+        return []
+    events, _skipped = load_events(path)
+    return events
+
+
+def test_intercept_serializer_records_an_emission_observation(tmp_path):
+    profile = detect({})
+    out = profile.serialize_intercept({
+        "target": "PYTHON", "prompt": "why slow cpu", "body": "answer",
+        "root": tmp_path,
+    })
+    # Protocol preserved: the blocking response is still produced.
+    assert json.loads(out)["continue"] is False
+    obs = _logged_events()[-1]
+    assert obs["event"] == "hook_observation"
+    assert obs["invocation"] == "hook"
+    assert obs["host"] == "cursor"
+    assert obs["hook_action"] == "intercept"
+    assert obs["serialize_status"] == "emitted"
+    # Supported means serializable, not a proven host skip: the ledger only
+    # records that a blocking response was emitted; turn_replaced stays
+    # unknown without an authoritative host source.
+    assert obs["turn_replaced"] is None
+    assert obs["root"] == str(tmp_path)
+
+
+def test_gate_serializers_distinguish_block_from_soft_gate(tmp_path, monkeypatch):
+    monkeypatch.setenv("GREEDY_DEVIN_SOFT_GATE", "0")
+    detect({}).serialize_gate({"user_message": "stop", "task": "t"})
+    obs = _logged_events()[-1]
+    assert obs["hook_action"] == "gate"
+    assert obs["serialize_status"] == "emitted"
+    # Emitted blocking response ≠ observed host skip.
+    assert obs["turn_replaced"] is None
+    assert obs["host"] == "cursor"
+
+    monkeypatch.setenv("GREEDY_DEVIN_SOFT_GATE", "1")
+    devin = detect({"hook_event_name": "UserPromptSubmit"})
+    devin.serialize_gate({"op_id": "python-check", "task": "t"})
+    obs = _logged_events()[-1]
+    assert obs["hook_action"] == "soft_gate"
+    assert obs["serialize_status"] == "emitted"
+    # Additive context provably cannot replace the turn — a product fact.
+    assert obs["turn_replaced"] is False
+    assert obs["host"] == "devin"
+    assert obs["route_id"] == "python-check"
+
+
+def test_encoder_failure_records_failed_serialization_not_skip(tmp_path):
+    def boom(payload):
+        raise RuntimeError("encode fail")
+
+    profile = replace(detect({}), _encoder=boom)
+    assert profile.supported
+    with pytest.raises(RuntimeError):
+        profile.serialize_intercept(
+            {"target": "PYTHON", "prompt": "x", "body": "b", "root": tmp_path}
+        )
+    obs = _logged_events()[-1]
+    assert obs["event"] == "hook_observation"
+    assert obs["hook_action"] == "intercept"
+    # No response reached the host — a replacement is provably absent.
+    assert obs["serialize_status"] == "error"
+    assert obs["turn_replaced"] is False
+
+
+def test_unsupported_host_records_no_observation(tmp_path):
+    profile = detect({"hook_event_name": "PreToolUse"})
+    assert profile.serialize_gate({"user_message": "x", "task": "t"}) == "{}"
+    profile.serialize_intercept({"root": tmp_path})
+    assert _logged_events() == []

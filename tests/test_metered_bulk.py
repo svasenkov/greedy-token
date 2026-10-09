@@ -385,12 +385,12 @@ def test_route_ollama_estimates_other_branches(
 ) -> None:
     from greedy_token import router
 
-    with allure.step("local available → local/cheap rationale"):
+    with allure.step("local available → local-endpoint rationale"):
         monkeypatch.setattr(router, "ollama_available", lambda *a, **k: True)
         _, est, rationale = router._token_estimate_for_route(
             "ollama", task="classify x", root=minimal_workspace
         )
-        assert "local/cheap spend" in rationale and est >= 1
+        assert "local endpoint" in rationale and est >= 1
 
     with allure.step("both unavailable → expensive-path estimate"):
         monkeypatch.setattr(router, "ollama_available", lambda *a, **k: False)
@@ -587,14 +587,14 @@ def test_footer_metered_label(
     with allure.step("served by the metered model → metered label"):
         monkeypatch.setenv("GREEDY_LLM_MODEL_ID", "bulk-api")
         short = _billing_short("ollama", root=minimal_workspace)
-        assert short.endswith(", metered)")
+        assert short.endswith(", configured: metered)")
         full = format_tool_footer(
             "classify x", minimal_workspace, tier="ollama", est_tokens=10, style="full"
         )
         attach_text("full footer (metered)", full)
-        assert ", metered) — not expensive path" in full
+        assert "; configured: metered)" in full
 
     with allure.step("no served-model id → legacy local free label"):
         monkeypatch.delenv("GREEDY_LLM_MODEL_ID", raising=False)
         short = _billing_short("ollama", root=minimal_workspace)
-        assert short.endswith(", local free)")
+        assert short.endswith(", configured: local free)")

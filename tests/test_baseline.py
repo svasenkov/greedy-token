@@ -253,7 +253,8 @@ def test_tool_footer_source_label(minimal_workspace: Path) -> None:
     full = format_tool_footer(task, minimal_workspace, tier="tool", est_tokens=0, style="full")
     attach_text("full calibrated", full)
     assert f"Agent overhead:  ~9,500  ({SOURCE_CALIBRATED})" in full
-    assert f"(= baseline − spent; baseline: {SOURCE_CALIBRATED})" in full
+    # Unknown scope: earned stays unknown, the potential keeps the source label.
+    assert f"= baseline − spent; baseline: {SOURCE_CALIBRATED})" in full
 
 
 @allure.story("Footer source label")

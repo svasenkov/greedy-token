@@ -5,12 +5,17 @@ import os
 import re
 import sys
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from greedy_token.advisory import effective_hook_mode
-from greedy_token.baseline import naive_agent_ms, time_saved_ms
+from greedy_token.baseline import (
+    baseline_source,
+    cursor_overhead,
+    naive_agent_ms,
+    time_saved_ms,
+)
 from greedy_token.calibration import (
     CALIBRATION_MIN_EVENTS,
     SOURCE_FIXED,
@@ -33,6 +38,7 @@ from greedy_token.result_gate import (  # noqa: F401 — the three codes marked
     EXCLUSION_NOT_EXECUTED,
     EXCLUSION_TASK_FAILED,
     EXCLUSION_UNVERIFIED_RESULT,  # noqa: F401
+    OUTCOME_REFUSED,
     GateDecision,
     evaluate_result_gate,
 )
@@ -72,10 +78,34 @@ OVERRIDE_EVENT = "script_override"
 # cannot bloat the JSONL row.
 MATCHED_MAX_ENTRIES = 10
 MATCHED_MAX_CHARS = 256
-VALID_OUTCOMES = frozenset({"success", "failure", "escalated", "unknown"})
+VALID_OUTCOMES = frozenset({"success", "failure", "escalated", "unknown", OUTCOME_REFUSED})
 VALID_OUTCOME_LAYERS = frozenset(
     {"executor", "retrieval", "escalation", "agent", "pipeline"}
 )
+
+# Invocation origin — which boundary emitted the record. This is a fact the
+# emitting boundary declares about itself, never the configured hook mode:
+# ``hook`` (a host prompt-submission hook), ``mcp`` (an MCP tool call inside
+# a live agent turn), ``cli`` (the greedy-token CLI).
+INVOCATION_CLI = "cli"
+INVOCATION_HOOK = "hook"
+INVOCATION_MCP = "mcp"
+VALID_INVOCATIONS = frozenset(
+    {INVOCATION_CLI, INVOCATION_HOOK, INVOCATION_MCP}
+)
+
+# Scope a savings claim is bounded to. ``turn`` is claimable only from a
+# hook-observed turn replacement (the agent turn never ran); ``turn_shared``
+# when the call provably ran inside a live agent turn; ``unknown`` when no
+# boundary declared an origin — the conservative floor is all it may claim.
+SAVINGS_SCOPE_TURN = "turn"
+SAVINGS_SCOPE_TURN_SHARED = "turn_shared"
+SAVINGS_SCOPE_UNKNOWN = "unknown"
+
+# Event kind a host boundary writes when it actually emitted a blocking or
+# context-injecting response — the product ledger's own observation of a
+# turn-skip (or its absence), separate from request/outcome records.
+HOOK_OBSERVATION_EVENT = "hook_observation"
 # How far one operation was observed to get. A recommendation is not an
 # execution, and a requested execution is not a started one; later phases are
 # claimed only from facts the emitting boundary actually saw.
@@ -211,6 +241,58 @@ def _cap_matched(matched: list[str]) -> list[str]:
     return out
 
 
+def _normalize_invocation(value: str | None) -> str | None:
+    """Declaration from the emitting boundary; anything else is unrecorded."""
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip().lower()
+    return normalized if normalized in VALID_INVOCATIONS else None
+
+
+@dataclass(frozen=True)
+class TurnSkipEvidence:
+    """Caller-reported turn-savings metadata, not validated host evidence.
+
+    Neither this DTO nor its source name proves a skipped turn or measured
+    tokens/time. Admission would require a validated applicable receipt
+    with invocation correlation, observation scope/coverage and provenance
+    for each quantity. No such host source exists in this contour: these
+    values stay reported metadata, separate from formula potentials, and
+    never enter measured/earned savings.
+    """
+
+    source: str
+    saved_tokens: int
+    saved_ms: int | None = None
+
+
+def savings_scope_for(
+    invocation: str | None,
+    turn_replaced: bool | None,
+    *,
+    turn_evidence: str | TurnSkipEvidence | None = None,
+) -> str:
+    """Scope a savings claim is bounded to — from boundary facts only.
+
+    ``turn`` is unavailable without validated host evidence correlating
+    the invocation, full skip coverage and each measured quantity's source.
+    This contour has none: caller flags, reference strings and typed
+    ``TurnSkipEvidence`` are reported data only. An ``mcp``-declared origin
+    contradicts a replaced turn outright (the call sat inside it).
+    ``turn_shared`` when the boundary declared the turn kept running
+    (``turn_replaced=False``) or the call provably sits inside a live agent
+    turn (the MCP entrypoint) — an assumption, not an observation;
+    everything else stays ``unknown``.  The configured hook mode is never
+    evidence here.
+    """
+    inv = _normalize_invocation(invocation)
+    if turn_replaced is True:
+        return SAVINGS_SCOPE_UNKNOWN
+    if inv == INVOCATION_MCP or turn_replaced is False:
+        return SAVINGS_SCOPE_TURN_SHARED
+    return SAVINGS_SCOPE_UNKNOWN
+
+
 def build_route_event(
     *,
     cmd: str,
@@ -239,6 +321,9 @@ def build_route_event(
     gate: GateDecision | None = None,
     spend_ref: str | None = None,
     input_tokens: int | None = None,
+    invocation: str | None = None,
+    turn_replaced: bool | None = None,
+    turn_evidence: str | TurnSkipEvidence | None = None,
 ) -> dict:
     baseline = cursor_baseline(root, task)
     est_tokens = est_tokens_override if est_tokens_override is not None else decision.est_tokens
@@ -272,7 +357,23 @@ def build_route_event(
         exclusion = gate.savings_exclusion
     elif outcome_success is False:
         exclusion = EXCLUSION_TASK_FAILED
-    saved = 0 if exclusion else potential_saved
+    shared_potential = min(
+        potential_saved,
+        max(0, baseline - cursor_overhead() - est_tokens),
+    )
+    scope = savings_scope_for(
+        invocation, turn_replaced, turn_evidence=turn_evidence
+    )
+    saved: int | None
+    if exclusion:
+        # A factual zero: nothing ran or the gate excluded the result.
+        saved = 0
+    else:
+        # Neither a zero formula nor reported metadata validates an earned
+        # measurement; the source's name and DTO type admit nothing.
+        # No authoritative turn-skip source: earned savings are unknown —
+        # never a formula floor, never a fabricated zero.
+        saved = None
     counter = count_tokens(task)
     executor = executor_from_decision(decision, root)
     if rag_hits is not None:
@@ -294,7 +395,11 @@ def build_route_event(
         "task_language": detect_task_language(task),
         "est_tokens": est_tokens,
         "cursor_baseline": baseline,
+        # Provenance of the baseline figure — a metric without a source is
+        # not a measurement.
+        "baseline_source": baseline_source(),
         "cursor_saved": saved,
+        "savings_scope": scope,
         "token_counter_method": counter.method,
         "tier_scan": tier_scan if tier_scan is not None else build_tier_scan(task, root),
         "executor": executor,
@@ -305,6 +410,23 @@ def build_route_event(
         event["result_status"] = gate.result_status
         event["gate_action"] = gate.action
         event["gate_reason"] = gate.reason
+        event["gate_outcome"] = gate.outcome
+    inv = _normalize_invocation(invocation)
+    if inv:
+        event["invocation"] = inv
+    if turn_replaced is not None:
+        # A boundary-declared flag; reported ``TurnSkipEvidence`` does not
+        # validate the claim — the scope above stays conservative.
+        event["turn_replaced"] = turn_replaced is True
+    if isinstance(turn_evidence, TurnSkipEvidence):
+        # The caller's source and quantities remain explicitly reported.
+        event["turn_evidence"] = turn_evidence.source
+        event["turn_evidence_status"] = "reported"
+        event["turn_evidence_reported"] = asdict(turn_evidence)
+    elif isinstance(turn_evidence, str):
+        # A reference string is correlation metadata — it admits nothing.
+        event["turn_evidence"] = turn_evidence
+        event["turn_evidence_status"] = "reported"
     if operation_id:
         event["operation_id"] = operation_id
     if parent_operation_id:
@@ -339,8 +461,11 @@ def build_route_event(
     if duration_ms is not None:
         event["duration_ms"] = duration_ms
         saved_ms = time_saved_ms(baseline, duration_ms, decision.target)
+        # No validated source measured the skipped turn's wall-clock; the
+        # caller's reported figure stays separate from the formula delta.
         if saved_ms is not None and not exclusion:
-            event["time_saved_ms"] = saved_ms
+            # A formula delta without a measured skip is a potential.
+            event["time_saved_ms_potential"] = saved_ms
     if profile:
         event["profile"] = profile
     if escalated_from:
@@ -360,10 +485,12 @@ def build_route_event(
     if exclusion:
         event["savings_eligible"] = False
         event["savings_exclusion"] = exclusion
-        if potential_saved:
-            # Kept visible as an estimate of what running it could save — never
-            # summed as earned savings.
+    if scope != SAVINGS_SCOPE_TURN:
+        # Formula deltas are labelled potentials — never summed as earned.
+        if potential_saved > 0:
             event["cursor_saved_potential"] = potential_saved
+        # The shared-turn bound — 0 is a meaningful bound, not a claim.
+        event["cursor_saved_potential_shared"] = shared_potential
     if spend_ref:
         # This call's spend is booked in the spend ledger under this id —
         # spend readers skip the event so it is never counted twice.
@@ -407,6 +534,7 @@ def build_outcome_event(
     operation_id: str | None = None,
     parent_operation_id: str | None = None,
     gate: GateDecision | None = None,
+    invocation: str | None = None,
 ) -> dict:
     """Build an explicit observed outcome; absence of this event means unknown."""
     if outcome not in VALID_OUTCOMES:
@@ -452,8 +580,12 @@ def build_outcome_event(
         event["result_status"] = gate.result_status
         event["gate_action"] = gate.action
         event["gate_reason"] = gate.reason
+        event["gate_outcome"] = gate.outcome
         if not gate.savings_eligible:
             event["savings_exclusion"] = gate.savings_exclusion
+    inv = _normalize_invocation(invocation)
+    if inv:
+        event["invocation"] = inv
     if operation_id:
         # Same id as the request record: two records, one operation.
         event["operation_id"] = operation_id
@@ -480,6 +612,9 @@ def build_script_event(
     outcome_success: bool | None = None,
     operation_id: str | None = None,
     gate: GateDecision | None = None,
+    invocation: str | None = None,
+    turn_replaced: bool | None = None,
+    turn_evidence: str | TurnSkipEvidence | None = None,
 ) -> dict:
     task = f"scripts --run {script_id}"
     baseline = cursor_baseline(root, task)
@@ -497,6 +632,17 @@ def build_script_event(
         exclusion = gate.savings_exclusion
     elif outcome_success is False:
         exclusion = EXCLUSION_TASK_FAILED
+    scope = savings_scope_for(
+        invocation, turn_replaced, turn_evidence=turn_evidence
+    )
+    saved: int | None
+    if exclusion:
+        saved = 0
+    else:
+        # Neither a zero formula nor reported metadata validates an earned
+        # measurement; the source's name and DTO type admit nothing.
+        # Earned is unknown without an authoritative turn-skip source.
+        saved = None
     event: dict = {
         "v": SCHEMA_VERSION,
         "ts": _utc_now_iso(),
@@ -509,7 +655,9 @@ def build_script_event(
         "confidence_source": SOURCE_FIXED,
         "est_tokens": 0,
         "cursor_baseline": baseline,
-        "cursor_saved": 0 if exclusion else baseline,
+        "baseline_source": baseline_source(),
+        "cursor_saved": saved,
+        "savings_scope": scope,
         "token_counter_method": count_tokens(task).method,
         "tier_scan": [],
         "executor": {"kind": "script", "script_id": script_id},
@@ -520,6 +668,19 @@ def build_script_event(
         event["result_status"] = gate.result_status
         event["gate_action"] = gate.action
         event["gate_reason"] = gate.reason
+    inv = _normalize_invocation(invocation)
+    if inv:
+        event["invocation"] = inv
+    if turn_replaced is not None:
+        event["turn_replaced"] = turn_replaced is True
+    if isinstance(turn_evidence, TurnSkipEvidence):
+        event["turn_evidence"] = turn_evidence.source
+        event["turn_evidence_status"] = "reported"
+        event["turn_evidence_reported"] = asdict(turn_evidence)
+    elif isinstance(turn_evidence, str):
+        # A reference string is correlation metadata — it admits nothing.
+        event["turn_evidence"] = turn_evidence
+        event["turn_evidence_status"] = "reported"
     if operation_id:
         event["operation_id"] = operation_id
     if executed is not None:
@@ -527,15 +688,20 @@ def build_script_event(
     if exclusion:
         event["savings_eligible"] = False
         event["savings_exclusion"] = exclusion
-        if baseline:
+    if scope != SAVINGS_SCOPE_TURN:
+        # Formula deltas are labelled potentials — never summed as earned.
+        if baseline > 0:
             event["cursor_saved_potential"] = baseline
+        event["cursor_saved_potential_shared"] = max(
+            0, baseline - cursor_overhead()
+        )
     baseline_ms = naive_agent_ms(baseline)
     event["cursor_baseline_ms"] = baseline_ms
     if duration_ms is not None:
         event["duration_ms"] = duration_ms
         saved_ms = time_saved_ms(baseline, duration_ms, "python")
         if saved_ms is not None and not exclusion:
-            event["time_saved_ms"] = saved_ms
+            event["time_saved_ms_potential"] = saved_ms
     return event
 
 
@@ -583,6 +749,55 @@ def build_script_override_event(
         event["meta"]["window_sec"] = window_sec
     if tags:
         event["tags"] = dict(tags)
+    return event
+
+
+def build_hook_observation_event(
+    *,
+    host: str,
+    action: str,
+    serialized: bool,
+    task: str = "",
+    root: Path | None = None,
+    route_id: str | None = None,
+    operation_id: str | None = None,
+) -> dict:
+    """The ledger's own observation of a host boundary act.
+
+    Records only product-side facts: the requested action, whether the
+    host-facing response serialized (``serialize_status``), and correlation
+    ids.  ``turn_replaced`` is a *host-side* fact — a locally emitted
+    ``continue: false``/``block`` response is a skip request, not proof the
+    runtime skipped the model turn — so it stays ``null`` (unknown) for a
+    serialized blocking action.  A context-injecting ``soft_gate`` or a
+    failed serialization provably did not replace the turn (``False``).
+    ``invocation="hook"`` is the origin that may attest it.  Carries no
+    savings claim of its own — the claim scope lives on the request record
+    it correlates with.
+    """
+    event: dict = {
+        "v": SCHEMA_VERSION,
+        "ts": _utc_now_iso(),
+        "event": HOOK_OBSERVATION_EVENT,
+        "cmd": "hook",
+        "invocation": INVOCATION_HOOK,
+        "host": host,
+        "hook_action": action,
+        "serialize_status": "emitted" if serialized else "error",
+        # null = the product cannot attest a host-side skip; False = the
+        # emitted act provably did not replace the turn.
+        "turn_replaced": (
+            None if serialized and action != "soft_gate" else False
+        ),
+    }
+    if task:
+        event["task"] = _truncate_task(task)
+    if root is not None:
+        event["root"] = str(root)
+    if route_id:
+        event["route_id"] = route_id
+    if operation_id:
+        event["operation_id"] = operation_id
     return event
 
 
@@ -818,11 +1033,11 @@ def append_event(
         tags = event.get("tags") if isinstance(event.get("tags"), dict) else {}
         if not any(key in event or key in tags for key in SESSION_KEYS):
             event = {**event, "session_id": sid}
-    if "hook_mode" not in event:
-        # cursor_saved = baseline − est only holds when the hook intercepted
-        # the prompt (the agent turn never ran).  The resolved mode is what
-        # lets a reader tell that claim apart from a turn-shared call.
-        event = {**event, "hook_mode": effective_hook_mode()}
+    if "configured_hook_mode" not in event:
+        # The resolved hook profile is ambient configuration — context for
+        # readers, never evidence that the agent turn was skipped.  The
+        # claimable scope lives in savings_scope / invocation / turn_replaced.
+        event = {**event, "configured_hook_mode": effective_hook_mode()}
     try:
         _ensure_log_dir(target)
         rotate_log_if_needed(target)
@@ -964,6 +1179,9 @@ class TierStats:
     est_tokens: int = 0
     cursor_baseline: int = 0
     saved_vs_cursor: int = 0
+    # Events whose earned savings are unmeasured (explicit null) — never
+    # summed into saved_vs_cursor as a fabricated zero or a potential.
+    saved_unknown: int = 0
     duration_ms: int = 0
     time_saved_ms: int = 0
     duration_samples: int = 0
@@ -1004,6 +1222,7 @@ class ReportSummary:
                     "count": stats.count,
                     "est_tokens": stats.est_tokens,
                     "saved_vs_cursor": stats.saved_vs_cursor,
+                    "saved_unknown": stats.saved_unknown,
                     "duration_ms": stats.duration_ms,
                     "time_saved_ms": stats.time_saved_ms,
                     "duration_samples": stats.duration_samples,
@@ -1014,6 +1233,7 @@ class ReportSummary:
                 "cursor_baseline": sum(s.cursor_baseline for s in self.by_tier.values()),
                 "est_tokens": sum(s.est_tokens for s in self.by_tier.values()),
                 "saved_vs_cursor": sum(s.saved_vs_cursor for s in self.by_tier.values()),
+                "saved_unknown": sum(s.saved_unknown for s in self.by_tier.values()),
                 "duration_ms": sum(s.duration_ms for s in self.by_tier.values()),
                 "time_saved_ms": sum(s.time_saved_ms for s in self.by_tier.values()),
                 "duration_samples": sum(s.duration_samples for s in self.by_tier.values()),
@@ -1151,7 +1371,9 @@ def count_operations(events: list[dict]) -> int:
     ids: set[str] = set()
     unlabelled = 0
     for event in events:
-        if event.get("event") in (OUTCOME_EVENT, OVERRIDE_EVENT):
+        if event.get("event") in (OUTCOME_EVENT, OVERRIDE_EVENT, HOOK_OBSERVATION_EVENT):
+            # Boundary observations correlate with operations; they are not
+            # operations themselves.
             continue
         operation_id = event.get("operation_id")
         if isinstance(operation_id, str) and operation_id:
@@ -1195,14 +1417,18 @@ def aggregate_events(events: list[dict], *, since_label: str | None = None) -> R
     tier_order = ("tool", "python", "ollama", "rag", "cursor", "compress")
 
     for event in events:
-        if event.get("event") == OUTCOME_EVENT:
+        if event.get("event") in (OUTCOME_EVENT, HOOK_OBSERVATION_EVENT):
             continue
         tier = event.get("selected_tier", "unknown")
         stats = summary.by_tier.setdefault(tier, TierStats())
         stats.count += 1
         stats.est_tokens += int(event.get("est_tokens") or 0)
         stats.cursor_baseline += int(event.get("cursor_baseline") or 0)
-        stats.saved_vs_cursor += int(event.get("cursor_saved") or 0)
+        if "cursor_saved" in event and event["cursor_saved"] is None:
+            # Explicit unknown earned savings — counted, never summed as 0.
+            stats.saved_unknown += 1
+        else:
+            stats.saved_vs_cursor += int(event.get("cursor_saved") or 0)
         if isinstance(event.get("duration_ms"), (int, float)):
             stats.duration_ms += int(event["duration_ms"])
             stats.duration_samples += 1
@@ -1252,6 +1478,8 @@ def format_report(summary: ReportSummary) -> str:
         note = ""
         if tier == "ollama":
             note = "  (cheap LLM)"
+        if stats.saved_unknown:
+            note += f"  ({stats.saved_unknown} unmeasured — no authoritative source)"
         time_col = (
             format_duration_short(stats.time_saved_ms) if stats.time_saved_ms else "—"
         )
@@ -1281,6 +1509,12 @@ def format_report(summary: ReportSummary) -> str:
         f"time_saved ~{format_duration_short(totals['time_saved_ms'])} "
         f"across {totals['duration_samples']} timed events"
     )
+    if totals["saved_unknown"]:
+        lines.append(
+            f"Earned savings unknown for {totals['saved_unknown']} event(s) "
+            "— no authoritative turn-skip source (potential figures are "
+            "not summed here)"
+        )
     lines.extend(["", baseline_line, time_line])
     nudge = uncalibrated_nudge()
     if nudge:

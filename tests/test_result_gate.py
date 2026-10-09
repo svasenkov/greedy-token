@@ -25,6 +25,7 @@ from greedy_token.result_contract import (
 from greedy_token.result_gate import (
     GATE_ACCEPTED,
     GATE_BYPASSED,
+    OUTCOME_REFUSED,
     REASON_ACCEPTED,
     REASON_EMPTY_RESULT,
     REASON_INVALID_CONTRACT,
@@ -34,6 +35,7 @@ from greedy_token.result_gate import (
     REASON_UNVERIFIED_RESULT,
     evaluate_result_gate,
 )
+from greedy_token.router import RouteDecision
 from greedy_token.usage import (
     EXCLUSION_EMPTY_RESULT,
     EXCLUSION_INVALID_RESULT,
@@ -64,9 +66,19 @@ GATE_MATRIX = [
     ),
     (
         # Dry-run step: never started but not a failure — chain may continue.
-        dict(started=False, result_status=RESULT_NOT_EVALUATED, tier="python", ok=True),
+        dict(started=False, result_status=RESULT_NOT_EVALUATED, tier="python",
+             ok=True),
         (GATE_BYPASSED, REASON_NOT_STARTED, False, True, False, False,
          EXCLUSION_NOT_EXECUTED, "unknown"),
+    ),
+    (
+        # Boundary-declared refusal without a caller failure signal: the
+        # refusal classification precedes ``ok`` — it reports "refused",
+        # never "unknown", and a declined step never feeds a chain.
+        dict(started=False, result_status=RESULT_NOT_EVALUATED, tier="python",
+             ok=True, refused=True),
+        (GATE_BYPASSED, REASON_NOT_STARTED, False, False, False, False,
+         EXCLUSION_NOT_EXECUTED, "refused"),
     ),
     # --- produced -----------------------------------------------------------
     (
@@ -186,6 +198,7 @@ GATE_MATRIX = [
     ids=[
         "refused",
         "dry-run",
+        "refused-no-failure-signal",
         "produced-ok",
         "produced-failed-verdict",
         "produced-empty-output",
@@ -254,6 +267,44 @@ def test_hook_decision_per_status() -> None:
             started=True, result_status=RESULT_NOT_EVALUATED, tier="python",
             ok=False, output_useful=True,
         ).may_answer is False
+
+
+@allure.story("Gate matrix")
+@allure.title("a declared boundary refusal reports outcome=refused, not failure")
+def test_declared_refusal_is_not_a_failure() -> None:
+    """Technical refusal is not a completed failure: the boundary attests
+    ``refused=True`` and telemetry records the distinct outcome."""
+    gate = evaluate_result_gate(
+        started=False, result_status=RESULT_NOT_EVALUATED, tier="python",
+        ok=False, refused=True,
+    )
+    assert gate.action == GATE_BYPASSED
+    assert gate.reason == REASON_NOT_STARTED
+    assert gate.succeeded is False
+    assert gate.savings_eligible is False
+    assert gate.savings_exclusion == EXCLUSION_NOT_EXECUTED
+    assert gate.outcome == OUTCOME_REFUSED
+
+    # A never-started failure without the refusal attestation stays failure —
+    # e.g. an executor crash before launch is infrastructure, not a refusal.
+    crashed = evaluate_result_gate(
+        started=False, result_status=RESULT_NOT_EVALUATED, tier="python",
+        ok=False,
+    )
+    assert crashed.outcome == "failure"
+
+    # refused is a first-class route_outcome value: telemetry accepts it.
+    decision = RouteDecision(
+        target="python", route_id="python-check", confidence=1.0,
+        matched=[], command=None, note="", domains=[],
+    )
+    event = build_outcome_event(
+        task="t", root=Path("/tmp"), decision=decision,
+        outcome=OUTCOME_REFUSED, layer="executor", gate=gate,
+    )
+    assert event["outcome"] == "refused"
+    assert event["savings_eligible"] is False
+    assert event["savings_exclusion"] == EXCLUSION_NOT_EXECUTED
 
 
 def _step(tier: str = "python", **kw) -> StepResult:
@@ -327,7 +378,7 @@ def test_run_pipeline_continues_on_unverified(
     )
     monkeypatch.setattr(pl, "search_rag", lambda q, r, limit: [])
     monkeypatch.setattr(pl, "format_hits", lambda q, h: "No RAG hits")
-    monkeypatch.setattr(pl, "_estimate_step_tokens", lambda s, o, r: 0)
+    monkeypatch.setattr(pl, "_estimate_step_tokens", lambda s, o, r, rag_hits=None: 0)
     result = pl.run_pipeline(
         "check-meta-sync then rag baseUrl",
         minimal_workspace,

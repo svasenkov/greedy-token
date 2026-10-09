@@ -352,10 +352,14 @@ def test_invoke_event_records_attempts(cheap_root: Path, monkeypatch: pytest.Mon
     # Only the escalated call carries the escalation marker.
     assert "escalated_from" not in req[0]
     assert req[1]["escalated_from"] == "fast"
-    # The weak first answer earned no savings; the serving call did.
+    # The weak first answer earned no savings. The serving call's earned
+    # figure stays unknown too — no boundary declared an authoritative
+    # turn-skip — and the formula delta is carried only as potential.
     assert req[0]["savings_exclusion"] == "empty_result"
     assert req[0]["cursor_saved"] == 0
-    assert req[1]["cursor_saved"] > 0
+    assert req[1]["savings_scope"] == "unknown"
+    assert req[1]["cursor_saved"] is None
+    assert req[1]["cursor_saved_potential"] > 0
     outcome = next(row for row in rows if row.get("event") == "route_outcome")
     assert outcome["outcome"] == "success"
     assert outcome["operation_id"] == req[0]["operation_id"]

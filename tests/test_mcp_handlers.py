@@ -38,7 +38,11 @@ def test_greedy_token_usage_footer(tmp_path: Path, minimal_workspace: Path, monk
 
 def _assert_greedy_token_footer(text: str) -> None:
     assert "Greedy token" in text
-    assert "saved **~" in text
+    # MCP origin is an entrypoint fact: executed calls keep the earned figure
+    # unknown with the formula delta labelled potential; a route advisory ran
+    # nothing, so it shows a factual zero with the potential-if-run note.
+    assert "saved **" in text
+    assert "potential" in text
     assert "> spent ~" in text
 
 
@@ -59,7 +63,8 @@ def test_greedy_token_search(minimal_workspace: Path) -> None:
 
     out = greedy_token_search("baseUrl", "sample.js")
     assert "baseUrl" in out
-    assert "free tier" in out
+    assert "unmetered" in out
+    assert "free tier" not in out
     _assert_greedy_token_footer(out)
 
 

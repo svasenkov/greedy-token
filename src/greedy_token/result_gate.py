@@ -20,7 +20,9 @@ The gate is conservative:
 * ``produced`` is contract conformance, not correctness — it may answer and
   earn savings; a produced *failure* (``{"ok": false}`` claim + non-zero exit)
   is still an answer worth surfacing but claims no savings;
-* a run that never started is pass-through, exactly like before;
+* a run that never started is pass-through, exactly like before — and a
+  boundary-declared refusal (``refused=True``) reports the distinct
+  ``refused`` outcome rather than an execution ``failure``;
 * a ``result_status`` outside the known vocabulary is *invalid* — an
   unrecognized verdict can never launder itself into savings.
 """
@@ -60,6 +62,9 @@ EXCLUSION_UNVERIFIED_RESULT = "unverified_result"
 OUTCOME_SUCCESS = "success"
 OUTCOME_FAILURE = "failure"
 OUTCOME_UNKNOWN = "unknown"
+# A boundary-declared refusal (policy/trust rejection): nothing ran, and a
+# refusal is not an execution failure nor a zero-cost success.
+OUTCOME_REFUSED = "refused"
 
 # Tiers whose stdout is checked against the SCRIPT-CANON result contract.  On
 # every other tier ``not_evaluated`` is the normal state — their evaluator is
@@ -106,18 +111,23 @@ def evaluate_result_gate(
     tier: str,
     ok: bool,
     output_useful: bool | None = None,
+    refused: bool = False,
 ) -> GateDecision:
     """Rule on one run result.
 
     ``started``/``ok`` are observed facts (the executor started; the process
-    verdict was clean).  ``result_status`` is the Step 2 contract verdict;
-    ``""`` normalizes to ``not_evaluated`` and any value outside the known
-    vocabulary fails closed as ``invalid``.  ``output_useful`` is the caller's
-    tier-native usefulness check on the *observed* output (hook
-    ``cheap_output_empty``, tool ``_tool_output_weak``, or the honest
-    non-empty-stdout floor); ``None`` means the caller attested nothing —
-    which still answers an unverified contract-tier result but never makes a
-    non-contract result useful.
+    verdict was clean).  ``refused`` is the caller's attestation that the run
+    never started *because a boundary declined it* (policy/trust rejection):
+    it keeps the outcome ``refused`` instead of ``failure`` — a technical
+    refusal is not an executed failure nor a zero-cost completion.  A crash
+    before launch stays ``failure``.  ``result_status`` is the Step 2
+    contract verdict; ``""`` normalizes to ``not_evaluated`` and any value
+    outside the known vocabulary fails closed as ``invalid``.
+    ``output_useful`` is the caller's tier-native usefulness check on the
+    *observed* output (hook ``cheap_output_empty``, tool
+    ``_tool_output_weak``, or the honest non-empty-stdout floor); ``None``
+    means the caller attested nothing — which still answers an unverified
+    contract-tier result but never makes a non-contract result useful.
     """
     status = result_status or RESULT_NOT_EVALUATED
     if status not in RESULT_STATUSES:
@@ -132,12 +142,17 @@ def evaluate_result_gate(
             tier=tier,
             may_answer=False,
             # A dry-run step (executed=False, ok=True) must not stop a planned
-            # chain; a refused step (ok=False) stops it, same as exit!=0 did.
-            continue_chain=ok,
+            # chain; a refused step stops it regardless of the caller's ok
+            # label — the boundary declined the work, nothing may follow it.
+            continue_chain=ok and not refused,
             succeeded=False,
             savings_eligible=False,
             savings_exclusion=EXCLUSION_NOT_EXECUTED,
-            outcome=OUTCOME_UNKNOWN if ok else OUTCOME_FAILURE,
+            outcome=(
+                OUTCOME_REFUSED
+                if refused
+                else (OUTCOME_UNKNOWN if ok else OUTCOME_FAILURE)
+            ),
         )
     if status == RESULT_INVALID:
         # A contract claim that contradicts the observed exit is untrustworthy:

@@ -440,7 +440,7 @@ def test_invoke_not_approved_refuses(minimal_workspace: Path) -> None:
         assert result.refusal_code == NOT_APPROVED
         assert result.gate_action == "bypassed"
         assert result.gate_reason == "not_started"
-        assert result.outcome == "failure"
+        assert result.outcome == "refused"
     with allure.step("the script never started"):
         assert not marker.exists()
     with allure.step("telemetry: planned, authorized=false, no savings"):
@@ -452,7 +452,7 @@ def test_invoke_not_approved_refuses(minimal_workspace: Path) -> None:
         assert request["cursor_saved"] == 0
         assert request["savings_exclusion"] == "not_executed"
         outcome = next(e for e in events if e.get("event") == "route_outcome")
-        assert outcome["outcome"] == "failure"
+        assert outcome["outcome"] == "refused"
         assert outcome["cursor_saved"] == 0
         assert outcome["operation_id"] == request["operation_id"]
 

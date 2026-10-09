@@ -73,7 +73,7 @@ def test_budget_footer_branch_gaps(minimal_workspace: Path) -> None:
         executor_sub="cursor",
         style="full",
     )
-    assert "Billing: expensive LLM (agent chat)" in cursor_billing
+    assert "Billing: unmetered — expensive LLM (agent chat)" in cursor_billing
 
     unknown_tier = format_tool_footer(
         "task",
@@ -211,7 +211,7 @@ def test_code_search_rg_fallback_branch(minimal_workspace: Path) -> None:
 @allure.title("Branch gaps: estimator cursor spent line")
 def test_estimator_cursor_spent_line(minimal_workspace: Path) -> None:
     for target, needle in (
-        ("python", "0 LLM spend"),
+        ("python", "local executor — unmetered"),
         ("ollama", "cheap LLM"),
         ("rag", "docs/rag chunks"),
         ("cursor", "expensive LLM"),

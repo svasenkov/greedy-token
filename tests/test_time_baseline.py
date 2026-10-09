@@ -171,9 +171,11 @@ def test_compact_footer_includes_time_saved(minimal_workspace: Path) -> None:
     )
     attach_text("footer", footer)
     assert "42ms" in footer
-    assert "saved **~" in footer
-    # "~12s" / "~23s" style — at least one short duration after saved
+    # No authoritative turn-skip source: the earned figure is unknown, the
+    # wall-clock delta is labelled a potential.
+    assert "saved **unknown**" in footer
     assert " · ~" in footer.split("saved", 1)[1]
+    assert "(potential)" in footer
 
 
 @allure.story("Telemetry")
@@ -192,7 +194,10 @@ def test_route_event_time_fields(tmp_path: Path, monkeypatch, minimal_workspace:
     )
     assert event["cursor_baseline_ms"] == naive_agent_ms(event["cursor_baseline"])
     if decision.target != "cursor":
-        assert event["time_saved_ms"] == event["cursor_baseline_ms"] - 100
+        # Without an authoritative turn-skip source the wall-clock delta is a
+        # labelled potential, not an earned figure.
+        assert event["time_saved_ms_potential"] == event["cursor_baseline_ms"] - 100
+        assert "time_saved_ms" not in event
     append_event(event, path=log)
     summary = aggregate_events([event], since_label="7d")
     report = format_report(summary)
@@ -255,4 +260,6 @@ def test_hub_summary_time_saved(tmp_path: Path, monkeypatch, minimal_workspace: 
     assert "time_saved_ms" in metrics
     assert metrics["duration_samples"] == 1
     if decision.target != "cursor":
-        assert metrics["time_saved_ms"] > 0
+        # No authoritative turn-skip source: the unmeasured wall-clock delta
+        # must not surface as an earned figure.
+        assert metrics["time_saved_ms"] == 0

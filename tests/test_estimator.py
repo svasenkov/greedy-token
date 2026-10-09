@@ -115,7 +115,8 @@ def test_format_estimate_tool_route(minimal_workspace: Path) -> None:
         assert "Command:" in text
         assert "Baseline (naive agent chat):" in text
         assert "Saved:" in text
-        assert "0 LLM spend" in text
+        assert "local executor — unmetered" in text
+        assert "0 LLM spend" not in text
         assert "← selected" in text
 
 
