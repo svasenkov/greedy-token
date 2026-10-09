@@ -380,7 +380,10 @@ def test_covered_route_id(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
 
 
 @allure.title("list_crystals: covered[] exposed, covered inbox patterns skipped")
-def test_list_crystals_covered(hub_home: Path) -> None:
+def test_list_crystals_covered(
+    hub_home: Path, minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(crystallize, "find_workspace_root", lambda: minimal_workspace)
     now = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     log = hub_home / "usage.jsonl"
     log.write_text(
@@ -400,6 +403,8 @@ def test_list_crystals_covered(hub_home: Path) -> None:
                 "updated_at": now,
                 "new_candidates": [
                     {"pattern": "what changed in last commits", "hits": 3},
+                    {"pattern": "last commits", "hits": 3},
+                    {"pattern": "recent commits", "hits": 3},
                     {"pattern": "fresh uncovered inbox pattern", "hits": 2},
                 ],
             }
@@ -409,6 +414,8 @@ def test_list_crystals_covered(hub_home: Path) -> None:
     data = crystallize.list_crystals(since="7d")
     covered_patterns = {c["pattern"] for c in data["covered"]}
     assert "what changed in recent commits" in covered_patterns
+    assert {c["covered_by"] for c in data["covered"]} == {"python-git-recent"}
+    assert all(c["pattern"] not in ("last commits", "recent commits") for c in data["crystals"])
     ids = {c["crystal_id"] for c in data["crystals"]}
     assert not any("what-changed" in cid for cid in ids)
     assert any("fresh-uncovered" in cid for cid in ids)

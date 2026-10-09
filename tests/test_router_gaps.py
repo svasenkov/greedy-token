@@ -111,7 +111,7 @@ def test_token_estimate_for_route_exact(
             ) == (
                 "medium",
                 max(task_tokens, 1),
-                "Cheap LLM — bulk work off expensive path; local/cheap spend.",
+                "Cheap LLM — bulk work off expensive path; local endpoint.",
             )
             # Empty task → task_tokens 0, so max(0, 1) == 1 kills max(..., 2).
             assert (
@@ -1716,6 +1716,27 @@ def test_format_decision_argv_no_cwd(tmp_path: Path) -> None:
 
 
 # --- first_matching_route_id: match-only counterpart of route_task_all_tiers ---
+
+
+RECENT_COMMITS_ALIAS_CASES = (
+    ("last commits", None),
+    ("recent commits", None),
+    ("what changed in last commits", None),
+    ("show last commits", None),
+    ("what changed in recent commits", None),
+    ("show last 3 commits", 3),
+)
+
+
+@pytest.mark.parametrize("prompt,count", RECENT_COMMITS_ALIAS_CASES)
+def test_recent_commits_alias_slots(prompt, count):
+    assert router.parse_recent_commits_intent(prompt) == router.IntentSlots("recent_commits", count=count)
+
+
+@pytest.mark.parametrize("prompt,count", RECENT_COMMITS_ALIAS_CASES)
+def test_recent_commits_alias_coverage(minimal_workspace, prompt, count):
+    with patch.object(router, "_decision_from_route", side_effect=AssertionError("match-only coverage")):
+        assert router.first_matching_route_id(prompt, minimal_workspace) == "python-git-recent"
 
 
 @allure.title("first_matching_route_id == first non-cursor match of route_task_all_tiers")

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import re
+import sys
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 # BASE_CURSOR_OVERHEAD re-exported for backward compatibility; the resolved
 # overhead (calibrated config → default-estimate) comes from cursor_overhead().
@@ -27,9 +29,11 @@ from greedy_token.outcome_calibration import (
 from greedy_token.paths import find_workspace_root, load_routes_config
 from greedy_token.subprocess_safe import (
     UnsafeCommandError,
+    _validate_script_args,
     command_to_argv,
     format_invocation,
     is_absolute_path,
+    is_python_executable,
 )
 from greedy_token.tokens import count_tokens
 from greedy_token.tool_paths import resolve_jq, resolve_rg
@@ -79,6 +83,229 @@ def has_edit_verbs(task: str) -> bool:
     return bool(EDIT_VERBS.search(task or ""))  # pragma: no mutate
 
 
+@dataclass(frozen=True)
+class IntentSlots:
+    intent: str
+    path: str = ""
+    keys: tuple[str, ...] = ()
+    count: int | None = None
+
+
+_JSON_PATH_SLOT = r'''(?:"[A-Za-z0-9_. /-]+"|'[A-Za-z0-9_. /-]+'|[A-Za-z0-9_./-]+)'''
+_JSON_KEY_SLOT = r'''(?:"[A-Za-z_][A-Za-z0-9_]*"|'[A-Za-z_][A-Za-z0-9_]*'|[A-Za-z_][A-Za-z0-9_]*)'''
+_JSON_KEY_LIST = rf"{_JSON_KEY_SLOT}(?: *, *{_JSON_KEY_SLOT})*(?: +(?:и|and) +{_JSON_KEY_SLOT})?"
+_JSON_KEYS_HINT = re.compile(r"\b(?:каждого\s+объекта|each\s+object|json\s+keys|ключи\s+json)\b", re.IGNORECASE)
+_SLOT_RESERVED_KEYS = frozenset({
+    "not", "no", "never", "without", "and", "or", "then", "if", "else",
+    "send", "submit", "post", "publish", "upload", "run", "execute", "check",
+    "verify", "explain", "describe", "please",
+})
+_JSON_KEYS_GRAMMAR = (
+    rf"(?:проверь(?:,? что)? )?в (?P<path>{_JSON_PATH_SLOT}) у каждого объекта есть (?P<keys>{_JSON_KEY_LIST})",
+    rf"проверь(?:,? что)? у каждого объекта(?: в (?P<path>{_JSON_PATH_SLOT}))? есть (?P<keys>{_JSON_KEY_LIST})",
+    rf"(?:(?:check|verify) (?:that )?)?each object in (?P<path>{_JSON_PATH_SLOT}) has (?:keys )?(?P<keys>{_JSON_KEY_LIST})",
+    rf"check json keys path=(?P<path>{_JSON_PATH_SLOT}) keys=(?P<keys>{_JSON_KEY_LIST})",
+)
+
+
+def parse_json_keys_intent(
+    task: str, root: Path, *, path_hint: str | None = None, _check_file: bool = True,
+) -> IntentSlots | None:
+    if any(ord(char) < 32 for char in task) or has_edit_verbs(task):
+        return None
+    text = task.strip()
+    match = next((m for grammar in _JSON_KEYS_GRAMMAR if (m := re.fullmatch(grammar, text, re.IGNORECASE))), None)
+    if match is None:
+        return None
+    path = (match.group("path") or path_hint or "").strip("\"'")
+    if path != path.strip() or not re.fullmatch(r"[A-Za-z0-9_. /-]+", path) or any(part in ("", ".", "..") or part.startswith("-") for part in path.split("/")):
+        return None
+    try:
+        path = _confined_route_path(path, root, field="intent path")
+        _validate_script_args((path,), root)
+        if Path(path).suffix.lower() != ".json" or _check_file and not (root / path).is_file():
+            return None
+    except (OSError, RuntimeError, ValueError):
+        return None
+    keys = tuple(key.strip("\"'") for key in re.split(r" *, *| +(?:и|and) +", match.group("keys"), flags=re.IGNORECASE))
+    if len(keys) != len(set(keys)) or any(
+        not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key) or key.lower() in _SLOT_RESERVED_KEYS
+        for key in keys
+    ):
+        return None
+    return IntentSlots("json_keys", path, keys)
+
+
+def parse_recent_commits_intent(task: str) -> IntentSlots | None:
+    if any(ord(char) < 32 for char in task):
+        return None
+    grammars = (
+        r"(?:покажи|выведи|дай|список) (?:(?:последних|последние) )?(?:(?P<count>[0-9]{1,4}) )?коммит(?:ов|ы)?",
+        r"(?:show|list) (?:(?:last|latest|recent) )?(?:(?P<count>[0-9]{1,4}) )?(?:git )?commits?",
+    )
+    text = task.strip()
+    if text.lower() in (
+        "список", "list", "last commits", "recent commits",
+        "what changed in last commits", "what changed in recent commits",
+    ):
+        return IntentSlots("recent_commits")
+    match = next((m for grammar in grammars if (m := re.fullmatch(grammar, text, re.IGNORECASE))), None)
+    if match is None:
+        return None
+    count = int(match.group("count")) if match.group("count") else None
+    if count is not None and not 1 <= count <= 9999:
+        return None
+    return IntentSlots("recent_commits", count=count)
+
+
+def _script_command_args(route: dict, root: Path) -> tuple[str, ...] | None:
+    try:
+        cwd, parsed = command_to_argv(route.get("command", ""), default_cwd=root, workspace_root=root)
+        argv = tuple(parsed)
+        declared = tuple(route.get("argv") or ())
+        pinned = (sys.executable, *argv[1:]) if argv and is_python_executable(argv[0]) else argv
+        if cwd != root.resolve() or declared and declared not in (argv, pinned):
+            return None
+        declared_cwd = route.get("cwd")
+        if declared_cwd is not None and (root / declared_cwd).resolve() != cwd:
+            return None
+        if len(argv) < 2 or not is_python_executable(argv[0]) or Path(argv[1]).suffix != ".py":
+            return None
+        _validate_script_args(argv[1:], root)
+    except (OSError, RuntimeError, TypeError, ValueError):
+        return None
+    return argv[2:]
+
+
+def _json_route_intent(task: str, route: dict, root: Path) -> IntentSlots | None:
+    if route.get("target") != "python" or route.get("read_only") is not True:
+        return None
+    contexts = {
+        slots for pattern in route.get("patterns", ())
+        if isinstance(pattern, str) and (slots := parse_json_keys_intent(pattern, root, _check_file=False)) is not None
+    }
+    if len(contexts) > 1:
+        return None
+    args = _script_command_args(route, root)
+    params = tuple(route.get("params") or ())
+    if params == ("args",):
+        from greedy_token.hook_policy import derive_prompt_args
+
+        if args != ():
+            return None
+        slots = parse_json_keys_intent(task, root)
+        spec = route.get("args_from_prompt")
+        if slots and isinstance(spec, list) and derive_prompt_args(task, spec, root=root):
+            return slots
+        return None
+    if params or args is None:
+        return None
+    if len(args) == 4 and args[0] == "--path" and args[2] == "--keys":
+        path, keys = args[1], args[3]
+    elif len(args) == 3 and args[1] == "--keys":
+        path, keys = args[0], args[2]
+    else:
+        return None
+    expected = parse_json_keys_intent(f"check json keys path='{path}' keys={keys}", root)
+    if expected is None or contexts and contexts != {expected}:
+        return None
+    slots = parse_json_keys_intent(task, root, path_hint=expected.path)
+    return slots if slots == expected else None
+
+
+_REPOSITORY_SCOPE_HINT = re.compile(r"\b(?:of|in|for)\s+(?:repo|repository)\b", re.IGNORECASE)
+
+
+def _has_repository_scope(task: str) -> bool:
+    unquoted = re.sub(r"""(?:"[^"]*"|'[^']*')""", " ", task)
+    return _REPOSITORY_SCOPE_HINT.search(unquoted) is not None
+
+
+def _repository_scoped_request(task: str, root: Path) -> str | None:
+    if any(ord(char) < 32 for char in task) or has_edit_verbs(task):
+        return None
+    match = re.fullmatch(
+        rf"(?P<request>.+?) +(?:of|in|for) +(?:repo|repository) +(?P<scope>{_JSON_PATH_SLOT})",
+        task.strip(), re.IGNORECASE,
+    )
+    if match is None:
+        return None
+    request = match.group("request")
+    if parse_recent_commits_intent(request) is None and not re.fullmatch(
+        r"git log|what changed(?: in (?:last|recent) commits)?", request, re.IGNORECASE,
+    ):
+        return None
+    scope = match.group("scope").strip("\"'")
+    if scope != scope.strip() or not re.fullmatch(r"[A-Za-z0-9_. /-]+", scope) or any(
+        part in ("", ".", "..") or part.startswith("-") for part in scope.split("/")
+    ) or any(word.lower() in _SLOT_RESERVED_KEYS for word in re.split(r"[ /.-]+", scope)):
+        return None
+    try:
+        _confined_route_path(scope, root, field="repository scope")
+        _validate_script_args((scope,), root)
+    except (OSError, RuntimeError, ValueError):
+        return None
+    return request
+
+
+def _route_admits_slot_intent(task: str, route: dict, root: Path) -> bool:
+    try:
+        return _admit_slot_intent(task, route, root)
+    except UnsafeCommandError:
+        return False
+
+
+def _admit_slot_intent(task: str, route: dict, root: Path) -> bool:
+    if route.get("target") == "tool":
+        return is_read_only_tool_intent(task)
+    if route.get("target") == "python" and (route.get("argv") or route.get("cwd") is not None) and _script_command_args(route, root) is None:
+        return False
+    if _has_repository_scope(task):
+        return False
+    if _JSON_KEYS_HINT.search(task):
+        return _json_route_intent(task, route, root) is not None
+    if task == f"invoke {route.get('id')}":
+        return True
+    spec = route.get("args_from_prompt")
+    if tuple(route.get("params") or ()) == ("args",) and isinstance(spec, list):
+        from greedy_token.hook_policy import derive_prompt_args, has_invocation_intent
+
+        if derive_prompt_args(task, spec, root=root):
+            return True
+        slots = parse_recent_commits_intent(task)
+        if slots is not None:
+            return slots.count is None
+        if re.search(r"\b(?:коммит\w*|commits?)\b|(?:^|\s)--?\w|[=$<>|]", task, re.IGNORECASE):
+            return False
+        op = SimpleNamespace(tier=route.get("target"), params=(), patterns=route.get("patterns", ()))
+        return has_invocation_intent(task, op, root=root)
+    return True
+
+
+def _route_recommends_slot_intent(task: str, route: dict, root: Path) -> bool:
+    if _route_admits_slot_intent(task, route, root):
+        return True
+    if route.get("target") != "python" or route.get("read_only") is not True or tuple(route.get("params") or ()) not in ((), ("args",)):
+        return False
+    request = _repository_scoped_request(task, root)
+    return request is not None and _score_patterns(_normalize(request), route.get("patterns", []))[0] > 0
+
+
+def _slot_intent_rejected(task: str, routes: list[dict], root: Path) -> bool:
+    if is_read_only_tool_intent(task):
+        return False
+    candidates = [
+        r for r in routes if _route_active(r)
+        and _score_patterns(_normalize(task), r.get("patterns", []))[0] > 0
+    ]
+    if _JSON_KEYS_HINT.search(task):
+        return not any(_route_recommends_slot_intent(task, r, root) for r in candidates)
+    return any(
+        tuple(r.get("params") or ()) == ("args",) and isinstance(r.get("args_from_prompt"), list)
+        and not _route_recommends_slot_intent(task, r, root) for r in candidates
+    )
+
+
 @dataclass
 class RouteDecision:
     target: str
@@ -100,6 +327,10 @@ class RouteDecision:
     calibration_segment: str = ""
     command_argv: tuple[str, ...] | None = None
     command_cwd: Path | None = None
+    intent_slots: IntentSlots | None = None
+    # The cheaper tier a cursor decision escalated from, e.g. "tool" for an
+    # edit-verb lookup; None when the route went straight to cursor.
+    escalated_from: str | None = None
 
 
 def _normalize(text: str) -> str:
@@ -545,11 +776,12 @@ def _token_estimate_for_route(
     task_tokens = count_tokens(task).tokens
     if target == "ollama":
         if ollama_available():
-            # Local/cheap LLM still spends tokens (not agent API $).
+            # Local LLM still spends its own tokens — billing is not
+            # measured here, only the endpoint kind is known.
             return (
                 complexity,
                 max(task_tokens, 1),
-                "Cheap LLM — bulk work off expensive path; local/cheap spend.",
+                "Cheap LLM — bulk work off expensive path; local endpoint.",
             )
         if _metered_bulk_ready(root):
             # ADR-0002: metered cheap fallback serves the bulk tier.
@@ -607,10 +839,11 @@ def _decision_from_route(
     # False, so a literal False here is equivalent to `target == "tool"`.
     # equivalent: bool() of the missing-key default is False whether it is False/None/absent.
     read_only = bool(route.get("read_only", False))  # pragma: no mutate
-    command = route.get("command")
+    admitted = _route_admits_slot_intent(task, route, root)
+    command = route.get("command") if admitted else None
     command_argv: tuple[str, ...] | None = None
     command_cwd: Path | None = None
-    if target == "tool":
+    if target == "tool" and admitted:
         command_argv = _build_tool_argv(route, task, root)
         command_cwd = root
         command = format_invocation(command_argv, command_cwd)
@@ -650,10 +883,12 @@ def _decision_from_route(
         root=root,
     )
     note = (route.get("note") or "").strip()
+    if not admitted:
+        note = f"{note} advisory only: invocation slots/context are unresolved".strip()
     if note and note not in rationale:
         rationale = f"{rationale} {note}".strip()
 
-    wrapper = wrapper_for_command(route.get("command"))
+    wrapper = wrapper_for_command(command)
     if wrapper and wrapper.requires_ollama and not ollama_available():
         rationale = (
             f"{rationale} Ollama optional but currently unavailable."
@@ -682,6 +917,12 @@ def _decision_from_route(
         ),
         command_argv=command_argv,
         command_cwd=command_cwd,
+        intent_slots=(
+            None if not admitted
+            else _json_route_intent(task, route, root) if _JSON_KEYS_HINT.search(task)
+            else parse_recent_commits_intent(task) if tuple(route.get("params") or ()) == ("args",)
+            else None
+        ),
     )
 
 
@@ -692,6 +933,8 @@ def _best_in_tier(routes: list[dict], text: str, task: str, root: Path) -> Route
         if not _route_active(route):
             continue
         if route.get("target") == "tool" and not is_read_only_tool_intent(task):
+            continue
+        if not _route_recommends_slot_intent(task, route, root):
             continue
         score, matched = _score_patterns(text, route.get("patterns", []))
         # equivalent: scores are never negative, and a 0 score never beats best_score.
@@ -747,6 +990,8 @@ def first_matching_route_id(task: str, root: Path | None = None) -> str | None:
     cfg = load_routes_config(root)
     text = _normalize(task)
     all_routes = cfg.get("routes", [])
+    if _slot_intent_rejected(task, all_routes, root):
+        return None
     tool_intent = is_read_only_tool_intent(task)
     # cursor is the escalation target, never a coverage target — a task that
     # only a cursor route matches is still uncrystallized work.
@@ -757,6 +1002,8 @@ def first_matching_route_id(task: str, root: Path | None = None) -> str | None:
             if route.get("target") != tier:
                 continue
             if not _route_active(route):
+                continue
+            if not _route_admits_slot_intent(task, route, root):
                 continue
             if tier == "tool" and not tool_intent:
                 # equivalent: tool_intent is loop-invariant, so the gate drops
@@ -778,6 +1025,8 @@ def route_task_all_tiers(task: str, root: Path | None = None) -> list[tuple[str,
     text = _normalize(task)
     all_routes = cfg.get("routes", [])
     shadow_id, _ = _best_shadow_match(all_routes, text)
+    if _slot_intent_rejected(task, all_routes, root):
+        return [(tier, _with_shadow(_fallback_for_tier(tier, task, root, cfg), shadow_id)) for tier in TIER_ORDER]
     results: list[tuple[str, RouteDecision]] = []
 
     for tier in TIER_ORDER:
@@ -879,6 +1128,7 @@ def _escalate_edit_from_cheap(
         ),
         calibration_n=decision.calibration_n,
         calibration_segment=decision.calibration_segment,
+        escalated_from=decision.target,
     )
 
 
@@ -888,6 +1138,8 @@ def route_task(task: str, root: Path | None = None) -> RouteDecision:
     text = _normalize(task)
     all_routes = cfg.get("routes", [])
     shadow_id, _ = _best_shadow_match(all_routes, text)
+    if _slot_intent_rejected(task, all_routes, root):
+        return _with_shadow(_fallback_for_tier("cursor", task, root, cfg), shadow_id)
 
     # A recognised lookup prefix with a non-read-only continuation is an
     # explicit false-cheap case.  Escalate before pattern scoring so a workspace
@@ -914,6 +1166,7 @@ def route_task(task: str, root: Path | None = None) -> RouteDecision:
                     f"fail-safe escalation. {rationale}"
                 ),
                 confidence_source=SOURCE_FIXED,
+                escalated_from="tool",
             ),
             shadow_id,
         )
