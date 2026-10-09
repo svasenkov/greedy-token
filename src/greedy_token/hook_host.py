@@ -243,14 +243,23 @@ _DEVIN = HostProfile(
     "devin", True, "ref_chip", _parse_devin_prompt, _serialize_devin,
     _context_encoder=_serialize_devin_context,
 )
+_CODEX = HostProfile(
+    "codex", False, "plain_path", _parse_cursor_prompt, _serialize_devin,
+)
 _UNKNOWN = HostProfile(
     "unknown", False, "plain_path", _parse_unknown_prompt, _serialize_unknown, supported=False,
 )
 
-# Output contract: Cursor expects {"continue", "user_message"}; Devin
-# (UserPromptSubmit) expects {"decision": "block", "reason"}.  Devin stdin
-# carries "hook_event_name" — Cursor never sends it, so its presence
-# selects the translation.  Policy itself stays editor-agnostic.
+# Output contract: Cursor expects {"continue", "user_message"}; Devin and
+# Codex (UserPromptSubmit) expect {"decision": "block", "reason"}.  Devin
+# stdin carries "hook_event_name" — Cursor never sends it, so its presence
+# selects the block translation; a bare event name stays the devin profile.
+# Codex sends the same event name plus the always-serialized
+# UserPromptSubmitCommandInput fields — any of the codex-only keys below
+# (turn_id is a codex extension; transcript_path/permission_mode are
+# Claude-schema fields devin does not send) selects the codex profile, so
+# ledger rows stop being mislabeled devin.  Policy stays editor-agnostic.
+_CODEX_FIELDS = frozenset(("turn_id", "transcript_path", "permission_mode"))
 
 
 def detect(data: Any) -> HostProfile:
@@ -260,6 +269,8 @@ def detect(data: Any) -> HostProfile:
         return _CURSOR
     if data["hook_event_name"] != "UserPromptSubmit":
         return _UNKNOWN
+    if not _CODEX_FIELDS.isdisjoint(data):
+        return _CODEX
     return replace(_DEVIN, soft_gate_enabled=_devin_soft_gate_enabled())
 
 

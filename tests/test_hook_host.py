@@ -41,6 +41,65 @@ def test_devin_profile_capabilities(monkeypatch):
     assert not profile.soft_gate_enabled
 
 
+def test_codex_profile_detected_by_wire_fields():
+    profile = detect({
+        "hook_event_name": "UserPromptSubmit",
+        "session_id": "01a12172-2c10-76b1-b3ec-1991d46b4189",
+        "turn_id": "0",
+        "transcript_path": None,
+        "cwd": "/work",
+        "model": "gpt-6",
+        "permission_mode": "read-only",
+        "prompt": "  request  ",
+    })
+    assert profile.name == "codex"
+    assert profile.supported
+    assert not profile.can_render_full
+    assert profile.link_style == "plain_path"
+    assert not profile.supports_context_injection
+    assert not profile.soft_gate_enabled
+    # Codex sends the prompt verbatim — no devin injected-context stripping,
+    # and the shared {"decision", "reason"} block wire schema.
+    assert profile.parse_prompt({"prompt": "  request  "}) == "request"
+    assert profile.serialize_pass() == "{}"
+    assert profile.serialize_gate({"user_message": "stop"}) == (
+        '{"decision": "block", "reason": "stop"}'
+    )
+
+
+@pytest.mark.parametrize("field", ["turn_id", "transcript_path", "permission_mode"])
+def test_each_codex_marker_field_selects_codex(field):
+    profile = detect({"hook_event_name": "UserPromptSubmit", "prompt": "x", field: "v"})
+    assert profile.name == "codex"
+
+
+def test_codex_wire_payload_observation_is_labeled_codex():
+    # Regression: codex UserPromptSubmit payloads used to resolve to the
+    # devin profile, so hook_observation rows were labeled host="devin".
+    detect({"hook_event_name": "UserPromptSubmit", "turn_id": "0"}).serialize_gate(
+        {"user_message": "stop", "task": "t"}
+    )
+    obs = _logged_events()[-1]
+    assert obs["hook_action"] == "gate"
+    assert obs["host"] == "codex"
+
+
+def test_devin_wire_payload_fields_stay_devin():
+    profile = detect({
+        "hook_event_name": "UserPromptSubmit",
+        "session_id": "horse-airship",
+        "prompt_id": "b71e9d40",
+        "prompt": "x",
+    })
+    assert profile.name == "devin"
+
+
+def test_codex_prompt_keeps_context_tags_verbatim():
+    text = "<project_context>blob</project_context>\nrequest"
+    data = {"hook_event_name": "UserPromptSubmit", "turn_id": "0", "prompt": text}
+    assert detect(data).parse_prompt(data) == text
+
+
 @pytest.mark.parametrize("data", [
     None, [], "prompt", 1,
     {"hook_event_name": "PreToolUse"},
