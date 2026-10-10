@@ -25,7 +25,7 @@ from greedy_token.hook_host import BYPASS_PREFIXES, extract_hit_files, strip_ask
 # (Agent-overkill blocking is a separate opt-in: GREEDY_OVERKILL_GATE=1 —
 # see advisory.py.)
 ADVISORY_MIN_CONFIDENCE = 1.01
-MIN_PROMPT_LEN = 12
+MIN_PROMPT_LEN = 8
 ASK_GATE_DIR = Path.home() / ".greedy-token" / "ask-gate"
 
 
@@ -302,6 +302,30 @@ def _log_bypass(prompt: str, data: dict[str, Any]) -> None:
     )
 
 
+def _log_short_prompt(prompt: str, data: dict[str, Any]) -> None:
+    """Audit row for the min-length gate — the prompt still passes to the
+    Agent unrouted, but the skip must not be invisible in the ledger."""
+    adv = _try_advisory()
+    if adv is None:
+        return
+
+    class _SkipDecision:
+        target = "cursor"
+        route_id = "too_short"
+        confidence = 0.0
+        est_tokens = 0
+
+    adv.emit_advisory(
+        adv.build_event(
+            kind=adv.KIND_PASS,
+            action="too_short",
+            prompt=prompt,
+            decision=_SkipDecision(),
+            data=data,
+        )
+    )
+
+
 def _handle_cursor_route(
     prompt: str, data: dict[str, Any], decision: Any, adv: Any,
 ) -> HookResponse | None:
@@ -389,6 +413,7 @@ def _evaluate(
     session_id = data.get("session_id") or data.get("conversation_id")
     if not prompt or len(prompt) < MIN_PROMPT_LEN:
         set_ask_gate(session_id, False)
+        _log_short_prompt(prompt, data)
         return HookResponse()
 
     lower = prompt.lower()

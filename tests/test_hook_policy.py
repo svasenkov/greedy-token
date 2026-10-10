@@ -194,6 +194,10 @@ def test_short_prompt_clears_ask_gate_without_routing(policy_state, prompt):
     assert evaluate(policy_state, prompt).kind == "pass"
     assert not (policy_state.root / "ask-gate" / "fixture.active").exists()
     policy_state.route.assert_not_called()
+    event = last_event(policy_state)
+    assert (event["kind"], event["action"], event["route_id"], event["target"]) == (
+        "pass", "too_short", "too_short", "cursor",
+    )
 
 
 @pytest.mark.parametrize("prefix", ["cursor:", "agent:", "gt-skip:", "nogreedy:", "NOGREEDY:"])
