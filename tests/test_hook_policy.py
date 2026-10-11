@@ -171,13 +171,14 @@ def test_p5_policy_mode_is_a_parameter_not_request_identity(policy_state, monkey
     assert state.runner.call_count == 1
 
 
-def test_intercept_returns_neutral_payload_and_never_prints(policy_state, capsys):
+def test_intercept_returns_neutral_payload_and_never_prints(policy_state, capsys, monkeypatch):
+    monkeypatch.delenv("DEVIN_PROJECT_DIR", raising=False)
     response = evaluate(policy_state)
     assert response.kind == "intercept"
     assert response.payload == {
         "target": "PYTHON", "prompt": PROMPT, "body": policy_state.result.output,
         "pretty": advisory.render_result_output(policy_state.result.output),
-        "root": policy_state.root,
+        "root": policy_state.root, "workspace": None,
     }
     policy_state.route.assert_called_once_with(PROMPT, policy_state.root)
     policy_state.runner.assert_called_once_with(policy_state.root, policy_state.cap.id)
@@ -857,3 +858,18 @@ def test_p1_rework_planner_produced_capability_argv(p1_rework_policy, monkeypatc
     assert plan.cwd == ctx.driver.root
     print(json.dumps({"case": "derived" if derived else "fixed", "actual_argv": plan.argv,
                       "cwd": str(plan.cwd), "execution": "mock-only"}, sort_keys=True))
+
+
+def test_host_workspace_dir_resolution(monkeypatch, tmp_path):
+    env_dir = tmp_path / "env"
+    cwd_dir = tmp_path / "cwd"
+    env_dir.mkdir()
+    cwd_dir.mkdir()
+    monkeypatch.setenv("DEVIN_PROJECT_DIR", str(env_dir))
+    assert hook_policy._host_workspace_dir({"cwd": str(cwd_dir)}) == env_dir
+    monkeypatch.delenv("DEVIN_PROJECT_DIR")
+    assert hook_policy._host_workspace_dir({"cwd": str(cwd_dir)}) == cwd_dir
+    assert hook_policy._host_workspace_dir({"workspace_roots": [str(cwd_dir)]}) == cwd_dir
+    # Junk and missing dirs fail open to the token-root fallback.
+    assert hook_policy._host_workspace_dir({"cwd": str(tmp_path / "missing")}) is None
+    assert hook_policy._host_workspace_dir({}) is None

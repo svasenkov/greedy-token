@@ -221,7 +221,8 @@ class HostProfile:
             return self.serialize_pass()
         message = format_user_message(
             payload["target"], payload["prompt"], payload["body"], payload.get("pretty"),
-            full=self.can_render_full, link_style=self.link_style, root=payload.get("root"),
+            full=self.can_render_full, link_style=self.link_style,
+            root=payload.get("workspace") or payload.get("root"),
         )
         return self._emit_observed(
             "intercept",

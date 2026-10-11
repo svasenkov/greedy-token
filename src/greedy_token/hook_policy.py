@@ -58,6 +58,26 @@ def min_confidence_threshold() -> float:
         return ADVISORY_MIN_CONFIDENCE
 
 
+def _host_workspace_dir(data: dict[str, Any]) -> Path | None:
+    """The IDE's opened workspace — distinct from the greedy-token root.
+
+    ``GREEDY_TOKEN_ROOT`` pins routes/ops to the monorepo even when the
+    host has a foreign folder open; the intercept spill must live in the
+    opened workspace or the host's file chip cannot resolve it.
+    """
+    candidates: list[Any] = [os.environ.get("DEVIN_PROJECT_DIR"), data.get("cwd")]
+    roots = data.get("workspace_roots")
+    if isinstance(roots, list):
+        candidates += roots
+    for raw in candidates:
+        if not isinstance(raw, str) or not raw.strip():
+            continue
+        candidate = Path(raw).expanduser()
+        if candidate.is_dir():
+            return candidate
+    return None
+
+
 def _invocable_op(root: Path, route_id: str) -> Any:
     """Capability row for the matched route — invocable only, else None.
 
@@ -543,7 +563,8 @@ def _evaluate(
         )
     pretty = adv.render_result_output(result.output) if adv is not None else None
     return HookResponse("intercept", {
-        "target": target, "prompt": prompt, "body": result.output, "pretty": pretty, "root": root,
+        "target": target, "prompt": prompt, "body": result.output, "pretty": pretty,
+        "root": root, "workspace": _host_workspace_dir(data),
     })
 
 

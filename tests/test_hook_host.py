@@ -282,6 +282,26 @@ def test_pretty_output_preserves_raw_spill_and_hit_files(full, tmp_path):
     )
 
 
+@pytest.mark.parametrize("devin", [False, True], ids=["cursor", "devin"])
+def test_intercept_spill_prefers_opened_workspace_over_token_root(devin, tmp_path):
+    # GREEDY_TOKEN_ROOT pins ops to the monorepo even when the IDE has a
+    # foreign folder open — the chip target must live in the opened
+    # workspace, not under the token root.
+    token_root = tmp_path / "token-root"
+    workspace = tmp_path / "workspace"
+    token_root.mkdir()
+    workspace.mkdir()
+    profile = detect({"hook_event_name": "UserPromptSubmit"} if devin else {})
+    out = profile.serialize_intercept({
+        "target": "PYTHON", "prompt": "check meta sync", "body": "ok",
+        "root": token_root, "workspace": workspace,
+    })
+    workspace_spill = workspace / ".greedy-token" / "last-intercept.md"
+    assert workspace_spill.is_file()
+    assert not (token_root / ".greedy-token").exists()
+    assert str(workspace_spill) in out
+
+
 def test_default_spill_path(monkeypatch, tmp_path):
     spill = tmp_path / "answer.md"
     monkeypatch.setattr(hook_host, "INTERCEPT_SPILL", spill)
