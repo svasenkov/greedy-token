@@ -165,6 +165,7 @@ class HostProfile:
                 build_hook_observation_event,
             )
 
+            sid = payload.get("session_id")
             append_event(
                 build_hook_observation_event(
                     host=self.name,
@@ -174,6 +175,7 @@ class HostProfile:
                     root=payload.get("root") or None,
                     route_id=payload.get("op_id") or payload.get("route_id"),
                     operation_id=payload.get("operation_id"),
+                    session_id=str(sid) if sid else None,
                 )
             )
         except (OSError, ValueError, TypeError, AttributeError):

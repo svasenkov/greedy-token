@@ -178,7 +178,7 @@ def test_intercept_returns_neutral_payload_and_never_prints(policy_state, capsys
     assert response.payload == {
         "target": "PYTHON", "prompt": PROMPT, "body": policy_state.result.output,
         "pretty": advisory.render_result_output(policy_state.result.output),
-        "root": policy_state.root, "workspace": None,
+        "root": policy_state.root, "workspace": None, "session_id": "fixture",
     }
     policy_state.route.assert_called_once_with(PROMPT, policy_state.root)
     policy_state.runner.assert_called_once_with(policy_state.root, policy_state.cap.id)
@@ -253,8 +253,8 @@ def test_gate_uses_only_resolved_capability_not_host_environment(policy_state, m
     monkeypatch.setenv("GREEDY_DEVIN_SOFT_GATE", "0" if soft else "1")
     response = evaluate(policy_state, soft_gate=soft)
     assert response.kind == "gate"
-    expected = {"op_id": policy_state.cap.id} if soft else {
-        "continue": False,
+    expected = {"op_id": policy_state.cap.id, "session_id": "fixture"} if soft else {
+        "continue": False, "session_id": "fixture",
         "user_message": advisory.format_gate_user_message(PROMPT, op_id=policy_state.cap.id),
     }
     assert response.payload == expected
@@ -385,7 +385,7 @@ def test_cursor_tier_overkill_events_are_preserved(policy_state, monkeypatch, ov
     assert event["blocked"] is blocked
     if blocked:
         assert response.payload == {
-            "continue": False,
+            "continue": False, "session_id": None,
             "user_message": advisory.format_overkill_user_message(
                 PROMPT, attachment_count=1, est_tokens=policy_state.decision.est_tokens,
                 route_id=policy_state.decision.route_id,

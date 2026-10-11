@@ -376,7 +376,7 @@ def test_intercept_serializer_records_an_emission_observation(tmp_path):
     profile = detect({})
     out = profile.serialize_intercept({
         "target": "PYTHON", "prompt": "why slow cpu", "body": "answer",
-        "root": tmp_path,
+        "root": tmp_path, "session_id": "wire-fixture",
     })
     # Protocol preserved: the blocking response is still produced.
     assert json.loads(out)["continue"] is False
@@ -386,6 +386,9 @@ def test_intercept_serializer_records_an_emission_observation(tmp_path):
     assert obs["host"] == "cursor"
     assert obs["hook_action"] == "intercept"
     assert obs["serialize_status"] == "emitted"
+    # The wire session id (not the ambient session file) correlates the
+    # observation with the host conversation.
+    assert obs["session_id"] == "wire-fixture"
     # Supported means serializable, not a proven host skip: the ledger only
     # records that a blocking response was emitted; turn_replaced stays
     # unknown without an authoritative host source.

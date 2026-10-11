@@ -761,6 +761,7 @@ def build_hook_observation_event(
     root: Path | None = None,
     route_id: str | None = None,
     operation_id: str | None = None,
+    session_id: str | None = None,
 ) -> dict:
     """The ledger's own observation of a host boundary act.
 
@@ -798,6 +799,11 @@ def build_hook_observation_event(
         event["route_id"] = route_id
     if operation_id:
         event["operation_id"] = operation_id
+    if session_id:
+        # A wire session id outranks the ambient session file inside
+        # append_event — it identifies the host conversation this
+        # observation belongs to.
+        event["session_id"] = session_id
     return event
 
 

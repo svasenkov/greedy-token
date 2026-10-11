@@ -389,6 +389,7 @@ def _handle_cursor_route(
     if blocked:
         return HookResponse("gate", {
             "continue": False,
+            "session_id": data.get("session_id") or data.get("conversation_id"),
             "user_message": adv.format_overkill_user_message(
                 prompt,
                 attachment_count=len(attachments),
@@ -505,9 +506,11 @@ def _evaluate(
             )
         )
         if soft_gate:
-            return HookResponse("gate", {"op_id": decision.route_id})
+            return HookResponse("gate", {
+                "op_id": decision.route_id, "session_id": session_id,
+            })
         return HookResponse("gate", {
-            "continue": False,
+            "continue": False, "session_id": session_id,
             "user_message": adv.format_gate_user_message(prompt, op_id=decision.route_id),
         })
 
@@ -564,7 +567,7 @@ def _evaluate(
     pretty = adv.render_result_output(result.output) if adv is not None else None
     return HookResponse("intercept", {
         "target": target, "prompt": prompt, "body": result.output, "pretty": pretty,
-        "root": root, "workspace": _host_workspace_dir(data),
+        "root": root, "workspace": _host_workspace_dir(data), "session_id": session_id,
     })
 
 
