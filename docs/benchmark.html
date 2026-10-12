@@ -77,54 +77,55 @@
 </section>
 
 <section id="host-contours">
-  <h2>Host-contour evidence — measured on live hosts (post-D1, v0.19.x)</h2>
-  <p class="foot">Hook на пути промпта (<code>UserPromptSubmit</code> / CLI / GUI agent chat):
-  детерминированный intent выполняется trust-approved локальным скриптом, LLM-turn не происходит —
-  подтверждено независимыми источниками истины хоста и серверным billing ledger.</p>
+  <h2>Proven zero-LLM interception — measured on live hosts (post-D1, v0.19.x)</h2>
+  <p class="foot">A hook intercepts the prompt before it reaches the model. Deterministic intents are
+  answered by local trust-verified scripts — the model is never called: 0 tokens, 0 billable requests,
+  ~1&nbsp;s answer. Verified against independent host records and the provider's own billing ledger.</p>
   <div class="table-scroll" tabindex="0" role="region" aria-label="Host contour evidence">
   <table>
     <thead><tr>
-      <th>Contour</th><th>Host / auth</th><th>Source of truth</th>
-      <th>Block turns</th><th>Control turns</th><th>Tokens on blocked</th><th>Billable on blocked</th><th>Verdict</th>
+      <th>Environment</th><th>Host &amp; auth</th><th>Independent proof</th>
+      <th>Blocked</th><th>Control</th><th>Tokens on blocked</th><th>Billable calls on blocked</th>
     </tr></thead>
     <tbody>
-      <tr><td>Devin ACP</td><td>CLI 3000.10.48</td><td>sessions.db + wire.jsonl + lsof conns</td>
-          <td>3</td><td>2 (12&nbsp;085 / 11&nbsp;950 tok)</td><td><b>0</b></td><td>0 new conns post-prompt</td><td>accept</td></tr>
-      <tr><td>Codex exec</td><td>chatgpt subscription</td><td>rollout <code>token_usage_record</code></td>
-          <td>3</td><td>2 (18&nbsp;544 in / 13 out)</td><td><b>0</b></td><td>usage = 0</td><td>accept</td></tr>
-      <tr><td>Devin.app Desktop</td><td>GUI agent chat (ex-Windsurf)</td><td>sessions.db message_nodes</td>
-          <td>2</td><td>1 (full model turn)</td><td><b>0</b> — 0 user/assistant nodes</td><td>—</td><td>accept</td></tr>
-      <tr><td>Codex apikey (P4b)</td><td>pay-per-token</td><td><b>OpenAI org usage API + costs</b> (minute granularity)</td>
-          <td>3</td><td>2</td><td><b>0</b></td><td><b>0 — all 8 billing families</b></td><td>accept</td></tr>
+      <tr><td>Devin CLI (ACP)</td><td>CLI, plan auth</td><td>Session DB + network watch</td>
+          <td>3</td><td>2 (~12k tok each)</td><td><b>0</b></td><td>0 new connections</td></tr>
+      <tr><td>Codex CLI</td><td>ChatGPT subscription</td><td>Session usage records</td>
+          <td>3</td><td>2 (~18.5k tok)</td><td><b>0</b></td><td>usage = 0</td></tr>
+      <tr><td>Devin Desktop app</td><td>GUI agent chat</td><td>Conversation DB — prompt never created a node</td>
+          <td>2</td><td>1 (full model turn)</td><td><b>0</b></td><td>—</td></tr>
+      <tr><td>Codex API-key</td><td>Pay-per-token</td><td><b>OpenAI billing API</b> (minute-level)</td>
+          <td>3</td><td>2</td><td><b>0</b></td><td><b>0 — all 8 billing categories</b></td></tr>
     </tbody>
   </table>
   </div>
-  <p class="foot">Billing detail (codex apikey): day bucket = ровно 2 запроса <code>gpt-4o-mini</code> — оба контрольных;
-  <code>embeddings/images/audio/moderations/vector_stores/code_interpreter</code> = 0;
-  <code>costs</code> = <b>$0.0027894</b> ≈ два control-вызова. Block-окна пустые на минутной гранулярности.</p>
+  <p class="foot">Billing proof in detail: the daily OpenAI ledger showed exactly <b>2 requests</b> — both
+  control calls; embeddings, images, audio, moderations, vector stores, code interpreter = <b>0</b>;
+  total spend <b>$0.0027894</b> ≈ the two control calls. Blocked windows stayed empty at one-minute
+  granularity.</p>
 
   <div class="table-scroll" tabindex="0" role="region" aria-label="Per-intercept economics">
   <table>
-    <thead><tr><th>Metric</th><th>Blocked turn</th><th>Control (real LLM)</th></tr></thead>
+    <thead><tr><th>Per blocked prompt</th><th>Intercepted</th><th>Sent to model</th></tr></thead>
     <tbody>
-      <tr><td>Billing tokens</td><td><b>0</b></td><td>9 272–18 557 in</td></tr>
-      <tr><td>Time to answer</td><td>~0.9–1.8 s (local script)</td><td>seconds–minutes stream</td></tr>
-      <tr><td>Cost @ frontier ($3–15/1M in)</td><td><b>$0</b></td><td>~$0.03–0.19</td></tr>
-      <tr><td>e.g. “usage stats” prompt</td><td><b>0 tok</b></td><td>~50–60k tok context</td></tr>
+      <tr><td>Billed tokens</td><td><b>0</b></td><td>9 272–18 557</td></tr>
+      <tr><td>Time to answer</td><td>~1 s (local script)</td><td>seconds–minutes stream</td></tr>
+      <tr><td>Cost @ frontier ($3–15 / 1M in)</td><td><b>$0</b></td><td>~$0.03–0.19</td></tr>
+      <tr><td>Real example: “usage stats”</td><td><b>0 tok</b></td><td>~50–60k tok of context</td></tr>
     </tbody>
   </table>
   </div>
 
   <div class="stats">
-    <div class="stat"><div class="v">23</div><div class="l">trust-approved ops (SHA-256 + inode per run)</div></div>
-    <div class="stat"><div class="v">9</div><div class="l">proven zero-LLM block turns</div></div>
-    <div class="stat"><div class="v">0</div><div class="l">billable requests on blocked</div></div>
+    <div class="stat"><div class="v">23</div><div class="l">trusted local operations (SHA-256 + identity per run)</div></div>
+    <div class="stat"><div class="v">9</div><div class="l">proven zero-LLM blocked prompts</div></div>
+    <div class="stat"><div class="v">0</div><div class="l">billable calls on blocked</div></div>
     <div class="stat"><div class="v">$0.003</div><div class="l">total cost of the proof</div></div>
   </div>
-  <p class="foot">Честно не доказано: Cursor.app (другая hook-семантика, не тестирован) ·
-  devin/chatgpt-subscription billing (авторитетного измерителя не существует — проверено структурно,
-  не предположено). Каждое hook-решение пишется в ledger: intercept / pass / too_short / bypass —
-  молчаливых скипов нет.</p>
+  <p class="foot">Honestly not proven: Cursor.app (different hook semantics — not yet tested) ·
+  Devin plan billing (provider API does not expose local metering — measured blind spot) ·
+  ChatGPT subscription billing (no per-request export exists — structurally unmeasurable).
+  Every hook decision lands in the ledger — no silent skips.</p>
 </section>
 
 <section id="source-provenance">

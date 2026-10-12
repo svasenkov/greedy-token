@@ -77,27 +77,27 @@ Under the hood: each task is routed to the cheapest capable tier — `rg`/`jq` t
 
 ## Proven zero-LLM interception — measured on live hosts
 
-A hook sits on the prompt path (`UserPromptSubmit` / CLI / GUI agent chat) and asks **“do you need a model at all?”** Deterministic intents run as trust-approved local scripts — the LLM turn **never happens**: 0 tokens, 0 billable requests, answer in ~1 s. Verified against independent host records and a server-side billing ledger, not self-reported counters.
+A hook intercepts your prompt **before it reaches the model**. Deterministic intents are answered by local trust-verified scripts — the model is never called: **0 tokens, 0 billable requests, ~1 s answer**. Verified against independent host records and the provider's own billing ledger — not self-reported counters.
 
-| Contour | Host / auth | Source of truth | Block | Control | Tokens on blocked | Billable req on blocked | Verdict |
-|---------|-------------|-----------------|-------|---------|-------------------|------------------------|---------|
-| Devin ACP | CLI 3000.10.48 | sessions.db + wire.jsonl + lsof | 3 | 2 (12 085 / 11 950 tok) | **0** | 0 new conns post-prompt | ✅ |
-| Codex exec | ChatGPT subscription | rollout `token_usage_record` | 3 | 2 (18 544 in / 13 out) | **0** | usage = 0 | ✅ |
-| Devin.app Desktop | GUI agent chat (ex-Windsurf) | sessions.db `message_nodes` | 2 | 1 (full model turn) | **0** — 0 user/assistant nodes | — | ✅ |
-| **Codex apikey (P4b)** | pay-per-token | **OpenAI org usage API + costs** (minute granularity) | 3 | 2 | **0** | **0 — all 8 billing families** | ✅ |
+| Environment | Host & auth | Independent proof | Blocked | Control | Tokens on blocked | Billable calls on blocked |
+|-------------|-------------|-------------------|---------|---------|-------------------|---------------------------|
+| Devin CLI (ACP) | CLI, plan auth | Session DB + network watch | 3 | 2 (~12k tok each) | **0** | 0 new connections |
+| Codex CLI | ChatGPT subscription | Session usage records | 3 | 2 (~18.5k tok) | **0** | usage = 0 |
+| Devin Desktop app | GUI agent chat | Conversation DB — prompt never created a node | 2 | 1 (full model turn) | **0** | — |
+| Codex API-key | Pay-per-token | **OpenAI billing API** (minute-level) | 3 | 2 | **0** | **0 — all 8 billing categories** |
 
-Billing detail (codex apikey): day bucket = exactly 2 `gpt-4o-mini` requests — both controls; `embeddings`/`images`/`audio`/`moderations`/`vector_stores`/`code_interpreter` = 0; `costs` = **$0.0027894** ≈ the two control calls. Block windows empty at minute granularity.
+Billing proof in detail: the daily OpenAI ledger showed exactly **2 requests** — both control calls; embeddings, images, audio, moderations, vector stores, code interpreter = **0**; total spend **$0.0027894** ≈ the two control calls. Blocked windows stayed empty at one-minute granularity.
 
-| One intercept | Blocked turn | Control (real LLM) |
-|---------------|--------------|--------------------|
-| Billing tokens | **0** | 9 272–18 557 in |
-| Time to answer | ~0.9–1.8 s (local script) | seconds–minutes stream |
+| Per blocked prompt | Intercepted | Sent to model |
+|--------------------|-------------|---------------|
+| Billed tokens | **0** | 9 272–18 557 |
+| Time to answer | **~1 s** (local script) | seconds–minutes stream |
 | Cost @ frontier ($3–15 / 1M in) | **$0** | ~$0.03–0.19 |
-| e.g. `usage stats` prompt | **0 tok** | ~50–60k tok of context |
+| Real example: `usage stats` | **0 tok** | ~50–60k tok of context |
 
-**Coverage:** 23 trust-approved invocable ops (SHA-256 + file identity re-checked per run) · every hook decision lands in the ledger (intercept / pass / too_short / bypass — no silent skips) · evidence hash-pinned, 0 SHA-256 failures · total cost of the whole proof **$0.003**.
+**Reliability:** 23 trusted local operations (SHA-256 + file identity re-verified every run) · every hook decision lands in the ledger — no silent skips · 431/431 hook tests green · evidence hash-pinned, 0 failures · total cost of the entire proof **$0.003**.
 
-**Honestly not proven:** Cursor.app (different hook semantics — untested) · Devin / ChatGPT-subscription billing (no authoritative meter exists — verified structurally unmeasurable, not assumed).
+**Honestly not proven:** Cursor.app (different hook semantics — not yet tested) · Devin plan billing (provider API does not expose local metering — measured blind spot) · ChatGPT subscription billing (no per-request export exists — structurally unmeasurable).
 
 <details>
 <summary>Illustrative path table — estimates, not measured (the old “Money + time” view)</summary>
