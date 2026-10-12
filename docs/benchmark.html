@@ -3,166 +3,323 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>greedy-token — benchmark</title>
+<title>greedy-token — local answers, verified zero model calls</title>
+<meta name="description" content="Live-host evidence for greedy-token: deterministic prompts answered by trust-verified local scripts before the model is called. Results, billing proof, and explicit limits.">
 <style>
   :root {
-    --fg: #1c1c1e; --muted: #6e6e73; --line: #e3e3e8; --bg: #fff;
-    --accent: #0a7f4f; --warn-bg: #fdf3e3; --info-bg: #eaf4fd;
+    color-scheme: light dark;
+    --bg: #fafbf8; --surface: #f0f3ed; --fg: #1c2921; --muted: #5c695f;
+    --line: #d8dfd5; --accent: #216e4a; --accent-soft: #eaf3eb;
+    --warn-bg: #fff5e5; --loss-bg: #faece8;
+    --mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   }
   @media (prefers-color-scheme: dark) {
-    :root { --fg: #e8e8ea; --muted: #9a9aa0; --line: #38383e; --bg: #1a1a1e;
-            --warn-bg: #3a2f18; --info-bg: #18303f; }
+    :root {
+      --bg: #111813; --surface: #1a231c; --fg: #e5ede4; --muted: #a3b2a5;
+      --line: #344338; --accent: #9ed2ae; --accent-soft: #1c3023;
+      --warn-bg: #30271a; --loss-bg: #35201e;
+    }
   }
   * { box-sizing: border-box; }
-  body { font: 14px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--fg);
-         background: var(--bg); max-width: 1080px; margin: 0 auto; padding: 32px 24px 64px; }
-  h1 { font-size: 24px; margin: 0 0 4px; }
-  h2 { font-size: 17px; margin: 0 0 10px; }
-  .sub { color: var(--muted); font-size: 13px; margin-bottom: 28px; }
-  section { margin-bottom: 32px; }
-  .models { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
-  .card { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
-  .card .name { font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
-  .pill { font-size: 11px; font-weight: 500; border: 1px solid var(--line); border-radius: 999px;
-          padding: 1px 8px; color: var(--muted); }
-  .prices { color: var(--muted); font-size: 12px; margin: 6px 0 10px; font-variant-numeric: tabular-nums; }
-  .rate { display: flex; gap: 8px; align-items: center; font-size: 12px; }
-  .rate input { width: 90px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px;
-                font: inherit; background: var(--bg); color: var(--fg); }
-  table { border-collapse: collapse; width: 100%; font-size: 13px; }
-  th, td { padding: 7px 10px; border-bottom: 1px solid var(--line); text-align: right;
-           font-variant-numeric: tabular-nums; white-space: nowrap; }
-  th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align: left; }
-  td:first-child { white-space: normal; max-width: 340px; }
-  thead th { color: var(--muted); font-weight: 500; font-size: 12px; position: sticky; top: 0;
-             background: var(--bg); }
-  tbody tr:nth-child(even) { background: rgba(128,128,128,.05); }
-  tr.warn { background: var(--warn-bg) !important; }
-  tr.warn td:first-child::before { content: "● "; color: #b87800; font-size: 10px; }
-  tr.loss { background: #fdeaea !important; }
-  tr.loss td:first-child::before { content: "● "; color: #b32b2b; font-size: 10px; }
-  @media (prefers-color-scheme: dark) { tr.loss { background: #3a1f1f !important; } }
-  tr.total { font-weight: 600; border-top: 2px solid var(--line); }
-  tr.total td:first-child::before { content: "● "; color: #2b7fb8; font-size: 10px; }
-  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
-  .stat { border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; }
-  .stat .v { font-size: 20px; font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums; }
-  .stat .l { font-size: 12px; color: var(--muted); margin-top: 2px; }
-  .note { border: 1px solid var(--line); border-left: 3px solid #2b7fb8; background: var(--info-bg);
-          border-radius: 8px; padding: 12px 16px; font-size: 13px; }
-  .note b { display: block; margin-bottom: 4px; }
-  .foot { color: var(--muted); font-size: 12px; margin-top: 8px; }
-  .table-scroll { overflow-x: auto; max-width: 100%; }
+  html { scroll-padding-top: 24px; }
+  body { max-width: 1160px; margin: 0 auto; padding: 0 40px; background: var(--bg); color: var(--fg);
+         font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  h1, h2, h3, p, dl { margin: 0; }
+  h1, h2, h3 { line-height: 1.15; }
+  h1 { max-width: 960px; font-size: clamp(36px, 4.6vw, 58px); font-weight: 650; letter-spacing: -.045em; }
+  h1 span { display: block; color: var(--accent); }
+  h2 { font-size: 28px; font-weight: 600; letter-spacing: -.025em; }
+  h3 { font-size: 18px; font-weight: 600; }
+  a { color: inherit; text-underline-offset: .22em; text-decoration-thickness: 1px; }
+  a:hover { color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 5px; }
+  code, pre { font-family: var(--mono); font-size: .85em; }
   code, .source { overflow-wrap: anywhere; }
-  pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 32rem; overflow: auto; }
-  .stat a { font-size: 11px; color: var(--muted); }
-  td details { white-space: normal; min-width: 180px; max-width: 320px; }
-  .flow { margin: 12px 0 4px; border: 1px solid var(--line); border-radius: 10px;
-          padding: 4px 16px; }
-  .flow .row { display: flex; gap: 14px; align-items: baseline; padding: 9px 0;
-               border-bottom: 1px solid var(--line); }
-  .flow .row:last-child { border-bottom: 0; }
-  .flow .tag { flex: 0 0 96px; }
-  .flow .cond { flex: 1.1; color: var(--muted); }
-  .flow .out { flex: 1; }
-  .tag { display: inline-block; font-size: 11px; font-weight: 600; text-transform: uppercase;
-         letter-spacing: .4px; border-radius: 999px; padding: 2px 9px; text-align: center; }
-  .tag.hit { color: #0a7f4f; border: 1px solid #0a7f4f66; background: #0a7f4f14; }
-  .tag.pass { color: var(--muted); border: 1px solid var(--line); }
-  .tag.audit { color: #b87800; border: 1px solid #b8780066; background: #b8780012; }
-  details.appendix { border: 1px solid var(--line); border-radius: 10px;
-                     padding: 2px 18px 20px; margin-bottom: 32px; }
-  details.appendix > summary { cursor: pointer; font-weight: 600; padding: 12px 0;
-                               color: var(--muted); }
-  details.appendix section { margin-bottom: 28px; }
+  code { padding: 2px 4px; background: var(--surface); border-radius: 3px; }
+  .skip-link { position: absolute; top: -100px; padding: 10px 16px; background: var(--bg); z-index: 1; }
+  .skip-link:focus { top: 12px; }
+  .site-header { display: flex; justify-content: space-between; align-items: center; gap: 24px;
+                 padding: 24px 0; border-bottom: 1px solid var(--line); }
+  .wordmark { font: 600 17px/1.5 var(--mono); letter-spacing: -.04em; text-decoration: none; }
+  .site-nav { display: flex; flex-wrap: wrap; gap: 24px; font-size: 13px; color: var(--muted); }
+  .site-nav a { text-decoration: none; }
+  .site-nav a:hover { text-decoration: underline; }
+  .eyebrow { font: 12px/1.5 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .hero { padding: 56px 0 40px; }
+  .hero .eyebrow { margin-bottom: 20px; }
+  .hero-lead { max-width: 700px; margin-top: 24px; font-size: 18px; color: var(--muted); }
+  .hero-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 40px; }
+  .hero-metrics > div { display: flex; flex-direction: column; padding: 0 24px; border-left: 1px solid var(--line); }
+  .hero-metrics > div:first-child { padding-left: 0; border-left: 0; }
+  .hero-metrics dd { order: -1; margin: 0 0 8px; font-size: clamp(32px, 4vw, 48px); line-height: 1.1;
+                     font-weight: 600; letter-spacing: -.05em; font-variant-numeric: tabular-nums; }
+  .hero-metrics dt { font-size: 14px; font-weight: 600; }
+  .hero-metrics small { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; font-weight: 400; }
+  .content-section { padding: 40px 0; border-top: 1px solid var(--line); }
+  .section-heading { display: grid; grid-template-columns: 1fr 1.15fr; gap: 40px; margin-bottom: 24px; }
+  .section-heading p { color: var(--muted); font-size: 15px; }
+  .table-scroll { max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  caption { padding: 0 0 12px; text-align: left; color: var(--muted); font-size: 13px; }
+  th, td { padding: 14px 12px; border-bottom: 1px solid var(--line); text-align: left;
+           vertical-align: top; font-variant-numeric: tabular-nums; }
+  thead th { background: var(--surface); color: var(--muted); font-size: 12px; font-weight: 500; }
+  .proof-table { min-width: 920px; font-size: 14px; }
+  .proof-table tbody th { width: 18%; font-weight: 600; }
+  .proof-table td:nth-child(2) { width: 27%; }
+  .proof-table td:last-child { width: 22%; }
+  .proof-table .numeric { text-align: right; white-space: nowrap; }
+  .cell-note { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; font-weight: 400; }
+  .zero { color: var(--accent); font-size: 20px; font-weight: 600; }
+  .unknown { color: var(--muted); }
+  .foot { margin-top: 12px; color: var(--muted); font-size: 13px; }
+  .billing-receipt { display: flex; justify-content: space-between; align-items: center; gap: 32px;
+                     margin-top: 24px; padding: 22px 24px; border-left: 2px solid var(--accent); background: var(--accent-soft); }
+  .billing-receipt .eyebrow { margin-bottom: 8px; }
+  .billing-receipt strong { font-size: 20px; font-weight: 600; letter-spacing: -.02em; }
+  .billing-receipt .cell-note { max-width: 570px; font-size: 13px; }
+  .receipt-total { flex-shrink: 0; text-align: right; font-variant-numeric: tabular-nums; }
+  .receipt-total strong { font: 20px/1.5 var(--mono); }
+  .evidence-note { margin-top: 16px; color: var(--muted); font-size: 13px; }
+  .flow-entry { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 24px; }
+  .flow-entry .cell-note { margin: 0 0 0 auto; }
+  .outcomes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; margin: 0; padding: 0; list-style: none; }
+  .outcomes li { padding-top: 16px; border-top: 2px solid var(--line); }
+  .outcomes .intercept { border-color: var(--accent); }
+  .intercept h3 { color: var(--accent); }
+  .outcomes p { margin-top: 12px; font-size: 14px; }
+  .outcomes .condition { min-height: 68px; color: var(--muted); }
+  .trust-note { margin-top: 28px; color: var(--muted); font-size: 13px; }
+  .trust-note strong { color: var(--fg); font-weight: 600; }
+  .comparison { display: grid; grid-template-columns: 1fr 1fr; background: var(--surface); }
+  .comparison > div { padding: 24px 28px; }
+  .comparison > div + div { border-left: 1px solid var(--line); }
+  .comparison-value { margin: 12px 0 4px; font-size: 14px; color: var(--muted); }
+  .comparison-value strong { display: inline-block; margin-right: 6px; color: var(--fg); font-size: 32px;
+                             line-height: 1.2; font-weight: 600; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+  .comparison > div:first-child .comparison-value strong { color: var(--accent); }
+  .comparison .timing { font-size: 14px; }
+  .limits-list > div { display: grid; grid-template-columns: 240px 1fr; gap: 32px; padding: 16px 0;
+                       border-top: 1px solid var(--line); font-size: 15px; }
+  .limits-list dt { font-weight: 600; }
+  .limits-list dd { margin: 0; color: var(--muted); }
+  .appendix { margin: 8px 0 40px; border: 1px solid var(--line); }
+  summary { cursor: pointer; }
+  .appendix > summary { padding: 24px 28px; }
+  .appendix > summary::marker { color: var(--accent); }
+  .appendix > summary > span { display: inline-block; width: calc(100% - 24px); vertical-align: middle; padding-left: 8px; }
+  .appendix-title { display: block; font-size: 22px; font-weight: 600; letter-spacing: -.02em; }
+  .appendix > summary:hover .appendix-title { color: var(--accent); }
+  .appendix-body { padding: 0 28px 28px; }
+  .appendix-intro { padding: 20px 0 28px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); }
+  .appendix section { margin-bottom: 28px; font-size: 14px; }
+  .appendix section + section { padding-top: 28px; border-top: 1px solid var(--line); }
+  .appendix h2 { margin-bottom: 14px; font-size: 20px; }
+  .appendix p + p, .appendix p + details { margin-top: 12px; }
+  .appendix table { min-width: 640px; }
+  .appendix th, .appendix td { white-space: nowrap; }
+  .appendix td:first-child { min-width: 170px; max-width: 340px; white-space: normal; }
+  .appendix .table-scroll { margin-top: 16px; }
+  tr.warn { background: var(--warn-bg); }
+  tr.loss { background: var(--loss-bg); }
+  .stats, .models { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 12px; margin: 16px 0; }
+  .stat, .card { border: 1px solid var(--line); padding: 16px; min-width: 0; }
+  .stat .v { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stat .l, .stat a { margin-top: 4px; color: var(--muted); font-size: 12px; }
+  .note { border-left: 2px solid var(--muted); padding: 18px 22px; background: var(--surface); }
+  .note b { display: block; margin-bottom: 8px; }
+  .rate input { width: 100%; min-width: 0; margin-top: 12px; padding: 8px 10px; border: 1px solid var(--line);
+                border-radius: 3px; font: inherit; background: var(--bg); color: var(--fg); }
+  pre { max-height: 32rem; padding: 16px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--surface); }
+  td details { min-width: 180px; max-width: 320px; white-space: normal; }
+  noscript { display: block; margin-top: 20px; color: var(--muted); font-size: 13px; }
+  .site-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px; padding: 24px 0 40px;
+                 border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+  @media (max-width: 720px) {
+    body { padding: 0 20px; }
+    .site-header { padding: 20px 0; flex-wrap: wrap; gap: 12px; }
+    .site-nav { gap: 18px; }
+    .hero { padding: 40px 0 32px; }
+    .hero-lead { font-size: 16px; }
+    .hero-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 0; margin-top: 32px; }
+    .hero-metrics > div { padding: 0 16px; }
+    .hero-metrics > div:nth-child(odd) { padding-left: 0; border-left: 0; }
+    .hero-metrics dd { font-size: 40px; }
+    .content-section { padding: 32px 0; }
+    .section-heading { grid-template-columns: 1fr; gap: 12px; }
+    h2 { font-size: 25px; }
+    .billing-receipt { flex-direction: column; align-items: flex-start; gap: 16px; padding: 20px; }
+    .receipt-total { text-align: left; }
+    .flow-entry .cell-note { flex-basis: 100%; }
+    .outcomes { grid-template-columns: 1fr; gap: 24px; }
+    .outcomes .condition { min-height: 0; }
+    .comparison { grid-template-columns: 1fr; }
+    .comparison > div { padding: 20px; }
+    .comparison > div + div { border-left: 0; border-top: 1px solid var(--line); }
+    .comparison-value strong { font-size: 28px; }
+    .limits-list > div { grid-template-columns: 1fr; gap: 6px; }
+    .appendix > summary { padding: 20px 16px; }
+    .appendix-body { padding: 0 16px 20px; }
+    .note { padding: 16px; }
+  }
 </style>
 </head>
-<body>
+<body id="top">
+<a class="skip-link" href="#content">Skip to content</a>
+<header class="site-header">
+  <a class="wordmark" href="#top">greedy-token</a>
+  <nav class="site-nav" aria-label="Page sections">
+    <a href="#host-contours">Proof</a>
+    <a href="#how-it-works">How it works</a>
+    <a href="#limits">Limits</a>
+    <a href="#auditor-appendix">Appendix</a>
+  </nav>
+</header>
 
-<h1>greedy-token</h1>
-<p class="sub">A hook on the prompt path. Deterministic requests are answered by local trust-verified
-scripts — <b>the model is never called: 0 tokens, 0 billable requests, ~1&nbsp;s answer.</b>
-Verified against independent host records and the provider's own billing ledger.</p>
-
-<div class="stats">
-  <div class="stat"><div class="v">9</div><div class="l">prompts proven zero-LLM on live hosts</div></div>
-  <div class="stat"><div class="v">0</div><div class="l">billable model calls on blocked prompts</div></div>
-  <div class="stat"><div class="v">23</div><div class="l">trusted local operations</div></div>
-  <div class="stat"><div class="v">$0.003</div><div class="l">total cost of the entire proof</div></div>
-</div>
-
-<section>
-  <h2>How it works</h2>
-  <p class="foot">Every prompt passes through the <code>UserPromptSubmit</code> hook
-  before the host can send it to the model.</p>
-  <div class="flow">
-    <div class="row"><span class="tag hit">intercept</span>
-      <span class="cond">intent recognized · confidence ≥ 0.65 · within trust-approved coverage</span>
-      <span class="out">local script runs, answer rendered — <b>model never called</b></span></div>
-    <div class="row"><span class="tag pass">pass</span>
-      <span class="cond">intent outside coverage</span>
-      <span class="out">normal agent turn, nothing changes</span></div>
-    <div class="row"><span class="tag audit">audited pass</span>
-      <span class="cond">prompt &lt; 8 chars or <code>nogreedy:</code> bypass</span>
-      <span class="out">passes through but lands in the ledger — no silent skips</span></div>
-  </div>
-  <p class="foot">Trust = every script's SHA-256 and file identity are re-verified on each run;
-  content drift refuses execution instead of silently running stale code.</p>
+<main id="content">
+<section class="hero" aria-labelledby="page-title">
+  <p class="eyebrow">Live-host benchmark</p>
+  <h1 id="page-title">Prompts answered locally.<span>The model is never called.</span></h1>
+  <p class="hero-lead">greedy-token intercepts deterministic requests <strong>before model dispatch</strong>.
+  Within trust-approved coverage, a local script does the work. Everything else passes through.</p>
+  <dl class="hero-metrics" aria-label="Verified results and their scope">
+    <div><dt>Blocked prompts<small>proven zero-LLM on live hosts</small></dt><dd>9</dd></div>
+    <div><dt>Model tokens<small>on blocked prompts</small></dt><dd>0</dd></div>
+    <div><dt>Billable calls<small>API-key blocked windows</small></dt><dd>0</dd></div>
+    <div><dt>Total proof cost<small>rounded; exact ledger below</small></dt><dd>$0.003</dd></div>
+  </dl>
 </section>
 
-<section id="host-contours">
-  <h2>Proven on live hosts — independent evidence</h2>
-  <div class="table-scroll" tabindex="0" role="region" aria-label="Host contour evidence">
-  <table>
-    <thead><tr>
-      <th>Environment</th><th>Host &amp; auth</th><th>Independent proof</th>
-      <th>Blocked</th><th>Control</th><th>Tokens on blocked</th><th>Billable calls on blocked</th>
-    </tr></thead>
-    <tbody>
-      <tr><td>Devin CLI (ACP)</td><td>CLI, plan auth</td><td>Session DB + network watch</td>
-          <td>3</td><td>2 (~12k tok each)</td><td><b>0</b></td><td>0 new connections</td></tr>
-      <tr><td>Codex CLI</td><td>ChatGPT subscription</td><td>Session usage records</td>
-          <td>3</td><td>2 (~18.5k tok)</td><td><b>0</b></td><td>usage = 0</td></tr>
-      <tr><td>Devin Desktop app</td><td>GUI agent chat</td><td>Conversation DB — prompt never created a node</td>
-          <td>2</td><td>1 (full model turn)</td><td><b>0</b></td><td>—</td></tr>
-      <tr><td>Codex API-key</td><td>Pay-per-token</td><td><b>OpenAI billing API</b> (minute-level)</td>
-          <td>3</td><td>2</td><td><b>0</b></td><td><b>0 — all 8 billing categories</b></td></tr>
-    </tbody>
-  </table>
+<section class="content-section" id="host-contours" aria-labelledby="proof-title">
+  <div class="section-heading">
+    <h2 id="proof-title">What the live runs prove</h2>
+    <p>Independent host records establish interception. The API-key contour also verifies billing
+    against the provider, not just the hook's own output.</p>
   </div>
-  <p class="foot">Billing proof in detail: the daily OpenAI ledger showed exactly <b>2 requests</b> — both
-  control calls; embeddings, images, audio, moderations, vector stores, code interpreter = <b>0</b>;
-  total spend <b>$0.0027894</b> ≈ the two control calls. Blocked windows stayed empty at one-minute
-  granularity.</p>
-
-  <div class="table-scroll" tabindex="0" role="region" aria-label="Per-intercept economics">
-  <table>
-    <thead><tr><th>Per blocked prompt</th><th>Intercepted</th><th>Sent to model</th></tr></thead>
-    <tbody>
-      <tr><td>Billed tokens</td><td><b>0</b></td><td>9 272–18 557</td></tr>
-      <tr><td>Time to answer</td><td>~1 s (local script)</td><td>seconds–minutes stream</td></tr>
-      <tr><td>Cost @ frontier ($3–15 / 1M in)</td><td><b>$0</b></td><td>~$0.03–0.19</td></tr>
-      <tr><td>Real example: “usage stats”</td><td><b>0 tok</b></td><td>~50–60k tok of context</td></tr>
-    </tbody>
-  </table>
+  <div class="table-scroll" tabindex="0" role="region" aria-label="Live-host evidence; scroll horizontally for all columns">
+    <table class="proof-table" aria-describedby="contour-scope">
+      <caption>Four host contours. Token and billing columns refer only to blocked prompts.</caption>
+      <thead><tr>
+        <th scope="col">Host / authentication</th><th scope="col">Independent proof</th>
+        <th scope="col" class="numeric">Blocked</th><th scope="col" class="numeric">Control</th>
+        <th scope="col" class="numeric">Tokens</th><th scope="col">Billable calls</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <th scope="row">Devin CLI<span class="cell-note">ACP · plan auth</span></th>
+          <td>Session DB + network watch<span class="cell-note">0 new connections on blocked prompts</span></td>
+          <td class="numeric">3</td><td class="numeric">2<span class="cell-note">~12k tokens each</span></td>
+          <td class="numeric"><strong class="zero">0</strong></td>
+          <td><span class="unknown">Not observable</span><span class="cell-note">Local plan-metering blind spot</span></td>
+        </tr>
+        <tr>
+          <th scope="row">Codex CLI<span class="cell-note">ChatGPT subscription</span></th>
+          <td>Session usage records<span class="cell-note">Recorded usage = 0</span></td>
+          <td class="numeric">3</td><td class="numeric">2<span class="cell-note">~18.5k tokens</span></td>
+          <td class="numeric"><strong class="zero">0</strong></td>
+          <td><span class="unknown">Not measurable</span><span class="cell-note">No per-request billing export</span></td>
+        </tr>
+        <tr>
+          <th scope="row">Devin Desktop<span class="cell-note">GUI agent chat</span></th>
+          <td>Conversation DB<span class="cell-note">The prompt did not even create a node</span></td>
+          <td class="numeric">2</td><td class="numeric">1<span class="cell-note">Full model turn</span></td>
+          <td class="numeric"><strong class="zero">0</strong></td>
+          <td><span class="unknown">Not established</span><span class="cell-note">Conversation evidence, not billing</span></td>
+        </tr>
+        <tr>
+          <th scope="row">Codex API-key<span class="cell-note">Pay-per-token</span></th>
+          <td>OpenAI org billing API<span class="cell-note">Independent one-minute windows</span></td>
+          <td class="numeric">3</td><td class="numeric">2</td>
+          <td class="numeric"><strong class="zero">0</strong></td>
+          <td><strong class="zero">0</strong><span class="cell-note">All 8 billing families: 0</span></td>
+        </tr>
+      </tbody>
+    </table>
   </div>
-
-  <h2>Evidence rigor</h2>
-  <div class="stats">
-    <div class="stat"><div class="v">431/431</div><div class="l">hook tests green</div></div>
-    <div class="stat"><div class="v">~500</div><div class="l">evidence files, hash-verified</div></div>
-    <div class="stat"><div class="v">0</div><div class="l">SHA-256 verification failures</div></div>
-    <div class="stat"><div class="v">3</div><div class="l">independent ledgers per blocked prompt</div></div>
+  <p class="foot" id="contour-scope">The 9-prompt headline and the per-contour counts are reported separately;
+  this page does not infer a combined total. Unobservable billing is not recorded as zero.</p>
+  <div class="billing-receipt">
+    <div>
+      <p class="eyebrow">Provider cross-check</p>
+      <p><strong>2 requests. Both controls.</strong>
+      <span class="cell-note">The daily OpenAI ledger accounts for both model requests.
+      Blocked windows stayed empty at one-minute granularity; all 8 billing families were zero in those windows.</span></p>
+    </div>
+    <p class="receipt-total"><strong>$0.0027894</strong><span class="cell-note">Daily OpenAI ledger total</span></p>
   </div>
-
-  <h2>Honestly not proven</h2>
-  <p class="foot">Cursor.app (different hook semantics — not yet tested) ·
-  Devin plan billing (provider API does not expose local metering — measured blind spot) ·
-  ChatGPT subscription billing (no per-request export exists — structurally unmeasurable).</p>
+  <p class="evidence-note">431/431 hook tests · ~500 hash-verified evidence files · 0 SHA-256 failures</p>
 </section>
 
-<details class="appendix">
-<summary>Auditor appendix — full forensic ledger: D1 snapshot, gates, unverified archive (nothing removed)</summary>
+<section class="content-section" id="how-it-works" aria-labelledby="flow-title">
+  <div class="section-heading">
+    <h2 id="flow-title">One hook. Three outcomes.</h2>
+    <p><code>UserPromptSubmit</code> runs before the host sends the prompt to the model.
+    An intercept is a local execution, not another LLM turn.</p>
+  </div>
+  <p class="flow-entry"><code>prompt</code><span aria-hidden="true">→</span><code>UserPromptSubmit</code>
+  <span class="cell-note">Before any model call</span></p>
+  <ul class="outcomes" aria-label="Prompt routing outcomes">
+    <li class="intercept">
+      <h3>Intercept</h3>
+      <p class="condition">Recognized intent, confidence ≥ 0.65, within trust-approved coverage.</p>
+      <p>A verified local script runs and returns the answer. <strong>The model is never called.</strong></p>
+    </li>
+    <li>
+      <h3>Pass</h3>
+      <p class="condition">The intent is outside supported coverage.</p>
+      <p>The prompt continues to a normal agent turn. <strong>Nothing changes.</strong></p>
+    </li>
+    <li>
+      <h3>Audited pass</h3>
+      <p class="condition">Fewer than 8 characters, or an explicit <code>nogreedy:</code> bypass.</p>
+      <p>The prompt passes through, with the bypass <strong>visible in the ledger.</strong></p>
+    </li>
+  </ul>
+  <p class="trust-note"><strong>23 trust-approved operations.</strong> Each script's SHA-256 and file identity
+  are re-verified on every run. Content drift refuses execution; it does not silently run stale code.</p>
+</section>
+
+<section class="content-section" id="savings" aria-labelledby="savings-title">
+  <div class="section-heading">
+    <h2 id="savings-title">One intercepted prompt</h2>
+    <p>The local path uses no model tokens. These are observed magnitudes,
+    not a projected savings percentage for an entire agent session.</p>
+  </div>
+  <div class="comparison">
+    <div>
+      <p class="eyebrow">Trust-verified local script</p>
+      <p class="comparison-value"><strong>0</strong> tokens</p>
+      <p class="timing">~1 s to answer</p>
+    </div>
+    <div>
+      <p class="eyebrow">Observed model turns</p>
+      <p class="comparison-value"><strong>9,272–18,557</strong> tokens</p>
+      <p class="timing">Seconds to minutes of streaming</p>
+    </div>
+  </div>
+  <p class="foot">This is not a matched optimized-direct baseline. That baseline remains unmeasured;
+  illustrative price comparisons and the assumption calculator are in the appendix.</p>
+</section>
+
+<section class="content-section" id="limits" aria-labelledby="limits-title">
+  <div class="section-heading">
+    <h2 id="limits-title">Not proven</h2>
+    <p>Zero model usage is not a universal billing claim.
+    Where the meter is unavailable, the result stays unknown.</p>
+  </div>
+  <dl class="limits-list">
+    <div><dt>Cursor</dt><dd>Not tested. Its hook semantics differ from the measured hosts.</dd></div>
+    <div><dt>Devin plan billing</dt><dd>Measured blind spot: the provider API cannot see local metering.</dd></div>
+    <div><dt>ChatGPT subscription billing</dt><dd>Structurally unmeasurable: a per-request billing export does not exist.</dd></div>
+  </dl>
+</section>
+
+<details class="appendix" id="auditor-appendix">
+<summary><span><span class="appendix-title">Auditor appendix</span>
+<span class="cell-note">D1 snapshot, raw ledger, gates, unverified history, baselines &amp; assumptions.</span></span></summary>
+<div class="appendix-body">
+<p class="appendix-intro">The live-host results above and the older D1 snapshot below are separate evidence sets.
+The original forensic sections are preserved in full, including failed gates and unknown values.</p>
 
 <section class="note">
   <b>What is proven and what is not</b>
@@ -251,11 +408,43 @@ Verified against independent host records and the provider's own billing ledger.
   for readability — it remains in git history and plays no part in the calculations.</p>
 </section>
 
-</details>
-
 <noscript>All product/live numeric metrics: unknown until the snapshot integrity check runs. JavaScript is used only for local rendering; no commands or agents are launched.</noscript>
 
+<section>
+  <h2>Per-intercept economics — additional context</h2>
+  <p class="foot">Frontier-rate costs are illustrative estimates, not the measured provider billing ledger.</p>
+  <div class="table-scroll" tabindex="0" role="region" aria-label="Per-intercept economics">
+  <table>
+    <thead><tr><th>Per blocked prompt</th><th>Intercepted</th><th>Sent to model</th></tr></thead>
+    <tbody>
+      <tr><td>Billed tokens</td><td><b>0</b></td><td>9 272–18 557</td></tr>
+      <tr><td>Time to answer</td><td>~1 s (local script)</td><td>seconds–minutes stream</td></tr>
+      <tr><td>Cost @ frontier ($3–15 / 1M in)</td><td><b>$0</b></td><td>~$0.03–0.19</td></tr>
+      <tr><td>Real example: “usage stats”</td><td><b>0 tok</b></td><td>~50–60k tok of context</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="foot">The daily billing cross-check also recorded zero for embeddings, images, audio,
+  moderations, vector stores, and code interpreter. The $0.0027894 total corresponds to the two control calls.</p>
+</section>
 
+<section>
+  <h2>Evidence rigor</h2>
+  <div class="stats">
+    <div class="stat"><div class="v">431/431</div><div class="l">hook tests green</div></div>
+    <div class="stat"><div class="v">~500</div><div class="l">evidence files, hash-verified</div></div>
+    <div class="stat"><div class="v">0</div><div class="l">SHA-256 verification failures</div></div>
+    <div class="stat"><div class="v">3</div><div class="l">independent ledgers per blocked prompt</div></div>
+  </div>
+</section>
+</div>
+</details>
+</main>
+
+<footer class="site-footer">
+  <p>Self-contained page. No external resources. Evidence is decoded locally.</p>
+  <a href="https://github.com/svasenkov/greedy-token">Source on GitHub</a>
+</footer>
 
 <script id="d1-evidence" type="application/gzip" data-encoding="gzip/base64" data-sha256="e8e28f925aefc8d52d051aac889dbb1a95de4b88e3d56ddfd63983a38fed2551">
 H4sIAAAAAAACE+y93XJcyZEm+CrH2JoRq6aQDA+PX2gls1KJLWlEFWVV1LRpxTIofsnsAjIxmYmiODKVqTUzPXOxZms71rdr

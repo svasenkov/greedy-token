@@ -380,6 +380,8 @@ async function isolated(browser, options = {}) {
       assert.equal(await page.locator('#stats [data-source][data-scope][data-oracle][data-coverage]').count(),7);
       assert.ok(await page.locator('#live-summary').textContent().then(t=>t.includes('unknown')));
       assert.ok(await page.locator('#host-summary').textContent().then(t=>t.includes('unknown')));
+      assert.equal(await page.locator('details.appendix').getAttribute('open'),null);
+      await page.locator('details.appendix > summary').click();
       await page.locator('#potential-naive').fill('100');
       await page.locator('#potential-direct').fill('130');
       await page.locator('#potential-rate').fill('2');
@@ -393,6 +395,17 @@ async function isolated(browser, options = {}) {
       checks.push({width,status:'PASS'});
       await context.close();
     }
+    const noScript = await isolated(browser,{javaScriptEnabled:false,viewport:{width:390,height:1000}});
+    const noScriptPage = await noScript.newPage();
+    await noScriptPage.goto(url);
+    assert.equal(await noScriptPage.locator('details.appendix').getAttribute('open'),null);
+    await noScriptPage.locator('details.appendix > summary').focus();
+    await noScriptPage.keyboard.press('Enter');
+    assert.ok(await noScriptPage.locator('#potential-naive').isVisible());
+    assert.ok((await noScriptPage.locator('noscript').innerText()).includes('unknown'));
+    assert.equal(await noScriptPage.locator('#product-status').getAttribute('data-status'),'unknown');
+    checks.push({javascript_disabled:'PASS',keyboard_appendix:'PASS'});
+    await noScript.close();
     const context = await isolated(browser);
     await context.addInitScript(()=>Object.defineProperty(window,'DecompressionStream',{value:undefined}));
     const page = await context.newPage();
