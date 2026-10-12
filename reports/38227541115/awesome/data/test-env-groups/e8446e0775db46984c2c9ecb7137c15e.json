@@ -1,0 +1,1 @@
+{"id":"e8446e0775db46984c2c9ecb7137c15e","fullName":"tests.test_executors_gaps#test_observed_tool_plan_limit_breaks_scope_loop","name":"observed tool plan honours --max-count across scope dirs","status":"passed","testResultsByEnv":{"default":"f7d4a5f96a6f4cafa8a0db66518bb8f4"}}

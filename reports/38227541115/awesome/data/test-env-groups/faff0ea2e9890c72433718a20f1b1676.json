@@ -1,0 +1,1 @@
+{"id":"faff0ea2e9890c72433718a20f1b1676","fullName":"tests.test_hook_policy#test_intent_request_verb_with_args_spec_derivation","name":"has_invocation_intent: request verb + derivable args admits the op","status":"passed","testResultsByEnv":{"default":"59b7a14600b578f2dd57bbc796c02a86"}}

@@ -1,0 +1,1 @@
+{"id":"abf5df5e9ccec8c3817d03fdde536e4b","fullName":"tests.test_budget_gaps#test_wrap_mcp_response_refusal_not_failure","name":"a boundary-declared refusal reaches gate, outcome record and envelope","status":"passed","testResultsByEnv":{"default":"99a236ba5246a2c7f5556b6f1b73fd13"}}

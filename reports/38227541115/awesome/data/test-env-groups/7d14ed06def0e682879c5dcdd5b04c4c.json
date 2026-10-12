@@ -1,0 +1,1 @@
+{"id":"7d14ed06def0e682879c5dcdd5b04c4c","fullName":"tests.test_cheap_llm_gaps#test_observe_emit_unwritable_ledger_uninstalled","name":"uninstalled run with an unwritable ledger degrades to None","status":"passed","testResultsByEnv":{"default":"bf76d82614795535b35c3b44c649a2c6"}}

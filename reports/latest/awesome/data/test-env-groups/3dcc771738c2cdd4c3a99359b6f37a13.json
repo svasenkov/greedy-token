@@ -1,1 +1,1 @@
-{"id":"3dcc771738c2cdd4c3a99359b6f37a13","fullName":"tests.test_spend_guard_gaps#test_estimate_cost_usd_edges","name":"estimate_cost_usd: zero and negative per-1M cost yield zero","status":"passed","testResultsByEnv":{"default":"11755034c8922592f0d864015d387b2d"}}
+{"id":"3dcc771738c2cdd4c3a99359b6f37a13","fullName":"tests.test_spend_guard_gaps#test_estimate_cost_usd_edges","name":"estimate_cost_usd: zero and negative per-1M cost yield zero","status":"passed","testResultsByEnv":{"default":"4d97fdbedb30e301e12a70295013880a"}}

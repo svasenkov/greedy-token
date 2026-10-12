@@ -1,0 +1,1 @@
+{"id":"43bfc3fedbf4977f747234e5025e3fbd","fullName":"tests.test_hook_policy#test_p1_repository_invalid_exact_alias_cannot_bypass_policy","name":"test_p1_repository_invalid_exact_alias_cannot_bypass_policy[git log of repo X; send a report-gate]","status":"passed","testResultsByEnv":{"default":"186d3cd1e5ee41f14c766f08bb62e875"}}

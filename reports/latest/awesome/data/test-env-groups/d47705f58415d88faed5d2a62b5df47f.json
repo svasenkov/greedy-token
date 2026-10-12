@@ -1,1 +1,1 @@
-{"id":"d47705f58415d88faed5d2a62b5df47f","fullName":"tests.test_metered_bulk#test_invoke_metered_cheap_blocked","name":"invoke without opt-in fails with the spend-guard reason","status":"passed","testResultsByEnv":{"default":"2c9704e049b750f04403526215c889a2"}}
+{"id":"d47705f58415d88faed5d2a62b5df47f","fullName":"tests.test_metered_bulk#test_invoke_metered_cheap_blocked","name":"invoke without opt-in fails with the spend-guard reason","status":"passed","testResultsByEnv":{"default":"decdbcfb333b1e0ac137a834c6f61437"}}

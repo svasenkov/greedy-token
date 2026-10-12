@@ -1,0 +1,1 @@
+{"id":"1d4fc64d2c7fd055c81e00f000912dde","fullName":"tests.test_cheap_llm_gaps#test_install_observation_without_posix_spawn","name":"install_observation skips posix_spawn guards when the platform lacks them","status":"passed","testResultsByEnv":{"default":"9e24cc1beb3f3d49762b1f3e6ce1ba5c"}}

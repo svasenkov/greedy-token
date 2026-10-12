@@ -1,1 +1,1 @@
-{"id":"63ea6f997e2acb271df92c75aa2ec8c5","fullName":"tests.test_machine_output#test_shrink_text_contract_skeleton","name":"_shrink_text: contract JSON reduces to skeleton or empty","status":"passed","testResultsByEnv":{"default":"3b331ce22eed784751b2361b7ef22929"}}
+{"id":"63ea6f997e2acb271df92c75aa2ec8c5","fullName":"tests.test_machine_output#test_shrink_text_contract_skeleton","name":"_shrink_text: contract JSON reduces to skeleton or empty","status":"passed","testResultsByEnv":{"default":"efdec851e98f52f2e45006080eacc821"}}

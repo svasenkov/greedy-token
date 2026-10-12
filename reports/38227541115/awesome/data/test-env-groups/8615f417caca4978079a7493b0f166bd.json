@@ -1,0 +1,1 @@
+{"id":"8615f417caca4978079a7493b0f166bd","fullName":"tests.test_evidence_benchmark#test_ledger_write_failure_fails_closed","name":"Ledger write failure fails closed instead of silent loss","status":"passed","testResultsByEnv":{"default":"cb9f39af102d8bc5ba0234d81bb3797a"}}

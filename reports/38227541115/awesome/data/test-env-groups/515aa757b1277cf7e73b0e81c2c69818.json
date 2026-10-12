@@ -1,0 +1,1 @@
+{"id":"515aa757b1277cf7e73b0e81c2c69818","fullName":"tests.test_trust_gaps#test_trust_manifest_path_layout","name":"trust_manifest_path: trust/<wsid>/manifest.json layout is exact","status":"passed","testResultsByEnv":{"default":"6846d73a8b61f2b2d1d0608e7e1434ab"}}

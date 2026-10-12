@@ -1,1 +1,1 @@
-{"id":"ed1aa67f74bdbdf93736a75bb84ee49d","fullName":"tests.test_usage#test_quality_metrics_rates","name":"quality_metrics computes override_rate and cheap_hold_rate","status":"passed","testResultsByEnv":{"default":"82c89cb188a6f915253e06a64b9763c1"}}
+{"id":"ed1aa67f74bdbdf93736a75bb84ee49d","fullName":"tests.test_usage#test_quality_metrics_rates","name":"quality_metrics computes override_rate and cheap_hold_rate","status":"passed","testResultsByEnv":{"default":"67ce695ff2b66687428dc71d9dc45837"}}

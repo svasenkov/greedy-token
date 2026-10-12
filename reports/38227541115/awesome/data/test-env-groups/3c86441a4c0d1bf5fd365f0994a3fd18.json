@@ -1,0 +1,1 @@
+{"id":"3c86441a4c0d1bf5fd365f0994a3fd18","fullName":"tests.test_evidence_benchmark#test_rag_chunk_id_with_excerpt_is_zero","name":"RAG chunk id plus substantive frozen excerpt is real completion","status":"passed","testResultsByEnv":{"default":"87a6b36fc254a305df9d48e368ad3f9d"}}

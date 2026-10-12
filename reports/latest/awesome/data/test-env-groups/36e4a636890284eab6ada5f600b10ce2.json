@@ -1,1 +1,1 @@
-{"id":"36e4a636890284eab6ada5f600b10ce2","fullName":"tests.test_tokens#test_collect_paths_skips_suffixes","name":"collect_paths skips binary suffixes and broken symlinks","status":"passed","testResultsByEnv":{"default":"4589e1d9c863e459bfc381f3942e8f4a"}}
+{"id":"36e4a636890284eab6ada5f600b10ce2","fullName":"tests.test_tokens#test_collect_paths_skips_suffixes","name":"collect_paths skips binary suffixes and broken symlinks","status":"passed","testResultsByEnv":{"default":"7214cb5745238251581fa02d37786537"}}

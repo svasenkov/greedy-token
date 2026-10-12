@@ -1,0 +1,1 @@
+{"id":"2eca575f343c89993f7138ec5b746b14","fullName":"tests.test_machine_output#test_format_machine_output_shrink_valueerror_refusal","name":"format_machine_output: a failing shrinker degrades to the refusal envelope","status":"passed","testResultsByEnv":{"default":"c47351a8cdca8bba46784b9444a7bf99"}}

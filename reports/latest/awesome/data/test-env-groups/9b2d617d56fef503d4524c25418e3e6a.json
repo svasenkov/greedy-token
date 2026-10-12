@@ -1,1 +1,1 @@
-{"id":"9b2d617d56fef503d4524c25418e3e6a","fullName":"tests.test_cli_handlers#test_cmd_init_preset_errors","name":"cmd_init --preset error paths: unknown name, empty name, no routes","status":"passed","testResultsByEnv":{"default":"6d14732bfb84b7d33776d5ba51aba0cc"}}
+{"id":"9b2d617d56fef503d4524c25418e3e6a","fullName":"tests.test_cli_handlers#test_cmd_init_preset_errors","name":"cmd_init --preset error paths: unknown name, empty name, no routes","status":"passed","testResultsByEnv":{"default":"5a7fde50e462cb44ca116093e6787f2f"}}

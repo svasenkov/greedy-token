@@ -1,0 +1,1 @@
+{"id":"c1c95cddd38fddf8ab2f29d4f1de7934","fullName":"tests.test_agent_host#test_host_registry_complete","name":"Every declared host has globs, label, and hint","status":"passed","testResultsByEnv":{"default":"4d03a12e4c3a94c08be99012b44a1d43"}}

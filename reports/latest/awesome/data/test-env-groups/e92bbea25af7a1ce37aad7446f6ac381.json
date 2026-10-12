@@ -1,1 +1,1 @@
-{"id":"e92bbea25af7a1ce37aad7446f6ac381","fullName":"tests.test_llm_invoke_gaps#test_invoke_resolves_by_profile","name":"profile resolution honours the model's profile match","status":"passed","testResultsByEnv":{"default":"c87aa41635d6dc4511bab3645d9b1e14"}}
+{"id":"e92bbea25af7a1ce37aad7446f6ac381","fullName":"tests.test_llm_invoke_gaps#test_invoke_resolves_by_profile","name":"profile resolution honours the model's profile match","status":"passed","testResultsByEnv":{"default":"eb07f7b70f399f36a829266cc5acc6f1"}}

@@ -1,0 +1,1 @@
+{"id":"db9cfa56b3de3c58356555725140ae5c","fullName":"tests.test_rag_search_gaps#test_cap_zero_disables","name":"cap <= 0 disables truncation entirely","status":"passed","testResultsByEnv":{"default":"b4dbed628b7d51dfe9cfe4c6b8b93bc0"}}

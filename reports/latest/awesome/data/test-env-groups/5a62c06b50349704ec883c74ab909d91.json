@@ -1,1 +1,1 @@
-{"id":"5a62c06b50349704ec883c74ab909d91","fullName":"tests.test_cli_handlers#test_cmd_config_export","name":"cmd_config --export prints shell exports","status":"passed","testResultsByEnv":{"default":"e8f06d74495b1d3cf262ac2d94d78d1d"}}
+{"id":"5a62c06b50349704ec883c74ab909d91","fullName":"tests.test_cli_handlers#test_cmd_config_export","name":"cmd_config --export prints shell exports","status":"passed","testResultsByEnv":{"default":"c0fa14e1c3824d08f34ba4a59cca8253"}}

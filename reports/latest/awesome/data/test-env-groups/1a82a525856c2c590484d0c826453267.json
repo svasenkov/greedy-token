@@ -1,1 +1,1 @@
-{"id":"1a82a525856c2c590484d0c826453267","fullName":"tests.test_prompt_compress#test_compress_heuristic_drops_filler_lines","name":"Heuristic compression drops filler lines","status":"passed","testResultsByEnv":{"default":"e2fadd495103bf62471c5440efbba733"}}
+{"id":"1a82a525856c2c590484d0c826453267","fullName":"tests.test_prompt_compress#test_compress_heuristic_drops_filler_lines","name":"Heuristic compression drops filler lines","status":"passed","testResultsByEnv":{"default":"19538a9388582fe79020a5288a31660c"}}

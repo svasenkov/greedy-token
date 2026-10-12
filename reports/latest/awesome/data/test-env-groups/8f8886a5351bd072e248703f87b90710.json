@@ -1,1 +1,1 @@
-{"id":"8f8886a5351bd072e248703f87b90710","fullName":"tests.test_expensive_llm#test_yandex_chat_fallback_no_native","name":"yandex_gpt_chat falls back to openai_compat without a native attempt","status":"passed","testResultsByEnv":{"default":"f54cbe1f1b3e246f7156e60b7ed62ead"}}
+{"id":"8f8886a5351bd072e248703f87b90710","fullName":"tests.test_expensive_llm#test_yandex_chat_fallback_no_native","name":"yandex_gpt_chat falls back to openai_compat without a native attempt","status":"passed","testResultsByEnv":{"default":"63c8a657e8d32cc3185ef5d7b7f1b188"}}

@@ -1,0 +1,1 @@
+{"id":"41a2cad8370c449e0406b7b867453e7c","fullName":"tests.test_evidence_benchmark#test_observed_ledger_is_independent_channel","name":"Ledger is an independent channel: events never reach stdout","status":"passed","testResultsByEnv":{"default":"2a4d159eddf006a811c2d4f84df2aa3f"}}

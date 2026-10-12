@@ -1,1 +1,1 @@
-{"id":"cb87556c7f1ca73e6c28b2a822426ae8","fullName":"tests.test_executors#test_p5_launch_admission_denies_impossible_timeout","name":"test_p5_launch_admission_denies_impossible_timeout[nan]","status":"passed","testResultsByEnv":{"default":"3d8b01728283295088a60f19759154b3"}}
+{"id":"cb87556c7f1ca73e6c28b2a822426ae8","fullName":"tests.test_executors#test_p5_launch_admission_denies_impossible_timeout","name":"test_p5_launch_admission_denies_impossible_timeout[-1.0]","status":"passed","testResultsByEnv":{"default":"fc5a31728ada9a94f97500e0b841a815"}}

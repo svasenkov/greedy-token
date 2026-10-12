@@ -1,0 +1,1 @@
+{"id":"02f823ad0aaf563bb0b33237c7d299e3","fullName":"tests.test_code_search_gaps#test_is_ignored_parent_exclusion_prunes","name":"an excluded parent dir wins over a deeper negation (git pruning)","status":"passed","testResultsByEnv":{"default":"f6f70e43432428d2f7dafc976f62be58"}}

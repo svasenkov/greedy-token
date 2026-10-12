@@ -1,0 +1,1 @@
+{"id":"dbbfee6d4e0c9c2b700081c5a9b7deb8","fullName":"tests.test_llm_invoke_gaps#test_invoke_escalates_by_default","name":"invoke without allow_escalate still escalates when the chain is configured","status":"passed","testResultsByEnv":{"default":"1b35c1ef568b889f2d4c71349529d24f"}}

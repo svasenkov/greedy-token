@@ -1,0 +1,1 @@
+{"id":"86738b8f1dd7507d9e0bc3406ab6d4a6","fullName":"tests.test_budget_gaps#test_budget_cache_write_failure","name":"a failed cache write still returns the fresh snapshot","status":"passed","testResultsByEnv":{"default":"5892fc4ff0431d578184d28964ddc81d"}}

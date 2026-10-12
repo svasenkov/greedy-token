@@ -1,0 +1,1 @@
+{"id":"b819f5a6e149fdf654f9496f3dafc3de","fullName":"tests.test_machine_output#test_cli_invoke_json_delivery_refusal_nonzero_rc","name":"invoke --json delivery refusal returns a technical nonzero rc","status":"passed","testResultsByEnv":{"default":"7a112cf8d78791175d1dee02977d9c99"}}

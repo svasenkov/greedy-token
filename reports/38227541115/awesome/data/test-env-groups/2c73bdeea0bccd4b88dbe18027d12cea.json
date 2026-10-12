@@ -1,0 +1,1 @@
+{"id":"2c73bdeea0bccd4b88dbe18027d12cea","fullName":"tests.test_coverage_gaps#test_collect_capabilities_manifest_error","name":"collect_capabilities reports an unreadable trust manifest","status":"passed","testResultsByEnv":{"default":"26c057d9ca0ef82748d4dcf54fa968fb"}}

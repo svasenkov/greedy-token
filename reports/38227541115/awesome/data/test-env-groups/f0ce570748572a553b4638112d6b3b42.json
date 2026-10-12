@@ -1,0 +1,1 @@
+{"id":"f0ce570748572a553b4638112d6b3b42","fullName":"tests.test_machine_output#test_cap_tool_output_utf8_boundary","name":"cap_tool_output byte cap never splits a UTF-8 codepoint","status":"passed","testResultsByEnv":{"default":"3a26940499eb68db351e1b8e3c92069d"}}

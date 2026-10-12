@@ -1,0 +1,1 @@
+{"id":"6de414433cdbed6f4b3a195aa9137f8e","fullName":"tests.test_evidence_benchmark#test_dispatch_binds_candidate_without_double_count","name":"Dispatch bound to an existing candidate is not double-counted","status":"passed","testResultsByEnv":{"default":"f3043be63439e0bb9c3dd27453e8a3e4"}}

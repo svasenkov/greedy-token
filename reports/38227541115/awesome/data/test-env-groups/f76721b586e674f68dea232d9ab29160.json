@@ -1,0 +1,1 @@
+{"id":"f76721b586e674f68dea232d9ab29160","fullName":"tests.test_rag_index#test_chunk_reader_skips_io_errors_and_invalid_utf8","name":"test_chunk_reader_skips_io_errors_and_invalid_utf8","status":"passed","testResultsByEnv":{"default":"b500de32c2f65a7237eddb4857719f90"}}

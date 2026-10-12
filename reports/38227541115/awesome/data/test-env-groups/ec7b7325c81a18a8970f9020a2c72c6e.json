@@ -1,0 +1,1 @@
+{"id":"ec7b7325c81a18a8970f9020a2c72c6e","fullName":"tests.test_evidence_benchmark#test_observation_replay_is_self_contained","name":"Stored scorecard rows replay the verdict without the fixture","status":"passed","testResultsByEnv":{"default":"592219d4f80804e7cac02b7683d34f73"}}

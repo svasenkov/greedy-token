@@ -1,1 +1,1 @@
-{"id":"bc21451e252e9840f98ba2d90c334a2b","fullName":"tests.test_machine_output#test_format_machine_output_content_lost_refusal","name":"format_machine_output: losing all content emits the refusal envelope","status":"passed","testResultsByEnv":{"default":"835f1ccf3b2bfc39f632d7f1b40c2ca8"}}
+{"id":"bc21451e252e9840f98ba2d90c334a2b","fullName":"tests.test_machine_output#test_format_machine_output_content_lost_refusal","name":"format_machine_output: losing all content emits the refusal envelope","status":"passed","testResultsByEnv":{"default":"09976c80a24549337a00e1e98ebf6315"}}

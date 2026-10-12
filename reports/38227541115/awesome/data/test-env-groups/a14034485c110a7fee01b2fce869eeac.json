@@ -1,0 +1,1 @@
+{"id":"a14034485c110a7fee01b2fce869eeac","fullName":"tests.test_machine_output#test_shrink_string_field_loop_bound","name":"_shrink_string_field: the 8-iteration bound stops endless regress","status":"passed","testResultsByEnv":{"default":"5a2191d2946a0fb07fefe753708a9bf0"}}

@@ -1,0 +1,1 @@
+{"id":"3b0613539472a8ed0da4faa178d1fb71","fullName":"tests.test_cli_handlers#test_cmd_config_export_masks_secret","name":"cmd_config --export masks CHEAP_LLM_API_KEY by default","status":"passed","testResultsByEnv":{"default":"825debdde0660427eac5073b99bd73a7"}}

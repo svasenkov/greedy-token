@@ -1,1 +1,1 @@
-{"id":"c819079129a656951b5049b24e58438f","fullName":"tests.test_executors#test_execute_task_rag_route_returns_hits","name":"Execute task on RAG route returns formatted doc hits","status":"passed","testResultsByEnv":{"default":"6c0e0c6d5592a62409a580decff1180d"}}
+{"id":"c819079129a656951b5049b24e58438f","fullName":"tests.test_executors#test_execute_task_rag_route_returns_hits","name":"Execute task on RAG route returns formatted doc hits","status":"passed","testResultsByEnv":{"default":"97570e459f5b000ac5fd6a883c285d06"}}

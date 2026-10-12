@@ -1,1 +1,1 @@
-{"id":"b9130cff1ace04875fbb0755f34f2e7f","fullName":"tests.test_cheap_llm#test_remote_ollama_basic_from_userinfo","name":"Remote Ollama prefers URL userinfo over env credentials","status":"passed","testResultsByEnv":{"default":"f3b1e06f0b1aa9411314984ce270bd1d"}}
+{"id":"b9130cff1ace04875fbb0755f34f2e7f","fullName":"tests.test_cheap_llm#test_remote_ollama_basic_from_userinfo","name":"Remote Ollama prefers URL userinfo over env credentials","status":"passed","testResultsByEnv":{"default":"2a934e38c738782cadd7c860e0de1e3f"}}

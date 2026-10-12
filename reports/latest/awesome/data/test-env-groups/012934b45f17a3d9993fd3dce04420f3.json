@@ -1,1 +1,1 @@
-{"id":"012934b45f17a3d9993fd3dce04420f3","fullName":"tests.test_metered_bulk#test_metered_cheap_fallback_none","name":"metered_cheap_fallback is None without a metered cheap model","status":"passed","testResultsByEnv":{"default":"494eaf41005a5bbfd9d5e55231b7f8bf"}}
+{"id":"012934b45f17a3d9993fd3dce04420f3","fullName":"tests.test_metered_bulk#test_metered_cheap_fallback_none","name":"metered_cheap_fallback is None without a metered cheap model","status":"passed","testResultsByEnv":{"default":"146a6fb9659be95db7a5acbfb2ba70f9"}}

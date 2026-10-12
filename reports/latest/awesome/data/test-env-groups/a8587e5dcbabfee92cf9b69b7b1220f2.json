@@ -1,1 +1,1 @@
-{"id":"a8587e5dcbabfee92cf9b69b7b1220f2","fullName":"tests.test_machine_output#test_mcp_invoke_machine_refusal","name":"MCP invoke refusal is an error object, not a verdict failure","status":"passed","testResultsByEnv":{"default":"ffca39d8e5ea4ac18c51680c5d1ffea8"}}
+{"id":"a8587e5dcbabfee92cf9b69b7b1220f2","fullName":"tests.test_machine_output#test_mcp_invoke_machine_refusal","name":"MCP invoke refusal is an error object, not a verdict failure","status":"passed","testResultsByEnv":{"default":"165c4686534c41a40e13065c319c8144"}}

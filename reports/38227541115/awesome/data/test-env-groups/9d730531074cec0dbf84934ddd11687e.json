@@ -1,0 +1,1 @@
+{"id":"9d730531074cec0dbf84934ddd11687e","fullName":"tests.test_rag_search_gaps#test_cap_via_env_config","name":"config cap drops a hit bigger than the budget on the real index","status":"passed","testResultsByEnv":{"default":"7979df927569c8e7ed4648431993377b"}}

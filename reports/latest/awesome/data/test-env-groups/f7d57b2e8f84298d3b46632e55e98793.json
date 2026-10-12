@@ -1,1 +1,1 @@
-{"id":"f7d57b2e8f84298d3b46632e55e98793","fullName":"tests.test_advisory#test_parse_attachments_continues","name":"parse_attachments skips non-dict items but keeps scanning","status":"passed","testResultsByEnv":{"default":"f10e98ff512273be0901f1f58082da6f"}}
+{"id":"f7d57b2e8f84298d3b46632e55e98793","fullName":"tests.test_advisory#test_parse_attachments_continues","name":"parse_attachments skips non-dict items but keeps scanning","status":"passed","testResultsByEnv":{"default":"a70069e0347de37b7aec9b957d4c3558"}}

@@ -1,0 +1,1 @@
+{"id":"8be5f5b69b86e37498339353a7991f85","fullName":"tests.test_advisory#test_watch_events_default_text_out","name":"watch_events defaults to human-readable (not json) output","status":"passed","testResultsByEnv":{"default":"2243a1ee1cfebbd5db3c0a868ea7af4a"}}

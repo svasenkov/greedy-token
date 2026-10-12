@@ -1,1 +1,1 @@
-{"id":"130f2f560b4386acb7d0abc816703cf2","fullName":"tests.test_calibration#test_collect_bucket_stats_skips","name":"collect_bucket_stats ignores non-cheap tiers and bad raw_score values","status":"passed","testResultsByEnv":{"default":"522cf60fd23e5d434e85a0051e615685"}}
+{"id":"130f2f560b4386acb7d0abc816703cf2","fullName":"tests.test_calibration#test_collect_bucket_stats_skips","name":"collect_bucket_stats ignores non-cheap tiers and bad raw_score values","status":"passed","testResultsByEnv":{"default":"8e56327c489b82be61be40180acd1066"}}

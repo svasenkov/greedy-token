@@ -1,1 +1,1 @@
-{"id":"5cfba6955ec81daaa4ddab5f9f10e87a","fullName":"tests.test_cli_handlers#test_cmd_config_show","name":"cmd_config prints Ollama settings","status":"passed","testResultsByEnv":{"default":"53d4cda0d3f6a6ec3fd2c5fce5e26dbf"}}
+{"id":"5cfba6955ec81daaa4ddab5f9f10e87a","fullName":"tests.test_cli_handlers#test_cmd_config_show","name":"cmd_config prints Ollama settings","status":"passed","testResultsByEnv":{"default":"c3a9bcf36030f7d6e3decf77c6069830"}}

@@ -1,0 +1,1 @@
+{"id":"0cc9d3387c05683a41c04332bd166e70","fullName":"tests.test_cheap_llm_gaps#test_observe_emit_unwritable_ledger_fails_closed","name":"installed run with an unwritable ledger refuses to continue","status":"passed","testResultsByEnv":{"default":"ab268d768ba214769aea3dec2f3bea82"}}

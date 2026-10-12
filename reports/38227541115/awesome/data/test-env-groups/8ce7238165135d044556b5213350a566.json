@@ -1,0 +1,1 @@
+{"id":"8ce7238165135d044556b5213350a566","fullName":"tests.test_cheap_llm_gaps#test_observe_emit_unarmed_returns_none","name":"unarmed emit without guards is a silent no-op","status":"passed","testResultsByEnv":{"default":"7a2e6da8d0209f4bfecbc60150d1e8fe"}}

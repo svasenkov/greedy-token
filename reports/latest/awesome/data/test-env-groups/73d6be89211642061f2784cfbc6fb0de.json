@@ -1,1 +1,1 @@
-{"id":"73d6be89211642061f2784cfbc6fb0de","fullName":"tests.test_usage_gaps#test_quality_metrics_golden","name":"quality_metrics emits the exact metrics dict","status":"passed","testResultsByEnv":{"default":"41842c02a660384900f130367e0447f2"}}
+{"id":"73d6be89211642061f2784cfbc6fb0de","fullName":"tests.test_usage_gaps#test_quality_metrics_golden","name":"quality_metrics emits the exact metrics dict","status":"passed","testResultsByEnv":{"default":"84cd4689c7c1da2b830413e789b00785"}}

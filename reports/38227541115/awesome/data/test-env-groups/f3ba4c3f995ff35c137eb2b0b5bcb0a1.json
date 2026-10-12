@@ -1,0 +1,1 @@
+{"id":"f3ba4c3f995ff35c137eb2b0b5bcb0a1","fullName":"tests.test_budget_gaps#test_wrap_mcp_response_refusal_log_matrix","name":"refusal classification is identical with and without logging","status":"passed","testResultsByEnv":{"default":"ffdd154e0a73d3366ff8fac621bed164"}}

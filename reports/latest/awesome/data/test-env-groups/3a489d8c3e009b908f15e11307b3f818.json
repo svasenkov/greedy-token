@@ -1,1 +1,1 @@
-{"id":"3a489d8c3e009b908f15e11307b3f818","fullName":"tests.test_result_contract#test_last_line_canon_detection","name":"a canon JSON summary on the last line still binds the contract","status":"passed","testResultsByEnv":{"default":"39187aa5e408f2803ea838aea66c4a02"}}
+{"id":"3a489d8c3e009b908f15e11307b3f818","fullName":"tests.test_result_contract#test_last_line_canon_detection","name":"a canon JSON summary on the last line still binds the contract","status":"passed","testResultsByEnv":{"default":"83992d5ab4b4d417d2d89c12388de14c"}}

@@ -1,1 +1,1 @@
-{"id":"eaf98604f0f55894bbd5168893eeca38","fullName":"tests.test_spend_ledger#test_iter_spend_records_skips_junk","name":"the ledger reader skips junk rows and still counts the valid tail","status":"passed","testResultsByEnv":{"default":"214f955e05f742616107228567e10942"}}
+{"id":"eaf98604f0f55894bbd5168893eeca38","fullName":"tests.test_spend_ledger#test_iter_spend_records_skips_junk","name":"the ledger reader skips junk rows and still counts the valid tail","status":"passed","testResultsByEnv":{"default":"fe4737231001c7ee9945fab87aae0fc4"}}

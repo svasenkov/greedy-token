@@ -1,0 +1,1 @@
+{"id":"93cc36fb8d63caad102ad25c8eb673f0","fullName":"tests.test_evidence_benchmark#test_scorecard_gate_rejects_forged_zero_completed","name":"Scorecard re-verifies zero_completed instead of trusting the flag","status":"passed","testResultsByEnv":{"default":"50318a9b6ac80f71aa5fedf521bc7b6b"}}

@@ -1,0 +1,1 @@
+{"id":"a534126dd8b1c349bf1d3c5d34a344cd","fullName":"tests.test_spend_ledger#test_usage_side_skips","name":"usage-side reader skips junk lines, non-metered events and spend_ref rows","status":"passed","testResultsByEnv":{"default":"693827c81b62d5fe23d4af2c6c4984ba"}}

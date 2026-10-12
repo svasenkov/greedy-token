@@ -1,1 +1,1 @@
-{"id":"cf8ea8cefc4e5412c676b2c5530ad177","fullName":"tests.test_cli_handlers#test_cmd_init_preset_path_and_url","name":"cmd_init --preset accepts a file path and an https:// URL","status":"passed","testResultsByEnv":{"default":"df4c18766e0dd726629817e406c2155a"}}
+{"id":"cf8ea8cefc4e5412c676b2c5530ad177","fullName":"tests.test_cli_handlers#test_cmd_init_preset_path_and_url","name":"cmd_init --preset accepts a file path and an https:// URL","status":"passed","testResultsByEnv":{"default":"a37fea3dcb31a472dc3b67de0821b8f7"}}

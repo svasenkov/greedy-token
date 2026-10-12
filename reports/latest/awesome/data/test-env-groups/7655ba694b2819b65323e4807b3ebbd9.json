@@ -1,1 +1,1 @@
-{"id":"7655ba694b2819b65323e4807b3ebbd9","fullName":"tests.test_cli_handlers#test_cmd_init_detect_ripgrep_present","name":"cmd_init skips install hints when ripgrep is present","status":"passed","testResultsByEnv":{"default":"6e872d7607d2262f6f0a4dd1bea92201"}}
+{"id":"7655ba694b2819b65323e4807b3ebbd9","fullName":"tests.test_cli_handlers#test_cmd_init_detect_ripgrep_present","name":"cmd_init skips install hints when ripgrep is present","status":"passed","testResultsByEnv":{"default":"3d110b029217600c1c754fd41c9d9d3a"}}

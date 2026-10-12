@@ -1,0 +1,1 @@
+{"id":"a1c972891c2cfd99ffa42e3bc8705114","fullName":"tests.test_pipeline_gaps#test_step_savings_empty_result","name":"compute_step_savings: empty-result step claims no savings","status":"passed","testResultsByEnv":{"default":"49b95b1f28585fd607a52a09e92c04fa"}}

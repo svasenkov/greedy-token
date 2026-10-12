@@ -1,0 +1,1 @@
+{"id":"57476d0c03b88393bfb9e0cd24318bcf","fullName":"tests.test_cheap_llm_gaps#test_opener_open_guard_denies","name":"opener guard denies POST, foreign origins and unknown paths","status":"passed","testResultsByEnv":{"default":"81e53c3c8123b74aa51072dcf0fb2d84"}}
