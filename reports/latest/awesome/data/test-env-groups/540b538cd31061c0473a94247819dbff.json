@@ -1,1 +1,1 @@
-{"id":"540b538cd31061c0473a94247819dbff","fullName":"tests.test_cli_handlers#test_cmd_config_list_presets","name":"cmd_config --list-presets prints preset names","status":"passed","testResultsByEnv":{"default":"9da024015b3b824b7ab407d2fff04e6f"}}
+{"id":"540b538cd31061c0473a94247819dbff","fullName":"tests.test_cli_handlers#test_cmd_config_list_presets","name":"cmd_config --list-presets prints preset names","status":"passed","testResultsByEnv":{"default":"3e4707dde678c773448c750d0d98094a"}}

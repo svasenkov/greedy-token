@@ -1,0 +1,1 @@
+{"id":"104e86dd8aec4303393ed7b12d8a66bb","fullName":"tests.test_trust_gaps#test_secure_dir_fd_supported","name":"_secure_dir_fd_supported: full conjunction on posix hosts","status":"passed","testResultsByEnv":{"default":"2c4475c65ff5179875acfeaa961e4269"}}

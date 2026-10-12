@@ -1,1 +1,1 @@
-{"id":"60d221ca7c2bb93e6fc03a56c1b54376","fullName":"tests.test_trust#test_verification_edge_refusals","name":"Invalid root, empty source, missing approval, and type drift fail closed","status":"passed","testResultsByEnv":{"default":"a046a0731ee7abda4080b781166fe7ba"}}
+{"id":"60d221ca7c2bb93e6fc03a56c1b54376","fullName":"tests.test_trust#test_verification_edge_refusals","name":"Invalid root, empty source, missing approval, and type drift fail closed","status":"passed","testResultsByEnv":{"default":"9d4e8ebed57942989dad813a4d93f367"}}

@@ -1,0 +1,1 @@
+{"id":"ac291712d81cc496394418d4b18beab5","fullName":"tests.test_machine_output#test_shrink_text_invalid_json","name":"_shrink_text: invalid JSON degrades to the marker path","status":"passed","testResultsByEnv":{"default":"32e49703b8844fb457e9fe832038c964"}}

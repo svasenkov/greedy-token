@@ -1,0 +1,1 @@
+{"id":"831e02f3172f48e0b4d14b1eda77f734","fullName":"tests.test_executors_gaps#test_spawn_observed_python_child_registers_admission","name":"observed child spawn registers the admission and forwards the fd","status":"passed","testResultsByEnv":{"default":"4f1d13f38787d850ef3cb77cd5cd1b71"}}

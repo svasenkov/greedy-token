@@ -1,0 +1,1 @@
+{"id":"55dc7fcf6e855bab6eb9b07e7714239b","fullName":"tests.test_trust#test_trusted_runner_in_process_observed","name":"_trusted_runner observed path installs guards and binds the consumed fd bytes","status":"passed","testResultsByEnv":{"default":"8def43cb1f333211c79d750d89cff312"}}

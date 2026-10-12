@@ -1,0 +1,1 @@
+{"id":"29aa02d4c0190c0e815f84fb805e3375","fullName":"tests.test_pipeline_gaps#test_log_pipeline_exact","name":"_log_pipeline: skips dry steps; builds exact route event per executed step","status":"passed","testResultsByEnv":{"default":"2e19f23642e9a6bcca5de0b0b4d82857"}}

@@ -1,0 +1,1 @@
+{"id":"8a904c6546ab83602654cefa0109049e","fullName":"tests.test_machine_output#test_format_machine_output_kwargs_metadata","name":"format_machine_output emits kwargs metadata without a payload","status":"passed","testResultsByEnv":{"default":"f6f503525b7ae83adad0b7d8761ef681"}}

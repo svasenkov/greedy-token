@@ -1,0 +1,1 @@
+{"id":"fe3c43ff1de8b1d6e9976dcf063a48c0","fullName":"tests.test_coverage_gaps#test_workspace_script_path_refusals","name":"_workspace_script_path refuses symlink components and non-regular files","status":"passed","testResultsByEnv":{"default":"c890f49d05a09c57f14d466faee03c33"}}

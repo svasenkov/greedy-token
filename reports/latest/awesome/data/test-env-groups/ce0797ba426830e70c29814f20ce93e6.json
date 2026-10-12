@@ -1,1 +1,1 @@
-{"id":"ce0797ba426830e70c29814f20ce93e6","fullName":"tests.test_capabilities#test_route_params_args_declared","name":"params:[args] routes declare the args contract before approval","status":"passed","testResultsByEnv":{"default":"16019789db503eb8f7deacdbad1c6fc4"}}
+{"id":"ce0797ba426830e70c29814f20ce93e6","fullName":"tests.test_capabilities#test_route_params_args_declared","name":"params:[args] routes declare the args contract before approval","status":"passed","testResultsByEnv":{"default":"7b148bc978bf349263feadbf9782264b"}}

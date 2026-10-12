@@ -1,0 +1,1 @@
+{"id":"62a722578f6efb897f0eb554b578abe2","fullName":"tests.test_advisory#test_watch_partial_line_buffered","name":"watch_events: partial final line is buffered until the newline arrives","status":"passed","testResultsByEnv":{"default":"c677d60de35807e7f7127113399acfa8"}}

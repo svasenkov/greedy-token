@@ -1,1 +1,1 @@
-{"id":"eb51720473a95a540dcd4544a18813c6","fullName":"tests.test_usage#test_request_event_savings_scope_by_invocation","name":"invocation origin scopes the savings claim — configured mode does not","status":"passed","testResultsByEnv":{"default":"32f4a1c8531e9128b61fe582ba8b4457"}}
+{"id":"eb51720473a95a540dcd4544a18813c6","fullName":"tests.test_usage#test_request_event_savings_scope_by_invocation","name":"invocation origin scopes the savings claim — configured mode does not","status":"passed","testResultsByEnv":{"default":"d5f79e43b6c36d8c9369a61be1752bfe"}}

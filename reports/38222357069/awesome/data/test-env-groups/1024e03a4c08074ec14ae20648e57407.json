@@ -1,0 +1,1 @@
+{"id":"1024e03a4c08074ec14ae20648e57407","fullName":"tests.test_portability#test_spend_lock_posix_uses_fcntl_sidecar","name":"POSIX branch: fcntl lock file sidecar is taken","status":"passed","testResultsByEnv":{"default":"cc080b83a1d9f27f006b80b1a3c057f4"}}

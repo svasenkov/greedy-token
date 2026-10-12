@@ -1,0 +1,1 @@
+{"id":"c93c9ba77dddc852e3d053adf6df06bc","fullName":"tests.test_executors_gaps#test_product_close_returns_when_closed_mid_wait","name":"close() returns when a racing closer already finished","status":"passed","testResultsByEnv":{"default":"0366ac66bee4c2156085a92ea51461af"}}

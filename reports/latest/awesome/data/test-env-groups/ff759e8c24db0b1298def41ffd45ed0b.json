@@ -1,1 +1,1 @@
-{"id":"ff759e8c24db0b1298def41ffd45ed0b","fullName":"tests.test_advisory#test_truncate_boundary","name":"_truncate keeps exactly-limit text verbatim","status":"passed","testResultsByEnv":{"default":"787c034ef48186e041f1d42e884362f0"}}
+{"id":"ff759e8c24db0b1298def41ffd45ed0b","fullName":"tests.test_advisory#test_truncate_boundary","name":"_truncate keeps exactly-limit text verbatim","status":"passed","testResultsByEnv":{"default":"33f00afd4685c494a721cbc2e5376dd4"}}

@@ -1,1 +1,1 @@
-{"id":"e62c34192eec602adddabfafd0fd290a","fullName":"tests.test_wrappers#test_ollama_available_false","name":"Ollama availability returns false when server is down","status":"passed","testResultsByEnv":{"default":"a66f115f2c24f1fcbf4aae8673333001"}}
+{"id":"e62c34192eec602adddabfafd0fd290a","fullName":"tests.test_wrappers#test_ollama_available_false","name":"Ollama availability returns false when server is down","status":"passed","testResultsByEnv":{"default":"11aee0785f90884e3bc2e54ecff22215"}}

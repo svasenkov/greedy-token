@@ -1,1 +1,1 @@
-{"id":"f6955b165e97a1dc7fd89c55c23c4c55","fullName":"tests.test_calibration#test_detect_task_language","name":"Outcome language segmentation recognises RU and defaults to EN","status":"passed","testResultsByEnv":{"default":"9ade2e12be711dbfa5e3e03a905adc9f"}}
+{"id":"f6955b165e97a1dc7fd89c55c23c4c55","fullName":"tests.test_calibration#test_detect_task_language","name":"Outcome language segmentation recognises RU and defaults to EN","status":"passed","testResultsByEnv":{"default":"9048fab4beadd12ed8746ba23d6e86aa"}}

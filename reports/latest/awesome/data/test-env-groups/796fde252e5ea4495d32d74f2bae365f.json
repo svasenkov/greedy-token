@@ -1,1 +1,1 @@
-{"id":"796fde252e5ea4495d32d74f2bae365f","fullName":"tests.test_search#test_extract_search_query","name":"Extract search query `phase-manifest.json` from task","status":"passed","testResultsByEnv":{"default":"fdb898554765729d55f59fb64a67c65a"}}
+{"id":"796fde252e5ea4495d32d74f2bae365f","fullName":"tests.test_search#test_extract_search_query","name":"Extract search query `healthCheck path` from task","status":"passed","testResultsByEnv":{"default":"58f01b8db10ef2fd6bb13fab24d337ab"}}

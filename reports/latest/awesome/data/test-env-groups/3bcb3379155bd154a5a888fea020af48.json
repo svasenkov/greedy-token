@@ -1,1 +1,1 @@
-{"id":"3bcb3379155bd154a5a888fea020af48","fullName":"tests.test_settings#test_format_shell_export_masks_api_key","name":"Shell export masks CHEAP_LLM_API_KEY by default and reveals on demand","status":"passed","testResultsByEnv":{"default":"092aac7d36c78aeebddd35f60a4601d4"}}
+{"id":"3bcb3379155bd154a5a888fea020af48","fullName":"tests.test_settings#test_format_shell_export_masks_api_key","name":"Shell export masks CHEAP_LLM_API_KEY by default and reveals on demand","status":"passed","testResultsByEnv":{"default":"fe377bf78a08c57223911d7056fb9591"}}

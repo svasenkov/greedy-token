@@ -1,1 +1,1 @@
-{"id":"7f0dfc75c44cc4106898623ad6eee70a","fullName":"tests.test_cli_handlers#test_cmd_compress_empty_stdin","name":"cmd_compress rejects empty stdin","status":"passed","testResultsByEnv":{"default":"08c94f96f4e598aa749f8eb7c246ce3d"}}
+{"id":"7f0dfc75c44cc4106898623ad6eee70a","fullName":"tests.test_cli_handlers#test_cmd_compress_empty_stdin","name":"cmd_compress rejects empty stdin","status":"passed","testResultsByEnv":{"default":"e5c95282301661a49021b60107becc6f"}}

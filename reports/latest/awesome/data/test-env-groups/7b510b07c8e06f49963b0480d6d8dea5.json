@@ -1,1 +1,1 @@
-{"id":"7b510b07c8e06f49963b0480d6d8dea5","fullName":"tests.test_mcp_icon#test_mcp_icons_skips_oversized_payload","name":"MCP server icon skips payloads over MAX_ICON_BYTES","status":"passed","testResultsByEnv":{"default":"e4a9c2363d1fd6effd12a4817959389a"}}
+{"id":"7b510b07c8e06f49963b0480d6d8dea5","fullName":"tests.test_mcp_icon#test_mcp_icons_skips_oversized_payload","name":"MCP server icon skips payloads over MAX_ICON_BYTES","status":"passed","testResultsByEnv":{"default":"6a2d85be40f93e95a8c87c1119d1dc58"}}

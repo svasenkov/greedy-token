@@ -1,1 +1,1 @@
-{"id":"1e4db63f3c55bda031ebb6d512c477bb","fullName":"tests.test_cli_handlers#test_cmd_init_detect_only","name":"cmd_init detect-only reports profile policy and tiers","status":"passed","testResultsByEnv":{"default":"f54c7cf475bae53aed7c7d0ebb1018be"}}
+{"id":"1e4db63f3c55bda031ebb6d512c477bb","fullName":"tests.test_cli_handlers#test_cmd_init_detect_only","name":"cmd_init detect-only reports profile policy and tiers","status":"passed","testResultsByEnv":{"default":"990006aaff9dbb88baf82212f33d7e7a"}}

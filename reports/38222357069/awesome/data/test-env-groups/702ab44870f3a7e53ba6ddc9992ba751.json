@@ -1,0 +1,1 @@
+{"id":"702ab44870f3a7e53ba6ddc9992ba751","fullName":"tests.test_evidence_benchmark#test_observed_hidden_provider_fallback_recorded","name":"Hidden yandex_gpt native → openai_compat fallback gets causal events","status":"passed","testResultsByEnv":{"default":"a0543c69bd03ded067ee6f465c76b81c"}}

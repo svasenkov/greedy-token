@@ -1,1 +1,1 @@
-{"id":"2b202c3066e29ba5f288f4398049bf6f","fullName":"tests.test_spend_ledger#test_iter_spend_records_unreadable","name":"an unreadable ledger file reads as zero, not as a crash","status":"passed","testResultsByEnv":{"default":"f550fee562c3b12716e87b67291632f7"}}
+{"id":"2b202c3066e29ba5f288f4398049bf6f","fullName":"tests.test_spend_ledger#test_iter_spend_records_unreadable","name":"an unreadable ledger file reads as zero, not as a crash","status":"passed","testResultsByEnv":{"default":"f319c7a4bf3202103297e29a9e6e9b36"}}

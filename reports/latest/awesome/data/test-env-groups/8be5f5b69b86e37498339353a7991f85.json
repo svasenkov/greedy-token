@@ -1,1 +1,1 @@
-{"id":"8be5f5b69b86e37498339353a7991f85","fullName":"tests.test_advisory#test_watch_events_default_text_out","name":"watch_events defaults to human-readable (not json) output","status":"passed","testResultsByEnv":{"default":"95af90bbf8769b7fb200f6f03af6acf3"}}
+{"id":"8be5f5b69b86e37498339353a7991f85","fullName":"tests.test_advisory#test_watch_events_default_text_out","name":"watch_events defaults to human-readable (not json) output","status":"passed","testResultsByEnv":{"default":"3dea450c4b191a77a9c496c5241aabc9"}}

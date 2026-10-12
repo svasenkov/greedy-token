@@ -1,1 +1,1 @@
-{"id":"7e4be96ce10171cfc4f7236e61cfe1b1","fullName":"tests.test_rag_fts_gaps#test_ensure_schema_version_mismatch","name":"_ensure_schema: version mismatch drops stale tables","status":"passed","testResultsByEnv":{"default":"806e4ab4e0f4840be37c17b6354e529a"}}
+{"id":"7e4be96ce10171cfc4f7236e61cfe1b1","fullName":"tests.test_rag_fts_gaps#test_ensure_schema_version_mismatch","name":"_ensure_schema: version mismatch drops stale tables","status":"passed","testResultsByEnv":{"default":"8d778d62ccd33dd8b996abc9c4ef156d"}}

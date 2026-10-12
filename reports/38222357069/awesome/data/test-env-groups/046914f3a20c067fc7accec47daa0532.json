@@ -1,0 +1,1 @@
+{"id":"046914f3a20c067fc7accec47daa0532","fullName":"tests.test_settings#test_resolve_hook_empty","name":"_resolve_hook: missing/junk config → unconfigured","status":"passed","testResultsByEnv":{"default":"889ef720c9f66a6a9ffa1208d8a66b60"}}

@@ -1,1 +1,1 @@
-{"id":"d658afd80aa6e3cc1a5d1cb512efd55f","fullName":"tests.test_budget_gaps#test_cursor_warn_unavailable","name":"cursor warn falls through when local LLM unavailable","status":"passed","testResultsByEnv":{"default":"05b1611d637bc9dc3ba30c2d45cc3279"}}
+{"id":"d658afd80aa6e3cc1a5d1cb512efd55f","fullName":"tests.test_budget_gaps#test_cursor_warn_unavailable","name":"cursor warn falls through when local LLM unavailable","status":"passed","testResultsByEnv":{"default":"0eab6d72b5d0e892377233b1ecaaee8d"}}

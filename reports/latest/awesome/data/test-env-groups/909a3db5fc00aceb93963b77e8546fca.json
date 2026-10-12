@@ -1,0 +1,1 @@
+{"id":"909a3db5fc00aceb93963b77e8546fca","fullName":"tests.test_cheap_llm_gaps#test_native_launch_guard_admits_registered_spawn","name":"native launch guard admits a spawn matching the parent record","status":"passed","testResultsByEnv":{"default":"381be3db45fba183f516fedec1af38fb"}}

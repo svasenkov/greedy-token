@@ -1,0 +1,1 @@
+{"id":"3c2d4422214df1c0bb2408e250422fc2","fullName":"tests.test_evidence_benchmark#test_io_denies_non_fixture_origin_and_file_scheme","name":"Non-fixture origins and non-http schemes are denied","status":"passed","testResultsByEnv":{"default":"740ee0ec2d4cc67fe64d3ee9ee6fd520"}}

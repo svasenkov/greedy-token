@@ -1,0 +1,1 @@
+{"id":"fbbb670c47b9afbde9d152d010d7d246","fullName":"tests.test_hub_gaps#test_rank_candidates_route_outcome_skipped","name":"rank_candidates: route_outcome rows never count as hits","status":"passed","testResultsByEnv":{"default":"4c505e05cd62fd2c7c8c3291fb44e594"}}

@@ -1,0 +1,1 @@
+{"id":"8334d48d3c2377d0e433afddb94155cb","fullName":"tests.test_executors_gaps#test_spawn_observed_python_child_invocation_timeout","name":"observed child spawn clamps the timeout through the invocation budget","status":"passed","testResultsByEnv":{"default":"c65404f9300d2a3fe958eca29e720425"}}

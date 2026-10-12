@@ -1,1 +1,1 @@
-{"id":"fabedcb40d361b2d52639f6b16e1ef80","fullName":"tests.test_cheap_llm#test_openai_compat_sends_api_key","name":"CHEAP_LLM_API_KEY is sent as Bearer for openai_compat","status":"passed","testResultsByEnv":{"default":"b34c555e915c1bcfe3eb69ab41b89eaa"}}
+{"id":"fabedcb40d361b2d52639f6b16e1ef80","fullName":"tests.test_cheap_llm#test_openai_compat_sends_api_key","name":"CHEAP_LLM_API_KEY is sent as Bearer for openai_compat","status":"passed","testResultsByEnv":{"default":"2928d5c040c57335fe6e3d50f63a3cf6"}}

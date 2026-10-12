@@ -1,1 +1,1 @@
-{"id":"bf8976489ac5eaaae785b7fd718ccd7f","fullName":"tests.test_evidence_benchmark#test_mcp_tool_text_joins_all_blocks","name":"tool_text joins every content block, not just the first","status":"passed","testResultsByEnv":{"default":"dbdf6e199c88d4a8d9072b99f25f8fad"}}
+{"id":"bf8976489ac5eaaae785b7fd718ccd7f","fullName":"tests.test_evidence_benchmark#test_mcp_tool_text_joins_all_blocks","name":"tool_text joins every content block, not just the first","status":"passed","testResultsByEnv":{"default":"ca3313701fb036464e488a9db945e262"}}

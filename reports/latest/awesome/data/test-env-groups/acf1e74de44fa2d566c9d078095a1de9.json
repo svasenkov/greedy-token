@@ -1,1 +1,1 @@
-{"id":"acf1e74de44fa2d566c9d078095a1de9","fullName":"tests.test_budget#test_footer_saved_scoped_under_configured_intercept","name":"configured intercept alone does not lift the claim","status":"passed","testResultsByEnv":{"default":"64717d70147ee0d1ebdcb7a410728460"}}
+{"id":"acf1e74de44fa2d566c9d078095a1de9","fullName":"tests.test_budget#test_footer_saved_scoped_under_configured_intercept","name":"configured intercept alone does not lift the claim","status":"passed","testResultsByEnv":{"default":"b9dc51d43af841e5a4597c134b2c9bca"}}

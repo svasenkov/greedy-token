@@ -1,1 +1,1 @@
-{"id":"7fd593331e259b463268ea5d362efa56","fullName":"tests.test_pipeline#test_pipeline_continue_on_error","name":"Pipeline continue-on-error keeps running after failure","status":"passed","testResultsByEnv":{"default":"cca6e065ed85f3432a92620c2195a5f0"}}
+{"id":"7fd593331e259b463268ea5d362efa56","fullName":"tests.test_pipeline#test_pipeline_continue_on_error","name":"Pipeline continue-on-error keeps running after failure","status":"passed","testResultsByEnv":{"default":"67cbd33471e53fd57e4458c527533aa3"}}

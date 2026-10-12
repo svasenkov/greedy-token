@@ -1,0 +1,1 @@
+{"id":"8f8886a5351bd072e248703f87b90710","fullName":"tests.test_expensive_llm#test_yandex_chat_fallback_no_native","name":"yandex_gpt_chat falls back to openai_compat without a native attempt","status":"passed","testResultsByEnv":{"default":"8cefc0be1d3de6894621b582397db320"}}

@@ -1,1 +1,1 @@
-{"id":"b8857da781688c7e31c6c419629d7685","fullName":"tests.test_expensive_llm#test_yandex_malformed_shapes","name":"non-object result/usage payloads are structured errors, not AttributeError","status":"passed","testResultsByEnv":{"default":"b633eae13954c9b68689f018a8418c85"}}
+{"id":"b8857da781688c7e31c6c419629d7685","fullName":"tests.test_expensive_llm#test_yandex_malformed_shapes","name":"non-object result/usage payloads are structured errors, not AttributeError","status":"passed","testResultsByEnv":{"default":"20c18f5818c66762a7afe4aaa993b20b"}}

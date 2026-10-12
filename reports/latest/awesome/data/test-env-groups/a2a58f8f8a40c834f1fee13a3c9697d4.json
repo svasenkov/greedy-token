@@ -1,0 +1,1 @@
+{"id":"a2a58f8f8a40c834f1fee13a3c9697d4","fullName":"tests.test_cheap_llm_gaps#test_observe_provider_dispatch_denies_with_attempt","name":"armed dispatch denial records the bound attempt on the ledger","status":"passed","testResultsByEnv":{"default":"6c42273817a354f29549f17d878edc7f"}}

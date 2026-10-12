@@ -1,0 +1,1 @@
+{"id":"a490814de827cd74d9b9c5b7aaa4dd91","fullName":"tests.test_hub_static#test_index_html_csp","name":"index.html ships a restrictive CSP","status":"passed","testResultsByEnv":{"default":"e7776d17cbc1eca33e8525064f78b3c0"}}

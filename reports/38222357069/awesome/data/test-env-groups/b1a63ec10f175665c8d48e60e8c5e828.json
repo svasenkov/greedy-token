@@ -1,0 +1,1 @@
+{"id":"b1a63ec10f175665c8d48e60e8c5e828","fullName":"tests.test_machine_output#test_shrink_text_list_doc","name":"_shrink_text: JSON list shrinks to fit or becomes []","status":"passed","testResultsByEnv":{"default":"0a324463de8ae133aac07828186dc4e8"}}

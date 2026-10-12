@@ -1,1 +1,1 @@
-{"id":"5e44e840b6bf20155147b0f7cf1584d1","fullName":"tests.test_cheap_llm#test_cheap_llm_user_env_wins","name":"CHEAP_LLM_USER wins over OLLAMA_USER","status":"passed","testResultsByEnv":{"default":"5fcbfe41e0bc366ac81b9bf0ea5778ef"}}
+{"id":"5e44e840b6bf20155147b0f7cf1584d1","fullName":"tests.test_cheap_llm#test_cheap_llm_user_env_wins","name":"CHEAP_LLM_USER wins over OLLAMA_USER","status":"passed","testResultsByEnv":{"default":"ea706db5baef20de1206f6db5b4a16f9"}}

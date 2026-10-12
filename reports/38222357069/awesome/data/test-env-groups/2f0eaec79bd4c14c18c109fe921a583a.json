@@ -1,0 +1,1 @@
+{"id":"2f0eaec79bd4c14c18c109fe921a583a","fullName":"tests.test_usage#test_load_events_without_archives","name":"Event loader can ignore rotated archives","status":"passed","testResultsByEnv":{"default":"47c2b9e932a3a33cd61f7dbd2c4b90fb"}}

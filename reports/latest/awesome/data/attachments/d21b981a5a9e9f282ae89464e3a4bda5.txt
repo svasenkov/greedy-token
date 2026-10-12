@@ -1,1 +1,0 @@
-{"actual_argv": ["/opt/hostedtoolcache/Python/3.12.15/x64/bin/python", "lab/check_users.py", "--path", "lab/users.json", "--keys", "id,email"], "case": "fixed", "cwd": "/tmp/pytest-of-runner/pytest-0/popen-gw1/test_p1_rework_planner_produce0", "execution": "mock-only"}

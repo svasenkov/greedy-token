@@ -1,1 +1,1 @@
-{"id":"33e2096e0c5849d67ef53d6d4daa121d","fullName":"tests.test_usage#test_append_event_writes_when_enabled","name":"append_event writes when logging is enabled","status":"passed","testResultsByEnv":{"default":"2bc4acfd686d81af8e850b175bb087e8"}}
+{"id":"33e2096e0c5849d67ef53d6d4daa121d","fullName":"tests.test_usage#test_append_event_writes_when_enabled","name":"append_event writes when logging is enabled","status":"passed","testResultsByEnv":{"default":"a1c00461df598588c551bd9edbd0c4cf"}}

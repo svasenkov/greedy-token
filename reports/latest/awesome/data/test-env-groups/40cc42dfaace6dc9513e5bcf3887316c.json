@@ -1,1 +1,1 @@
-{"id":"40cc42dfaace6dc9513e5bcf3887316c","fullName":"tests.test_machine_output#test_machine_wrap_big_json_body_stays_valid","name":"A big JSON contract body is never emitted as cut JSON text","status":"passed","testResultsByEnv":{"default":"92faed5301dc806faa5d7a2d9208937e"}}
+{"id":"40cc42dfaace6dc9513e5bcf3887316c","fullName":"tests.test_machine_output#test_machine_wrap_big_json_body_stays_valid","name":"A big JSON contract body is never emitted as cut JSON text","status":"passed","testResultsByEnv":{"default":"fe902cc99ed333f46d1e54161e0a0ecb"}}

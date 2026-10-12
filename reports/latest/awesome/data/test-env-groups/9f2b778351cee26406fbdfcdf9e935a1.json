@@ -1,1 +1,1 @@
-{"id":"9f2b778351cee26406fbdfcdf9e935a1","fullName":"tests.test_mcp_icon#test_mcp_icons_png_when_svg_missing","name":"MCP server icon falls back to a small PNG when SVG is absent","status":"passed","testResultsByEnv":{"default":"11e0d0a0671713e8cdf575339c89bb5e"}}
+{"id":"9f2b778351cee26406fbdfcdf9e935a1","fullName":"tests.test_mcp_icon#test_mcp_icons_png_when_svg_missing","name":"MCP server icon falls back to a small PNG when SVG is absent","status":"passed","testResultsByEnv":{"default":"7e41b1eccf8d97f1f3873b61c32dc8cd"}}

@@ -1,1 +1,1 @@
-{"id":"f09423c8b3b696de00fa00624a2b75df","fullName":"tests.test_budget#test_format_tool_footer_cursor_no_savings","name":"Cursor tier footer keeps earned savings unknown without a source","status":"passed","testResultsByEnv":{"default":"03b54713705b7aa73bd7a34da72449dd"}}
+{"id":"f09423c8b3b696de00fa00624a2b75df","fullName":"tests.test_budget#test_format_tool_footer_cursor_no_savings","name":"Cursor tier footer keeps earned savings unknown without a source","status":"passed","testResultsByEnv":{"default":"c8a8f43ab4ecd83656f485d39fc531ba"}}

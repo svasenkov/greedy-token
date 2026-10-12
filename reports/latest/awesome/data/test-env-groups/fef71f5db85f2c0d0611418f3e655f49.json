@@ -1,1 +1,1 @@
-{"id":"fef71f5db85f2c0d0611418f3e655f49","fullName":"tests.test_cheap_llm#test_cheap_llm_status_line","name":"cheap_llm_status_line includes provider and model","status":"passed","testResultsByEnv":{"default":"bc973f92a5e2a3fe4ffd5ba9d97ae660"}}
+{"id":"fef71f5db85f2c0d0611418f3e655f49","fullName":"tests.test_cheap_llm#test_cheap_llm_status_line","name":"cheap_llm_status_line includes provider and model","status":"passed","testResultsByEnv":{"default":"151341ef395d9faf6dc811356f593d51"}}

@@ -1,0 +1,1 @@
+{"id":"ac0932236b14b2f5d221ef2848aaacd9","fullName":"tests.test_cli_commands#test_cli_pipeline_no_log","name":"CLI --no-log pipeline writes nothing; LOG=0 writes nothing","status":"passed","testResultsByEnv":{"default":"407420c27e3da35f1780c9d89784b1bf"}}

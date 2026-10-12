@@ -1,1 +1,1 @@
-{"id":"c467f93b46adbce1ac226f7e7d0577ee","fullName":"tests.test_cheap_llm#test_chat_openai_compat_usage_not_dict","name":"openai_compat non-object usage is a structured error, not AttributeError","status":"passed","testResultsByEnv":{"default":"edb4f55c28c2a1fa5f6f84d9e385b989"}}
+{"id":"c467f93b46adbce1ac226f7e7d0577ee","fullName":"tests.test_cheap_llm#test_chat_openai_compat_usage_not_dict","name":"openai_compat non-object usage is a structured error, not AttributeError","status":"passed","testResultsByEnv":{"default":"ce113f8b77a2b19b8f4c272408ccc091"}}

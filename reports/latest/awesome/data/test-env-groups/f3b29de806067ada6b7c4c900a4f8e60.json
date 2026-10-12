@@ -1,1 +1,1 @@
-{"id":"f3b29de806067ada6b7c4c900a4f8e60","fullName":"tests.test_budget#test_footer_style_config","name":"Footer style resolves from workspace config and env","status":"passed","testResultsByEnv":{"default":"e59e76010c29036d2cbd2c5ee5c295bb"}}
+{"id":"f3b29de806067ada6b7c4c900a4f8e60","fullName":"tests.test_budget#test_footer_style_config","name":"Footer style resolves from workspace config and env","status":"passed","testResultsByEnv":{"default":"727fe334e0812f325288e17b44756729"}}
