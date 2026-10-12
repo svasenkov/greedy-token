@@ -75,7 +75,32 @@ Under the hood: each task is routed to the cheapest capable tier — `rg`/`jq` t
 
 ---
 
-## Money + time: which path should I use?
+## Proven zero-LLM interception — measured on live hosts
+
+A hook sits on the prompt path (`UserPromptSubmit` / CLI / GUI agent chat) and asks **“do you need a model at all?”** Deterministic intents run as trust-approved local scripts — the LLM turn **never happens**: 0 tokens, 0 billable requests, answer in ~1 s. Verified against independent host records and a server-side billing ledger, not self-reported counters.
+
+| Contour | Host / auth | Source of truth | Block | Control | Tokens on blocked | Billable req on blocked | Verdict |
+|---------|-------------|-----------------|-------|---------|-------------------|------------------------|---------|
+| Devin ACP | CLI 3000.10.48 | sessions.db + wire.jsonl + lsof | 3 | 2 (12 085 / 11 950 tok) | **0** | 0 new conns post-prompt | ✅ |
+| Codex exec | ChatGPT subscription | rollout `token_usage_record` | 3 | 2 (18 544 in / 13 out) | **0** | usage = 0 | ✅ |
+| Devin.app Desktop | GUI agent chat (ex-Windsurf) | sessions.db `message_nodes` | 2 | 1 (full model turn) | **0** — 0 user/assistant nodes | — | ✅ |
+| **Codex apikey (P4b)** | pay-per-token | **OpenAI org usage API + costs** (minute granularity) | 3 | 2 | **0** | **0 — all 8 billing families** | ✅ |
+
+Billing detail (codex apikey): day bucket = exactly 2 `gpt-4o-mini` requests — both controls; `embeddings`/`images`/`audio`/`moderations`/`vector_stores`/`code_interpreter` = 0; `costs` = **$0.0027894** ≈ the two control calls. Block windows empty at minute granularity.
+
+| One intercept | Blocked turn | Control (real LLM) |
+|---------------|--------------|--------------------|
+| Billing tokens | **0** | 9 272–18 557 in |
+| Time to answer | ~0.9–1.8 s (local script) | seconds–minutes stream |
+| Cost @ frontier ($3–15 / 1M in) | **$0** | ~$0.03–0.19 |
+| e.g. `usage stats` prompt | **0 tok** | ~50–60k tok of context |
+
+**Coverage:** 23 trust-approved invocable ops (SHA-256 + file identity re-checked per run) · every hook decision lands in the ledger (intercept / pass / too_short / bypass — no silent skips) · evidence hash-pinned, 0 SHA-256 failures · total cost of the whole proof **$0.003**.
+
+**Honestly not proven:** Cursor.app (different hook semantics — untested) · Devin / ChatGPT-subscription billing (no authoritative meter exists — verified structurally unmeasurable, not assumed).
+
+<details>
+<summary>Illustrative path table — estimates, not measured (the old “Money + time” view)</summary>
 
 **Illustrative** USD / month **and** wall-clock per call for a mid-intensity **CLI / pipeline / crystallize** mix vs sending every class of work to a cloud / frontier chat (**$130** / eng · **$1,300** / ×10). Green columns = that scenario’s delta; ★ TOTAL (**★ $82** / **★ $820**) is a **headline for that mix**, not a claim about MCP Agent chat bills.
 
@@ -99,6 +124,8 @@ First matching tier wins. Per-call times are estimates (`time_saved_ms` in foote
 | **cursor** | wiring, refactor, judgment | grep / bulk-copy | $40 | $40 | $0 | $400 | $400 | $0 | ~same | ~same | ~0 | change header behavior in one zone |
 | **classical LLM** | baseline: big model for everything | — | $130 | $130 | — | $1,300 | $1,300 | — | ~same | ~same | — | paste a whole folder into chat |
 | **★ TOTAL** | illustrative CLI/pipeline mix vs naive | — | **$48** | **$130** | **★ $82** | **$425** | **$1,300** | **★ $820** | — | — | **★ ~6 h · 1 / ~60 h · ×10** | **not MCP-chat savings** |
+
+</details>
 
 </details>
 

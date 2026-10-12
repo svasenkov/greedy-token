@@ -72,6 +72,59 @@
   <p id="host-summary">Desktop host requests, consume/skip, skipped turn и Desktop tokens/USD/savings:
   <strong>unknown</strong>, value=null. Product-direct не является Desktop evidence.
   Fallback и rag-empty не считаются успешным intercept.</p>
+  <p class="foot">Post-D1 update (v0.19.x): host-контуры измерены на живых хостах — см. следующую секцию.
+  Утверждение выше описывает scope самого D1 snapshot и остаётся верным для него.</p>
+</section>
+
+<section id="host-contours">
+  <h2>Host-contour evidence — measured on live hosts (post-D1, v0.19.x)</h2>
+  <p class="foot">Hook на пути промпта (<code>UserPromptSubmit</code> / CLI / GUI agent chat):
+  детерминированный intent выполняется trust-approved локальным скриптом, LLM-turn не происходит —
+  подтверждено независимыми источниками истины хоста и серверным billing ledger.</p>
+  <div class="table-scroll" tabindex="0" role="region" aria-label="Host contour evidence">
+  <table>
+    <thead><tr>
+      <th>Contour</th><th>Host / auth</th><th>Source of truth</th>
+      <th>Block turns</th><th>Control turns</th><th>Tokens on blocked</th><th>Billable on blocked</th><th>Verdict</th>
+    </tr></thead>
+    <tbody>
+      <tr><td>Devin ACP</td><td>CLI 3000.10.48</td><td>sessions.db + wire.jsonl + lsof conns</td>
+          <td>3</td><td>2 (12&nbsp;085 / 11&nbsp;950 tok)</td><td><b>0</b></td><td>0 new conns post-prompt</td><td>accept</td></tr>
+      <tr><td>Codex exec</td><td>chatgpt subscription</td><td>rollout <code>token_usage_record</code></td>
+          <td>3</td><td>2 (18&nbsp;544 in / 13 out)</td><td><b>0</b></td><td>usage = 0</td><td>accept</td></tr>
+      <tr><td>Devin.app Desktop</td><td>GUI agent chat (ex-Windsurf)</td><td>sessions.db message_nodes</td>
+          <td>2</td><td>1 (full model turn)</td><td><b>0</b> — 0 user/assistant nodes</td><td>—</td><td>accept</td></tr>
+      <tr><td>Codex apikey (P4b)</td><td>pay-per-token</td><td><b>OpenAI org usage API + costs</b> (minute granularity)</td>
+          <td>3</td><td>2</td><td><b>0</b></td><td><b>0 — all 8 billing families</b></td><td>accept</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="foot">Billing detail (codex apikey): day bucket = ровно 2 запроса <code>gpt-4o-mini</code> — оба контрольных;
+  <code>embeddings/images/audio/moderations/vector_stores/code_interpreter</code> = 0;
+  <code>costs</code> = <b>$0.0027894</b> ≈ два control-вызова. Block-окна пустые на минутной гранулярности.</p>
+
+  <div class="table-scroll" tabindex="0" role="region" aria-label="Per-intercept economics">
+  <table>
+    <thead><tr><th>Metric</th><th>Blocked turn</th><th>Control (real LLM)</th></tr></thead>
+    <tbody>
+      <tr><td>Billing tokens</td><td><b>0</b></td><td>9 272–18 557 in</td></tr>
+      <tr><td>Time to answer</td><td>~0.9–1.8 s (local script)</td><td>seconds–minutes stream</td></tr>
+      <tr><td>Cost @ frontier ($3–15/1M in)</td><td><b>$0</b></td><td>~$0.03–0.19</td></tr>
+      <tr><td>e.g. “usage stats” prompt</td><td><b>0 tok</b></td><td>~50–60k tok context</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="v">23</div><div class="l">trust-approved ops (SHA-256 + inode per run)</div></div>
+    <div class="stat"><div class="v">9</div><div class="l">proven zero-LLM block turns</div></div>
+    <div class="stat"><div class="v">0</div><div class="l">billable requests on blocked</div></div>
+    <div class="stat"><div class="v">$0.003</div><div class="l">total cost of the proof</div></div>
+  </div>
+  <p class="foot">Честно не доказано: Cursor.app (другая hook-семантика, не тестирован) ·
+  devin/chatgpt-subscription billing (авторитетного измерителя не существует — проверено структурно,
+  не предположено). Каждое hook-решение пишется в ledger: intercept / pass / too_short / bypass —
+  молчаливых скипов нет.</p>
 </section>
 
 <section id="source-provenance">
