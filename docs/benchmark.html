@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>greedy-token — local answers, verified zero model calls</title>
-<meta name="description" content="Live-host evidence for greedy-token: deterministic prompts answered by trust-verified local scripts before the model is called. Results, billing proof, and explicit limits.">
+<title>greedy-token — local answers with opt-in interception</title>
+<meta name="description" content="Opt-in hook interception for deterministic requests: local tools and trust-verified scripts before model dispatch. Host results, API accounting, and explicit measurement boundaries.">
 <style>
   :root {
     color-scheme: light dark;
@@ -177,15 +177,16 @@
 
 <main id="content">
 <section class="hero" aria-labelledby="page-title">
-  <p class="eyebrow">Live-host benchmark</p>
+  <p class="eyebrow">Opt-in deterministic interception</p>
   <h1 id="page-title">Prompts answered locally.<span>The model is never called.</span></h1>
-  <p class="hero-lead">greedy-token intercepts deterministic requests <strong>before model dispatch</strong>.
-  Within trust-approved coverage, a local script does the work. Everything else passes through.</p>
-  <dl class="hero-metrics" aria-label="Verified results and their scope">
-    <div><dt>Blocked prompts<small>proven zero-LLM on live hosts</small></dt><dd>9</dd></div>
-    <div><dt>Model tokens<small>on blocked prompts</small></dt><dd>0</dd></div>
-    <div><dt>Billable calls<small>API-key blocked windows</small></dt><dd>0</dd></div>
-    <div><dt>Total proof cost<small>rounded; exact ledger below</small></dt><dd>$0.003</dd></div>
+  <p class="hero-lead">greedy-token can answer supported deterministic requests with a local tool or
+  trust-verified script <strong>before model dispatch</strong>. An installed hook is required:
+  <code>intercept</code> is opt-in; <code>advisory</code> is the default.</p>
+  <dl class="hero-metrics" aria-label="Reported live-host results and their scope">
+    <div><dt>Host contours<small>recorded separately below</small></dt><dd>4</dd></div>
+    <div><dt>Model tokens<small>CLI usage records on blocked prompts</small></dt><dd>0</dd></div>
+    <div><dt>API model requests<small>reported blocked windows</small></dt><dd>0</dd></div>
+    <div><dt>OpenAI API cost<small>rounded daily API-key total</small></dt><dd>$0.003</dd></div>
   </dl>
 </section>
 
@@ -197,11 +198,11 @@
   </div>
   <div class="table-scroll" tabindex="0" role="region" aria-label="Live-host evidence; scroll horizontally for all columns">
     <table class="proof-table" aria-describedby="contour-scope">
-      <caption>Four host contours. Token and billing columns refer only to blocked prompts.</caption>
+      <caption>Four host contours. Token evidence and provider accounting refer only to blocked submissions.</caption>
       <thead><tr>
-        <th scope="col">Host / authentication</th><th scope="col">Independent proof</th>
+        <th scope="col">Host / authentication</th><th scope="col">Evidence source</th>
         <th scope="col" class="numeric">Blocked</th><th scope="col" class="numeric">Control</th>
-        <th scope="col" class="numeric">Tokens</th><th scope="col">Billable calls</th>
+        <th scope="col" class="numeric">Token evidence</th><th scope="col">Provider accounting</th>
       </tr></thead>
       <tbody>
         <tr>
@@ -214,7 +215,7 @@
         <tr>
           <th scope="row">Codex CLI<span class="cell-note">ChatGPT subscription</span></th>
           <td>Session usage records<span class="cell-note">Recorded usage = 0</span></td>
-          <td class="numeric">3</td><td class="numeric">2<span class="cell-note">~18.5k tokens</span></td>
+          <td class="numeric">3</td><td class="numeric">2</td>
           <td class="numeric"><strong class="zero">0</strong></td>
           <td><span class="unknown">Not measurable</span><span class="cell-note">No per-request billing export</span></td>
         </tr>
@@ -222,67 +223,73 @@
           <th scope="row">Devin Desktop<span class="cell-note">GUI agent chat</span></th>
           <td>Conversation DB<span class="cell-note">The prompt did not even create a node</span></td>
           <td class="numeric">2</td><td class="numeric">1<span class="cell-note">Full model turn</span></td>
-          <td class="numeric"><strong class="zero">0</strong></td>
+          <td class="numeric"><span class="unknown">Not directly metered</span><span class="cell-note">0 conversation nodes</span></td>
           <td><span class="unknown">Not established</span><span class="cell-note">Conversation evidence, not billing</span></td>
         </tr>
         <tr>
           <th scope="row">Codex API-key<span class="cell-note">Pay-per-token</span></th>
-          <td>OpenAI org billing API<span class="cell-note">Independent one-minute windows</span></td>
+          <td>OpenAI Usage + Costs APIs<span class="cell-note">Minute requests; daily costs</span></td>
           <td class="numeric">3</td><td class="numeric">2</td>
           <td class="numeric"><strong class="zero">0</strong></td>
-          <td><strong class="zero">0</strong><span class="cell-note">All 8 billing families: 0</span></td>
+          <td><strong class="zero">0</strong><span class="cell-note">Model requests; zero usage reported across eight queried usage categories</span></td>
         </tr>
       </tbody>
     </table>
   </div>
-  <p class="foot" id="contour-scope">The 9-prompt headline and the per-contour counts are reported separately;
-  this page does not infer a combined total. Unobservable billing is not recorded as zero.</p>
+  <p class="foot" id="contour-scope">Each row has its own measurement boundary. Desktop node absence is not
+  a token counter or a billing export; only the API-key contour has a provider-accounting cross-check.</p>
   <div class="billing-receipt">
     <div>
       <p class="eyebrow">Provider cross-check</p>
       <p><strong>2 requests. Both controls.</strong>
-      <span class="cell-note">The daily OpenAI ledger accounts for both model requests.
-      Blocked windows stayed empty at one-minute granularity; all 8 billing families were zero in those windows.</span></p>
+      <span class="cell-note">Minute-level request usage showed empty blocked windows.
+      The daily request aggregate reported two control calls; the daily cost bucket is shown separately.</span></p>
     </div>
-    <p class="receipt-total"><strong>$0.0027894</strong><span class="cell-note">Daily OpenAI ledger total</span></p>
+    <p class="receipt-total"><strong>$0.0027894</strong><span class="cell-note">Daily OpenAI API cost</span></p>
   </div>
-  <p class="evidence-note">431/431 hook tests · ~500 hash-verified evidence files · 0 SHA-256 failures</p>
+  <p class="evidence-note">Local hook/advisory regression check: 577/577 passed on
+  <time datetime="2026-10-12">12 October 2026</time>. Separate from host and billing evidence.</p>
 </section>
 
 <section class="content-section" id="how-it-works" aria-labelledby="flow-title">
   <div class="section-heading">
     <h2 id="flow-title">One hook. Three outcomes.</h2>
-    <p><code>UserPromptSubmit</code> runs before the host sends the prompt to the model.
-    An intercept is a local execution, not another LLM turn.</p>
+    <p>An installed <code>UserPromptSubmit</code> hook can stop a turn before model dispatch.
+    This diagram shows the deterministic intercept path, not advisory, soft-gate or overkill policies.</p>
   </div>
   <p class="flow-entry"><code>prompt</code><span aria-hidden="true">→</span><code>UserPromptSubmit</code>
-  <span class="cell-note">Before any model call</span></p>
-  <ul class="outcomes" aria-label="Prompt routing outcomes">
+  <span class="cell-note">Configured intercept mode</span></p>
+  <ul class="outcomes" aria-label="Deterministic intercept routing outcomes">
     <li class="intercept">
       <h3>Intercept</h3>
-      <p class="condition">Recognized intent, confidence ≥ 0.65, within trust-approved coverage.</p>
-      <p>A verified local script runs and returns the answer. <strong>The model is never called.</strong></p>
+      <p class="condition">Explicit invocation intent, configured confidence threshold, and a ready, read-only deterministic operation.</p>
+      <p>A local tool or approved script runs. An accepted result is returned with a block decision:
+      <strong>no agent turn on the measured hosts.</strong></p>
     </li>
     <li>
       <h3>Pass</h3>
-      <p class="condition">The intent is outside supported coverage.</p>
-      <p>The prompt continues to a normal agent turn. <strong>Nothing changes.</strong></p>
+      <p class="condition">Uncovered, low-confidence, unavailable or unusable results pass through.</p>
+      <p>No accepted local answer replaces the request. <strong>The agent handles it normally.</strong></p>
     </li>
     <li>
       <h3>Audited pass</h3>
       <p class="condition">Fewer than 8 characters, or an explicit <code>nogreedy:</code> bypass.</p>
-      <p>The prompt passes through, with the bypass <strong>visible in the ledger.</strong></p>
+      <p>The bypass is recorded <strong>when advisory logging is enabled and the write succeeds</strong>.
+      The operation is not executed.</p>
     </li>
   </ul>
-  <p class="trust-note"><strong>23 trust-approved operations.</strong> Each script's SHA-256 and file identity
-  are re-verified on every run. Content drift refuses execution; it does not silently run stale code.</p>
+  <p class="trust-note"><strong>Explicit local approval for scripts.</strong> SHA-256 and file identity are
+  checked before each approved launch. Read-only metadata is not approval; trust is not an OS sandbox.</p>
+  <p class="foot">0.65 is the illustrated workspace threshold; the library enforce default is 0.55.
+  Confidence is a routing score, not a correctness guarantee. Ollama routes are not zero-LLM
+  and are outside the deterministic claim above.</p>
 </section>
 
 <section class="content-section" id="savings" aria-labelledby="savings-title">
   <div class="section-heading">
-    <h2 id="savings-title">One intercepted prompt</h2>
-    <p>The local path uses no model tokens. These are observed magnitudes,
-    not a projected savings percentage for an entire agent session.</p>
+    <h2 id="savings-title">Recorded examples, not a forecast</h2>
+    <p>The published run summary reports these token and timing figures.
+    They are not a matched, same-task baseline or a projected saving for an entire agent session.</p>
   </div>
   <div class="comparison">
     <div>
@@ -291,13 +298,13 @@
       <p class="timing">~1 s to answer</p>
     </div>
     <div>
-      <p class="eyebrow">Observed model turns</p>
+      <p class="eyebrow">Published control usage</p>
       <p class="comparison-value"><strong>9,272–18,557</strong> tokens</p>
       <p class="timing">Seconds to minutes of streaming</p>
     </div>
   </div>
-  <p class="foot">This is not a matched optimized-direct baseline. That baseline remains unmeasured;
-  illustrative price comparisons and the assumption calculator are in the appendix.</p>
+  <p class="foot">Per-prompt dollar savings are not established. These controls do not identify a matched
+  optimized-direct baseline and are not a price quote. The assumption calculator remains in the historical appendix.</p>
 </section>
 
 <section class="content-section" id="limits" aria-labelledby="limits-title">
@@ -307,8 +314,8 @@
     Where the meter is unavailable, the result stays unknown.</p>
   </div>
   <dl class="limits-list">
-    <div><dt>Cursor</dt><dd>Not tested. Its hook semantics differ from the measured hosts.</dd></div>
-    <div><dt>Devin plan billing</dt><dd>Measured blind spot: the provider API cannot see local metering.</dd></div>
+    <div><dt>Cursor</dt><dd>Not live-tested in this report. Its hook semantics differ from the measured hosts.</dd></div>
+    <div><dt>Devin plan billing</dt><dd>Measured blind spot: the provider API used in this experiment does not expose Devin's local plan metering.</dd></div>
     <div><dt>ChatGPT subscription billing</dt><dd>Structurally unmeasurable: a per-request billing export does not exist.</dd></div>
   </dl>
 </section>
@@ -317,11 +324,15 @@
 <summary><span><span class="appendix-title">Auditor appendix</span>
 <span class="cell-note">Live-host reference notes, assumptions, and a dated historical archive.</span></span></summary>
 <div class="appendix-body">
-<p class="appendix-intro">The live-host proof is summarized above. The D1 snapshot is a separate, frozen
-implementation-level experiment, not a current release assessment.</p>
+<p class="appendix-intro">Live-host records, local package tests and the frozen D1 corpus are different kinds
+of evidence. They are not combined into one success rate or savings total.</p>
 <details class="historical-evidence" id="d1-archive">
 <summary>Historical D1 snapshot
 <span class="cell-note"><time datetime="2026-10-04T20:09:38Z">4 October 2026</time> · revision <code>08ec32bd</code> · product_direct / python_provider</span></summary>
+<p class="foot">D1 used a restricted Python/provider observer that denied native launches.
+Later deterministic runs use a different observed execution profile, described in the
+<a href="https://github.com/svasenkov/greedy-token/blob/816359791ec8d9a62ee739ac9b07876092989f76/bench/README.md">versioned benchmark report</a>.
+The original verdicts below are preserved, not regraded or claimed to be fixed merely because they are older.</p>
 
 <section class="note">
   <b>What is proven and what is not</b>
@@ -414,38 +425,43 @@ implementation-level experiment, not a current release assessment.</p>
 </details>
 
 <section>
-  <h2>Per-intercept economics — additional context</h2>
-  <p class="foot">Frontier-rate costs are illustrative estimates, not the measured provider billing ledger.</p>
-  <div class="table-scroll" tabindex="0" role="region" aria-label="Per-intercept economics">
-  <table>
-    <thead><tr><th>Per blocked prompt</th><th>Intercepted</th><th>Sent to model</th></tr></thead>
-    <tbody>
-      <tr><td>Billed tokens</td><td><b>0</b></td><td>9 272–18 557</td></tr>
-      <tr><td>Time to answer</td><td>~1 s (local script)</td><td>seconds–minutes stream</td></tr>
-      <tr><td>Cost @ frontier ($3–15 / 1M in)</td><td><b>$0</b></td><td>~$0.03–0.19</td></tr>
-      <tr><td>Real example: “usage stats”</td><td><b>0 tok</b></td><td>~50–60k tok of context</td></tr>
-    </tbody>
-  </table>
-  </div>
-  <p class="foot">The daily billing cross-check also recorded zero for embeddings, images, audio,
-  moderations, vector stores, and code interpreter. The $0.0027894 total corresponds to the two control calls.</p>
+  <h2>Accounting is not a savings estimate</h2>
+  <p>The $0.0027894 figure is the reported daily OpenAI API cost, not the total cost of all host experiments.
+  Devin plan metering and ChatGPT subscription billing are outside that ledger. Per-prompt dollar savings
+  are not established by applying an illustrative input rate to mixed control-token totals.</p>
+  <p class="foot">The published cross-check also reports zero usage for embeddings, images, audio,
+  moderations, vector stores, and code interpreter. These are queried usage categories, not a claim
+  that every current billing category has minute-level cost data. See the
+  <a href="https://developers.openai.com/cookbook/examples/completions_usage_api">OpenAI Usage and Costs API example</a>
+  for the separate aggregation rules.</p>
 </section>
 
 <section>
-  <h2>Evidence rigor</h2>
+  <h2>Verification scope</h2>
   <div class="stats">
-    <div class="stat"><div class="v">431/431</div><div class="l">hook tests green</div></div>
-    <div class="stat"><div class="v">~500</div><div class="l">evidence files, hash-verified</div></div>
-    <div class="stat"><div class="v">0</div><div class="l">SHA-256 verification failures</div></div>
-    <div class="stat"><div class="v">3</div><div class="l">independent ledgers per blocked prompt</div></div>
+    <div class="stat"><div class="v">577/577</div><div class="l">local hook/advisory tests · 12 October 2026</div></div>
+    <div class="stat"><div class="v">23</div><div class="l">invocable operations · audited workspace only</div></div>
+    <div class="stat"><div class="v">~500</div><div class="l">reported host-campaign evidence files</div></div>
+    <div class="stat"><div class="v">0</div><div class="l">reported campaign hash failures</div></div>
   </div>
+  <p>Local package tests, not host-billing evidence: <code>tests/test_advisory.py</code>,
+  <code>tests/test_hook_host.py</code>, and <code>tests/test_hook_policy.py</code>.
+  Run with <code>python -m pytest -n0</code> and those three paths.</p>
+  <p>23 invocable operations in the audited workspace: 19 Python, 2 built-in tools, and 2 Ollama operations.
+  This is not a zero-LLM coverage count or a bundled inventory for every installation. Readiness was
+  checked through <code>greedy_token_capabilities</code> on <time datetime="2026-10-12">12 October 2026</time>;
+  no operation was invoked by that check.</p>
+  <p class="foot">The decoder verifies only the embedded D1 snapshot. The separate host-campaign file
+  manifest is not embedded, so its reported file count and hash-failure count are not verified by this page.
+  Independent evidence sources differ by host; a socket count, a conversation record and a provider ledger
+  are not interchangeable measurements.</p>
 </section>
 </div>
 </details>
 </main>
 
 <footer class="site-footer">
-  <p>Self-contained page. No external resources. Evidence is decoded locally.</p>
+  <p>Self-contained page. No external resources. The D1 snapshot is decoded locally.</p>
   <a href="https://github.com/svasenkov/greedy-token">Source on GitHub</a>
 </footer>
 

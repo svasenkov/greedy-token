@@ -144,6 +144,66 @@ class VisibleText(HTMLParser):
             self.parts.append(data)
 
 
+def page_text(*, public_only: bool = False) -> str:
+    html = PAGE.read_text()
+    parser = VisibleText()
+    parser.feed(html.split('<details class="appendix"', 1)[0] if public_only else html)
+    return " ".join(" ".join(parser.parts).split())
+
+
+def test_public_hook_claim_is_opt_in_and_deterministic() -> None:
+    from greedy_token.advisory import ENFORCE_MIN_CONFIDENCE
+    from greedy_token.hook_policy import MIN_PROMPT_LEN
+
+    visible = page_text(public_only=True).lower()
+    assert "intercept is opt-in; advisory is the default" in visible
+    assert f"library enforce default is {ENFORCE_MIN_CONFIDENCE}" in visible
+    assert "0.65 is the illustrated workspace threshold" in visible
+    assert f"fewer than {MIN_PROMPT_LEN} characters" in visible
+    assert "ollama routes are not zero-llm" in visible
+    assert "uncovered, low-confidence, unavailable or unusable results pass through" in visible
+    assert "when advisory logging is enabled and the write succeeds" in visible
+
+
+def test_live_summary_counts_hosts_and_scopes_api_cost() -> None:
+    html = PAGE.read_text()
+    hero = re.search(r'<dl class="hero-metrics"[^>]*>(.*?)</dl>', html, re.S)
+    proof = re.search(r'<table class="proof-table"[^>]*>(.*?)</table>', html, re.S)
+    assert hero and proof
+    values = re.findall(r"<dd>([^<]+)</dd>", hero[1])
+    assert values[0] == str(proof[1].count('<th scope="row">'))
+    visible = page_text(public_only=True).lower()
+    assert "openai api cost" in visible and "total proof cost" not in visible
+    assert "cli usage records" in visible
+    assert "not directly metered" in visible and "0 conversation nodes" in visible
+
+
+def test_provider_usage_and_cost_granularity_are_separate() -> None:
+    visible = page_text(public_only=True).lower()
+    assert "minute-level request usage" in visible
+    assert "daily cost bucket" in visible
+    assert "eight queried usage categories" in visible
+    assert "all 8 billing families" not in visible
+
+
+def test_workspace_inventory_and_regressions_have_explicit_scope() -> None:
+    visible = page_text().lower()
+    assert "23 invocable operations in the audited workspace" in visible
+    assert "19 python, 2 built-in tools, and 2 ollama operations" in visible
+    assert "not a zero-llm coverage count" in visible
+    assert "577/577" in visible and "12 october 2026" in visible
+    assert "local package tests, not host-billing evidence" in visible
+    assert "431/431" not in visible
+
+
+def test_unmeasured_claims_are_not_presented_as_proof() -> None:
+    visible = page_text().lower()
+    assert "per-prompt dollar savings are not established" in visible
+    assert "~$0.03–0.19" not in visible and "50–60k" not in visible
+    assert "independent ledgers per blocked prompt" not in visible
+    assert "decoder verifies only the embedded d1 snapshot" in visible
+
+
 def test_unknown_and_zero_are_distinct() -> None:
     assert node_eval('[num(null), num(undefined), num(NaN), fmt$(null), fmt$(NaN), fmt$(0)]') == [
         "unknown", "unknown", "unknown", "unknown", "unknown", "$0.0000",
@@ -196,9 +256,7 @@ def test_partial_ledger_is_not_whole_invocation_zero() -> None:
 
 
 def test_historical_and_desktop_claims_are_explicit_unknown() -> None:
-    parser = VisibleText()
-    parser.feed(PAGE.read_text())
-    visible = " ".join(" ".join(parser.parts).split()).lower()
+    visible = page_text().lower()
     assert "гарантированная экономия — intercept" not in visible
     assert "measured baseline ~17,043" not in visible
     assert "таблица 3 — измеренный факт" not in visible
