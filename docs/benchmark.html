@@ -10,14 +10,12 @@
     color-scheme: light dark;
     --bg: #fafbf8; --surface: #f0f3ed; --fg: #1c2921; --muted: #5c695f;
     --line: #d8dfd5; --accent: #216e4a; --accent-soft: #eaf3eb;
-    --warn-bg: #fff5e5; --loss-bg: #faece8;
     --mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #111813; --surface: #1a231c; --fg: #e5ede4; --muted: #a3b2a5;
       --line: #344338; --accent: #9ed2ae; --accent-soft: #1c3023;
-      --warn-bg: #30271a; --loss-bg: #35201e;
     }
   }
   * { box-sizing: border-box; }
@@ -120,8 +118,9 @@
   .appendix th, .appendix td { white-space: nowrap; }
   .appendix td:first-child { min-width: 170px; max-width: 340px; white-space: normal; }
   .appendix .table-scroll { margin-top: 16px; }
-  tr.warn { background: var(--warn-bg); }
-  tr.loss { background: var(--loss-bg); }
+  .historical-evidence { margin-bottom: 28px; border-block: 1px solid var(--line); }
+  .historical-evidence > summary { padding: 16px 0; font-weight: 600; }
+  .historical-evidence[open] > summary { margin-bottom: 20px; }
   .stats, .models { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 12px; margin: 16px 0; }
   .stat, .card { border: 1px solid var(--line); padding: 16px; min-width: 0; }
   .stat .v { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -316,10 +315,13 @@
 
 <details class="appendix" id="auditor-appendix">
 <summary><span><span class="appendix-title">Auditor appendix</span>
-<span class="cell-note">D1 snapshot, raw ledger, gates, unverified history, baselines &amp; assumptions.</span></span></summary>
+<span class="cell-note">Live-host reference notes, assumptions, and a dated historical archive.</span></span></summary>
 <div class="appendix-body">
-<p class="appendix-intro">The live-host results above and the older D1 snapshot below are separate evidence sets.
-The original forensic sections are preserved in full, including failed gates and unknown values.</p>
+<p class="appendix-intro">The live-host proof is summarized above. The D1 snapshot is a separate, frozen
+implementation-level experiment, not a current release assessment.</p>
+<details class="historical-evidence" id="d1-archive">
+<summary>Historical D1 snapshot
+<span class="cell-note"><time datetime="2026-10-04T20:09:38Z">4 October 2026</time> · revision <code>08ec32bd</code> · product_direct / python_provider</span></summary>
 
 <section class="note">
   <b>What is proven and what is not</b>
@@ -409,6 +411,7 @@ The original forensic sections are preserved in full, including failed gates and
 </section>
 
 <noscript>All product/live numeric metrics: unknown until the snapshot integrity check runs. JavaScript is used only for local rendering; no commands or agents are launched.</noscript>
+</details>
 
 <section>
   <h2>Per-intercept economics — additional context</h2>

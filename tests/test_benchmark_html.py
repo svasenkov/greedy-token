@@ -382,6 +382,13 @@ async function isolated(browser, options = {}) {
       assert.ok(await page.locator('#host-summary').textContent().then(t=>t.includes('unknown')));
       assert.equal(await page.locator('details.appendix').getAttribute('open'),null);
       await page.locator('details.appendix > summary').click();
+      assert.equal(await page.locator('#d1-archive').getAttribute('open'),null);
+      assert.equal(await page.locator('#tbody').isVisible(),false);
+      await page.locator('#d1-archive > summary').click();
+      assert.ok(await page.locator('#tbody').isVisible());
+      assert.ok(await page.locator('#tbody tr, #gates tr').evaluateAll(rows =>
+        rows.every(row => getComputedStyle(row).backgroundColor === 'rgba(0, 0, 0, 0)')),
+        'Historical evidence rows must not use alert backgrounds');
       await page.locator('#potential-naive').fill('100');
       await page.locator('#potential-direct').fill('130');
       await page.locator('#potential-rate').fill('2');
@@ -400,6 +407,9 @@ async function isolated(browser, options = {}) {
     await noScriptPage.goto(url);
     assert.equal(await noScriptPage.locator('details.appendix').getAttribute('open'),null);
     await noScriptPage.locator('details.appendix > summary').focus();
+    await noScriptPage.keyboard.press('Enter');
+    assert.equal(await noScriptPage.locator('#d1-archive').getAttribute('open'),null);
+    await noScriptPage.locator('#d1-archive > summary').focus();
     await noScriptPage.keyboard.press('Enter');
     assert.ok(await noScriptPage.locator('#potential-naive').isVisible());
     assert.ok((await noScriptPage.locator('noscript').innerText()).includes('unknown'));
