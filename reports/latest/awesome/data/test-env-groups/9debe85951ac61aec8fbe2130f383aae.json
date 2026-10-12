@@ -1,1 +1,1 @@
-{"id":"9debe85951ac61aec8fbe2130f383aae","fullName":"tests.test_machine_output#test_mcp_invoke_machine_negative_verdict","name":"MCP invoke of a failing contract script keeps the negative verdict","status":"passed","testResultsByEnv":{"default":"9c553457a6b141ea22ea1f027d715472"}}
+{"id":"9debe85951ac61aec8fbe2130f383aae","fullName":"tests.test_machine_output#test_mcp_invoke_machine_negative_verdict","name":"MCP invoke of a failing contract script keeps the negative verdict","status":"passed","testResultsByEnv":{"default":"20e2e5d08641d498af60c745830f8d9f"}}

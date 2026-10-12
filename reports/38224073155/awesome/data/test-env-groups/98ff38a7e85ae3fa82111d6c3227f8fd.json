@@ -1,0 +1,1 @@
+{"id":"98ff38a7e85ae3fa82111d6c3227f8fd","fullName":"tests.test_cross_platform_execution#test_command_to_argv_rejects_drive_relative_cd","name":"test_command_to_argv_rejects_drive_relative_cd[cd C:relative && rg x]","status":"passed","testResultsByEnv":{"default":"5602ac62cccd2bb0434f0999dbe2c15b"}}

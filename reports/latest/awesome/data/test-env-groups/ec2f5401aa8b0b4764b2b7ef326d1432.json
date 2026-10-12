@@ -1,1 +1,1 @@
-{"id":"ec2f5401aa8b0b4764b2b7ef326d1432","fullName":"tests.test_meta_stats#test_accumulate_totals","name":"accumulate_totals sums all-time savings including USD estimate","status":"passed","testResultsByEnv":{"default":"e088734d26a2dd2bda8c9d68409b532d"}}
+{"id":"ec2f5401aa8b0b4764b2b7ef326d1432","fullName":"tests.test_meta_stats#test_accumulate_totals","name":"accumulate_totals sums all-time savings including USD estimate","status":"passed","testResultsByEnv":{"default":"39c04eab72bba3f30d89ffb65f31033c"}}

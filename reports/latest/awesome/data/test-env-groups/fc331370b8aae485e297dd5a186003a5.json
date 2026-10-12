@@ -1,1 +1,1 @@
-{"id":"fc331370b8aae485e297dd5a186003a5","fullName":"tests.test_cli_handlers#test_cmd_report_text","name":"cmd_report prints text summary","status":"passed","testResultsByEnv":{"default":"77ff19d5641c9ed49d43cfd18320676e"}}
+{"id":"fc331370b8aae485e297dd5a186003a5","fullName":"tests.test_cli_handlers#test_cmd_report_text","name":"cmd_report prints text summary","status":"passed","testResultsByEnv":{"default":"9bfae8e78dddf3ce5918c7e8e77d4e1a"}}

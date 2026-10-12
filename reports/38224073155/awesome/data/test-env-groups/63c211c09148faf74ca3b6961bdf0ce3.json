@@ -1,0 +1,1 @@
+{"id":"63c211c09148faf74ca3b6961bdf0ce3","fullName":"tests.test_budget_gaps#test_wrap_mcp_response_crash_stays_failure","name":"a pre-start crash without a refusal code stays a failure","status":"passed","testResultsByEnv":{"default":"7f69b57c54b592c1ece1bfdf137f2824"}}

@@ -1,1 +1,1 @@
-{"id":"5df940e3d532ff80f590b1e58aecd41b","fullName":"tests.test_mcp_icon#test_mcp_icons_advertises_png_data_uri","name":"MCP server icon advertises a small SVG data URI for Cursor","status":"passed","testResultsByEnv":{"default":"1130b2d6aeb9dcdf4417f82d3a10f333"}}
+{"id":"5df940e3d532ff80f590b1e58aecd41b","fullName":"tests.test_mcp_icon#test_mcp_icons_advertises_png_data_uri","name":"MCP server icon advertises a small SVG data URI for Cursor","status":"passed","testResultsByEnv":{"default":"c2ece2349acbaffd2687a403bbaf2155"}}

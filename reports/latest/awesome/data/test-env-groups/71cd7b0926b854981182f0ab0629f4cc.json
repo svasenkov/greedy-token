@@ -1,1 +1,1 @@
-{"id":"71cd7b0926b854981182f0ab0629f4cc","fullName":"tests.test_mcp_tools#test_mcp_crystallize_draft","name":"MCP crystallize draft returns CLI-equivalent text","status":"passed","testResultsByEnv":{"default":"a5dc06b515b6f930dd3a9cebf2567b5f"}}
+{"id":"71cd7b0926b854981182f0ab0629f4cc","fullName":"tests.test_mcp_tools#test_mcp_crystallize_draft","name":"MCP crystallize draft returns CLI-equivalent text","status":"passed","testResultsByEnv":{"default":"3c4cc38f8608ccbafa0391e3e70ab6b0"}}

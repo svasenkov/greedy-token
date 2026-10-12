@@ -1,1 +1,1 @@
-{"id":"7b4b8937f287075714f5f027ffd16cab","fullName":"tests.test_budget_gaps#test_wrap_mcp_response_forwards_all_fields","name":"wrap_mcp_response forwards every argument to footer, gate and log","status":"passed","testResultsByEnv":{"default":"2c0a4e37adae84b0bd85f2e084ab5a11"}}
+{"id":"7b4b8937f287075714f5f027ffd16cab","fullName":"tests.test_budget_gaps#test_wrap_mcp_response_forwards_all_fields","name":"wrap_mcp_response forwards every argument to footer, gate and log","status":"passed","testResultsByEnv":{"default":"7fc6e117480dc335a479d70c952b8088"}}

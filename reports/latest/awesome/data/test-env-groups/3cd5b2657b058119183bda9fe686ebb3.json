@@ -1,1 +1,1 @@
-{"id":"3cd5b2657b058119183bda9fe686ebb3","fullName":"tests.test_mcp_stdio#test_mcp_stdio_machine_output_cap_and_ledger","name":"Machine envelope caps the payload; observed ledger matches human mode","status":"passed","testResultsByEnv":{"default":"61e8f55df5f5914641dde86bbf56ea8a"}}
+{"id":"3cd5b2657b058119183bda9fe686ebb3","fullName":"tests.test_mcp_stdio#test_mcp_stdio_machine_output_cap_and_ledger","name":"Machine envelope caps the payload; observed ledger matches human mode","status":"passed","testResultsByEnv":{"default":"9cb46ea616daf58b3f1c9ff525460424"}}

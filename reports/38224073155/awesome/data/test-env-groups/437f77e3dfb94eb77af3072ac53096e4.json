@@ -1,0 +1,1 @@
+{"id":"437f77e3dfb94eb77af3072ac53096e4","fullName":"tests.test_machine_output#test_shrink_dict_in_place_zero_gain_drops_keys","name":"_shrink_dict_in_place: zero-gain fields fall through to key dropping","status":"passed","testResultsByEnv":{"default":"21b6561e4d0b33b5869dbf39663e83d9"}}

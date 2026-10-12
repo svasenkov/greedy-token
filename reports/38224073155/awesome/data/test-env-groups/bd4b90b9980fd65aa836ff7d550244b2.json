@@ -1,0 +1,1 @@
+{"id":"bd4b90b9980fd65aa836ff7d550244b2","fullName":"tests.test_machine_output#test_strip_to_skeleton_error_without_code","name":"_strip_to_skeleton keeps an error dict that carries no code","status":"passed","testResultsByEnv":{"default":"c5280e87282b190e45aef7c2245731cd"}}

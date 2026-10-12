@@ -1,0 +1,1 @@
+{"id":"392c2028fc9f0a4a312270919e23e13a","fullName":"tests.test_cheap_llm_gaps#test_observe_transition","name":"executor handoff transitions are recorded only when armed","status":"passed","testResultsByEnv":{"default":"659d4c7cad9193da8458f27bd3f9a2ad"}}

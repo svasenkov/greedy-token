@@ -1,0 +1,1 @@
+{"id":"df0bdf3442db0e3dfc07c923a28c76d1","fullName":"tests.test_evidence_benchmark#test_direct_dispatch_without_candidate_counts_attempt","name":"Direct provider dispatch without candidate gets its own intent","status":"passed","testResultsByEnv":{"default":"79b040e0855bc57b2cc9a089d24a5c40"}}

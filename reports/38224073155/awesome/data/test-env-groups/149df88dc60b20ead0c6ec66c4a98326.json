@@ -1,0 +1,1 @@
+{"id":"149df88dc60b20ead0c6ec66c4a98326","fullName":"tests.test_code_search_gaps#test_ignore_specs_scope_ancestors","name":"scope ancestors' .ignore files apply, like rg parent-dir handling","status":"passed","testResultsByEnv":{"default":"ef874e4e1548a5145f6b4a0f49c12063"}}

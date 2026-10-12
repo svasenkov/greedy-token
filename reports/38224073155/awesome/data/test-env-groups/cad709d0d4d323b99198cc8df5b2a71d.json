@@ -1,0 +1,1 @@
+{"id":"cad709d0d4d323b99198cc8df5b2a71d","fullName":"tests.test_mcp_tools#test_mcp_pipeline_execute_false_by_default","name":"MCP pipeline defaults to dry-run when execute is omitted","status":"passed","testResultsByEnv":{"default":"862d53fdb82e60f5781c1604a78e0d2f"}}

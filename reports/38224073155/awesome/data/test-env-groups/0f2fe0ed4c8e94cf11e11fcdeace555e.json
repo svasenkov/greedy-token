@@ -1,0 +1,1 @@
+{"id":"0f2fe0ed4c8e94cf11e11fcdeace555e","fullName":"tests.test_hub_gaps#test_rank_candidates_not_promote_ready","name":"rank_candidates: same-day same-session repeats are not promote_ready","status":"passed","testResultsByEnv":{"default":"efb331af76a0e7800f0df6dcad2d8a65"}}

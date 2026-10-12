@@ -1,0 +1,1 @@
+{"id":"e37775409af26ebc8ce1ea3c0d2d343d","fullName":"tests.test_calibration#test_hot_path_cached_output_parity","name":"Cached routing preserves every decision, exact savings and rendered output field","status":"passed","testResultsByEnv":{"default":"d867c40d3bd3da8e389980c23f4f6ca8"}}

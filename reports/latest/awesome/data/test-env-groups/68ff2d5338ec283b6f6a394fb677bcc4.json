@@ -1,1 +1,1 @@
-{"id":"68ff2d5338ec283b6f6a394fb677bcc4","fullName":"tests.test_metered_bulk#test_footer_metered_label","name":"Footer billing label: cheap LLM (…, metered) vs (…, local free)","status":"passed","testResultsByEnv":{"default":"3cc1fb1baad454877a6c88da2415e558"}}
+{"id":"68ff2d5338ec283b6f6a394fb677bcc4","fullName":"tests.test_metered_bulk#test_footer_metered_label","name":"Footer billing label: cheap LLM (…, metered) vs (…, local free)","status":"passed","testResultsByEnv":{"default":"8cb22c08b391a59db4b544672ecf0056"}}

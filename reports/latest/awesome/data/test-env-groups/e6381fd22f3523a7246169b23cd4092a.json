@@ -1,1 +1,1 @@
-{"id":"e6381fd22f3523a7246169b23cd4092a","fullName":"tests.test_budget#test_footer_saved_scoped_under_advisory","name":"undeclared origin keeps earned savings unknown, potential labelled","status":"passed","testResultsByEnv":{"default":"90f6ed9d28567aaeeb9afd7a8d625cc0"}}
+{"id":"e6381fd22f3523a7246169b23cd4092a","fullName":"tests.test_budget#test_footer_saved_scoped_under_advisory","name":"undeclared origin keeps earned savings unknown, potential labelled","status":"passed","testResultsByEnv":{"default":"f340d427876108cfbb839739fa4bfb1e"}}

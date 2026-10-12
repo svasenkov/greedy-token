@@ -1,1 +1,1 @@
-{"id":"d99445d89066e6ccc4c7987dc4f5b923","fullName":"tests.test_cli_handlers#test_cmd_config_init_exists","name":"cmd_config --init returns error when config exists","status":"passed","testResultsByEnv":{"default":"7c88c994c1e35baf911ba80a393689fc"}}
+{"id":"d99445d89066e6ccc4c7987dc4f5b923","fullName":"tests.test_cli_handlers#test_cmd_config_init_exists","name":"cmd_config --init returns error when config exists","status":"passed","testResultsByEnv":{"default":"5f91c33eaabbaa61ed68b64a97643e2b"}}

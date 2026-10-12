@@ -1,0 +1,1 @@
+{"id":"58f64b9009f3500228a8e87123aa5ece","fullName":"tests.test_advisory#test_watch_from_start","name":"watch_events: from_start reads events (text + json), skips junk","status":"passed","testResultsByEnv":{"default":"c785b0d068be8eb158f1adf66167c916"}}

@@ -1,0 +1,1 @@
+{"id":"ca4da83eec9c09212f841d6120102a3b","fullName":"tests.test_advisory#test_watch_truncation_replay","name":"watch_events truncation reset re-reads from byte 0 with empty pending","status":"passed","testResultsByEnv":{"default":"d1bad8d3e9b618976cf998b1f27fbd1a"}}

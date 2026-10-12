@@ -1,0 +1,1 @@
+{"id":"fc3da1ae8a21edd9d05432ff61e526a5","fullName":"tests.test_machine_output#test_shrink_value_variants","name":"_shrink_value: lists drop the tail, strings shrink, scalars pass","status":"passed","testResultsByEnv":{"default":"958914e4fe73e0157ae04150277c41c2"}}

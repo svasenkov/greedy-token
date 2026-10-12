@@ -1,0 +1,1 @@
+{"id":"fb27c486c99ea80e0e13fe0faed2e4a7","fullName":"tests.test_crystallize_lifecycle#test_crystal_status_non_crystal_route","name":"crystal_status resolves routes_file + trust facts for non-crystal route ids","status":"passed","testResultsByEnv":{"default":"aedbe413f52e35e22883ab2924f077ab"}}

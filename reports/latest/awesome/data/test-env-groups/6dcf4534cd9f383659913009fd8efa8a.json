@@ -1,1 +1,1 @@
-{"id":"6dcf4534cd9f383659913009fd8efa8a","fullName":"tests.test_hub_gaps#test_is_noise_branches","name":"is_noise: every rule branch","status":"passed","testResultsByEnv":{"default":"94d67d3ed60a6c9a6244f648f74690bf"}}
+{"id":"6dcf4534cd9f383659913009fd8efa8a","fullName":"tests.test_hub_gaps#test_is_noise_branches","name":"is_noise: every rule branch","status":"passed","testResultsByEnv":{"default":"6b38926217a7c6c79bf84ab417a46d6c"}}

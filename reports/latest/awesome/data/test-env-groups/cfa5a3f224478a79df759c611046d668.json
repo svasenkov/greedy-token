@@ -1,1 +1,1 @@
-{"id":"cfa5a3f224478a79df759c611046d668","fullName":"tests.test_mcp_tools#test_mcp_usage_aggregates_log","name":"MCP usage tool aggregates log events and session totals","status":"passed","testResultsByEnv":{"default":"4bd3a6428464be438b978630142018c6"}}
+{"id":"cfa5a3f224478a79df759c611046d668","fullName":"tests.test_mcp_tools#test_mcp_usage_aggregates_log","name":"MCP usage tool aggregates log events and session totals","status":"passed","testResultsByEnv":{"default":"eedbd6770f3e38fdee2049920782a9dc"}}

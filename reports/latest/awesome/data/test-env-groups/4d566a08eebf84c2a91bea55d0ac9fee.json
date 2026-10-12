@@ -1,1 +1,1 @@
-{"id":"4d566a08eebf84c2a91bea55d0ac9fee","fullName":"tests.test_hub_static#test_static_assets_present","name":"all hub static files exist where the server mounts them","status":"passed","testResultsByEnv":{"default":"e5d494fbfdb5cf2bcff4bf0fd40cb84d"}}
+{"id":"4d566a08eebf84c2a91bea55d0ac9fee","fullName":"tests.test_hub_static#test_static_assets_present","name":"all hub static files exist where the server mounts them","status":"passed","testResultsByEnv":{"default":"d2fa59fc29c0b108d7ef95efa12108fa"}}

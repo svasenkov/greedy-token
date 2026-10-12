@@ -1,1 +1,1 @@
-{"id":"c4a9e69aaa62e8f413f96b7e4999cb9b","fullName":"tests.test_cheap_llm_gaps#test_observe_trusted_child_bind_missing_runner","name":"trusted child bind degrades an unreadable runner hash","status":"passed","testResultsByEnv":{"default":"aa0967eeb85b277d74f3da0ad535066f"}}
+{"id":"c4a9e69aaa62e8f413f96b7e4999cb9b","fullName":"tests.test_cheap_llm_gaps#test_observe_trusted_child_bind_missing_runner","name":"trusted child bind degrades an unreadable runner hash","status":"passed","testResultsByEnv":{"default":"4fd77aa75d3af4b6c9a6d3af62bbfb89"}}

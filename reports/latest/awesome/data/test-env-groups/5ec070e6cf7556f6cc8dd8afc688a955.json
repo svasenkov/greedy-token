@@ -1,1 +1,1 @@
-{"id":"5ec070e6cf7556f6cc8dd8afc688a955","fullName":"tests.test_spend_guard_gaps#test_load_today_spend_skips_before_counting","name":"_load_today_spend: break-vs-continue on every filter and falsy cost","status":"passed","testResultsByEnv":{"default":"a59eb4bf46bbcce32e754c654bd0d95c"}}
+{"id":"5ec070e6cf7556f6cc8dd8afc688a955","fullName":"tests.test_spend_guard_gaps#test_load_today_spend_skips_before_counting","name":"_load_today_spend: break-vs-continue on every filter and falsy cost","status":"passed","testResultsByEnv":{"default":"4aab0ac204b50c8c3d8c5c1e4f0e72d0"}}

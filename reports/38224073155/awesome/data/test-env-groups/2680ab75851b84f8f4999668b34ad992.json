@@ -1,0 +1,1 @@
+{"id":"2680ab75851b84f8f4999668b34ad992","fullName":"tests.test_executors#test_execute_task_derives_prompt_args","name":"run --execute passes prompt-derived --count/--compact to the script","status":"passed","testResultsByEnv":{"default":"052aa038ff7579bd4b23e880e1a2b8a5"}}

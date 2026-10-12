@@ -1,0 +1,1 @@
+{"id":"47adb6f824a54cd04a016870087aa1d4","fullName":"tests.test_executors_gaps#test_task_result_gate_not_started","name":"task_result_gate: a not-started result leaves output_useful unset","status":"passed","testResultsByEnv":{"default":"c50c9ef3f2e33f3f780eb52d60827421"}}

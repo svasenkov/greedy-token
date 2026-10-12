@@ -1,0 +1,1 @@
+{"id":"ef912a8976d6b436321f9cfb57d335c0","fullName":"tests.test_code_search_gaps#test_ignore_specs_glob_variants","name":".ignore specs: *, **, ?, char classes, comments, dir-only, negation","status":"passed","testResultsByEnv":{"default":"0e19c28a185aa33303ed7a703cd5ceb4"}}

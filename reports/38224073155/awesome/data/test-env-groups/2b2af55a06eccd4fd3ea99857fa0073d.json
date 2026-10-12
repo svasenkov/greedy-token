@@ -1,0 +1,1 @@
+{"id":"2b2af55a06eccd4fd3ea99857fa0073d","fullName":"tests.test_evidence_benchmark#test_coverage_event_after_child_exit_not_complete","name":"Child event after child_exit breaks closure","status":"passed","testResultsByEnv":{"default":"cd1c5b560d58cb23fa7aa291cd3a0596"}}

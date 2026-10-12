@@ -1,1 +1,1 @@
-{"id":"fee543fa506acfbcecdbe1852079c6f3","fullName":"tests.test_rag_search_gaps#test_search_rag_score_one_kept","name":"score 1.0 chunk is kept (threshold is > 0, not > 1)","status":"passed","testResultsByEnv":{"default":"95c299675011963416a8d7c88a3e677c"}}
+{"id":"fee543fa506acfbcecdbe1852079c6f3","fullName":"tests.test_rag_search_gaps#test_search_rag_score_one_kept","name":"score 1.0 chunk is kept (threshold is > 0, not > 1)","status":"passed","testResultsByEnv":{"default":"cb4c3aae44f2b0618bfa586ed2d1533a"}}

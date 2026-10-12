@@ -1,1 +1,1 @@
-{"id":"1e2a899a8590cff02781d8e152887a30","fullName":"tests.test_code_search#test_search_dot_ignore_parity","name":"search_code: .ignore rules are honored on every engine","status":"passed","testResultsByEnv":{"default":"adedee36869c722f2cd250a44b8e57d2"}}
+{"id":"1e2a899a8590cff02781d8e152887a30","fullName":"tests.test_code_search#test_search_dot_ignore_parity","name":"search_code: .ignore rules are honored on every engine","status":"passed","testResultsByEnv":{"default":"ced7958608a6af0d054d615bc2ff43cc"}}

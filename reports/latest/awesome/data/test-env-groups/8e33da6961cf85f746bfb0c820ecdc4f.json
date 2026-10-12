@@ -1,1 +1,1 @@
-{"id":"8e33da6961cf85f746bfb0c820ecdc4f","fullName":"tests.test_cli_handlers#test_cmd_compress_too_large","name":"cmd_compress rejects oversized stdin","status":"passed","testResultsByEnv":{"default":"91478e1732f7cc0885995953d4228acd"}}
+{"id":"8e33da6961cf85f746bfb0c820ecdc4f","fullName":"tests.test_cli_handlers#test_cmd_compress_too_large","name":"cmd_compress rejects oversized stdin","status":"passed","testResultsByEnv":{"default":"da89f376767a75750de37214a38a861e"}}

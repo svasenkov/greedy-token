@@ -1,1 +1,1 @@
-{"id":"b00e56fb0798022ee5c0be2ef53caeee","fullName":"tests.test_machine_output#test_shrink_text_fits_early","name":"_shrink_text: fitting text returns unchanged","status":"passed","testResultsByEnv":{"default":"624b22ca19235518b5ebacc921f445ab"}}
+{"id":"b00e56fb0798022ee5c0be2ef53caeee","fullName":"tests.test_machine_output#test_shrink_text_fits_early","name":"_shrink_text: fitting text returns unchanged","status":"passed","testResultsByEnv":{"default":"36302493dab94770154dd97f2eb4412c"}}

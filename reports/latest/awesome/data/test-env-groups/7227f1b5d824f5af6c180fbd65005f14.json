@@ -1,1 +1,1 @@
-{"id":"7227f1b5d824f5af6c180fbd65005f14","fullName":"tests.test_portability#test_trust_manifest_utf8_on_ascii_locale","name":"trust manifest reads UTF-8 under an ASCII locale","status":"passed","testResultsByEnv":{"default":"93e63f1b3d227be74cb0d0a53b45e16a"}}
+{"id":"7227f1b5d824f5af6c180fbd65005f14","fullName":"tests.test_portability#test_trust_manifest_utf8_on_ascii_locale","name":"trust manifest reads UTF-8 under an ASCII locale","status":"passed","testResultsByEnv":{"default":"89bd4be5deffb3ba36de6cb937588f54"}}

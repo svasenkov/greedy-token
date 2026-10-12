@@ -1,0 +1,1 @@
+{"id":"3f1e78040c220ee0f313c98e93ae2cc3","fullName":"tests.test_calibration#test_outcome_cache_write_failure","name":"Outcome cache writes are atomic and failures preserve the computed confidence","status":"passed","testResultsByEnv":{"default":"c98e4ff209aec79402a26edd84a1f842"}}

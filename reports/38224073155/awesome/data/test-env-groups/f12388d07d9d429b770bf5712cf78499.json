@@ -1,0 +1,1 @@
+{"id":"f12388d07d9d429b770bf5712cf78499","fullName":"tests.test_p6_corpus#test_p6_observed_cli_search_python_backend_complete","name":"P6 CLI search selects the python backend before any native launch","status":"passed","testResultsByEnv":{"default":"bfcee346fe102c63c0d53325128af1fd"}}

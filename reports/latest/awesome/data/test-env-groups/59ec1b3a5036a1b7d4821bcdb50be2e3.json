@@ -1,1 +1,1 @@
-{"id":"59ec1b3a5036a1b7d4821bcdb50be2e3","fullName":"tests.test_expensive_llm#test_yandex_no_credentials","name":"no folder/key and no url raises RuntimeError","status":"passed","testResultsByEnv":{"default":"97afa6cb00995d336acf80f0adf4fe7c"}}
+{"id":"59ec1b3a5036a1b7d4821bcdb50be2e3","fullName":"tests.test_expensive_llm#test_yandex_no_credentials","name":"no folder/key and no url raises RuntimeError","status":"passed","testResultsByEnv":{"default":"34f24173055bcd8f644fdfe04028eda2"}}

@@ -1,0 +1,1 @@
+{"id":"f457a67822551c72b226fc38a905010b","fullName":"tests.test_result_gate#test_declared_refusal_is_not_a_failure","name":"a declared boundary refusal reports outcome=refused, not failure","status":"passed","testResultsByEnv":{"default":"c135f8f514cb8a5e3e21bacdb386afd9"}}

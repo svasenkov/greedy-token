@@ -1,0 +1,1 @@
+{"id":"3e22c6b20419ad678dd8a0d2edbdfdce","fullName":"tests.test_machine_output#test_cli_invoke_json_refusal_is_bounded","name":"invoke --json refusal never echoes an unbounded identity","status":"passed","testResultsByEnv":{"default":"0c095cc5745433151b3fff0c6734523f"}}

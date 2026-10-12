@@ -1,1 +1,1 @@
-{"id":"f76721b586e674f68dea232d9ab29160","fullName":"tests.test_rag_index#test_chunk_reader_skips_io_errors_and_invalid_utf8","name":"test_chunk_reader_skips_io_errors_and_invalid_utf8","status":"passed","testResultsByEnv":{"default":"942a8c6b2b5fd5cf8b27a492c693f42d"}}
+{"id":"f76721b586e674f68dea232d9ab29160","fullName":"tests.test_rag_index#test_chunk_reader_skips_io_errors_and_invalid_utf8","name":"test_chunk_reader_skips_io_errors_and_invalid_utf8","status":"passed","testResultsByEnv":{"default":"251fbb6491ce8bdd295eaf28779eef51"}}

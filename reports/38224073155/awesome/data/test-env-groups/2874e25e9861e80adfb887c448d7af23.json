@@ -1,0 +1,1 @@
+{"id":"2874e25e9861e80adfb887c448d7af23","fullName":"tests.test_paths#test_load_routes_config_outside_workspace","name":"load_routes_config falls back to bundled defaults outside a workspace","status":"passed","testResultsByEnv":{"default":"0bd2eb58ae252e6172885c7235ab3d68"}}

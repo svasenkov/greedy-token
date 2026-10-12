@@ -1,0 +1,1 @@
+{"id":"7b11cd584754947408ae88566acb4b35","fullName":"tests.test_trust_gaps#test_trust_entry_refusal_messages","name":"TrustEntry.from_dict: every refusal message is exact","status":"passed","testResultsByEnv":{"default":"003ea2f9dc1359cf3b2452d8fb13ccaf"}}

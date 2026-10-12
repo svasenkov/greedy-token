@@ -1,1 +1,1 @@
-{"id":"93fda4f4a62752a236c95ffe2bab39ce","fullName":"tests.test_hook_host#test_each_codex_marker_field_selects_codex","name":"test_each_codex_marker_field_selects_codex[transcript_path]","status":"passed","testResultsByEnv":{"default":"815c4a01efd7cf4a9a38f79dc41fc8c6"}}
+{"id":"93fda4f4a62752a236c95ffe2bab39ce","fullName":"tests.test_hook_host#test_each_codex_marker_field_selects_codex","name":"test_each_codex_marker_field_selects_codex[permission_mode]","status":"passed","testResultsByEnv":{"default":"1158505c3f7dfdb76964b6fbe520a87a"}}
