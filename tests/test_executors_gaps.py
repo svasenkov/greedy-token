@@ -1402,6 +1402,16 @@ def test_execute_plan_observed_manifest_python(
     monkeypatch.setenv(
         "GREEDY_TOKEN_OBSERVE", str(tmp_path / "ledger.jsonl")
     )
+    # FD-bound argv is a POSIX capability; simulate the bound shape so the
+    # dispatch logic stays testable on Windows (real binds refuse there).
+    monkeypatch.setattr(
+        ex,
+        "bind_verified_argv",
+        lambda verified, argv: (
+            ["python", "runner.py", "3", "scripts/x.py", "--flag"],
+            (99,),
+        ),
+    )
     spawned: dict = {}
     monkeypatch.setattr(
         ex,
@@ -1421,6 +1431,7 @@ def test_execute_plan_observed_manifest_python(
     assert res.result_status == RESULT_PRODUCED
     assert spawned["authority"] == "manifest:scripts/x.py"
     assert spawned["script_path"] == "scripts/x.py"
+    assert spawned["argv"] == ("--flag",)
 
 
 @allure.title("execute_plan refuses an observed manifest python child without fd binding")
