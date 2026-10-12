@@ -253,3 +253,26 @@ def test_package_version_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr("importlib.metadata.version", missing)
     assert cli._package_version() == "0.0.0-dev"
+
+
+@allure.title("_observe_route_transition records the bound cursor transition")
+def test_observe_route_transition_cursor(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+    spy = Mock()
+    monkeypatch.setattr(
+        "greedy_token.cheap_llm.observe_transition", spy
+    )
+    cli._observe_route_transition(
+        SimpleNamespace(
+            target="cursor", escalated_from=None, route_id="route-1"
+        )
+    )
+    spy.assert_called_once_with(
+        "direct->cursor",
+        request_kind="route_decision",
+        route_id="route-1",
+    )

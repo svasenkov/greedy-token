@@ -28,6 +28,7 @@ LAYER_BY_MODULE: dict[str, str] = {
     "test_settings": "unit",
     "test_config_presets": "unit",
     "test_cheap_llm": "unit",
+    "test_cheap_llm_gaps": "unit",
     "test_model_select": "unit",
     "test_model_select_gaps": "unit",
     "test_llm_invoke": "unit",

@@ -6,8 +6,13 @@ dry-run / cursor / RAG strings so single-token mutants are caught with ``==``.
 
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import subprocess
+import sys
+import threading
+from concurrent.futures import Future
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -980,3 +985,579 @@ def test_plan_run_prompt_derived_args_confined(
     plan = plan_run(dec, "show ../secrets", minimal_workspace)
     assert plan.executable is False
     assert "escapes workspace" in plan.refusal_reason
+
+
+# --- ProductInvocation lifecycle edges ---
+
+
+@allure.title("run() rejects params outside the JSON/dataclass input contract")
+def test_product_param_rejects_unsupported_type(minimal_workspace: Path) -> None:
+    inv = ex.ProductInvocation(minimal_workspace)
+    inv.__enter__()
+    try:
+        with pytest.raises(TypeError, match="Unsupported product input type"):
+            inv.run(
+                lambda: None, root=minimal_workspace, op="op",
+                params=(object(),), request_id="r", input_version=1,
+            )
+    finally:
+        inv.close()
+
+
+@allure.title("re-entering an open or closed invocation is denied")
+def test_product_invocation_double_enter_denied(minimal_workspace: Path) -> None:
+    inv = ex.ProductInvocation(minimal_workspace)
+    inv.__enter__()
+    with pytest.raises(ex.ProductLifecycleError, match="already open or closed"):
+        inv.__enter__()
+    inv.close()
+    with pytest.raises(ex.ProductLifecycleError, match="already open or closed"):
+        inv.__enter__()
+
+
+@allure.title("close() from inside owned work is denied")
+def test_product_close_from_owned_work_denied(minimal_workspace: Path) -> None:
+    inv = ex.ProductInvocation(minimal_workspace)
+    inv.__enter__()
+    with pytest.raises(ex.ProductLifecycleError, match="owned work"):
+        inv.run(
+            lambda: inv.close(), root=minimal_workspace, op="op", params=()
+        )
+    inv.close()
+
+
+@allure.title("close() returns when a racing closer already finished")
+def test_product_close_returns_when_closed_mid_wait(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inv = ex.ProductInvocation(minimal_workspace)
+    inv.__enter__()
+    # Simulate the interleaving this guard exists for: another closer flips
+    # _closed while this thread is inside wait_for.
+    monkeypatch.setattr(
+        inv._condition,
+        "wait_for",
+        lambda _pred: setattr(inv, "_closed", True) or True,
+    )
+    inv.close()
+    assert inv._closed is True
+
+
+@allure.title("a re-entrant duplicate of an in-flight request is denied")
+def test_product_run_recursive_duplicate_denied(minimal_workspace: Path) -> None:
+    inv = ex.ProductInvocation(minimal_workspace)
+    inv.__enter__()
+    params = ("owned", 1)
+    encoded = json.dumps(
+        params, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+        default=ex._product_param, allow_nan=False,
+    )
+    key = (
+        (("request_id", "r"),), "int", 1, "op",
+        hashlib.sha256(encoded.encode()).hexdigest(),
+    )
+    # The window the guard defends: the key is registered under this thread
+    # while _local.call is not bound yet — async re-entry before the binding.
+    inv._results[key] = (threading.get_ident(), Future())
+    with pytest.raises(ex.ProductLifecycleError, match="Recursive duplicate"):
+        inv.run(
+            lambda: "x", root=minimal_workspace, op="op",
+            params=params, request_id="r", input_version=1,
+        )
+    inv.close()
+
+
+@allure.title("a duplicate wait re-raises the stored TimeoutError once the future is done")
+def test_product_duplicate_propagates_stored_timeout(
+    minimal_workspace: Path,
+) -> None:
+    inv = ex.ProductInvocation(minimal_workspace)
+    inv.__enter__()
+    params = ("owned", 1)
+
+    def boom():
+        raise TimeoutError("producer timed out")
+
+    with pytest.raises(TimeoutError, match="producer timed out"):
+        inv.run(
+            boom, root=minimal_workspace, op="op",
+            params=params, request_id="r", input_version=1,
+        )
+    with pytest.raises(TimeoutError, match="producer timed out"):
+        inv.run(
+            lambda: "unreached", root=minimal_workspace, op="op",
+            params=params, request_id="r", input_version=1,
+        )
+    inv.close()
+
+
+@allure.title("a nested run during a dedup wait keeps the active ledger balanced")
+def test_product_nested_run_during_dedup_wait(minimal_workspace: Path) -> None:
+    inv = ex.ProductInvocation(minimal_workspace)
+    inv.__enter__()
+    params = ("owned", 1)
+    encoded = json.dumps(
+        params, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+        default=ex._product_param, allow_nan=False,
+    )
+    key = (
+        (("request_id", "r"),), "int", 1, "op",
+        hashlib.sha256(encoded.encode()).hexdigest(),
+    )
+
+    class _ReentrantFuture:
+        def done(self) -> bool:
+            return False
+
+        def result(self, timeout=None):
+            # A dedup wait holds no _local.call binding, so an async re-entry
+            # may still own a separate request on this thread — _active then
+            # decrements 2 -> 1 without deleting the ledger slot.
+            return inv.run(
+                lambda: "inner", root=minimal_workspace, op="inner",
+                params=("inner",), request_id="i", input_version=2,
+            )
+
+    # Foreign owner ident (0) routes this thread to the dedup-wait branch.
+    inv._results[key] = (0, _ReentrantFuture())
+    out = inv.run(
+        lambda: "unreached", root=minimal_workspace, op="op",
+        params=params, request_id="r", input_version=1,
+    )
+    assert out == "inner"
+    inv.close()
+    assert inv._active == {}
+
+
+@allure.title("dispatch() without owned work is denied")
+def test_product_dispatch_requires_owned_work(minimal_workspace: Path) -> None:
+    inv = ex.ProductInvocation(minimal_workspace)
+    inv.__enter__()
+    with pytest.raises(ex.ProductLifecycleError, match="active owned work"):
+        inv.dispatch(lambda: 1, cause="executor")
+    inv.close()
+
+
+@allure.title("_prompt_derived_args: an unparseable rendered args string fails open")
+def test_prompt_derived_args_unparseable_render(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "greedy_token.paths.load_routes_config",
+        lambda *a, **k: _routes_cfg(_args_route()),
+    )
+    monkeypatch.setattr(
+        "greedy_token.hook_policy.derive_prompt_args",
+        lambda *a, **k: "'unterminated",
+    )
+    assert (
+        ex._prompt_derived_args("5 коммитов", _args_dec(), minimal_workspace) == ()
+    )
+
+
+# --- Observed execution: rg tail parsing and the python search backend ---
+
+
+@allure.title("_rg_argv_tail parses query, scope operands and --max-count")
+def test_rg_argv_tail_variants() -> None:
+    assert ex._rg_argv_tail(("rg", "-n", "foo")) == ("", [], 50)
+    assert ex._rg_argv_tail(("rg", "-n", "--", "q", "sub")) == ("q", ["sub"], 50)
+    assert ex._rg_argv_tail(
+        ("rg", "--max-count", "5", "--", "q", "s1", "s2")
+    ) == ("q", ["s1", "s2"], 5)
+    assert ex._rg_argv_tail(("rg", "--max-count", "x", "--", "q")) == ("q", [], 50)
+    assert ex._rg_argv_tail(("rg", "--max-count", "--", "q")) == ("q", [], 50)
+    assert ex._rg_argv_tail(("rg", "--")) == ("", [], 50)
+
+
+def _rg_plan(root: Path, argv=("rg", "-n", "--", "needle", "sub")) -> RunPlan:
+    dec = _dec("tool", command="rg -n -- needle sub", read_only=True)
+    return RunPlan(
+        decision=dec, command=dec.command, dry_run_output="D",
+        executable=True, argv=argv, cwd=root,
+        authorization="internal-tool:rg",
+    )
+
+
+@allure.title("observed tool plan answers rg via the python tree backend")
+def test_observed_tool_plan_tree_backend(minimal_workspace: Path) -> None:
+    sub = minimal_workspace / "sub"
+    sub.mkdir()
+    (sub / "a.txt").write_text("needle here\nother\n", encoding="utf-8")
+    res = ex._observed_tool_plan(_rg_plan(minimal_workspace))
+    assert res.started is True
+    assert res.exit_code == 0
+    assert "a.txt" in res.output
+    assert "needle here" in res.output
+
+
+@allure.title("observed tool plan without operands falls back to the workspace scope")
+def test_observed_tool_plan_workspace_scope(minimal_workspace: Path) -> None:
+    (minimal_workspace / "docs" / "hit.md").write_text(
+        "needle in docs\n", encoding="utf-8"
+    )
+    res = ex._observed_tool_plan(
+        _rg_plan(minimal_workspace, argv=("rg", "-n", "--", "needle"))
+    )
+    assert res.exit_code == 0
+    assert "hit.md" in res.output
+
+
+@allure.title("observed tool plan answers a file operand via the file backend")
+def test_observed_tool_plan_file_operand(minimal_workspace: Path) -> None:
+    f = minimal_workspace / "sub_file.txt"
+    f.write_text("needle in file\n", encoding="utf-8")
+    res = ex._observed_tool_plan(
+        _rg_plan(minimal_workspace, argv=("rg", "-n", "--", "needle", "sub_file.txt"))
+    )
+    assert res.exit_code == 0
+    assert "sub_file.txt" in res.output
+    assert "needle in file" in res.output
+
+
+@allure.title("observed tool plan labels operands outside the cwd by absolute path")
+def test_observed_tool_plan_absolute_file_operand(
+    minimal_workspace: Path, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    # minimal_workspace IS tmp_path — a sibling base is needed for an operand
+    # that really sits outside the plan cwd so relative_to() raises.
+    outside_dir = tmp_path_factory.mktemp("outside-scope")
+    outside = outside_dir / "outside.txt"
+    outside.write_text("needle outside\n", encoding="utf-8")
+    res = ex._observed_tool_plan(
+        _rg_plan(
+            minimal_workspace,
+            argv=("rg", "-n", "--", "needle", str(outside)),
+        )
+    )
+    assert res.exit_code == 0
+    assert "needle outside" in res.output
+
+
+@allure.title("observed tool plan skips missing operands and reports a zero-hit miss")
+def test_observed_tool_plan_missing_operand_miss(
+    minimal_workspace: Path,
+) -> None:
+    res = ex._observed_tool_plan(
+        _rg_plan(minimal_workspace, argv=("rg", "-n", "--", "needle", "missing"))
+    )
+    assert res.started is True
+    assert res.exit_code == 1
+    assert res.output == ""
+
+
+@allure.title("observed tool plan honours --max-count across scope dirs")
+def test_observed_tool_plan_limit_breaks_scope_loop(
+    minimal_workspace: Path,
+) -> None:
+    for d in ("s1", "s2"):
+        (minimal_workspace / d).mkdir()
+        (minimal_workspace / d / "a.txt").write_text(
+            "needle\nneedle\n", encoding="utf-8"
+        )
+    res = ex._observed_tool_plan(
+        _rg_plan(
+            minimal_workspace,
+            argv=("rg", "--max-count", "1", "--", "needle", "s1", "s2"),
+        )
+    )
+    assert res.exit_code == 0
+    assert len(res.output.strip().splitlines()) == 1
+
+
+# --- Observed execution: the trusted-runner child spawn ---
+
+
+def _write_spawn_script(root: Path) -> Path:
+    script = root / "scripts" / "spawn-me.py"
+    script.write_text("import sys\nprint('ran', sys.argv[1:])\n", encoding="utf-8")
+    return script
+
+
+@allure.title("observed child spawn registers the admission and forwards the fd")
+def test_spawn_observed_python_child_registers_admission(
+    minimal_workspace: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(
+        "GREEDY_TOKEN_OBSERVE", str(tmp_path / "ledger.jsonl")
+    )
+    script = _write_spawn_script(minimal_workspace)
+    fd = os.open(script, os.O_RDONLY)
+    seen: dict = {}
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda argv, **kw: seen.update(argv=argv, kw=kw)
+        or SimpleNamespace(stdout="OK", stderr="", returncode=0),
+    )
+    try:
+        proc = ex._spawn_observed_python_child(
+            argv=("--flag",),
+            script_path="scripts/spawn-me.py",
+            cwd=minimal_workspace,
+            authority="manifest:scripts/spawn-me.py",
+            fd=fd,
+            source_sha256=ex._sha256_fd(fd),
+            timeout=30.0,
+        )
+    finally:
+        os.close(fd)
+    assert proc.returncode == 0
+    assert seen["argv"][0] == sys.executable
+    assert seen["argv"][1].endswith("_trusted_runner.py")
+    assert seen["argv"][2] == str(fd)
+    assert seen["argv"][3:] == ["scripts/spawn-me.py", "--flag"]
+    assert seen["kw"]["pass_fds"] == (fd,)
+    assert seen["kw"]["cwd"] == minimal_workspace
+    assert seen["kw"]["timeout"] == 30.0
+    from greedy_token import cheap_llm
+
+    assert seen["kw"]["env"][cheap_llm.OBSERVE_ADMISSION_ENV]
+
+
+@allure.title("observed child spawn clamps the timeout through the invocation budget")
+def test_spawn_observed_python_child_invocation_timeout(
+    minimal_workspace: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(
+        "GREEDY_TOKEN_OBSERVE", str(tmp_path / "ledger.jsonl")
+    )
+    script = _write_spawn_script(minimal_workspace)
+    fd = os.open(script, os.O_RDONLY)
+    seen: dict = {}
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda argv, **kw: seen.update(kw=kw)
+        or SimpleNamespace(stdout="", stderr="", returncode=0),
+    )
+    inv = ex.ProductInvocation(minimal_workspace, deadline=None)
+    inv.__enter__()
+    try:
+        ex._spawn_observed_python_child(
+            argv=(), script_path="scripts/spawn-me.py",
+            cwd=minimal_workspace, authority="manifest:scripts/spawn-me.py",
+            fd=fd, source_sha256=ex._sha256_fd(fd),
+            timeout=30.0, invocation=inv,
+        )
+        assert seen["kw"]["timeout"] == 30.0
+
+        with pytest.raises(ex.ProductLifecycleError, match="budget"):
+            ex._spawn_observed_python_child(
+                argv=(), script_path="scripts/spawn-me.py",
+                cwd=minimal_workspace, authority="manifest:scripts/spawn-me.py",
+                fd=fd, source_sha256=ex._sha256_fd(fd),
+                timeout=float("nan"), invocation=inv,
+            )
+    finally:
+        os.close(fd)
+        inv.close()
+
+
+@allure.title("observed child spawn refuses a non-positive timeout budget")
+def test_spawn_observed_python_child_timeout_budget(
+    minimal_workspace: Path,
+) -> None:
+    script = _write_spawn_script(minimal_workspace)
+    fd = os.open(script, os.O_RDONLY)
+    try:
+        for bad in (0.0, -1.0, float("nan"), float("inf")):
+            with pytest.raises(ex.ProductLifecycleError, match="positive and finite"):
+                ex._spawn_observed_python_child(
+                    argv=(), script_path="scripts/spawn-me.py",
+                    cwd=minimal_workspace,
+                    authority="manifest:scripts/spawn-me.py",
+                    fd=fd, source_sha256=ex._sha256_fd(fd),
+                    timeout=bad,
+                )
+    finally:
+        os.close(fd)
+
+
+# --- execute_plan: observed branches ---
+
+
+@allure.title("execute_plan routes an armed rg plan to the python backend")
+def test_execute_plan_observed_tool_plan(
+    minimal_workspace: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(
+        "GREEDY_TOKEN_OBSERVE", str(tmp_path / "ledger.jsonl")
+    )
+    sub = minimal_workspace / "sub"
+    sub.mkdir()
+    (sub / "a.txt").write_text("needle\n", encoding="utf-8")
+    res = execute_plan(_rg_plan(minimal_workspace))
+    assert res.started is True
+    assert res.exit_code == 0
+    assert "a.txt" in res.output
+
+
+@allure.title("execute_plan observed manifest python child binds through the verified fd")
+def test_execute_plan_observed_manifest_python(
+    minimal_workspace: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _untrusted_py(minimal_workspace)
+    approve_script(minimal_workspace, "scripts/x.py")
+    monkeypatch.setenv(
+        "GREEDY_TOKEN_OBSERVE", str(tmp_path / "ledger.jsonl")
+    )
+    spawned: dict = {}
+    monkeypatch.setattr(
+        ex,
+        "_spawn_observed_python_child",
+        lambda **kw: spawned.update(kw)
+        or SimpleNamespace(
+            stdout='{"ok": true}', stderr="", returncode=0
+        ),
+    )
+    plan = _exec_plan(
+        minimal_workspace,
+        authorization="manifest:scripts/x.py",
+        script_path="scripts/x.py",
+    )
+    res = execute_plan(plan)
+    assert res.exit_code == 0
+    assert res.result_status == RESULT_PRODUCED
+    assert spawned["authority"] == "manifest:scripts/x.py"
+    assert spawned["script_path"] == "scripts/x.py"
+
+
+@allure.title("execute_plan refuses an observed manifest python child without fd binding")
+def test_execute_plan_observed_manifest_requires_fd_binding(
+    minimal_workspace: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _untrusted_py(minimal_workspace)
+    approve_script(minimal_workspace, "scripts/x.py")
+    monkeypatch.setenv(
+        "GREEDY_TOKEN_OBSERVE", str(tmp_path / "ledger.jsonl")
+    )
+    monkeypatch.setattr(
+        ex, "bind_verified_argv", lambda verified, argv: (["python"], ())
+    )
+    plan = _exec_plan(
+        minimal_workspace,
+        authorization="manifest:scripts/x.py",
+        script_path="scripts/x.py",
+    )
+    res = execute_plan(plan)
+    assert res.exit_code == 1
+    assert "trust verification failed" in res.output
+    assert "FD-bound" in res.output
+
+
+@allure.title("execute_plan observed wrapper python child opens the registered source")
+def test_execute_plan_observed_wrapper_python(
+    minimal_workspace: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _untrusted_py(minimal_workspace)
+    monkeypatch.setenv(
+        "GREEDY_TOKEN_OBSERVE", str(tmp_path / "ledger.jsonl")
+    )
+    spawned: dict = {}
+    monkeypatch.setattr(
+        ex,
+        "_spawn_observed_python_child",
+        lambda **kw: spawned.update(kw)
+        or SimpleNamespace(stdout="wrapped", stderr="", returncode=0),
+    )
+    plan = _exec_plan(minimal_workspace, script_path="scripts/x.py")
+    res = execute_plan(plan)
+    assert res.exit_code == 0
+    assert res.output == "wrapped"
+    assert spawned["authority"] == "wrapper:scripts/x.py"
+    assert spawned["script_path"] == "scripts/x.py"
+
+
+@allure.title("execute_plan refuses an observed wrapper plan without script argv")
+def test_execute_plan_observed_wrapper_no_script_argv(
+    minimal_workspace: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _untrusted_py(minimal_workspace)
+    monkeypatch.setenv(
+        "GREEDY_TOKEN_OBSERVE", str(tmp_path / "ledger.jsonl")
+    )
+    plan = _exec_plan(
+        minimal_workspace,
+        argv=("python",),
+        script_path="scripts/x.py",
+    )
+    res = execute_plan(plan)
+    assert res.exit_code == 1
+    assert "trust verification failed" in res.output
+    assert "no script argv" in res.output
+
+
+@allure.title("execute_plan refuses a manifest plan without script metadata")
+def test_execute_plan_manifest_missing_metadata(
+    minimal_workspace: Path,
+) -> None:
+    plan = _exec_plan(
+        minimal_workspace,
+        authorization="manifest:scripts/x.py",
+        script_path="",
+        script_type="",
+    )
+    res = execute_plan(plan)
+    assert res.exit_code == 1
+    assert "trust verification failed" in res.output
+    assert "missing script metadata" in res.output
+
+
+@allure.title("execute_plan refuses when the revalidated manifest argv drifts")
+def test_execute_plan_manifest_revalidation_mismatch(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _untrusted_py(minimal_workspace)
+    monkeypatch.setattr(
+        ex,
+        "trusted_script_argv",
+        lambda *a, **k: SimpleNamespace(
+            authorization="manifest:scripts/other.py",
+            script_path="scripts/other.py",
+            script_type="python",
+        ),
+    )
+    plan = _exec_plan(
+        minimal_workspace,
+        authorization="manifest:scripts/x.py",
+        script_path="scripts/x.py",
+    )
+    res = execute_plan(plan)
+    assert res.exit_code == 1
+    assert "trust verification failed" in res.output
+    assert "changed after planning" in res.output
+
+
+@allure.title("task_result_gate: a not-started result leaves output_useful unset")
+def test_task_result_gate_not_started(minimal_workspace: Path) -> None:
+    dec = _dec("tool", command="rg x", read_only=True)
+    res = TaskRunResult(decision=dec, output="", exit_code=1, started=False)
+    gate = task_result_gate(res, dec)
+    assert gate is not None
+
+
+# --- execute_task: observed zero-hit verdict ---
+
+
+@allure.title("execute_task: an observed zero-hit search reports the miss verdict")
+def test_execute_task_observed_zero_hit(
+    minimal_workspace: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(
+        "GREEDY_TOKEN_OBSERVE", str(tmp_path / "ledger.jsonl")
+    )
+    dec = _dec("tool", command="rg -n -- zzz sub", read_only=True)
+    plan = RunPlan(
+        decision=dec, command="rg -n -- zzz sub", dry_run_output="D",
+        executable=True, argv=("rg", "-n", "--", "zzz", "sub"),
+        cwd=minimal_workspace, authorization="internal-tool:rg",
+    )
+    _wire(
+        monkeypatch, decision=dec, plan=plan,
+        exec_ret=PlanRunResult(1, "", started=True), rag_ret=None,
+    )
+    res = ex.execute_task("find zzz", minimal_workspace)
+    assert res.output == "No matches for 'zzz' in sub."
+    assert res.exit_code == 0
+    assert res.started is True

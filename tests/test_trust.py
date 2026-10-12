@@ -1316,6 +1316,48 @@ def test_trusted_runner_in_process(
 
 
 @allure.story("Descriptor binding")
+@allure.title("_trusted_runner observed path installs guards and binds the consumed fd bytes")
+def test_trusted_runner_in_process_observed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from greedy_token import _trusted_runner, cheap_llm
+
+    calls: dict[str, object] = {}
+    monkeypatch.setattr(
+        cheap_llm, "install_observation", lambda: calls.setdefault("install", True)
+    )
+    monkeypatch.setattr(
+        cheap_llm, "observe_trusted_child_bind",
+        lambda **kw: calls.update(kw),
+    )
+    script_dir = tmp_path / "runner-scripts"
+    script_dir.mkdir()
+    script = script_dir / "prog.py"
+    script.write_text("print('ran=' + __file__)\n", encoding="utf-8")
+    fd = os.open(script, os.O_RDONLY)
+    monkeypatch.setenv(cheap_llm.OBSERVE_LEDGER_ENV, str(tmp_path / "ledger.jsonl"))
+    monkeypatch.setattr(
+        sys, "argv", ["_trusted_runner.py", str(fd), "runner-scripts/prog.py", "x"]
+    )
+    saved_path = list(sys.path)
+    cwd = os.getcwd()
+    try:
+        os.chdir(tmp_path)
+        _trusted_runner.main()
+    finally:
+        os.chdir(cwd)
+        sys.path[:] = saved_path
+    out = capsys.readouterr().out
+    assert calls.get("install") is True
+    fd_stat = os.fstat(os.open(script, os.O_RDONLY))
+    assert calls["source"] == script.read_bytes()
+    assert calls["script_path"] == "runner-scripts/prog.py"
+    assert calls["fd_identity"] == (fd_stat.st_dev, fd_stat.st_ino)
+    assert calls["runner_path"] == str(_trusted_runner.__file__)
+    assert "ran=runner-scripts/prog.py" in out
+
+
+@allure.story("Descriptor binding")
 @allure.title("Approved Python script keeps sibling imports, __file__, and argv[0] under fd binding")
 def test_fd_bound_python_preserves_import_context(minimal_workspace: Path) -> None:
     _script(minimal_workspace, "scripts/_sibling_mod.py", "MARKER = 'sibling-ok'\n")

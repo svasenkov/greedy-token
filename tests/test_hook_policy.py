@@ -873,3 +873,58 @@ def test_host_workspace_dir_resolution(monkeypatch, tmp_path):
     # Junk and missing dirs fail open to the token-root fallback.
     assert hook_policy._host_workspace_dir({"cwd": str(tmp_path / "missing")}) is None
     assert hook_policy._host_workspace_dir({}) is None
+
+
+@allure.title("derive_prompt_args: unresolved workspace refuses, never guesses a root")
+def test_derive_prompt_args_workspace_unresolved_json(policy_state, monkeypatch):
+    monkeypatch.setattr(
+        paths, "find_workspace_root",
+        lambda: (_ for _ in ()).throw(SystemExit(3)),
+    )
+    with pytest.raises(UnsafeCommandError, match="workspace is unresolved"):
+        hook_policy.derive_prompt_args(
+            "check json keys path='lab/users.json' keys=id,email", ARGS_SPEC, root=None
+        )
+
+
+@allure.title("derive_prompt_args: spec-matched argv also refuses an unresolved workspace")
+def test_derive_prompt_args_workspace_unresolved_in_entry(policy_state, monkeypatch):
+    monkeypatch.setattr(
+        paths, "find_workspace_root",
+        lambda: (_ for _ in ()).throw(SystemExit(3)),
+    )
+    with pytest.raises(UnsafeCommandError, match="workspace is unresolved"):
+        hook_policy.derive_prompt_args(
+            "покажи последних 11 коммитов", ARGS_SPEC, root=None
+        )
+
+
+@allure.title("has_invocation_intent: json-keys prompt without a workspace fails closed")
+def test_intent_json_prompt_workspace_unresolved_is_false(policy_state, monkeypatch):
+    monkeypatch.setattr(
+        paths, "find_workspace_root",
+        lambda: (_ for _ in ()).throw(SystemExit(3)),
+    )
+    cap = replace(policy_state.cap, params=())
+    assert hook_policy.has_invocation_intent(
+        "check json keys path='lab/users.json' keys=id,email", cap, root=None
+    ) is False
+
+
+@allure.title("has_invocation_intent: request verb + derivable args admits the op")
+def test_intent_request_verb_with_args_spec_derivation(policy_state, monkeypatch):
+    spec = [{"regex": r"commits", "args": "--compact"}]
+    _patch_args_spec(monkeypatch, policy_state.cap.id, spec)
+    cap = replace(policy_state.cap, params=("args",))
+    # "show recent commits" is a recent-commits intent without a count —
+    # derivation reaches the request-verb gate and the spec admits it there.
+    assert hook_policy.has_invocation_intent(
+        "show recent commits", cap, root=policy_state.root
+    ) is True
+
+
+@allure.title("short prompt audit is silent when advisory is unavailable")
+def test_short_prompt_without_advisory_stays_pass(policy_state, monkeypatch):
+    monkeypatch.setattr(hook_policy, "_try_advisory", lambda: None)
+    assert evaluate(policy_state, "hi").kind == "pass"
+    assert not (policy_state.root / "advisory.jsonl").exists()

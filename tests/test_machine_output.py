@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import json
 from pathlib import Path
 
@@ -627,3 +628,432 @@ def test_cli_invoke_json_delivery_refusal_nonzero_rc(
     assert len(out.encode("utf-8")) <= MACHINE_OUTPUT_MAX_BYTES
     assert calls["invoke"] == 1
     assert rc != 0  # delivery refusal is a technical failure, not success
+
+
+# --- Coverage gaps: utf8 prefix / byte-cap edges / structural shrinkers ---
+
+
+@allure.title("_utf8_prefix: non-positive limit drops all, roomy limit keeps all")
+def test_utf8_prefix_edges() -> None:
+    from greedy_token import tool_output as tl
+
+    assert tl._utf8_prefix("abc", 0) == ("", 3)
+    assert tl._utf8_prefix("abc", -5) == ("", 3)
+    assert tl._utf8_prefix("abc", 10) == ("abc", 0)
+
+
+@allure.title("cap_tool_output: byte_cap<=0 disables the byte cap entirely")
+def test_cap_tool_output_no_byte_cap() -> None:
+    raw = "x" * (TOOL_OUTPUT_BYTE_CAP + 10)
+    out = cap_tool_output(raw, limit=10, byte_cap=0)
+    # Line cap still applies — byte cap is fully skipped.
+    assert out.startswith("x" * 100)
+    assert len(out.encode("utf-8")) > TOOL_OUTPUT_BYTE_CAP
+
+
+@allure.title("cap_tool_output: byte_cap < 96 emits a bare prefix without the marker")
+def test_cap_tool_output_tiny_byte_cap() -> None:
+    out = cap_tool_output("y" * 500, limit=0, byte_cap=50)
+    assert out == "y" * 50
+    assert "truncated" not in out
+
+
+@allure.title("_biggest_list: descends dict values, skips non-best lists, ignores scalars")
+def test_biggest_list_traversal() -> None:
+    from greedy_token import tool_output as tl
+
+    doc = {
+        "small": [1],
+        "wrap": {"inner": {"big": ["x" * 40, "y" * 40]}},
+        "mixed": [["a", "b"], "scalar"],
+        "empty": [],
+    }
+    parent, key = tl._biggest_list(doc)
+    assert parent is doc["wrap"]["inner"]
+    assert key == "big"
+
+
+@allure.title("_biggest_string: descends dict/list values and skips scalars")
+def test_biggest_string_traversal() -> None:
+    from greedy_token import tool_output as tl
+
+    doc = {
+        "n": 5,
+        "wrap": {"deep": "x" * 90},
+        "lst": [1, "s"],
+        "small": "xy",
+    }
+    parent, key = tl._biggest_string(doc)
+    assert parent is doc["wrap"]
+    assert key == "deep"
+
+
+@allure.title("_shrink_text: fitting text returns unchanged")
+def test_shrink_text_fits_early() -> None:
+    from greedy_token import tool_output as tl
+
+    assert tl._shrink_text("short", 100) == "short"
+
+
+@allure.title("_shrink_text: invalid JSON degrades to the marker path")
+def test_shrink_text_invalid_json() -> None:
+    from greedy_token import tool_output as tl
+
+    out = tl._shrink_text("{not valid json at all, just text", 100)
+    assert out == "{not valid json at all, just text"
+    out = tl._shrink_text("{still not json" + "x" * 100, 20)
+    assert out.endswith("…")
+
+
+@allure.title("_shrink_text: contract JSON reduces to skeleton or empty")
+def test_shrink_text_contract_skeleton() -> None:
+    from greedy_token import tool_output as tl
+
+    payload = json.dumps({"ok": True, "data": "x" * 400})
+    out = tl._shrink_text(payload, 80)
+    doc = json.loads(out)
+    assert doc["ok"] is True
+    assert doc["truncated"] is True
+
+    out = tl._shrink_text(payload, 5)
+    assert out == ""
+
+
+@allure.title("_shrink_text: contract-free JSON degrades to marker, {} or empty")
+def test_shrink_text_free_json() -> None:
+    from greedy_token import tool_output as tl
+
+    payload = json.dumps({"a": "x" * 300})
+    assert tl._shrink_text(payload, 21) == '{"truncated": true}'
+    assert tl._shrink_text(payload, 5) == "{}"
+    assert tl._shrink_text(payload, 1) == ""
+
+
+@allure.title("_shrink_text: JSON list shrinks to fit or becomes []")
+def test_shrink_text_list_doc() -> None:
+    from greedy_token import tool_output as tl
+
+    payload = json.dumps([1, 2, 3])
+    assert tl._shrink_text(payload, 10) == "[1, 2, 3]"
+    big = json.dumps(["x" * 200] * 4)
+    assert tl._shrink_text(big, 40) == "[]"
+    assert tl._shrink_text(big, 1) == ""
+
+
+@allure.title("_shrink_text: JSON string documents shrink their content")
+def test_shrink_text_string_doc() -> None:
+    from greedy_token import tool_output as tl
+
+    out = tl._shrink_text('"' + "x" * 200 + '"', 30)
+    assert out.endswith("…")
+    out = tl._shrink_text('"unterminated string doc' + "x" * 100, 30)
+    assert out.endswith("…")
+
+
+@allure.title("_shrink_value: lists drop the tail, strings shrink, scalars pass")
+def test_shrink_value_variants() -> None:
+    from greedy_token import tool_output as tl
+
+    shrunk = tl._shrink_value(["x" * 20] * 40, 100)
+    assert tl._json_bytes(shrunk) <= 100
+    assert tl._shrink_value("x" * 200, 30).endswith("…")
+    assert tl._shrink_value(42, 1) == 42
+    assert tl._shrink_value(None, 1) is None
+
+
+@allure.title("_shrink_string_field: a stalled shrinker breaks on identical output")
+def test_shrink_string_field_stalled_break(monkeypatch: pytest.MonkeyPatch) -> None:
+    from greedy_token import tool_output as tl
+
+    # The shrinker returns an identical string twice: the accounting loop
+    # must stop instead of spinning on no forward progress.
+    monkeypatch.setattr(tl, "_shrink_text", lambda text, allowed: "x" * 20)
+    parent = {"keykey7": "x" * 5000}
+    doc_size = tl._json_bytes(parent)
+    dropped = tl._shrink_string_field(
+        parent, "keykey7", doc_size=doc_size, budget_bytes=32
+    )
+    assert parent["keykey7"] == "x" * 20
+    assert dropped == doc_size - tl._json_bytes({"keykey7": "x" * 20})
+
+
+@allure.title("_shrink_string_field: the 8-iteration bound stops endless regress")
+def test_shrink_string_field_loop_bound(monkeypatch: pytest.MonkeyPatch) -> None:
+    from greedy_token import tool_output as tl
+
+    calls: list[str] = []
+    monkeypatch.setattr(
+        tl,
+        "_shrink_text",
+        lambda text, allowed: calls.append(text) or text + "!",
+    )
+    parent = {"keykey7": "x" * 500}
+    dropped = tl._shrink_string_field(
+        parent, "keykey7", doc_size=tl._json_bytes(parent), budget_bytes=10
+    )
+    assert len(calls) == 8
+    assert dropped < 0  # the field grew; the bound stopped the loop anyway
+
+
+@allure.title("_shrink_dict_in_place: zero-gain fields fall through to key dropping")
+def test_shrink_dict_in_place_zero_gain_drops_keys(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from greedy_token import tool_output as tl
+
+    monkeypatch.setattr(tl, "_shrink_text", lambda text, allowed: text)
+    doc = {"ok": True, "field": "x" * 400}
+    tl._shrink_dict_in_place(doc, 100)
+    assert "field" not in doc
+    assert doc["dropped_keys"] >= 1
+    assert doc["truncated"] is True
+
+
+@allure.title("_shrink_dict_in_place: the 512-iteration bound caps pathological input")
+def test_shrink_dict_in_place_loop_bound(monkeypatch: pytest.MonkeyPatch) -> None:
+    from greedy_token import tool_output as tl
+
+    monkeypatch.setattr(tl, "_tail_drop_count", lambda items, deficit: 0)
+    doc = {"ok": True, "items": ["x" * 50] * 600}
+    dropped = tl._shrink_dict_in_place(doc, 10)
+    assert dropped == 512 * tl._json_bytes([])
+    assert doc["items"] == ["x" * 50] * 600
+    assert doc["items_dropped"] == 0
+
+
+@allure.title("_strip_to_skeleton: the error code survives into the skeleton")
+def test_strip_to_skeleton_error_code() -> None:
+    from greedy_token import tool_output as tl
+
+    doc = {
+        "ok": False,
+        "error": {"code": "denied", "detail": "x" * 100},
+        "blob": "y" * 200,
+    }
+    skel = tl._strip_to_skeleton(doc)
+    assert skel["ok"] is False
+    assert skel["error"] == {"code": "denied"}
+    assert "blob" not in skel
+    assert skel["truncated"] is True
+
+
+@allure.title("shrink_json_payload: stalled progress exhausts the loop and refuses")
+def test_shrink_json_payload_loop_exhaust_and_unrepresentable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from greedy_token import tool_output as tl
+
+    # Progress is reported but the doc never actually shrinks: the fixpoint
+    # must terminate after 16 passes and fall back to the skeleton.
+    monkeypatch.setattr(tl, "_shrink_dict_in_place", lambda doc, budget: 1)
+    doc = tl.shrink_json_payload(
+        {"ok": True, "data": "x" * 400}, max_bytes=200, max_tokens=0
+    )
+    assert doc["ok"] is True
+    assert "data" not in doc
+    assert doc["truncated"] is True
+
+    # Even the protected skeleton exceeds the cap — the caller must refuse.
+    with pytest.raises(ValueError, match="unrepresentable"):
+        tl.shrink_json_payload(
+            {
+                "ok": False,
+                "error": {"code": "x" * 300},
+                "data": "y" * 400,
+            },
+            max_bytes=64,
+            max_tokens=0,
+        )
+
+
+@allure.title("_inner_floor: invalid JSON, contract-free dict, list, fallback")
+def test_inner_floor_variants() -> None:
+    from greedy_token import tool_output as tl
+
+    assert tl._inner_floor("{invalid json") == "{invalid json"
+    assert tl._inner_floor('{"a": 1, "b": 2}') == '{"truncated": true}'
+    assert tl._inner_floor("[1, 2, 3]") == "[]"
+    assert tl._inner_floor("plain text body") == "…"
+
+
+@allure.title("_emit_doc: a converged fitting doc serializes once counters settle")
+def test_emit_doc_converged() -> None:
+    from greedy_token import tool_output as tl
+
+    raw = tl._emit_doc({"ok": True}, 10**6, 10**6)
+    doc = json.loads(raw)
+    assert doc["ok"] is True
+    assert doc["payload_bytes"] == len(raw.encode("utf-8"))
+    assert doc["payload_tokens"] == count_tokens(raw).tokens
+
+
+@allure.title("_emit_doc: oscillating counters hit the loop bound and raise")
+def test_emit_doc_loop_bound(monkeypatch: pytest.MonkeyPatch) -> None:
+    from greedy_token import tool_output as tl
+    from greedy_token.tokens import TokenEstimate
+
+    # Every measurement reports a different token count, so the
+    # payload_* accounting can never converge — the bound must fire.
+    counter = itertools.count()
+    monkeypatch.setattr(
+        tl,
+        "count_tokens",
+        lambda raw: TokenEstimate(
+            tokens=next(counter), chars=len(raw), method="fake"
+        ),
+    )
+    with pytest.raises(ValueError, match="unrepresentable"):
+        tl._emit_doc({"ok": True}, 10**6, 10**6)
+
+
+@allure.title("format_machine_output: losing all content emits the refusal envelope")
+def test_format_machine_output_content_lost_refusal() -> None:
+    # The byte budget admits the mandatory floor but not the content — the
+    # converged skeleton lost every content key, so the envelope is a
+    # delivery refusal, not a success with silently vanished fields.
+    out = format_machine_output(
+        payload={
+            "ok": True,
+            "error": {"code": "x" * 20},
+            "meta": {"blob": "y" * 200},
+            "output": "x" * 20000,
+        },
+        max_bytes=220,
+        max_tokens=2000,
+    )
+    doc = json.loads(out)
+    assert doc["ok"] is False
+    assert "error" in doc
+    assert len(out.encode("utf-8")) <= 220
+
+
+@allure.title("format_machine_output: a failing shrinker degrades to the refusal envelope")
+def test_format_machine_output_shrink_valueerror_refusal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from greedy_token import tool_output as tl
+
+    # shrink_json_payload raising inside the convergence loop falls back to
+    # the refusal floor — the gate already proved that floor representable.
+    monkeypatch.setattr(
+        tl,
+        "shrink_json_payload",
+        lambda *a, **k: (_ for _ in ()).throw(ValueError("unrepresentable")),
+    )
+    out = format_machine_output(
+        payload={"ok": True, "data": "x" * 2000},
+        max_bytes=400,
+        max_tokens=0,
+    )
+    doc = json.loads(out)
+    assert doc["ok"] is False
+    assert doc["error"]["code"] == "unrepresentable"
+    assert len(out.encode("utf-8")) <= 400
+
+
+@allure.title("format_machine_output: a never-shrinking doc hits the loop bound")
+def test_format_machine_output_loop_bound(monkeypatch: pytest.MonkeyPatch) -> None:
+    from greedy_token import tool_output as tl
+
+    monkeypatch.setattr(tl, "shrink_json_payload", lambda doc, **kw: doc)
+
+    # Output survives into the mandatory floor as a marker → floor emitted.
+    out = format_machine_output(
+        payload={"ok": True, "output": "x" * 400},
+        max_bytes=200,
+        max_tokens=0,
+    )
+    doc = json.loads(out)
+    assert doc["ok"] is True
+    assert doc["output"] == "…"
+    assert doc["truncated"] is True
+
+    # Non-output content vanishes from the floor → refusal path.
+    out = format_machine_output(
+        payload={"ok": True, "data": "x" * 400},
+        max_bytes=200,
+        max_tokens=0,
+    )
+    doc = json.loads(out)
+    assert doc["ok"] is False
+    assert doc["error"]["code"] == "unrepresentable"
+
+
+@allure.title("filter_tool_output strips junk-path and blank lines")
+def test_filter_tool_output_junk_and_blank_lines() -> None:
+    from greedy_token.tool_output import filter_tool_output
+
+    out = filter_tool_output(
+        "src/a.py: hit\n"
+        "x/.cursor/hooks/probe.py: noise\n"
+        "   \n"
+        "src/b.py: hit"
+    )
+    assert out == "src/a.py: hit\nsrc/b.py: hit"
+
+
+@allure.title("cap_tool_output returns empty input unchanged")
+def test_cap_tool_output_empty() -> None:
+    assert cap_tool_output("") == ""
+
+
+@allure.title("_shrink_text falls back to the contract skeleton when shrink overshoots")
+def test_shrink_text_contract_skeleton_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from greedy_token import tool_output as tl
+
+    # The shrinker produced a doc that still exceeds the field budget; the
+    # protected contract (skeleton) is the last honest representation.
+    monkeypatch.setattr(
+        tl,
+        "_shrink_value",
+        lambda inner, budget: {"ok": True, "extra": "x" * 300},
+    )
+    text = json.dumps({"ok": True, "extra": "x" * 300})
+    out = tl._shrink_text(text, 120)
+    doc = json.loads(out)
+    assert doc["ok"] is True
+    assert "extra" not in doc
+    assert doc["truncated"] is True
+
+
+@allure.title("_strip_to_skeleton keeps an error dict that carries no code")
+def test_strip_to_skeleton_error_without_code() -> None:
+    from greedy_token.tool_output import _strip_to_skeleton
+
+    skel = _strip_to_skeleton(
+        {"ok": False, "error": {"msg": "m" * 60}, "big": "x" * 50}
+    )
+    assert skel["ok"] is False
+    assert skel["error"] == {"msg": "m" * 60}
+    assert "big" not in skel
+
+
+@allure.title("_fits_emitted measures the emitted form without worst counters")
+def test_fits_emitted_without_worst_counters() -> None:
+    from greedy_token.tool_output import _fits_emitted
+
+    assert _fits_emitted({"ok": True}, 1000, 0, worst_counters=False) is True
+    assert _fits_emitted({"ok": True}, 5, 0, worst_counters=False) is False
+
+
+@allure.title("format_machine_output emits kwargs metadata without a payload")
+def test_format_machine_output_kwargs_metadata() -> None:
+    out = format_machine_output(
+        body="partial output",
+        outcome="failure",
+        result_status="refused",
+        executed=False,
+        operation_id="op-9",
+        error={"code": "boom"},
+        max_bytes=2000,
+    )
+    doc = json.loads(out)
+    assert doc["ok"] is False
+    assert doc["outcome"] == "failure"
+    assert doc["result_status"] == "refused"
+    assert doc["executed"] is False
+    assert doc["operation_id"] == "op-9"
+    assert doc["error"] == {"code": "boom"}
+    assert doc["output"] == "partial output"

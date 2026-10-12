@@ -198,3 +198,26 @@ def test_yandex_malformed_shapes(monkeypatch: pytest.MonkeyPatch) -> None:
         expensive_llm._chat_yandex_native(
             api_key="k", folder_id="f", model="m", system="s", user="u", timeout=1.0
         )
+
+
+@allure.title("yandex_gpt_chat falls back to openai_compat without a native attempt")
+def test_yandex_chat_fallback_no_native(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from unittest.mock import Mock
+
+    # No folder id env and no api key → the native endpoint is never tried,
+    # so no fallback observation is emitted either.
+    monkeypatch.delenv("YANDEX_FOLDER_ID", raising=False)
+    monkeypatch.delenv("YANDEX_GPT_FOLDER_ID", raising=False)
+    compat = Mock(return_value=("reply", 7))
+    fallback = Mock()
+    monkeypatch.setattr(expensive_llm, "_chat_openai_compat", compat)
+    monkeypatch.setattr(expensive_llm, "observe_provider_fallback", fallback)
+    resolved = _resolved(provider="yandex_gpt", url="http://llm.local/v1", api_key="")
+    out = expensive_llm.yandex_gpt_chat(resolved, system="s", user="u", timeout=3.0)
+    assert out == ("reply", 7)
+    compat.assert_called_once_with(
+        resolved.settings, system="s", user="u", timeout=3.0
+    )
+    fallback.assert_not_called()

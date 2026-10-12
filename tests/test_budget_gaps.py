@@ -2441,3 +2441,55 @@ def test_policy_single_ledger_read(
     )
     assert out.route_id == "python-x"
     assert len(calls) == 1
+
+
+@allure.title("_saved_scope_qualifier names the measured source for a turn-scope save")
+def test_saved_scope_qualifier_measured_source() -> None:
+    ctx = budget.ToolFooterContext(
+        task="t",
+        root=Path("/tmp"),
+        tier="python",
+        est_tokens=0,
+        route_id="r",
+        executor_sub="",
+        sub_label="",
+        duration_ms=None,
+        rag_hits=None,
+        ollama_eval_tokens=None,
+        breakdown=budget.CursorBaselineBreakdown(rules=0, task=0, overhead=0),
+        baseline=0,
+        saved=10,
+        billing_short="",
+        baseline_ms=0,
+        time_saved=None,
+        time_source="",
+        savings_scope="turn",
+        saved_source="turn-skip receipt",
+    )
+    assert budget._saved_scope_qualifier(ctx) == (
+        "measured by turn-skip receipt"
+    )
+
+
+@allure.title("_refusal_error_code: empty code is not a refusal")
+def test_refusal_error_code_empty() -> None:
+    assert budget._refusal_error_code({"code": ""}) == ""
+    assert budget._refusal_error_code({"code": None}) == ""
+
+
+@allure.title("_refusal_error_code fails open when capabilities cannot import")
+def test_refusal_error_code_import_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import sys
+
+    import greedy_token
+
+    # The from-import resolves the bound package attribute first — both the
+    # attribute and the sys.modules entry must go for an ImportError.
+    monkeypatch.delattr(greedy_token, "capabilities", raising=False)
+    monkeypatch.delattr(greedy_token, "capabilities_invoke", raising=False)
+    monkeypatch.setitem(sys.modules, "greedy_token.capabilities", None)
+    monkeypatch.setitem(sys.modules, "greedy_token.capabilities_invoke", None)
+    # With no refusal vocabulary available the classifier refuses to guess.
+    assert budget._refusal_error_code({"code": "anything"}) == ""

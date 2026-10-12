@@ -1865,3 +1865,98 @@ def test_footer_spent_executor_order(
     ]
     assert order == sorted(order)
     assert "aax" in spent and "None" not in spent
+
+
+@allure.title("_run_step observed run: trusted-runner spawn replaces plain subprocess")
+def test_run_step_observed_python_spawn(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import os
+    from types import SimpleNamespace
+
+    step = _step("check-meta-sync", tier="python", command="check")
+    step.argv = ("python", "scripts/meta-sync-check.py")
+    step.cwd = minimal_workspace
+    step.authorization = "test-fixture"
+
+    monkeypatch.setattr(
+        "greedy_token.cheap_llm.observation_armed", lambda: True
+    )
+    monkeypatch.setattr(
+        pl,
+        "trusted_script_argv",
+        lambda *a, **k: SimpleNamespace(
+            script_type="python",
+            argv=(sys.executable, "scripts/meta-sync-check.py", "extra"),
+            script_path="scripts/meta-sync-check.py",
+            cwd=minimal_workspace,
+            authorization="fixture",
+        ),
+    )
+    real_fd = os.open(
+        str(minimal_workspace / "scripts" / "meta-sync-check.py"), os.O_RDONLY
+    )
+    monkeypatch.setattr(
+        "greedy_token.trust._open_script", lambda root, p: (real_fd, None)
+    )
+    monkeypatch.setattr(
+        "greedy_token.trust._sha256_fd", lambda fd: "0" * 64
+    )
+    spawn = Mock(return_value=Mock(stdout="SPAWNED", stderr="", returncode=0))
+    monkeypatch.setattr(
+        "greedy_token.executors._spawn_observed_python_child", spawn
+    )
+    plain_run = Mock()
+    monkeypatch.setattr(pl.subprocess, "run", plain_run)
+
+    _fixed_time(monkeypatch)
+    sr = pl._run_step(step, minimal_workspace, execute=True)
+
+    with allure.step("trusted spawn got the child's argv/script/fd binding"):
+        kwargs = spawn.call_args.kwargs
+        assert kwargs["argv"] == ("extra",)
+        assert kwargs["script_path"] == "scripts/meta-sync-check.py"
+        assert kwargs["fd"] == real_fd
+        assert kwargs["source_sha256"] == "0" * 64
+        assert kwargs["cwd"] == minimal_workspace
+        assert kwargs["authority"] == "fixture"
+        assert kwargs["timeout"] == pl.SCRIPT_TIMEOUT
+    with allure.step("plain subprocess.run was never invoked"):
+        plain_run.assert_not_called()
+    with allure.step("the spawned result flows into the StepResult"):
+        assert sr.executed is True
+        assert sr.output == "SPAWNED"
+        assert sr.ok is True
+
+
+@allure.title("_run_step observed run: script-less argv refuses as unsafe")
+def test_run_step_observed_short_argv(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from types import SimpleNamespace
+
+    step = _step("check-meta-sync", tier="python", command="check")
+    step.argv = ("python",)
+    step.cwd = minimal_workspace
+    step.authorization = "test-fixture"
+
+    monkeypatch.setattr(
+        "greedy_token.cheap_llm.observation_armed", lambda: True
+    )
+    monkeypatch.setattr(
+        pl,
+        "trusted_script_argv",
+        lambda *a, **k: SimpleNamespace(
+            script_type="python",
+            argv=(sys.executable,),
+            script_path="scripts/meta-sync-check.py",
+            cwd=minimal_workspace,
+            authorization="fixture",
+        ),
+    )
+    _fixed_time(monkeypatch)
+    sr = pl._run_step(step, minimal_workspace, execute=True)
+    assert sr.ok is False
+    assert sr.exit_code == 1
+    assert "no script argv" in sr.output
+    assert sr.executed is False

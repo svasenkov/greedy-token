@@ -441,3 +441,15 @@ def test_unsupported_host_records_no_observation(tmp_path):
     assert profile.serialize_gate({"user_message": "x", "task": "t"}) == "{}"
     profile.serialize_intercept({"root": tmp_path})
     assert _logged_events() == []
+
+
+def test_observation_failure_never_breaks_the_hook_boundary(tmp_path, monkeypatch):
+    from greedy_token import usage
+
+    monkeypatch.setattr(
+        usage, "append_event",
+        lambda *a, **k: (_ for _ in ()).throw(OSError("ledger write failed")),
+    )
+    profile = detect({})
+    out = profile.serialize_gate({"user_message": "stop", "task": "t"})
+    assert json.loads(out) == {"continue": False, "user_message": "stop"}

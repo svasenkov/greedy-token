@@ -1716,3 +1716,25 @@ def test_enrich_first_file_fit_prefix(
     assert "stopped at token budget" not in block
     assert "HEAD_ROW" in block and "MARKER_ROW" in block
     assert "payload_09" not in block
+
+
+@allure.title("search_code observed run: python backend, ledger note, no rg")
+def test_search_code_observed_backend(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from unittest.mock import Mock
+
+    spy = Mock()
+    monkeypatch.setattr(
+        "greedy_token.cheap_llm.observation_armed", lambda: True
+    )
+    monkeypatch.setattr(
+        "greedy_token.cheap_llm.observe_search_backend", spy
+    )
+    result = cs.search_code("baseUrl", minimal_workspace)
+    assert result.hit_count > 0
+    assert "(observed run: native rg skipped — python tree scan)" in result.text
+    assert result.engine == "python"
+    spy.assert_called_once_with(
+        engine="python", scope="workspace", native="skipped"
+    )

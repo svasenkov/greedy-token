@@ -2064,3 +2064,83 @@ def test_build_tool_argv_prompt_path_scoping(minimal_workspace: Path) -> None:
         argv = _build_tool_argv({}, "find baseUrl", minimal_workspace)
         sep = argv.index("--")
         assert argv[sep + 1 :] == ("baseUrl", ".")
+
+
+@allure.title("_script_command_args rejects declared-cwd mismatches and non-script argv")
+def test_script_command_args_rejections(minimal_workspace: Path) -> None:
+    # A declared cwd that does not resolve to the parsed cwd → no admit.
+    assert router._script_command_args(
+        {"command": "python scripts/meta-sync-check.py", "cwd": "subdir"},
+        minimal_workspace,
+    ) is None
+    # argv[1] without a .py suffix → not a script invocation.
+    assert router._script_command_args(
+        {"command": "python scripts/meta-sync-check"}, minimal_workspace
+    ) is None
+    # Non-python executable → rejected before validation.
+    assert router._script_command_args(
+        {"command": "echo hi"}, minimal_workspace
+    ) is None
+
+
+@allure.title("_json_route_intent params=('args',): extra args reject, slots admit")
+def test_json_route_intent_params_args(minimal_workspace: Path) -> None:
+    task = "check json keys path='docs/phase-manifest.json' keys=a,b"
+    base = {"target": "python", "read_only": True}
+    # params ("args",) with a fixed trailing argv → derivation refused.
+    assert router._json_route_intent(
+        task,
+        {**base,
+         "command": "python scripts/meta-sync-check.py extra",
+         "params": ["args"]},
+        minimal_workspace,
+    ) is None
+    # params ("args",), empty argv, task without a json-keys intent → None.
+    assert router._json_route_intent(
+        "list the files",
+        {**base,
+         "command": "python scripts/meta-sync-check.py",
+         "params": ["args"]},
+        minimal_workspace,
+    ) is None
+    # params ("args",) + slots + a deriving args_from_prompt spec → slots.
+    out = router._json_route_intent(
+        task,
+        {**base,
+         "command": "python scripts/meta-sync-check.py",
+         "params": ["args"],
+         "args_from_prompt": [
+             {"regex": r"check json keys path='(.+?)' keys=(.+)",
+              "args": "--path {0} --keys {1}"}
+         ]},
+        minimal_workspace,
+    )
+    assert out is not None and out.intent == "json_keys"
+    # Free argv form "script path --keys keys" parses into the same slots.
+    out2 = router._json_route_intent(
+        task,
+        {**base,
+         "command": "python scripts/meta-sync-check.py "
+                    "docs/phase-manifest.json --keys a,b"},
+        minimal_workspace,
+    )
+    assert out2 is not None and out2.intent == "json_keys"
+    assert out2.path == "docs/phase-manifest.json"
+
+
+@allure.title("first_matching_route_id skips the tool tier when the intent gate disagrees")
+def test_first_matching_route_id_tool_gate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = {
+        "routes": [
+            {"id": "tool-x", "target": "tool", "tool": "jq",
+             "patterns": ["thing"]},
+            {"id": "python-x", "target": "python", "patterns": ["thing"]},
+        ]
+    }
+    monkeypatch.setattr(router, "load_routes_config", lambda root=None: cfg)
+    # The tool-tier gate is a loop-invariant safety net: force the per-route
+    # admission to disagree with the task-level intent so the arm executes.
+    monkeypatch.setattr(router, "_admit_slot_intent", lambda *a, **k: True)
+    assert router.first_matching_route_id("do thing", Path("/x")) == "python-x"

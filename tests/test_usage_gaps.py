@@ -1941,3 +1941,33 @@ def test_encoding_pins(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 @allure.title("_parse_event_ts rejects lowercase-z (only uppercase Z replaced)")
 def test_parse_event_ts_lowercase_z() -> None:
     assert usage._parse_event_ts({"ts": "2026-01-02T03:04:05z"}) is None
+
+
+@allure.title("build_route_event: a turn-scoped save emits no potential labels")
+def test_build_route_event_turn_scope(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(usage, "savings_scope_for", lambda *a, **k: "turn")
+    e = usage.build_route_event(
+        cmd="route",
+        task="find the base url",
+        root=minimal_workspace,
+        decision=_decision(),
+        executed=True,
+    )
+    assert e["savings_scope"] == "turn"
+    assert "cursor_saved_potential" not in e
+    assert "cursor_saved_potential_shared" not in e
+
+
+@allure.title("build_script_event: a turn-scoped save emits no potential labels")
+def test_build_script_event_turn_scope(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(usage, "savings_scope_for", lambda *a, **k: "turn")
+    e = usage.build_script_event(
+        script_id="meta-sync-check", root=minimal_workspace, executed=True
+    )
+    assert e["savings_scope"] == "turn"
+    assert "cursor_saved_potential" not in e
+    assert "cursor_saved_potential_shared" not in e

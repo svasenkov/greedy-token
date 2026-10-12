@@ -136,3 +136,36 @@ def test_apply_budget_policy_metered_exhausted(
     )
     result = apply_budget_policy(decision, "classify files bulk", minimal_workspace)
     assert result.target != "cursor" or "budget" in (result.note or "").lower() or "Budget" in result.rationale
+
+
+def test_apply_budget_policy_probe_unobserved(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "greedy_token.cheap_llm.observe_resource_probe", lambda probe: False
+    )
+    decision = RouteDecision(
+        target="ollama",
+        route_id="r",
+        confidence=0.9,
+        matched=["m"],
+        command=None,
+        note="",
+        domains=[],
+        complexity="medium",
+        est_tokens=100,
+        rationale="base",
+    )
+    out = apply_budget_policy(decision, "task", minimal_workspace, policy="auto")
+    assert out.rationale == "base"
+
+
+def test_policy_footer_extras_probe_unobserved(
+    minimal_workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "greedy_token.cheap_llm.observe_resource_probe", lambda probe: False
+    )
+    lines = policy_footer_extras(root=minimal_workspace)
+    assert lines
+    assert all("health" not in line.lower() for line in lines)
