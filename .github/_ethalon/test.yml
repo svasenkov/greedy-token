@@ -213,6 +213,7 @@ jobs:
           fi
           echo "${REPORT_ID}" > pages/latest-run-id.txt
           cp pages-templates/root-index.html pages/index.html
+          cp docs/benchmark.html pages/benchmark.html
           touch pages/.nojekyll
           # Palette A: Allure paints all active pyramid bands with one primary color.
           bash .github/scripts/prepare-allure-pages-colors.sh pages "pages/reports/${REPORT_ID}"
