@@ -1,0 +1,1 @@
+{"id":"cc5d267c2f2f0d5dc153af613f08a403","fullName":"tests.test_trust_gaps#test_read_entries_round_trip","name":"_read_entries: manifest round-trip keeps entries verbatim","status":"passed","testResultsByEnv":{"default":"7c1b9911c33769ef526ca4c8656cd8a4"}}

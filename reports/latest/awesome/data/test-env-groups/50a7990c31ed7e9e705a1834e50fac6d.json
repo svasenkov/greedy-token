@@ -1,1 +1,1 @@
-{"id":"50a7990c31ed7e9e705a1834e50fac6d","fullName":"tests.test_hook_policy#test_p1_adversarial_no_false_intercept","name":"test_p1_adversarial_no_false_intercept[extra-token-gate]","status":"passed","testResultsByEnv":{"default":"92be0d1a2ec1963948bcbacfd1e44033"}}
+{"id":"50a7990c31ed7e9e705a1834e50fac6d","fullName":"tests.test_hook_policy#test_p1_adversarial_no_false_intercept","name":"test_p1_adversarial_no_false_intercept[absolute-path-intercept]","status":"passed","testResultsByEnv":{"default":"d76fa058e9cb2a2703b2199366727279"}}

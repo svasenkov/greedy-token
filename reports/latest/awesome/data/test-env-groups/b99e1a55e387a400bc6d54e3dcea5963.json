@@ -1,1 +1,1 @@
-{"id":"b99e1a55e387a400bc6d54e3dcea5963","fullName":"tests.test_machine_output#test_shrink_json_payload_inner_contract_string","name":"A JSON contract string inside a field shrinks structurally","status":"passed","testResultsByEnv":{"default":"d0f6c63e2f6627ac74525618c3d013b5"}}
+{"id":"b99e1a55e387a400bc6d54e3dcea5963","fullName":"tests.test_machine_output#test_shrink_json_payload_inner_contract_string","name":"A JSON contract string inside a field shrinks structurally","status":"passed","testResultsByEnv":{"default":"31f898181b63b7c6e855d5c4f1ee6fde"}}

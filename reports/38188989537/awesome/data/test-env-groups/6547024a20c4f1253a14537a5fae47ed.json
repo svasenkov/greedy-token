@@ -1,0 +1,1 @@
+{"id":"6547024a20c4f1253a14537a5fae47ed","fullName":"tests.test_pipeline_gaps#test_format_pipeline_body_not_stopped","name":"format_pipeline_body: no stopped-early suffix when the run completed","status":"passed","testResultsByEnv":{"default":"ee3ee1cbd7905bda9d18d1bb696af504"}}

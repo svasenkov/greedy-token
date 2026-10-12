@@ -1,0 +1,1 @@
+{"id":"e956ecf9304f105014943f8566ecd332","fullName":"tests.test_mcp_stdio#test_mcp_stdio_invoke_refused","name":"MCP stdio invoke refuses an unready op without executing","status":"passed","testResultsByEnv":{"default":"606931fd7f6e7f26372da54d64da7e78"}}

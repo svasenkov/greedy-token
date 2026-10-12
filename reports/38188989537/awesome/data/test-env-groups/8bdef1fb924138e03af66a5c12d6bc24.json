@@ -1,0 +1,1 @@
+{"id":"8bdef1fb924138e03af66a5c12d6bc24","fullName":"tests.test_router_gaps#test_prompt_path_scope","name":"_prompt_path_scope resolves confined existing paths, rejects the rest","status":"passed","testResultsByEnv":{"default":"e9cdb8a4c10d093462f2c56bb1f4a8df"}}

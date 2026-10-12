@@ -1,0 +1,1 @@
+{"id":"06e67c54c842a3b121d7519ade19a465","fullName":"tests.test_advisory#test_render_result_output_dict_table","name":"render_result_output renders dict scalars and object array as table","status":"passed","testResultsByEnv":{"default":"294758d9acdc17ff2c279422aeb6241b"}}

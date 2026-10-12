@@ -1,0 +1,1 @@
+{"id":"df5378f07034c04210234110f54cfa57","fullName":"tests.test_budget_gaps#test_format_savings_lines_boundary","name":"format_savings_lines: spent_note wins and zero saved stays zero","status":"passed","testResultsByEnv":{"default":"b5a24c451166e83ae57148ef1db85175"}}

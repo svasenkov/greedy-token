@@ -1,0 +1,1 @@
+{"id":"de0463df3d8cee9a01369596ea85defd","fullName":"tests.test_trust_gaps#test_verify_trust_manifest_trust_error_arm","name":"verify_trust_manifest: TrustError arm keeps the entry reference","status":"passed","testResultsByEnv":{"default":"220e58f56c7e0386577ec67e833a404a"}}

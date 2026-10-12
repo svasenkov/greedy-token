@@ -1,1 +1,1 @@
-{"id":"644c6d2a7d4c2e458f7b6d12057a67d3","fullName":"tests.test_expensive_llm#test_yandex_native_no_alternatives","name":"_chat_yandex_native raises when no alternatives","status":"passed","testResultsByEnv":{"default":"46bfd9aa53f15b075a5c0591f45c13e0"}}
+{"id":"644c6d2a7d4c2e458f7b6d12057a67d3","fullName":"tests.test_expensive_llm#test_yandex_native_no_alternatives","name":"_chat_yandex_native raises when no alternatives","status":"passed","testResultsByEnv":{"default":"6fd5ca591f377979141d4b43424a1405"}}

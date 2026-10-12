@@ -1,1 +1,1 @@
-{"id":"70168bd90ce4726682ebea5f76bc8b3f","fullName":"tests.test_budget#test_format_tool_footer_failed_outcome","name":"Failed tool outcome shows zero token savings and no time savings","status":"passed","testResultsByEnv":{"default":"56e1bcf955bd51ea893cccb7361e4706"}}
+{"id":"70168bd90ce4726682ebea5f76bc8b3f","fullName":"tests.test_budget#test_format_tool_footer_failed_outcome","name":"Failed tool outcome shows zero token savings and no time savings","status":"passed","testResultsByEnv":{"default":"fcd2106e74241785010839c08470ace1"}}

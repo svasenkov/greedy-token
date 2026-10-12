@@ -1,0 +1,1 @@
+{"id":"18e0511bf7c96304a5620c06e5936d72","fullName":"tests.test_advisory#test_build_event_defaults","name":"build_event defaults: missing decision attrs + empty data","status":"passed","testResultsByEnv":{"default":"50f8327db436ae43c7047710c864f969"}}

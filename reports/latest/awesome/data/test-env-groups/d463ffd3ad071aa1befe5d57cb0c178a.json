@@ -1,1 +1,1 @@
-{"id":"d463ffd3ad071aa1befe5d57cb0c178a","fullName":"tests.test_mcp_stdio#test_mcp_stdio_route_telemetry_is_recommendation","name":"MCP stdio route logs a recommendation, not an execution","status":"passed","testResultsByEnv":{"default":"b619403298ac250f46d0ef1bb25ca366"}}
+{"id":"d463ffd3ad071aa1befe5d57cb0c178a","fullName":"tests.test_mcp_stdio#test_mcp_stdio_route_telemetry_is_recommendation","name":"MCP stdio route logs a recommendation, not an execution","status":"passed","testResultsByEnv":{"default":"95af8eefe9288dce8e7c50590cd8ff55"}}

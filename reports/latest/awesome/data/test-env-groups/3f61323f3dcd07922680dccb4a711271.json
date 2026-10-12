@@ -1,1 +1,1 @@
-{"id":"3f61323f3dcd07922680dccb4a711271","fullName":"tests.test_rag_index#test_format_hits_empty","name":"format_hits reports no hits message","status":"passed","testResultsByEnv":{"default":"725fbd139ccaf61f403ca62c529db51a"}}
+{"id":"3f61323f3dcd07922680dccb4a711271","fullName":"tests.test_rag_index#test_format_hits_empty","name":"format_hits reports no hits message","status":"passed","testResultsByEnv":{"default":"5304b86d10027f88acaed943f59115b6"}}

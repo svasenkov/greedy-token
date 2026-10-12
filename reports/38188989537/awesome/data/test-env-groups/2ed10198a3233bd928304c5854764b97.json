@@ -1,0 +1,1 @@
+{"id":"2ed10198a3233bd928304c5854764b97","fullName":"tests.test_advisory#test_hook_min_confidence_config","name":"hook_min_confidence: yaml threshold applies when env unset","status":"passed","testResultsByEnv":{"default":"9ae814abb9c1c54f3980b25deb1951ab"}}

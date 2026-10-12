@@ -57,30 +57,61 @@
   pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 32rem; overflow: auto; }
   .stat a { font-size: 11px; color: var(--muted); }
   td details { white-space: normal; min-width: 180px; max-width: 320px; }
+  .flow { margin: 12px 0 4px; border: 1px solid var(--line); border-radius: 10px;
+          padding: 4px 16px; }
+  .flow .row { display: flex; gap: 14px; align-items: baseline; padding: 9px 0;
+               border-bottom: 1px solid var(--line); }
+  .flow .row:last-child { border-bottom: 0; }
+  .flow .tag { flex: 0 0 96px; }
+  .flow .cond { flex: 1.1; color: var(--muted); }
+  .flow .out { flex: 1; }
+  .tag { display: inline-block; font-size: 11px; font-weight: 600; text-transform: uppercase;
+         letter-spacing: .4px; border-radius: 999px; padding: 2px 9px; text-align: center; }
+  .tag.hit { color: #0a7f4f; border: 1px solid #0a7f4f66; background: #0a7f4f14; }
+  .tag.pass { color: var(--muted); border: 1px solid var(--line); }
+  .tag.audit { color: #b87800; border: 1px solid #b8780066; background: #b8780012; }
+  details.appendix { border: 1px solid var(--line); border-radius: 10px;
+                     padding: 2px 18px 20px; margin-bottom: 32px; }
+  details.appendix > summary { cursor: pointer; font-weight: 600; padding: 12px 0;
+                               color: var(--muted); }
+  details.appendix section { margin-bottom: 28px; }
 </style>
 </head>
 <body>
 
-<h1>greedy-token — benchmark evidence</h1>
-<p class="sub">Локальная P0b-проекция · v0.18.4 · существующий D1 snapshot, не новый прогон · без публикации</p>
+<h1>greedy-token</h1>
+<p class="sub">A hook on the prompt path. Deterministic requests are answered by local trust-verified
+scripts — <b>the model is never called: 0 tokens, 0 billable requests, ~1&nbsp;s answer.</b>
+Verified against independent host records and the provider's own billing ledger.</p>
 
-<section class="note">
-  <b>Что подтверждено, а что нет</b>
-  D1 принят только в ограниченном <code>product_direct / python_provider</code> scope.
-  Корректный маршрут, terminal result по oracle и zero-completed — разные показатели.
-  Native/descendant coverage, full-native proof и P6 не приняты.
-  <p id="host-summary">Desktop host requests, consume/skip, skipped turn и Desktop tokens/USD/savings:
-  <strong>unknown</strong>, value=null. Product-direct не является Desktop evidence.
-  Fallback и rag-empty не считаются успешным intercept.</p>
-  <p class="foot">Post-D1 update (v0.19.x): host-контуры измерены на живых хостах — см. следующую секцию.
-  Утверждение выше описывает scope самого D1 snapshot и остаётся верным для него.</p>
+<div class="stats">
+  <div class="stat"><div class="v">9</div><div class="l">prompts proven zero-LLM on live hosts</div></div>
+  <div class="stat"><div class="v">0</div><div class="l">billable model calls on blocked prompts</div></div>
+  <div class="stat"><div class="v">23</div><div class="l">trusted local operations</div></div>
+  <div class="stat"><div class="v">$0.003</div><div class="l">total cost of the entire proof</div></div>
+</div>
+
+<section>
+  <h2>How it works</h2>
+  <p class="foot">Every prompt passes through the <code>UserPromptSubmit</code> hook
+  before the host can send it to the model.</p>
+  <div class="flow">
+    <div class="row"><span class="tag hit">intercept</span>
+      <span class="cond">intent recognized · confidence ≥ 0.65 · within trust-approved coverage</span>
+      <span class="out">local script runs, answer rendered — <b>model never called</b></span></div>
+    <div class="row"><span class="tag pass">pass</span>
+      <span class="cond">intent outside coverage</span>
+      <span class="out">normal agent turn, nothing changes</span></div>
+    <div class="row"><span class="tag audit">audited pass</span>
+      <span class="cond">prompt &lt; 8 chars or <code>nogreedy:</code> bypass</span>
+      <span class="out">passes through but lands in the ledger — no silent skips</span></div>
+  </div>
+  <p class="foot">Trust = every script's SHA-256 and file identity are re-verified on each run;
+  content drift refuses execution instead of silently running stale code.</p>
 </section>
 
 <section id="host-contours">
-  <h2>Proven zero-LLM interception — measured on live hosts (post-D1, v0.19.x)</h2>
-  <p class="foot">A hook intercepts the prompt before it reaches the model. Deterministic intents are
-  answered by local trust-verified scripts — the model is never called: 0 tokens, 0 billable requests,
-  ~1&nbsp;s answer. Verified against independent host records and the provider's own billing ledger.</p>
+  <h2>Proven on live hosts — independent evidence</h2>
   <div class="table-scroll" tabindex="0" role="region" aria-label="Host contour evidence">
   <table>
     <thead><tr>
@@ -116,16 +147,33 @@
   </table>
   </div>
 
+  <h2>Evidence rigor</h2>
   <div class="stats">
-    <div class="stat"><div class="v">23</div><div class="l">trusted local operations (SHA-256 + identity per run)</div></div>
-    <div class="stat"><div class="v">9</div><div class="l">proven zero-LLM blocked prompts</div></div>
-    <div class="stat"><div class="v">0</div><div class="l">billable calls on blocked</div></div>
-    <div class="stat"><div class="v">$0.003</div><div class="l">total cost of the proof</div></div>
+    <div class="stat"><div class="v">431/431</div><div class="l">hook tests green</div></div>
+    <div class="stat"><div class="v">~500</div><div class="l">evidence files, hash-verified</div></div>
+    <div class="stat"><div class="v">0</div><div class="l">SHA-256 verification failures</div></div>
+    <div class="stat"><div class="v">3</div><div class="l">independent ledgers per blocked prompt</div></div>
   </div>
-  <p class="foot">Honestly not proven: Cursor.app (different hook semantics — not yet tested) ·
+
+  <h2>Honestly not proven</h2>
+  <p class="foot">Cursor.app (different hook semantics — not yet tested) ·
   Devin plan billing (provider API does not expose local metering — measured blind spot) ·
-  ChatGPT subscription billing (no per-request export exists — structurally unmeasurable).
-  Every hook decision lands in the ledger — no silent skips.</p>
+  ChatGPT subscription billing (no per-request export exists — structurally unmeasurable).</p>
+</section>
+
+<details class="appendix">
+<summary>Auditor appendix — full forensic ledger: D1 snapshot, gates, unverified archive (nothing removed)</summary>
+
+<section class="note">
+  <b>Что подтверждено, а что нет</b>
+  D1 принят только в ограниченном <code>product_direct / python_provider</code> scope.
+  Корректный маршрут, terminal result по oracle и zero-completed — разные показатели.
+  Native/descendant coverage, full-native proof и P6 не приняты.
+  <p id="host-summary">Desktop host requests, consume/skip, skipped turn и Desktop tokens/USD/savings:
+  <strong>unknown</strong>, value=null. Product-direct не является Desktop evidence.
+  Fallback и rag-empty не считаются успешным intercept.</p>
+  <p class="foot">Post-D1 update (v0.19.x): host-контуры измерены на живых хостах — см. секцию выше.
+  Утверждение выше описывает scope самого D1 snapshot и остаётся верным для него.</p>
 </section>
 
 <section id="source-provenance">
@@ -201,6 +249,8 @@
   Выбор local-модели и старый footer «$0» не являются authoritative billing или request ledger.
   Эти прогоны не повторялись. Сохранённый неисполняемый script-архив ниже не используется в вычислениях.</p>
 </section>
+
+</details>
 
 <noscript>Все product/live числовые metrics: unknown, пока integrity snapshot не проверена. JavaScript нужен только для локального отображения; команды и агенты не запускаются.</noscript>
 

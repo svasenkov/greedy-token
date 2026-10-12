@@ -1,1 +1,1 @@
-{"id":"adb0200ad779626daa36894cf55f7c51","fullName":"tests.test_cheap_llm#test_probe_rejects_missing_model","name":"Probe is not ok when the configured model is missing from /api/tags","status":"passed","testResultsByEnv":{"default":"7eb93aab2f96023492a24ccaedfd6e89"}}
+{"id":"adb0200ad779626daa36894cf55f7c51","fullName":"tests.test_cheap_llm#test_probe_rejects_missing_model","name":"Probe is not ok when the configured model is missing from /api/tags","status":"passed","testResultsByEnv":{"default":"1353878c487a71a773f6e6cc394c803f"}}

@@ -1,1 +1,1 @@
-{"id":"e2c6a77e86e1ed9efce12283939d9b13","fullName":"tests.test_machine_output#test_shrink_json_payload_preserves_verdict_and_count","name":"Structural JSON truncation keeps verdict and count fields","status":"passed","testResultsByEnv":{"default":"492051e9750dda3f328c2fddf0816930"}}
+{"id":"e2c6a77e86e1ed9efce12283939d9b13","fullName":"tests.test_machine_output#test_shrink_json_payload_preserves_verdict_and_count","name":"Structural JSON truncation keeps verdict and count fields","status":"passed","testResultsByEnv":{"default":"8ccb9c127d54a8c1335472cdab169e09"}}

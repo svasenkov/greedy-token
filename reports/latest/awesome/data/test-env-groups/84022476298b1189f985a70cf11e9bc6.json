@@ -1,1 +1,1 @@
-{"id":"84022476298b1189f985a70cf11e9bc6","fullName":"tests.test_trust#test_cmd_trust_handler_edges","name":"Trust CLI handler covers empty, stale, missing, and invalid operations","status":"passed","testResultsByEnv":{"default":"8f6a027e50dc9224a108641ef914a575"}}
+{"id":"84022476298b1189f985a70cf11e9bc6","fullName":"tests.test_trust#test_cmd_trust_handler_edges","name":"Trust CLI handler covers empty, stale, missing, and invalid operations","status":"passed","testResultsByEnv":{"default":"709643a8e846733f8cd2a4b32fad55cb"}}

@@ -1,1 +1,1 @@
-{"id":"c6f613b9e52c0cb2288276050338a003","fullName":"tests.test_hook_policy#test_bypass_preserves_telemetry_and_skips_routing","name":"test_bypass_preserves_telemetry_and_skips_routing[agent:]","status":"passed","testResultsByEnv":{"default":"7528c650e2fc78c282a1a5bd965105b1"}}
+{"id":"c6f613b9e52c0cb2288276050338a003","fullName":"tests.test_hook_policy#test_bypass_preserves_telemetry_and_skips_routing","name":"test_bypass_preserves_telemetry_and_skips_routing[cursor:]","status":"passed","testResultsByEnv":{"default":"f16742f86d3fedebd3717fe6296b14d7"}}

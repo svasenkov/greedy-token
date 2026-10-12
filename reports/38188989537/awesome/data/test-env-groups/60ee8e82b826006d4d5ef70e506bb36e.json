@@ -1,0 +1,1 @@
+{"id":"60ee8e82b826006d4d5ef70e506bb36e","fullName":"tests.test_machine_output#test_wrap_mcp_response_machine_envelope_caps_100kb","name":"machine style returns a capped JSON envelope instead of body+footer","status":"passed","testResultsByEnv":{"default":"47130bef055f17932eacfd7625d9b3a8"}}

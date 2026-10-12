@@ -1,0 +1,1 @@
+{"id":"1b567096180be353d4d1c084d5b6d034","fullName":"tests.test_budget_gaps#test_cost_from_event_malformed","name":"_cost_from_event ignores malformed cost fields","status":"passed","testResultsByEnv":{"default":"1d0468870b26b8afa603849275e29411"}}

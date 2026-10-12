@@ -1,1 +1,1 @@
-{"id":"6a00319f76373ec980015f0f3b82477f","fullName":"tests.test_hub#test_rank_candidates_strips_python_prefix","name":"test_rank_candidates_strips_python_prefix","status":"passed","testResultsByEnv":{"default":"c95e38986eae1fc31ff8ccffa44ad0a8"}}
+{"id":"6a00319f76373ec980015f0f3b82477f","fullName":"tests.test_hub#test_rank_candidates_strips_python_prefix","name":"test_rank_candidates_strips_python_prefix","status":"passed","testResultsByEnv":{"default":"592e2f76bfa350d36993d41d7612e749"}}

@@ -1,1 +1,1 @@
-{"id":"2f18238486b39d2cf21b43583c10db42","fullName":"tests.test_trust_cut#test_rag_search_russian_query","name":"RU query finds RU RAG chunk (not empty-token miss)","status":"passed","testResultsByEnv":{"default":"c92dd42dbb0b8873f2c832373e59f4a5"}}
+{"id":"2f18238486b39d2cf21b43583c10db42","fullName":"tests.test_trust_cut#test_rag_search_russian_query","name":"RU query finds RU RAG chunk (not empty-token miss)","status":"passed","testResultsByEnv":{"default":"a0ab0804f8ab653ee17d9df327af8698"}}

@@ -1,1 +1,1 @@
-{"id":"c42c42c244c8f5c258d3c2fee8b02f14","fullName":"tests.test_llm_invoke#test_invoke_profile_cheap","name":"test_invoke_profile_cheap","status":"passed","testResultsByEnv":{"default":"e63f42b6cb1a9c51350e580f8d041dfe"}}
+{"id":"c42c42c244c8f5c258d3c2fee8b02f14","fullName":"tests.test_llm_invoke#test_invoke_profile_cheap","name":"test_invoke_profile_cheap","status":"passed","testResultsByEnv":{"default":"2a17b955f415b6c26be40652c7c0f2b0"}}

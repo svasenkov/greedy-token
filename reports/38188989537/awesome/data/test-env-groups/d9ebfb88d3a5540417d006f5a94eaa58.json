@@ -1,0 +1,1 @@
+{"id":"d9ebfb88d3a5540417d006f5a94eaa58","fullName":"tests.test_evidence_benchmark#test_observed_cli_script_executes_via_trusted_runner","name":"Public CLI script runs under the admitted trusted runner","status":"passed","testResultsByEnv":{"default":"d6c8b1276c81d622ae5feed7f9b564d1"}}

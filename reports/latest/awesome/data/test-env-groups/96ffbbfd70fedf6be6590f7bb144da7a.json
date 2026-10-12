@@ -1,1 +1,1 @@
-{"id":"96ffbbfd70fedf6be6590f7bb144da7a","fullName":"tests.test_budget_gaps#test_resolve_footer_style","name":"_resolve_footer_style: explicit arg wins, else settings","status":"passed","testResultsByEnv":{"default":"d567af1f91d0267f946bb8d55ecb57b8"}}
+{"id":"96ffbbfd70fedf6be6590f7bb144da7a","fullName":"tests.test_budget_gaps#test_resolve_footer_style","name":"_resolve_footer_style: explicit arg wins, else settings","status":"passed","testResultsByEnv":{"default":"b181d4ee7bb0d3b31a732673caf6c45b"}}

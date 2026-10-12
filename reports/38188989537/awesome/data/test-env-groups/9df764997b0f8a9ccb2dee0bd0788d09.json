@@ -1,0 +1,1 @@
+{"id":"9df764997b0f8a9ccb2dee0bd0788d09","fullName":"tests.test_security#test_pipeline_rejects_unsafe_step_command","name":"Pipeline returns an explicit failure for unsafe registered step argv","status":"passed","testResultsByEnv":{"default":"b010f221d322247eb6e37281709b4209"}}

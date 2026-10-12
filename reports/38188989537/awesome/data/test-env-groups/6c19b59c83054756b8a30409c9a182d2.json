@@ -1,0 +1,1 @@
+{"id":"6c19b59c83054756b8a30409c9a182d2","fullName":"tests.test_evidence_benchmark#test_scorecard_gate_rejects_forged_excerpt_claim","name":"A forged RAG satisfied-flag without excerpt words fails the gate","status":"passed","testResultsByEnv":{"default":"c0b5e2ceb4af5b376393e4bfd2045634"}}

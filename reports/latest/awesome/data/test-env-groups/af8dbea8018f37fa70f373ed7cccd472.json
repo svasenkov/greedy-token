@@ -1,1 +1,1 @@
-{"id":"af8dbea8018f37fa70f373ed7cccd472","fullName":"tests.test_crystallize_l3#test_draft_rejects_prompt_slug_id","name":"draft rejects script-{slugify(prompt)} as promote id","status":"passed","testResultsByEnv":{"default":"e21072a436e7284ffbddde7698eae4ec"}}
+{"id":"af8dbea8018f37fa70f373ed7cccd472","fullName":"tests.test_crystallize_l3#test_draft_rejects_prompt_slug_id","name":"draft rejects script-{slugify(prompt)} as promote id","status":"passed","testResultsByEnv":{"default":"bd81a4f52f02a2e524af9860b5841239"}}

@@ -1,1 +1,1 @@
-{"id":"c88238efaf5917e3a10887d38403468b","fullName":"tests.test_usage#test_failed_script_event_does_not_claim_savings","name":"Failed script event does not claim token savings","status":"passed","testResultsByEnv":{"default":"15641987a82badb8dbb688cb0c52f6f0"}}
+{"id":"c88238efaf5917e3a10887d38403468b","fullName":"tests.test_usage#test_failed_script_event_does_not_claim_savings","name":"Failed script event does not claim token savings","status":"passed","testResultsByEnv":{"default":"5b7117c6be0a01df56929dd7a7923932"}}

@@ -1,1 +1,1 @@
-{"id":"4061f2fbc3125fc4896349b95ae0efd4","fullName":"tests.test_accounting_gaps#test_budget_metered_daily_cap_enforced","name":"budget.metered.daily_cap_usd is a real cap once configured","status":"passed","testResultsByEnv":{"default":"618cd1d7a55d99e8754a9538d0c12155"}}
+{"id":"4061f2fbc3125fc4896349b95ae0efd4","fullName":"tests.test_accounting_gaps#test_budget_metered_daily_cap_enforced","name":"budget.metered.daily_cap_usd is a real cap once configured","status":"passed","testResultsByEnv":{"default":"24f7de3105f189d30a039c11ee5a9c97"}}

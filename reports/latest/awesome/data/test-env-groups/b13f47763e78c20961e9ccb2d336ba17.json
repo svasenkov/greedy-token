@@ -1,1 +1,1 @@
-{"id":"b13f47763e78c20961e9ccb2d336ba17","fullName":"tests.test_trust_cut#test_mcp_fastmcp_importable","name":"mcp.server.fastmcp imports under installed mcp extra","status":"passed","testResultsByEnv":{"default":"452d42d9bcfaf5842de652c1c1150628"}}
+{"id":"b13f47763e78c20961e9ccb2d336ba17","fullName":"tests.test_trust_cut#test_mcp_fastmcp_importable","name":"mcp.server.fastmcp imports under installed mcp extra","status":"passed","testResultsByEnv":{"default":"a04831dde94b5d06ce19e5304a07e5f2"}}

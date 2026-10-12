@@ -1,0 +1,1 @@
+{"adversarial": 64, "corpus": "p1-slots-v1", "positive": 16, "sha256": "cf35ec6a3777910df45245ba4598c41610b388370195f2d11cdf889419c34063"}

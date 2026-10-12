@@ -1,0 +1,1 @@
+{"id":"426c4d07c0ab706f4308a854dadf5202","fullName":"tests.test_budget_gaps#test_cursor_warn_skips_non_ollama","name":"cursor warn skips non-ollama alts before selecting local LLM","status":"passed","testResultsByEnv":{"default":"f6d70b8813a573e04c27276b50ee0f49"}}

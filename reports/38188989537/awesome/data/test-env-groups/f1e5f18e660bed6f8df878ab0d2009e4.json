@@ -1,0 +1,1 @@
+{"id":"f1e5f18e660bed6f8df878ab0d2009e4","fullName":"tests.test_capabilities#test_invoke_tool_op_quoted_query_without_task_refuses","name":"Quoted query is refused when task is absent or blank","status":"passed","testResultsByEnv":{"default":"81a5520d79324e8ea32c870730259af0"}}

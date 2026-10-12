@@ -1,1 +1,1 @@
-{"id":"b2c7f839977f350f44d28c5c8711ef7d","fullName":"tests.test_mcp_stdio#test_mcp_stdio_pipeline_dry_run_footer","name":"MCP stdio pipeline dry-run includes per-step Greedy token footer","status":"passed","testResultsByEnv":{"default":"2ab184bd65ac1199d4ce58d28b5fe606"}}
+{"id":"b2c7f839977f350f44d28c5c8711ef7d","fullName":"tests.test_mcp_stdio#test_mcp_stdio_pipeline_dry_run_footer","name":"MCP stdio pipeline dry-run includes per-step Greedy token footer","status":"passed","testResultsByEnv":{"default":"a1284bc86b27c5d669386f5438fce7b7"}}

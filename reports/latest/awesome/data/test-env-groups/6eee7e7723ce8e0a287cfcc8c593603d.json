@@ -1,1 +1,1 @@
-{"id":"6eee7e7723ce8e0a287cfcc8c593603d","fullName":"tests.test_spend_ledger#test_spend_ledger_survives_telemetry_off","name":"metered accounting persists when GREEDY_TOKEN_LOG=0","status":"passed","testResultsByEnv":{"default":"a65cbdd0fa9206b10e1f3109cc43c523"}}
+{"id":"6eee7e7723ce8e0a287cfcc8c593603d","fullName":"tests.test_spend_ledger#test_spend_ledger_survives_telemetry_off","name":"metered accounting persists when GREEDY_TOKEN_LOG=0","status":"passed","testResultsByEnv":{"default":"8a9facbaa38fab022675c22aa1336973"}}

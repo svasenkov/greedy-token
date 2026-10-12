@@ -1,1 +1,1 @@
-{"id":"3ec71188b432103efc87d76611685e68","fullName":"tests.test_init#test_resolve_version_uses_pyproject_in_source_tree","name":"resolve_version uses pyproject.toml in source checkout","status":"passed","testResultsByEnv":{"default":"41dc31369cfd4a7deaccf4a898c85430"}}
+{"id":"3ec71188b432103efc87d76611685e68","fullName":"tests.test_init#test_resolve_version_uses_pyproject_in_source_tree","name":"resolve_version uses pyproject.toml in source checkout","status":"passed","testResultsByEnv":{"default":"f7e57acd0ec8e90b3fba0655c08bfa34"}}

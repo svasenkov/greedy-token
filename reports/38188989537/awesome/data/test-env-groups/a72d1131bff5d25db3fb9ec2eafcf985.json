@@ -1,0 +1,1 @@
+{"id":"a72d1131bff5d25db3fb9ec2eafcf985","fullName":"tests.test_budget#test_footer_saved_scoped_under_legacy_threshold","name":"legacy threshold env alone does not lift the scope qualifier","status":"passed","testResultsByEnv":{"default":"9db39ec984442244851b84e2acec91f4"}}

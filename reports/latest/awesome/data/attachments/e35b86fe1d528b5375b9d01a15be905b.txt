@@ -1,0 +1,1 @@
+P5_ADMISSION_EVIDENCE stage=binding stop=deadline clock=6.0 native_calls=0 timeout=None started=False exit_code=None denial=ProductLifecycleError('Product invocation deadline exceeded') fd=-1 close_calls=1

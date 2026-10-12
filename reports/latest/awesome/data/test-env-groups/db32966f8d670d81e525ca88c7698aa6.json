@@ -1,1 +1,1 @@
-{"id":"db32966f8d670d81e525ca88c7698aa6","fullName":"tests.test_pipeline#test_format_pipeline_footer_has_by_executor","name":"Pipeline footer includes per-executor savings table","status":"passed","testResultsByEnv":{"default":"5d5dec69b3d4a445d302d154582e4ba9"}}
+{"id":"db32966f8d670d81e525ca88c7698aa6","fullName":"tests.test_pipeline#test_format_pipeline_footer_has_by_executor","name":"Pipeline footer includes per-executor savings table","status":"passed","testResultsByEnv":{"default":"36d68b005e5a1ec659e1685097698735"}}
