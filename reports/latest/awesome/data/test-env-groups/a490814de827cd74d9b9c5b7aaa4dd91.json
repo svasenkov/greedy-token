@@ -1,1 +1,1 @@
-{"id":"a490814de827cd74d9b9c5b7aaa4dd91","fullName":"tests.test_hub_static#test_index_html_csp","name":"index.html ships a restrictive CSP","status":"passed","testResultsByEnv":{"default":"230119745c9d7531e9803c7455fa40e4"}}
+{"id":"a490814de827cd74d9b9c5b7aaa4dd91","fullName":"tests.test_hub_static#test_index_html_csp","name":"index.html ships a restrictive CSP","status":"passed","testResultsByEnv":{"default":"f9e33c318bcd0eeb374b35a153d40647"}}

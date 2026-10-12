@@ -1,1 +1,1 @@
-{"id":"543891bf26cf666fa82d112ec9e38b6d","fullName":"tests.test_hook_host#test_bypass_prefix_vocabulary_is_preserved","name":"test_bypass_prefix_vocabulary_is_preserved[nogreedy:]","status":"passed","testResultsByEnv":{"default":"10f6dd4a2e42dd0ef122f06a7a7ba1fe"}}
+{"id":"543891bf26cf666fa82d112ec9e38b6d","fullName":"tests.test_hook_host#test_bypass_prefix_vocabulary_is_preserved","name":"test_bypass_prefix_vocabulary_is_preserved[cursor:]","status":"passed","testResultsByEnv":{"default":"ec3d7132507a2e3f9c33e34397abdee5"}}

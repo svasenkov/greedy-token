@@ -1,0 +1,1 @@
+{"id":"2b4a1146549b03f1f95ad281ac445b64","fullName":"tests.test_advisory#test_render_result_output_plain_text","name":"render_result_output passes through non-JSON stdout","status":"passed","testResultsByEnv":{"default":"bdc38144a664e3f2d232a672dc42e75f"}}

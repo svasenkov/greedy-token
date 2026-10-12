@@ -1,1 +1,1 @@
-{"id":"26882e67a58013e2b47aadf317489659","fullName":"tests.test_cli_handlers#test_cmd_tokens","name":"cmd_tokens counts files in workspace","status":"passed","testResultsByEnv":{"default":"f47dce6ca8328992bf468ffade46a79a"}}
+{"id":"26882e67a58013e2b47aadf317489659","fullName":"tests.test_cli_handlers#test_cmd_tokens","name":"cmd_tokens counts files in workspace","status":"passed","testResultsByEnv":{"default":"1354eaed2865380dffad321ffa2297b3"}}

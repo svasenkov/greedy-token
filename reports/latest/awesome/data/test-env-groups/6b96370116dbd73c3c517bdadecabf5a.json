@@ -1,1 +1,1 @@
-{"id":"6b96370116dbd73c3c517bdadecabf5a","fullName":"tests.test_cli_commands#test_cli_scripts_list","name":"CLI scripts --list shows wrapper registry","status":"passed","testResultsByEnv":{"default":"d3342f3f473af8ba0a986f21d83586ad"}}
+{"id":"6b96370116dbd73c3c517bdadecabf5a","fullName":"tests.test_cli_commands#test_cli_scripts_list","name":"CLI scripts --list shows wrapper registry","status":"passed","testResultsByEnv":{"default":"a1db6cfdb28a3db1fede3d9630583b48"}}

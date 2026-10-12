@@ -1,1 +1,1 @@
-{"id":"0e0ae877dbdf96726fe5711057288684","fullName":"tests.test_tool_paths#test_devin_home_bundle_globbed","name":"~/Applications Devin glob picks up the ripgrep-universal arch subdir","status":"passed","testResultsByEnv":{"default":"d546e74de8a0f2d852a4a1739b2f11b2"}}
+{"id":"0e0ae877dbdf96726fe5711057288684","fullName":"tests.test_tool_paths#test_devin_home_bundle_globbed","name":"~/Applications Devin glob picks up the ripgrep-universal arch subdir","status":"passed","testResultsByEnv":{"default":"6c50b2befbd3fed1f35404da716d0039"}}

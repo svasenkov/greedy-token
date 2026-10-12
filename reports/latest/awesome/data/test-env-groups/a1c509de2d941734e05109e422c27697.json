@@ -1,1 +1,1 @@
-{"id":"a1c509de2d941734e05109e422c27697","fullName":"tests.test_mcp_stdio#test_mcp_stdio_pipeline_operation_correlation","name":"MCP stdio pipeline emits correlated request/outcome per executed step","status":"passed","testResultsByEnv":{"default":"4db40259e91667c7dfa55a18bbb9b0b6"}}
+{"id":"a1c509de2d941734e05109e422c27697","fullName":"tests.test_mcp_stdio#test_mcp_stdio_pipeline_operation_correlation","name":"MCP stdio pipeline emits correlated request/outcome per executed step","status":"passed","testResultsByEnv":{"default":"77b48314b3bcdff81a392aaf208621e5"}}

@@ -1,0 +1,1 @@
+{"id":"7bad5b0df56fa51e471f44cd826e766b","fullName":"tests.test_capabilities#test_invoke_wrapper_arg_symlink_confinement","name":"Wrapper --args is confined by realpath — bare symlink outside refused","status":"passed","testResultsByEnv":{"default":"484d6624d84ad517bc87a730707e14d5"}}

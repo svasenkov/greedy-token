@@ -1,1 +1,1 @@
-{"id":"7def452bc999e7a4e767f7b4d6654fd9","fullName":"tests.test_cli_handlers#test_cmd_config_show_requires_workspace","name":"cmd_config show requires workspace when not --init","status":"passed","testResultsByEnv":{"default":"cdd20ed565135ecc23a04c32d8d9fe3a"}}
+{"id":"7def452bc999e7a4e767f7b4d6654fd9","fullName":"tests.test_cli_handlers#test_cmd_config_show_requires_workspace","name":"cmd_config show requires workspace when not --init","status":"passed","testResultsByEnv":{"default":"27d38e799d2fe5e159a1a8aae8fbd279"}}

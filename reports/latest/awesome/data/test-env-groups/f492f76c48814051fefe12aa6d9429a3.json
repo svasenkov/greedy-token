@@ -1,1 +1,1 @@
-{"id":"f492f76c48814051fefe12aa6d9429a3","fullName":"tests.test_agent_host#test_audit_claude_convention","name":"audit_context(host=claude) counts CLAUDE.md + .claude/rules as always-on","status":"passed","testResultsByEnv":{"default":"ee2c809eda6218b5c8e4817cd91741a1"}}
+{"id":"f492f76c48814051fefe12aa6d9429a3","fullName":"tests.test_agent_host#test_audit_claude_convention","name":"audit_context(host=claude) counts CLAUDE.md + .claude/rules as always-on","status":"passed","testResultsByEnv":{"default":"5489e1fd5e68c5325caa3e13a1f2d969"}}

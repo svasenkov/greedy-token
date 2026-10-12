@@ -1,1 +1,1 @@
-{"id":"4a23114a1df6dae87e704da4ff1d97e0","fullName":"tests.test_mcp_stdio#test_mcp_stdio_invoke_ready_op","name":"MCP stdio invoke runs a ready op and logs the operation","status":"passed","testResultsByEnv":{"default":"fc52a9e55aca9ed64de00ad9b36795db"}}
+{"id":"4a23114a1df6dae87e704da4ff1d97e0","fullName":"tests.test_mcp_stdio#test_mcp_stdio_invoke_ready_op","name":"MCP stdio invoke runs a ready op and logs the operation","status":"passed","testResultsByEnv":{"default":"94d5246360c6a2cb3a6ea82d2baa20eb"}}

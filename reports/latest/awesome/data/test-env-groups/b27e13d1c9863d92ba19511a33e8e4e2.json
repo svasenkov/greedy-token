@@ -1,1 +1,1 @@
-{"id":"b27e13d1c9863d92ba19511a33e8e4e2","fullName":"tests.test_config_presets#test_cursor_catalog_has_no_anthropic_stub_in_yaml","name":"test_cursor_catalog_has_no_anthropic_stub_in_yaml","status":"passed","testResultsByEnv":{"default":"0c6ce0375d41e01852d7d410ca32a721"}}
+{"id":"b27e13d1c9863d92ba19511a33e8e4e2","fullName":"tests.test_config_presets#test_cursor_catalog_has_no_anthropic_stub_in_yaml","name":"test_cursor_catalog_has_no_anthropic_stub_in_yaml","status":"passed","testResultsByEnv":{"default":"1759a07df76754bce43adfebbec7d090"}}

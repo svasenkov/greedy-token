@@ -1,1 +1,1 @@
-{"id":"db7b4e10a96eccc2e987db0fd1754cd9","fullName":"tests.test_trust_cut#test_pure_search_stays_tool","name":"Pure EN/RU search intents still stay on tool","status":"passed","testResultsByEnv":{"default":"7326b7d8921f5a86b8c01a1173676e43"}}
+{"id":"db7b4e10a96eccc2e987db0fd1754cd9","fullName":"tests.test_trust_cut#test_pure_search_stays_tool","name":"Pure EN/RU search intents still stay on tool","status":"passed","testResultsByEnv":{"default":"6b33913fd9ad9f482e8311c6915b9955"}}

@@ -1,1 +1,1 @@
-{"id":"355c0aa5c5db3b8a3c37f8bc64db4467","fullName":"tests.test_security#test_trusted_script_invocation_requires_allowlist","name":"Only registered or manifest-approved workspace scripts get argv","status":"passed","testResultsByEnv":{"default":"74b455885aa15a58322b92bbe99db224"}}
+{"id":"355c0aa5c5db3b8a3c37f8bc64db4467","fullName":"tests.test_security#test_trusted_script_invocation_requires_allowlist","name":"Only registered or manifest-approved workspace scripts get argv","status":"passed","testResultsByEnv":{"default":"f5842918d888d857be22320ee75dc7a2"}}

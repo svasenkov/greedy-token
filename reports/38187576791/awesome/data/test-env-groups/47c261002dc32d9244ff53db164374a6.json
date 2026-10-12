@@ -1,0 +1,1 @@
+{"id":"47c261002dc32d9244ff53db164374a6","fullName":"tests.test_machine_output#test_cli_invoke_json_capped","name":"capabilities invoke --json output stays inside the cap","status":"passed","testResultsByEnv":{"default":"ce02d33ac4182a671ac13d10b4689f37"}}

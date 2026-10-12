@@ -1,1 +1,1 @@
-{"id":"13ef38c585c4467e9b9349dbe54a9be8","fullName":"tests.test_rag_index_gaps#test_build_index_fields","name":"chunk carries document rel_path and domain verbatim","status":"passed","testResultsByEnv":{"default":"4306a8e5b245ce987202244745eac2c0"}}
+{"id":"13ef38c585c4467e9b9349dbe54a9be8","fullName":"tests.test_rag_index_gaps#test_build_index_fields","name":"chunk carries document rel_path and domain verbatim","status":"passed","testResultsByEnv":{"default":"cf1bb39adad3c95135e74d18481d25dd"}}

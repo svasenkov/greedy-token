@@ -1,0 +1,1 @@
+{"id":"d5493b9e79fca4b8931e81567a228755","fullName":"tests.test_machine_output#test_machine_output_floor_edge_caps_bounded","name":"Caps at the final-accounting floor never emit an oversize envelope","status":"passed","testResultsByEnv":{"default":"b1fe0ea4ca002b5020f03a3505a0f12f"}}

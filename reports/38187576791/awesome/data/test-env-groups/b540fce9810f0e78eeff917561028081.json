@@ -1,0 +1,1 @@
+{"id":"b540fce9810f0e78eeff917561028081","fullName":"tests.test_advisory#test_hook_mode","name":"hook_mode: unset → legacy, junk → advisory, valid modes pass","status":"passed","testResultsByEnv":{"default":"406c79be15c3a08af38a00e034d824b6"}}

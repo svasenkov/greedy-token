@@ -1,1 +1,1 @@
-{"id":"6c79d7aac70ce762788d2edbddd69146","fullName":"tests.test_mcp_handlers#test_mcp_main","name":"mcp.main applies Ollama env and runs server","status":"passed","testResultsByEnv":{"default":"a40857750077adfaa9c59ce2c74d5a3f"}}
+{"id":"6c79d7aac70ce762788d2edbddd69146","fullName":"tests.test_mcp_handlers#test_mcp_main","name":"mcp.main applies Ollama env and runs server","status":"passed","testResultsByEnv":{"default":"0083a6aafca1de023a1825e04e96f74d"}}

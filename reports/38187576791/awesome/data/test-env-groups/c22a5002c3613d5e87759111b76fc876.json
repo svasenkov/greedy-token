@@ -1,0 +1,1 @@
+{"id":"c22a5002c3613d5e87759111b76fc876","fullName":"tests.test_evidence_benchmark#test_io_redirect_does_not_bypass_admission","name":"Redirect to a non-fixture origin cannot bypass admission","status":"passed","testResultsByEnv":{"default":"128a9b0800df7a68fc4aa4997f5852ab"}}

@@ -1,1 +1,1 @@
-{"id":"2e8674d3d9879aeab21d4ae3982447f1","fullName":"tests.test_hook_host#test_ask_prefix_normalization","name":"test_ask_prefix_normalization[ordinary request-ordinary request-False]","status":"passed","testResultsByEnv":{"default":"4b3aea655a51bda20df5eb9da2620e6f"}}
+{"id":"2e8674d3d9879aeab21d4ae3982447f1","fullName":"tests.test_hook_host#test_ask_prefix_normalization","name":"test_ask_prefix_normalization[?request-request-True]","status":"passed","testResultsByEnv":{"default":"8ea255e8c9d59d76798ba1eb6642d23c"}}

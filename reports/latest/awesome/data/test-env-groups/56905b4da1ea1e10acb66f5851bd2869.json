@@ -1,1 +1,1 @@
-{"id":"56905b4da1ea1e10acb66f5851bd2869","fullName":"tests.test_rag_search_gaps#test_excerpt_head_truncation_exact","name":"long head truncates to max_len chars ending with ellipsis","status":"passed","testResultsByEnv":{"default":"efbf390adb63b4a5ae504f7bd717ccb5"}}
+{"id":"56905b4da1ea1e10acb66f5851bd2869","fullName":"tests.test_rag_search_gaps#test_excerpt_head_truncation_exact","name":"long head truncates to max_len chars ending with ellipsis","status":"passed","testResultsByEnv":{"default":"73240170dc75c2c437bbac0ddb6ea06c"}}

@@ -1,1 +1,1 @@
-{"id":"043e5bbb4a1fbe52830c152708904b12","fullName":"tests.test_crystallize_lifecycle#test_lifecycle_ops_in_capabilities","name":"lifecycle verbs are visible as capabilities — never invocable","status":"passed","testResultsByEnv":{"default":"9b0c1731678ced1effd5e94e2d3dc487"}}
+{"id":"043e5bbb4a1fbe52830c152708904b12","fullName":"tests.test_crystallize_lifecycle#test_lifecycle_ops_in_capabilities","name":"lifecycle verbs are visible as capabilities — never invocable","status":"passed","testResultsByEnv":{"default":"17be76204b701b5528369a053c254fda"}}

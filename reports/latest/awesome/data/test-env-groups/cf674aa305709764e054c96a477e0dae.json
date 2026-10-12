@@ -1,1 +1,1 @@
-{"id":"cf674aa305709764e054c96a477e0dae","fullName":"tests.test_estimator#test_format_estimate_cursor_route","name":"Format estimate shows zero savings and cursor hint for cursor route","status":"passed","testResultsByEnv":{"default":"b2465aece33a408a8384387735dbac3d"}}
+{"id":"cf674aa305709764e054c96a477e0dae","fullName":"tests.test_estimator#test_format_estimate_cursor_route","name":"Format estimate shows zero savings and cursor hint for cursor route","status":"passed","testResultsByEnv":{"default":"d4ea651311fae3a71b6c7c8f9043701b"}}

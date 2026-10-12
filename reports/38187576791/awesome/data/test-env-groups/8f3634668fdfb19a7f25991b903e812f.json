@@ -1,0 +1,1 @@
+{"id":"8f3634668fdfb19a7f25991b903e812f","fullName":"tests.test_code_search_gaps#test_search_code_colon_filename_limit","name":"search_code: rg hits in colon-named files cap to the global limit","status":"passed","testResultsByEnv":{"default":"dcf3b016386a984ca7b7dece16464732"}}

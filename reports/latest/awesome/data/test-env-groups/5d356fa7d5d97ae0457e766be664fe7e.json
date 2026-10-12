@@ -1,1 +1,1 @@
-{"id":"5d356fa7d5d97ae0457e766be664fe7e","fullName":"tests.test_cli_commands#test_cli_rag_query","name":"CLI rag searches docs/rag chunks","status":"passed","testResultsByEnv":{"default":"ce13d19b81a068b83c71fba911c03e7d"}}
+{"id":"5d356fa7d5d97ae0457e766be664fe7e","fullName":"tests.test_cli_commands#test_cli_rag_query","name":"CLI rag searches docs/rag chunks","status":"passed","testResultsByEnv":{"default":"b59b195a98d366f336b059d987b16790"}}

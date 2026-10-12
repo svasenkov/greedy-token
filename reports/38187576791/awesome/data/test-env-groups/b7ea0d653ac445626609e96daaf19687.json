@@ -1,0 +1,1 @@
+{"id":"b7ea0d653ac445626609e96daaf19687","fullName":"tests.test_hook_policy#test_p1_fixed_policy_command_cannot_contradict_slots","name":"test_p1_fixed_policy_command_cannot_contradict_slots[python lab/check_users.py --path lab/events.json --keys id,email]","status":"passed","testResultsByEnv":{"default":"34494e776e973015d32a1f70a8bcecf7"}}

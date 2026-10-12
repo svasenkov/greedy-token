@@ -1,1 +1,1 @@
-{"id":"0f2329ab1c93be69e4ca1d26fc7e4c15","fullName":"tests.test_budget_gaps#test_wrap_mcp_response_root_fallback","name":"wrap_mcp_response resolves a missing root via find_workspace_root","status":"passed","testResultsByEnv":{"default":"ac59f4de9b73b1062a256e48da84d211"}}
+{"id":"0f2329ab1c93be69e4ca1d26fc7e4c15","fullName":"tests.test_budget_gaps#test_wrap_mcp_response_root_fallback","name":"wrap_mcp_response resolves a missing root via find_workspace_root","status":"passed","testResultsByEnv":{"default":"d99a37ecbb3f04ee3b5e50d86f3961c7"}}

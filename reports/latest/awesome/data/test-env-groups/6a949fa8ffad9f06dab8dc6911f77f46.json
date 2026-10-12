@@ -1,0 +1,1 @@
+{"id":"6a949fa8ffad9f06dab8dc6911f77f46","fullName":"tests.test_evidence_benchmark#test_coverage_missing_bootstrap_not_complete","name":"Missing bootstrap makes coverage incomplete even for a closed run","status":"passed","testResultsByEnv":{"default":"c8462ee99be45aa78e2a131bb51fa792"}}

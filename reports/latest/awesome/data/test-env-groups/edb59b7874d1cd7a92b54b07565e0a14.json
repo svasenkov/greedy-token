@@ -1,1 +1,1 @@
-{"id":"edb59b7874d1cd7a92b54b07565e0a14","fullName":"tests.test_coverage_gaps#test_budget_footer_public","name":"format_spent_line / savings / footer without private helpers","status":"passed","testResultsByEnv":{"default":"73c462cf5115493aba87537484e2d295"}}
+{"id":"edb59b7874d1cd7a92b54b07565e0a14","fullName":"tests.test_coverage_gaps#test_budget_footer_public","name":"format_spent_line / savings / footer without private helpers","status":"passed","testResultsByEnv":{"default":"3126d3c341cb8fc948e5b16bf7526410"}}

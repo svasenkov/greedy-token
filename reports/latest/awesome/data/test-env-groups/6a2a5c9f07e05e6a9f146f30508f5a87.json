@@ -1,1 +1,1 @@
-{"id":"6a2a5c9f07e05e6a9f146f30508f5a87","fullName":"tests.test_mcp_stdio#test_mcp_stdio_crystallize_l3_flow","name":"MCP stdio crystallize draft→approve→promote→reject matches CLI audited flow","status":"passed","testResultsByEnv":{"default":"0bba9a3b7ce40fbba51829967a4f36ad"}}
+{"id":"6a2a5c9f07e05e6a9f146f30508f5a87","fullName":"tests.test_mcp_stdio#test_mcp_stdio_crystallize_l3_flow","name":"MCP stdio crystallize draft→approve→promote→reject matches CLI audited flow","status":"passed","testResultsByEnv":{"default":"a501deef76762519207b684a170ccaf2"}}

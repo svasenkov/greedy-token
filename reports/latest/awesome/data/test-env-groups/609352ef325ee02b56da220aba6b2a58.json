@@ -1,1 +1,1 @@
-{"id":"609352ef325ee02b56da220aba6b2a58","fullName":"tests.test_expensive_llm#test_yandex_native_success","name":"yandex native success path returns content + tokens","status":"passed","testResultsByEnv":{"default":"652a8187e113a4d93518a16ce18601c2"}}
+{"id":"609352ef325ee02b56da220aba6b2a58","fullName":"tests.test_expensive_llm#test_yandex_native_success","name":"yandex native success path returns content + tokens","status":"passed","testResultsByEnv":{"default":"af386cf514d0a51eb9cfb1cc811397d1"}}

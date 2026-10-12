@@ -1,1 +1,1 @@
-{"id":"fbbb670c47b9afbde9d152d010d7d246","fullName":"tests.test_hub_gaps#test_rank_candidates_route_outcome_skipped","name":"rank_candidates: route_outcome rows never count as hits","status":"passed","testResultsByEnv":{"default":"52a927fbb927058dcaa54c16d89f6aae"}}
+{"id":"fbbb670c47b9afbde9d152d010d7d246","fullName":"tests.test_hub_gaps#test_rank_candidates_route_outcome_skipped","name":"rank_candidates: route_outcome rows never count as hits","status":"passed","testResultsByEnv":{"default":"a9a429374c7499d09905c363d99f65de"}}

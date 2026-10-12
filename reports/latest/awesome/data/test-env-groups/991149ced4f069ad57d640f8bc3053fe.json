@@ -1,1 +1,1 @@
-{"id":"991149ced4f069ad57d640f8bc3053fe","fullName":"tests.test_budget_gaps#test_tier_alternatives_tool_python_suffix","name":"tier alternatives keep the 0-LLM suffix on non-selected tool/python","status":"passed","testResultsByEnv":{"default":"2e42586af761a507a0c51f5a0effde1c"}}
+{"id":"991149ced4f069ad57d640f8bc3053fe","fullName":"tests.test_budget_gaps#test_tier_alternatives_tool_python_suffix","name":"tier alternatives keep the local-exec suffix on non-selected tool/python","status":"passed","testResultsByEnv":{"default":"8d11f6ce2922b3fd468df298a27ab358"}}

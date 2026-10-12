@@ -1,0 +1,1 @@
+{"id":"66228a88f2104ae42808a43497aac4d9","fullName":"tests.test_capabilities#test_invoke_route_args_workspace_confined","name":"params:[args] route — caller args stay workspace-confined","status":"passed","testResultsByEnv":{"default":"7a09f8e403e6396f5458fa14c5b693db"}}

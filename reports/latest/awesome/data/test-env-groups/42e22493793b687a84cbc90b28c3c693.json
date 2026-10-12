@@ -1,1 +1,1 @@
-{"id":"42e22493793b687a84cbc90b28c3c693","fullName":"tests.test_budget_gaps#test_footer_context_cursor_tier","name":"footer context: cursor tier earns no savings and no time saved","status":"passed","testResultsByEnv":{"default":"23901db9a306e29b32709677e8dafdf0"}}
+{"id":"42e22493793b687a84cbc90b28c3c693","fullName":"tests.test_budget_gaps#test_footer_context_cursor_tier","name":"footer context: cursor tier keeps earned unknown and time potential zero","status":"passed","testResultsByEnv":{"default":"4cc24f74efa4c2beb630913861851d5d"}}

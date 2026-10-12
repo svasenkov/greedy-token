@@ -1,1 +1,1 @@
-{"id":"ba548d3b49736c4ea47c61a87a715219","fullName":"tests.test_cheap_llm#test_loopback_skips_basic_auth","name":"Loopback Ollama sends no Authorization even when env credentials are set","status":"passed","testResultsByEnv":{"default":"849df400d7f82e91100cfd86832fdf23"}}
+{"id":"ba548d3b49736c4ea47c61a87a715219","fullName":"tests.test_cheap_llm#test_loopback_skips_basic_auth","name":"Loopback Ollama sends no Authorization even when env credentials are set","status":"passed","testResultsByEnv":{"default":"a113ce7b8dc9287c5f289793d00a8878"}}

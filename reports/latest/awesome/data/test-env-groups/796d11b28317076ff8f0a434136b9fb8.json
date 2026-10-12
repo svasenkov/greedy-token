@@ -1,1 +1,1 @@
-{"id":"796d11b28317076ff8f0a434136b9fb8","fullName":"tests.test_spend_ledger#test_spend_record_compact_utf8","name":"spend rows are compact UTF-8 JSONL — Cyrillic is not escaped","status":"passed","testResultsByEnv":{"default":"a346683e68535cb67f71d79b9072f2bc"}}
+{"id":"796d11b28317076ff8f0a434136b9fb8","fullName":"tests.test_spend_ledger#test_spend_record_compact_utf8","name":"spend rows are compact UTF-8 JSONL — Cyrillic is not escaped","status":"passed","testResultsByEnv":{"default":"1f1f5c9d9f6f5d9fd201e19eb08124c0"}}

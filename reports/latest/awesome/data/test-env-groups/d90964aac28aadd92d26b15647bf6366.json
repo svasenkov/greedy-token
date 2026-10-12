@@ -1,1 +1,1 @@
-{"id":"d90964aac28aadd92d26b15647bf6366","fullName":"tests.test_rag_fts#test_unicode61_bm25_handles_ru_en_and_code_identifiers","name":"test_unicode61_bm25_handles_ru_en_and_code_identifiers","status":"passed","testResultsByEnv":{"default":"2febae87c1e2f22f6910a61b3f745d90"}}
+{"id":"d90964aac28aadd92d26b15647bf6366","fullName":"tests.test_rag_fts#test_unicode61_bm25_handles_ru_en_and_code_identifiers","name":"test_unicode61_bm25_handles_ru_en_and_code_identifiers","status":"passed","testResultsByEnv":{"default":"49cb10802ae87a995f72dfbf7f5355e5"}}

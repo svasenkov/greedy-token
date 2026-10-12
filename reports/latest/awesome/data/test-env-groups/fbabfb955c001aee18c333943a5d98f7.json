@@ -1,1 +1,1 @@
-{"id":"fbabfb955c001aee18c333943a5d98f7","fullName":"tests.test_context_audit#test_audit_context_finds_rules","name":"Context audit discovers always-on Cursor rules","status":"passed","testResultsByEnv":{"default":"1202e80bf0579cf862a55114b06c5a03"}}
+{"id":"fbabfb955c001aee18c333943a5d98f7","fullName":"tests.test_context_audit#test_audit_context_finds_rules","name":"Context audit discovers always-on Cursor rules","status":"passed","testResultsByEnv":{"default":"8b9ea12c7d7720545ec2f6575c1decbe"}}

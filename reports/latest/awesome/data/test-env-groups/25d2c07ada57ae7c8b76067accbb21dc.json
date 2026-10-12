@@ -1,1 +1,1 @@
-{"id":"25d2c07ada57ae7c8b76067accbb21dc","fullName":"tests.test_hook_policy#test_fallback_threshold_preserves_legacy_settings","name":"test_fallback_threshold_preserves_legacy_settings[0.65-0.65]","status":"passed","testResultsByEnv":{"default":"c3e0b475ec0869e5d74cfcd37c5727f0"}}
+{"id":"25d2c07ada57ae7c8b76067accbb21dc","fullName":"tests.test_hook_policy#test_fallback_threshold_preserves_legacy_settings","name":"test_fallback_threshold_preserves_legacy_settings[bad-1.01]","status":"passed","testResultsByEnv":{"default":"79c989ca80cef887b80817b3df5c4c6d"}}

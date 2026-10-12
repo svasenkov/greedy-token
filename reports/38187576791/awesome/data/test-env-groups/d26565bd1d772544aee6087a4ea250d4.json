@@ -1,0 +1,1 @@
+{"id":"d26565bd1d772544aee6087a4ea250d4","fullName":"tests.test_coverage_gaps#test_pipeline_route_step_without_command","name":"Auto-run route step without a command refuses cleanly","status":"passed","testResultsByEnv":{"default":"976bb4e5b911cc35562a3608aab4c42c"}}

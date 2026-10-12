@@ -1,1 +1,1 @@
-{"id":"32a5c5729565b67ecea4faf4b2c83e73","fullName":"tests.test_trust_cut#test_tokenize_cyrillic_not_empty","name":"Cyrillic query yields a non-empty token set","status":"passed","testResultsByEnv":{"default":"9ff9432de1627d931702f40806d09988"}}
+{"id":"32a5c5729565b67ecea4faf4b2c83e73","fullName":"tests.test_trust_cut#test_tokenize_cyrillic_not_empty","name":"Cyrillic query yields a non-empty token set","status":"passed","testResultsByEnv":{"default":"f7c7dce361577d0e0aa03962dcab533d"}}

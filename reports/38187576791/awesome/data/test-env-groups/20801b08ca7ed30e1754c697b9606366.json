@@ -1,0 +1,1 @@
+{"id":"20801b08ca7ed30e1754c697b9606366","fullName":"tests.test_spend_guard_gaps#test_load_today_spend_includes_pending","name":"_load_today_spend counts fresh pending reservations","status":"passed","testResultsByEnv":{"default":"2391ec9e8cf7ed5747e4f414525d3d80"}}

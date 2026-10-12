@@ -1,1 +1,1 @@
-{"id":"1264276cfa7d41f4e224a3d017be063b","fullName":"tests.test_trust#test_cmd_trust_verify_summary","name":"CLI trust verify prints a summary footer with ok/inert/failed counts","status":"passed","testResultsByEnv":{"default":"f469a75159f80170242c51e96f86a6d2"}}
+{"id":"1264276cfa7d41f4e224a3d017be063b","fullName":"tests.test_trust#test_cmd_trust_verify_summary","name":"CLI trust verify prints a summary footer with ok/inert/failed counts","status":"passed","testResultsByEnv":{"default":"ca43f7e1ad02c89b79a3299b7fd91c79"}}

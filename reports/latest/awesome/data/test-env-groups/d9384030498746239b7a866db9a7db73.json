@@ -1,0 +1,1 @@
+{"id":"d9384030498746239b7a866db9a7db73","fullName":"tests.test_machine_output#test_machine_output_protected_values_immutable","name":"Protected verdict values are immutable; inner contract survives or refuses","status":"passed","testResultsByEnv":{"default":"8f88b766c459df68fa93fb9ac45245bf"}}

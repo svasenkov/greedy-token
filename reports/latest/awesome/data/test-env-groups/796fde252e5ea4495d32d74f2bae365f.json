@@ -1,1 +1,1 @@
-{"id":"796fde252e5ea4495d32d74f2bae365f","fullName":"tests.test_search#test_extract_search_query","name":"Extract search query `prometheus` from task","status":"passed","testResultsByEnv":{"default":"5fad36fcec56b13cf565b0ca481c9ad1"}}
+{"id":"796fde252e5ea4495d32d74f2bae365f","fullName":"tests.test_search#test_extract_search_query","name":"Extract search query `baseUrl` from task","status":"passed","testResultsByEnv":{"default":"ebc71eb7c8663401dbb64a592addeaa6"}}

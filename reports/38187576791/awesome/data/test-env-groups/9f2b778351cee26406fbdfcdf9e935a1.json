@@ -1,0 +1,1 @@
+{"id":"9f2b778351cee26406fbdfcdf9e935a1","fullName":"tests.test_mcp_icon#test_mcp_icons_png_when_svg_missing","name":"MCP server icon falls back to a small PNG when SVG is absent","status":"passed","testResultsByEnv":{"default":"e79b0bf59d9fa1b6e084fbf511f8dbf2"}}

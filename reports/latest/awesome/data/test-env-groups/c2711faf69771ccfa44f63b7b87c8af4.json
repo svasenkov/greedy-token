@@ -1,1 +1,1 @@
-{"id":"c2711faf69771ccfa44f63b7b87c8af4","fullName":"tests.test_cli_handlers#test_cmd_scripts_run_audit_skill_execute","name":"cmd_scripts --execute allows stdout-only audit-skill","status":"passed","testResultsByEnv":{"default":"e8c6e6db803c301565847b12859c52b4"}}
+{"id":"c2711faf69771ccfa44f63b7b87c8af4","fullName":"tests.test_cli_handlers#test_cmd_scripts_run_audit_skill_execute","name":"cmd_scripts --execute allows stdout-only audit-skill","status":"passed","testResultsByEnv":{"default":"92a9ffd00d5b37c3da6189e7ea8c2fd2"}}

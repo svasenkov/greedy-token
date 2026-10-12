@@ -1,0 +1,1 @@
+{"id":"2e27882fcb80a83926b30d9c39aaa362","fullName":"tests.test_evidence_benchmark#test_observed_native_launch_denied_before_spawn","name":"Unadmitted native child launch is still denied before spawn","status":"passed","testResultsByEnv":{"default":"05d1ec2caacc52a32d793bba3a7da8f5"}}

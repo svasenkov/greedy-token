@@ -1,0 +1,1 @@
+{"id":"7d8b8ec0570b54f584baca4514924ad1","fullName":"tests.test_usage#test_synthetic_baseline_is_potential_not_earned","name":"synthetic baseline never becomes an earned claim without measured evidence","status":"passed","testResultsByEnv":{"default":"ee2a92e2a5e77117ac5fb86d700de196"}}

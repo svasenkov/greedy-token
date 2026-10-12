@@ -1,1 +1,1 @@
-{"id":"554d595ddbae4f69ed5cef6999d87676","fullName":"tests.test_usage_gaps#test_build_compress_event_golden","name":"build_compress_event emits the exact schema for both compressors","status":"passed","testResultsByEnv":{"default":"ced0eacc5c013a7ba5705bb9013c2fe1"}}
+{"id":"554d595ddbae4f69ed5cef6999d87676","fullName":"tests.test_usage_gaps#test_build_compress_event_golden","name":"build_compress_event emits the exact schema for both compressors","status":"passed","testResultsByEnv":{"default":"a0a3d532943e6771cb61f773fc7029d1"}}

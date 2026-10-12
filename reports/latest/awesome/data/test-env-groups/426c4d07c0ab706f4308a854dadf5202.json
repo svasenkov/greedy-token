@@ -1,1 +1,1 @@
-{"id":"426c4d07c0ab706f4308a854dadf5202","fullName":"tests.test_budget_gaps#test_cursor_warn_skips_non_ollama","name":"cursor warn skips non-ollama alts before selecting local LLM","status":"passed","testResultsByEnv":{"default":"c8745c53d85ffa9b01814f83cb41ebc8"}}
+{"id":"426c4d07c0ab706f4308a854dadf5202","fullName":"tests.test_budget_gaps#test_cursor_warn_skips_non_ollama","name":"cursor warn skips non-ollama alts before selecting local LLM","status":"passed","testResultsByEnv":{"default":"832e392ff5c54699e854f46303bef390"}}

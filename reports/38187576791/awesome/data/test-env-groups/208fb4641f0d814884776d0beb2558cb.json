@@ -1,0 +1,1 @@
+{"id":"208fb4641f0d814884776d0beb2558cb","fullName":"tests.test_budget_gaps#test_budget_cache_hit_skips_reads","name":"unchanged ledgers serve the snapshot without re-reading files","status":"passed","testResultsByEnv":{"default":"ee5d19fb9e33026d03bef2f9015c8496"}}

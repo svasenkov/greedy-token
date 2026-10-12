@@ -1,0 +1,1 @@
+{"id":"78d068ed3acd0906767f221e2976b6c8","fullName":"tests.test_evidence_benchmark#test_rag_chunk_id_without_excerpt_not_zero","name":"RAG chunk id echo without the frozen excerpt is not completed","status":"passed","testResultsByEnv":{"default":"066b17f73a8f1fbb4c1cf56f15b2ec49"}}

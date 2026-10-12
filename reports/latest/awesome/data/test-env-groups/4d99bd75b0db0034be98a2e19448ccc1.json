@@ -1,1 +1,1 @@
-{"id":"4d99bd75b0db0034be98a2e19448ccc1","fullName":"tests.test_spend_guard_gaps#test_load_today_spend","name":"_load_today_spend sums today's metered cost and skips junk","status":"passed","testResultsByEnv":{"default":"846f67755fa45804e71a9597b0582c27"}}
+{"id":"4d99bd75b0db0034be98a2e19448ccc1","fullName":"tests.test_spend_guard_gaps#test_load_today_spend","name":"_load_today_spend sums today's metered cost and skips junk","status":"passed","testResultsByEnv":{"default":"8ca23f776851c24e067bef6b7fb6c156"}}

@@ -1,0 +1,1 @@
+{"id":"24921b24c1899fab092e0c4ecef776b7","fullName":"tests.test_budget_gaps#test_cost_from_event_precedence","name":"_cost_from_event prefers explicit cost, survives malformed first field","status":"passed","testResultsByEnv":{"default":"3b28757847432ed77ca18b6d89a5534e"}}
