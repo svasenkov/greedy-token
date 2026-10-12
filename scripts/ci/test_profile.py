@@ -28,17 +28,17 @@ def main() -> int:
             "allure-pytest": "2.16.0",
             "coverage": "7.0.0",
             "hypothesis": "6.10.1",
-            "mcp": "1.15.0",
+            "mcp": "1.22.0",
         }
         installed = {name: metadata.version(name) for name in expected}
         if installed != expected:
             raise SystemExit(f"minimum dependency mismatch: {installed!r}")
     elif profile == "mcp-lowest":
-        if metadata.version("mcp") != "1.15.0":
-            raise SystemExit("mcp-lowest must install exactly 1.15.0")
+        if metadata.version("mcp") != "1.22.0":
+            raise SystemExit("mcp-lowest must install exactly 1.22.0")
     elif profile == "mcp-latest":
         version = tuple(int(part) for part in metadata.version("mcp").split(".")[:2])
-        if not (version >= (1, 15) and version < (2, 0)):
+        if not (version >= (1, 22) and version < (2, 0)):
             raise SystemExit(f"mcp-latest resolved outside supported 1.x: {version!r}")
     tests = MCP_TESTS if profile.startswith("mcp-") else ["tests/", "-m", "unit"]
     subprocess.run(

@@ -21,7 +21,9 @@ dependencies = [
 dev = ["pytest>=8.0", "pytest-xdist>=3.8", "pytest-cov>=6.0", "allure-pytest>=2.16", "coverage>=7.0", "hypothesis>=6.10.1", "mutmut>=3.6", "ruff>=0.6"]
 # 1.15.0 is the first release whose FastMCP + Icon API passes our contract suite.
 # MCP 2.0 removed mcp.server.fastmcp (breaks greedy_token.mcp + collection).
-mcp = ["mcp>=1.15,<2"]
+# mcp <1.22 imports pydantic's removed internal eval_type_backport (breaks
+# under pydantic >=2.13) — floor kept at the first compatible release.
+mcp = ["mcp>=1.22,<2"]
 
 [project.scripts]
 greedy-token = "greedy_token.cli:main"

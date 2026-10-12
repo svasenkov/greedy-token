@@ -5,7 +5,9 @@ from __future__ import annotations
 import subprocess
 import sys
 
-MCP_LOWEST = "1.15.0"
+# mcp 1.22.0 is the first release without the removed pydantic internal
+# `eval_type_backport` import (breaks under pydantic >=2.13).
+MCP_LOWEST = "1.22.0"
 MINIMUM = [
     "PyYAML==6.0.1",
     "pathspec==1.1.1",
@@ -39,7 +41,7 @@ def main() -> int:
     elif profile == "mcp-lowest":
         run("install", "-e", ".[dev]", f"mcp=={MCP_LOWEST}")
     elif profile == "mcp-latest":
-        run("install", "--upgrade", "-e", ".[dev]", "mcp>=1.15,<2")
+        run("install", "--upgrade", "-e", ".[dev]", f"mcp>={MCP_LOWEST},<2")
     else:
         raise SystemExit(f"unknown dependency profile: {profile}")
     return 0
