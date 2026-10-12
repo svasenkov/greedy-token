@@ -1,0 +1,4 @@
+greedy-token hub → http://127.0.0.1:0
+  log: see /api/health
+
+greedy-token hub stopped

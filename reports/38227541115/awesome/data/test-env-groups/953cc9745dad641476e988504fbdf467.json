@@ -1,1 +1,1 @@
-{"id":"953cc9745dad641476e988504fbdf467","fullName":"tests.test_usage#test_aggregate_by_tier","name":"Event aggregator groups events by tier and route","status":"passed","testResultsByEnv":{"default":"7010b050420d6d40d77e17ae659d7077"}}
+{"id":"953cc9745dad641476e988504fbdf467","fullName":"tests.test_usage#test_aggregate_by_tier","name":"Event aggregator groups events by tier and route","status":"passed","testResultsByEnv":{"default":"25723b93c092f23b93651271354d6699"}}

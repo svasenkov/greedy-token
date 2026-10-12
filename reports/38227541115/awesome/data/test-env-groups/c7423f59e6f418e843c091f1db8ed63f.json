@@ -1,1 +1,1 @@
-{"id":"c7423f59e6f418e843c091f1db8ed63f","fullName":"tests.test_pyramid_layer_colors#test_palette_a_unique_per_layer","name":"Palette A has unique colors per layer in light and dark themes","status":"passed","testResultsByEnv":{"default":"a3caa7d1ec6d5224e10fc17f27448ea2"}}
+{"id":"c7423f59e6f418e843c091f1db8ed63f","fullName":"tests.test_pyramid_layer_colors#test_palette_a_unique_per_layer","name":"Palette A has unique colors per layer in light and dark themes","status":"passed","testResultsByEnv":{"default":"16948d8dab9cd423c33fb8c09f954976"}}

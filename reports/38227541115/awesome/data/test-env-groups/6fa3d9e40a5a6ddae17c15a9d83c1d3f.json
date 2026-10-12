@@ -1,1 +1,1 @@
-{"id":"6fa3d9e40a5a6ddae17c15a9d83c1d3f","fullName":"tests.test_rag_search#test_format_hits_includes_excerpt","name":"RAG hit formatter includes chunk id and excerpt","status":"passed","testResultsByEnv":{"default":"16977708927285ad2e469902f6cc9f4c"}}
+{"id":"6fa3d9e40a5a6ddae17c15a9d83c1d3f","fullName":"tests.test_rag_search#test_format_hits_includes_excerpt","name":"RAG hit formatter includes chunk id and excerpt","status":"passed","testResultsByEnv":{"default":"835eb920f6e993a2fac44bbc333ee2b6"}}

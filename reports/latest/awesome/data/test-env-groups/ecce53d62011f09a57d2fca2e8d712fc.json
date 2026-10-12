@@ -1,1 +1,1 @@
-{"id":"ecce53d62011f09a57d2fca2e8d712fc","fullName":"tests.test_resource_probe_gaps#test_run_micro_benchmark_no_workspace_root","name":"run_micro_benchmark: no workspace root falls back to user config","status":"passed","testResultsByEnv":{"default":"7b604c92959079bfd83f374917d2d8aa"}}
+{"id":"ecce53d62011f09a57d2fca2e8d712fc","fullName":"tests.test_resource_probe_gaps#test_run_micro_benchmark_no_workspace_root","name":"run_micro_benchmark: no workspace root falls back to user config","status":"passed","testResultsByEnv":{"default":"7a649539e042218faf38ae8823c331c4"}}

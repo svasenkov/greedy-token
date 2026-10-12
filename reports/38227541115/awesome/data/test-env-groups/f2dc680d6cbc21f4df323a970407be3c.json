@@ -1,1 +1,1 @@
-{"id":"f2dc680d6cbc21f4df323a970407be3c","fullName":"tests.test_machine_output#test_shrink_text_contract_skeleton_fallback","name":"_shrink_text falls back to the contract skeleton when shrink overshoots","status":"passed","testResultsByEnv":{"default":"1fd8116384616f838968f091f990614c"}}
+{"id":"f2dc680d6cbc21f4df323a970407be3c","fullName":"tests.test_machine_output#test_shrink_text_contract_skeleton_fallback","name":"_shrink_text falls back to the contract skeleton when shrink overshoots","status":"passed","testResultsByEnv":{"default":"e5deaf4d47b34fbf9c76397c80373b7f"}}

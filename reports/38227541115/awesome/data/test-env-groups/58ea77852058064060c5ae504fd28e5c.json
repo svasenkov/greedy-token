@@ -1,1 +1,1 @@
-{"id":"58ea77852058064060c5ae504fd28e5c","fullName":"tests.test_cli_handlers#test_cmd_init_json","name":"cmd_init --json returns detection payload","status":"passed","testResultsByEnv":{"default":"820f9796884e44b5a3db59b4ff2f5e96"}}
+{"id":"58ea77852058064060c5ae504fd28e5c","fullName":"tests.test_cli_handlers#test_cmd_init_json","name":"cmd_init --json returns detection payload","status":"passed","testResultsByEnv":{"default":"4adda2b1b73b084611ddd15f832cc6a8"}}

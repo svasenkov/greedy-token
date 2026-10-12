@@ -1,0 +1,1 @@
+{"execute_plan_calls": 1, "finding": "F4", "prompt": "each object in 'lab/in repo Case/users.json' has ID and eMail", "response": "intercept"}

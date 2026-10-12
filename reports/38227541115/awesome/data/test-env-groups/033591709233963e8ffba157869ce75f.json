@@ -1,1 +1,1 @@
-{"id":"033591709233963e8ffba157869ce75f","fullName":"tests.test_llm_invoke_gaps#test_invoke_expensive_blocked","name":"expensive candidate blocked by spend guard is skipped","status":"passed","testResultsByEnv":{"default":"2e2bb88b246e05acce9c83fee6e4d3cc"}}
+{"id":"033591709233963e8ffba157869ce75f","fullName":"tests.test_llm_invoke_gaps#test_invoke_expensive_blocked","name":"expensive candidate blocked by spend guard is skipped","status":"passed","testResultsByEnv":{"default":"43f38d44052aac0ec2b4dc20150044bb"}}

@@ -1,1 +1,1 @@
-{"id":"773c1f072dad769d5dc655b2a4069b37","fullName":"tests.test_metered_bulk#test_metered_cheap_fallback_selection","name":"metered_cheap_fallback picks first enabled metered cheap model only","status":"passed","testResultsByEnv":{"default":"b8aad78cafa5d48cf3480754aab0f00d"}}
+{"id":"773c1f072dad769d5dc655b2a4069b37","fullName":"tests.test_metered_bulk#test_metered_cheap_fallback_selection","name":"metered_cheap_fallback picks first enabled metered cheap model only","status":"passed","testResultsByEnv":{"default":"936ad7a72fa8d6159082f100afe75450"}}

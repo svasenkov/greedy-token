@@ -1,1 +1,1 @@
-{"id":"b9552c9411a756df86dffa1fc997d83e","fullName":"tests.test_mcp_tools#test_mcp_pipeline_dry_run_includes_footer","name":"MCP pipeline dry-run includes per-step Greedy token footer","status":"passed","testResultsByEnv":{"default":"a01b9508c39a6724d4ef9906dc60b73b"}}
+{"id":"b9552c9411a756df86dffa1fc997d83e","fullName":"tests.test_mcp_tools#test_mcp_pipeline_dry_run_includes_footer","name":"MCP pipeline dry-run includes per-step Greedy token footer","status":"passed","testResultsByEnv":{"default":"974679c84bf4ac676e7e1ab8549a8c2e"}}

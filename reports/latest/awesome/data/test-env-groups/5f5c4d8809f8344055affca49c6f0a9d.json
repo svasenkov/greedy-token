@@ -1,1 +1,1 @@
-{"id":"5f5c4d8809f8344055affca49c6f0a9d","fullName":"tests.test_trust#test_wrong_hash_is_rejected","name":"Wrong manifest hash blocks verification and execution","status":"passed","testResultsByEnv":{"default":"ea7d6389c08c3e91db16715dda3f4309"}}
+{"id":"5f5c4d8809f8344055affca49c6f0a9d","fullName":"tests.test_trust#test_wrong_hash_is_rejected","name":"Wrong manifest hash blocks verification and execution","status":"passed","testResultsByEnv":{"default":"21efe59662733d74cc96c72500b17357"}}

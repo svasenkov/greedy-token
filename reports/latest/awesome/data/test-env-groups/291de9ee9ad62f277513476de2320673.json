@@ -1,1 +1,1 @@
-{"id":"291de9ee9ad62f277513476de2320673","fullName":"tests.test_search#test_filter_tool_output_drops_hooks_readme","name":"Tool output filter drops .cursor/hooks paths","status":"passed","testResultsByEnv":{"default":"1cb0ba86e26d78735270fb1de9eb5d4a"}}
+{"id":"291de9ee9ad62f277513476de2320673","fullName":"tests.test_search#test_filter_tool_output_drops_hooks_readme","name":"Tool output filter drops .cursor/hooks paths","status":"passed","testResultsByEnv":{"default":"fe2a4402f70b515225336bc67fb942d5"}}

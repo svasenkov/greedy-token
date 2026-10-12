@@ -1,1 +1,1 @@
-{"id":"ffc91bfe92879de9d5306b8c079ebdf5","fullName":"tests.test_hook_host#test_intercept_serializer_records_an_emission_observation","name":"test_intercept_serializer_records_an_emission_observation","status":"passed","testResultsByEnv":{"default":"0c02568df0287cc58daa59a8bea580bc"}}
+{"id":"ffc91bfe92879de9d5306b8c079ebdf5","fullName":"tests.test_hook_host#test_intercept_serializer_records_an_emission_observation","name":"test_intercept_serializer_records_an_emission_observation","status":"passed","testResultsByEnv":{"default":"1db007b9daaf3db96f9fa8899231e74a"}}

@@ -1,1 +1,1 @@
-{"id":"75c166ee8effd3649390110c82601344","fullName":"tests.test_machine_output#test_strip_to_skeleton_error_code","name":"_strip_to_skeleton: the error code survives into the skeleton","status":"passed","testResultsByEnv":{"default":"b95b886339b459c05aa3f71ba6c5c3ea"}}
+{"id":"75c166ee8effd3649390110c82601344","fullName":"tests.test_machine_output#test_strip_to_skeleton_error_code","name":"_strip_to_skeleton: the error code survives into the skeleton","status":"passed","testResultsByEnv":{"default":"7913706cf1ac05d0a34f2091bf2bd357"}}

@@ -1,0 +1,1 @@
+P5_ADMISSION_EVIDENCE stage=binding stop=cancel clock=0.0 native_calls=0 timeout=None started=False exit_code=None denial=ProductLifecycleError('Product invocation cancelled') fd=-1 close_calls=1

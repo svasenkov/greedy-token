@@ -1,1 +1,1 @@
-{"id":"4095b1084b01032d5d1d98817c7f2d5e","fullName":"tests.test_machine_output#test_shrink_text_free_json","name":"_shrink_text: contract-free JSON degrades to marker, {0} or empty","status":"passed","testResultsByEnv":{"default":"c94e745ce900086930b6b1b55925ade8"}}
+{"id":"4095b1084b01032d5d1d98817c7f2d5e","fullName":"tests.test_machine_output#test_shrink_text_free_json","name":"_shrink_text: contract-free JSON degrades to marker, {0} or empty","status":"passed","testResultsByEnv":{"default":"3bcddb851be08ae92a54b97b33824fa3"}}

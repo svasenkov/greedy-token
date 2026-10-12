@@ -1,1 +1,1 @@
-{"id":"bfc85ff04ddee7909b60ecf0c1b3db45","fullName":"tests.test_rag_index#test_search_rag_empty_query","name":"search_rag returns empty for token-less query","status":"passed","testResultsByEnv":{"default":"d7fdf582e4c33b6b3354ded2514dc968"}}
+{"id":"bfc85ff04ddee7909b60ecf0c1b3db45","fullName":"tests.test_rag_index#test_search_rag_empty_query","name":"search_rag returns empty for token-less query","status":"passed","testResultsByEnv":{"default":"5baf7f18f7a7e018b11e045ddd8af9ef"}}

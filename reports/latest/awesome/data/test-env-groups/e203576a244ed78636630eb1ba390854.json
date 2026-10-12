@@ -1,1 +1,1 @@
-{"id":"e203576a244ed78636630eb1ba390854","fullName":"tests.test_usage#test_load_events_reads_archives","name":"Event loader reads current log and rotated archives","status":"passed","testResultsByEnv":{"default":"b46233429bc8d01ab8c688191f1a9aab"}}
+{"id":"e203576a244ed78636630eb1ba390854","fullName":"tests.test_usage#test_load_events_reads_archives","name":"Event loader reads current log and rotated archives","status":"passed","testResultsByEnv":{"default":"3254c4cb5e9b59704b3dd6879138b239"}}

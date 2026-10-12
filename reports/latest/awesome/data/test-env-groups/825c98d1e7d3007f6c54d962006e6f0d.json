@@ -1,1 +1,1 @@
-{"id":"825c98d1e7d3007f6c54d962006e6f0d","fullName":"tests.test_wrappers#test_wrappers_stdout_only_are_read_only","name":"Stdout-only Ollama wrappers are read_only for --execute","status":"passed","testResultsByEnv":{"default":"80182a2fb201bd8104d564aa72ef85e9"}}
+{"id":"825c98d1e7d3007f6c54d962006e6f0d","fullName":"tests.test_wrappers#test_wrappers_stdout_only_are_read_only","name":"Stdout-only Ollama wrappers are read_only for --execute","status":"passed","testResultsByEnv":{"default":"9a206da65d9ae0b26118ae43015d5de3"}}

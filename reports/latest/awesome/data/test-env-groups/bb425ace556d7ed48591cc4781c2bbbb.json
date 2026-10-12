@@ -1,1 +1,1 @@
-{"id":"bb425ace556d7ed48591cc4781c2bbbb","fullName":"tests.test_cli_handlers#test_cmd_config_init_preset","name":"cmd_config --init --preset local-ollama","status":"passed","testResultsByEnv":{"default":"6369e4d2e7aec9dab435f9b9c44df08e"}}
+{"id":"bb425ace556d7ed48591cc4781c2bbbb","fullName":"tests.test_cli_handlers#test_cmd_config_init_preset","name":"cmd_config --init --preset local-ollama","status":"passed","testResultsByEnv":{"default":"4b8a1634edf7ffd35e123ef86505744e"}}

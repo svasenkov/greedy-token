@@ -1,1 +1,1 @@
-{"id":"50a7990c31ed7e9e705a1834e50fac6d","fullName":"tests.test_hook_policy#test_p1_adversarial_no_false_intercept","name":"test_p1_adversarial_no_false_intercept[negation-ru-intercept]","status":"passed","testResultsByEnv":{"default":"7bf493d12b82f304d1daa6cb39a07955"}}
+{"id":"50a7990c31ed7e9e705a1834e50fac6d","fullName":"tests.test_hook_policy#test_p1_adversarial_no_false_intercept","name":"test_p1_adversarial_no_false_intercept[missing-path-param-gate]","status":"passed","testResultsByEnv":{"default":"2fadae02e6ef0fd4cba3847a1c804c71"}}

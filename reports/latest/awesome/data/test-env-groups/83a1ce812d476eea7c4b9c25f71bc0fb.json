@@ -1,1 +1,1 @@
-{"id":"83a1ce812d476eea7c4b9c25f71bc0fb","fullName":"tests.test_cheap_llm#test_chat_openai_compat_malformed","name":"openai_compat response with empty choices is a structured error, not IndexError","status":"passed","testResultsByEnv":{"default":"2f564e58ae4e386bae38c8847cdb9bfd"}}
+{"id":"83a1ce812d476eea7c4b9c25f71bc0fb","fullName":"tests.test_cheap_llm#test_chat_openai_compat_malformed","name":"openai_compat response with empty choices is a structured error, not IndexError","status":"passed","testResultsByEnv":{"default":"8605b9782077d7d7f6ce4f6a573f0ab4"}}

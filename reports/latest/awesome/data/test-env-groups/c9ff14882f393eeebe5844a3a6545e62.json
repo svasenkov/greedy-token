@@ -1,1 +1,1 @@
-{"id":"c9ff14882f393eeebe5844a3a6545e62","fullName":"tests.test_settings#test_get_hook_settings_workspace","name":"get_hook_settings reads hook: from workspace yaml","status":"passed","testResultsByEnv":{"default":"6ff392be84beefc83836c31fa4d50db7"}}
+{"id":"c9ff14882f393eeebe5844a3a6545e62","fullName":"tests.test_settings#test_get_hook_settings_workspace","name":"get_hook_settings reads hook: from workspace yaml","status":"passed","testResultsByEnv":{"default":"ad0c4f684d8004be0942cd365a39291a"}}

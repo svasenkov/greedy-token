@@ -1,1 +1,1 @@
-{"id":"a68ec4409bd3911bdbca092066962b60","fullName":"tests.test_rag_search_gaps#test_format_hits_truncated_line","name":"format_hits appends the truncated/hits_dropped fields only when capped","status":"passed","testResultsByEnv":{"default":"f00f62a84797035ce871fea396f16603"}}
+{"id":"a68ec4409bd3911bdbca092066962b60","fullName":"tests.test_rag_search_gaps#test_format_hits_truncated_line","name":"format_hits appends the truncated/hits_dropped fields only when capped","status":"passed","testResultsByEnv":{"default":"1601772893493b675e84cf98c0ee97bb"}}

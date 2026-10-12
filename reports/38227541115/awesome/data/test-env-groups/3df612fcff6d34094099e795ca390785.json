@@ -1,1 +1,1 @@
-{"id":"3df612fcff6d34094099e795ca390785","fullName":"tests.test_router#test_p1_recent_commits_alias_rejects_unsafe_prompt","name":"test_p1_recent_commits_alias_rejects_unsafe_prompt[`recent commits`]","status":"passed","testResultsByEnv":{"default":"8a5a90f82879c8a5828791300156d60a"}}
+{"id":"3df612fcff6d34094099e795ca390785","fullName":"tests.test_router#test_p1_recent_commits_alias_rejects_unsafe_prompt","name":"test_p1_recent_commits_alias_rejects_unsafe_prompt[recent commits; git status]","status":"passed","testResultsByEnv":{"default":"b38f2fa5bd75eef757448e5d8178c44c"}}

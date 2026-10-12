@@ -1,1 +1,1 @@
-{"id":"f3db148171b94fd581297c36a799d39c","fullName":"tests.test_hook_policy#test_missing_advisory_preserves_legacy_policy","name":"test_missing_advisory_preserves_legacy_policy[low_confidence]","status":"passed","testResultsByEnv":{"default":"a39a1d2052e099e55699fc3aa5b5e565"}}
+{"id":"f3db148171b94fd581297c36a799d39c","fullName":"tests.test_hook_policy#test_missing_advisory_preserves_legacy_policy","name":"test_missing_advisory_preserves_legacy_policy[bypass]","status":"passed","testResultsByEnv":{"default":"2ff076e7a16056490c75471d5d4d426b"}}

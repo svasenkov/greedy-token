@@ -1,1 +1,1 @@
-{"id":"e8da98cfa4dfa65002a07a864d1633d6","fullName":"tests.test_capabilities#test_invoke_tool_op_output_cap","name":"Tool op output is capped with a truncation marker","status":"passed","testResultsByEnv":{"default":"4d06464dc91e83d16a14797e3d5f9b67"}}
+{"id":"e8da98cfa4dfa65002a07a864d1633d6","fullName":"tests.test_capabilities#test_invoke_tool_op_output_cap","name":"Tool op output is capped with a truncation marker","status":"passed","testResultsByEnv":{"default":"d6b21314656a5832b4a6e3877f15a2d3"}}

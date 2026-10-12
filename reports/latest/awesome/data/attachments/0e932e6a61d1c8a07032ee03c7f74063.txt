@@ -1,0 +1,1 @@
+{"argv": null, "case": "missing-command", "cwd": "None", "executable": false, "finding": "F1", "invoke_executed": false, "slots": "None"}

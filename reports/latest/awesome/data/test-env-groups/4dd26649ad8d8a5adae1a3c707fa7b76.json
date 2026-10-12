@@ -1,1 +1,1 @@
-{"id":"4dd26649ad8d8a5adae1a3c707fa7b76","fullName":"tests.test_mcp_stdio#test_mcp_stdio_route_includes_greedy_token","name":"MCP stdio route tool returns tier decision with Greedy token footer","status":"passed","testResultsByEnv":{"default":"21fdb730f0922cdf9a20cbb1588a0cad"}}
+{"id":"4dd26649ad8d8a5adae1a3c707fa7b76","fullName":"tests.test_mcp_stdio#test_mcp_stdio_route_includes_greedy_token","name":"MCP stdio route tool returns tier decision with Greedy token footer","status":"passed","testResultsByEnv":{"default":"36aeccd17eb09972682a94803052c2bc"}}

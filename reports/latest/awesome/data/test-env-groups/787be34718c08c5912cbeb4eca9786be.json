@@ -1,1 +1,1 @@
-{"id":"787be34718c08c5912cbeb4eca9786be","fullName":"tests.test_executors#test_p5_launch_admission_denies_stop_during_trust","name":"test_p5_launch_admission_denies_stop_during_trust[cancel-verification]","status":"passed","testResultsByEnv":{"default":"248343b4442f47a94f9b2c1027b96d34"}}
+{"id":"787be34718c08c5912cbeb4eca9786be","fullName":"tests.test_executors#test_p5_launch_admission_denies_stop_during_trust","name":"test_p5_launch_admission_denies_stop_during_trust[deadline-verification]","status":"passed","testResultsByEnv":{"default":"4d2a59523c0bdfa1dbc87e20fc67c0ba"}}

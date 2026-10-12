@@ -1,1 +1,1 @@
-{"id":"20369e22dd68a8cab6307e2b17d2afbd","fullName":"tests.test_doc_sync#test_readme_mcp_tool_count_matches_code","name":"README MCP tool count matches @mcp.tool() registrations","status":"passed","testResultsByEnv":{"default":"90e9ece3c46dabd2ee76e1af6f501c6f"}}
+{"id":"20369e22dd68a8cab6307e2b17d2afbd","fullName":"tests.test_doc_sync#test_readme_mcp_tool_count_matches_code","name":"README MCP tool count matches @mcp.tool() registrations","status":"passed","testResultsByEnv":{"default":"4b108195cc18e27d5f1a3b80dfcd7748"}}

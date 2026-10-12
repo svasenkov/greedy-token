@@ -1,1 +1,1 @@
-{"id":"2a2cc24180e7b3656e6f382444cb657b","fullName":"tests.test_trust#test_cmd_trust_verify_json_clean_and_empty","name":"CLI trust verify --json reports clean and empty manifests","status":"passed","testResultsByEnv":{"default":"70e4fff68d9471a8f64800273c07c1d7"}}
+{"id":"2a2cc24180e7b3656e6f382444cb657b","fullName":"tests.test_trust#test_cmd_trust_verify_json_clean_and_empty","name":"CLI trust verify --json reports clean and empty manifests","status":"passed","testResultsByEnv":{"default":"48db55599fd40ae6d87e5eec811b9a97"}}

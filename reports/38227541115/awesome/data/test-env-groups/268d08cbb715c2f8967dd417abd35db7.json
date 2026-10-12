@@ -1,1 +1,1 @@
-{"id":"268d08cbb715c2f8967dd417abd35db7","fullName":"tests.test_model_select_gaps#test_threshold_parsing","name":"llm.cheap_cost_threshold_per_1m_usd parsed with default fallback","status":"passed","testResultsByEnv":{"default":"7320c5e660c82da41fe3eaef56d8c7af"}}
+{"id":"268d08cbb715c2f8967dd417abd35db7","fullName":"tests.test_model_select_gaps#test_threshold_parsing","name":"llm.cheap_cost_threshold_per_1m_usd parsed with default fallback","status":"passed","testResultsByEnv":{"default":"966e473a80f9e063e722545fb0478e69"}}

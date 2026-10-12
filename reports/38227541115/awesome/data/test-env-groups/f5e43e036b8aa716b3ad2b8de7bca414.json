@@ -1,1 +1,1 @@
-{"id":"f5e43e036b8aa716b3ad2b8de7bca414","fullName":"tests.test_rag_fts#test_connect_translates_only_fts5_errors","name":"test_connect_translates_only_fts5_errors[disk I/O error-OperationalError]","status":"passed","testResultsByEnv":{"default":"25711205798748a2c8e67435573e7c85"}}
+{"id":"f5e43e036b8aa716b3ad2b8de7bca414","fullName":"tests.test_rag_fts#test_connect_translates_only_fts5_errors","name":"test_connect_translates_only_fts5_errors[no such module: fts5-Fts5Unavailable]","status":"passed","testResultsByEnv":{"default":"acbb72edb48ce9bf4f6f37007e7d7ed2"}}

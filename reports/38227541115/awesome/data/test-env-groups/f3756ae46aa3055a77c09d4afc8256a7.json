@@ -1,1 +1,1 @@
-{"id":"f3756ae46aa3055a77c09d4afc8256a7","fullName":"tests.test_pipeline#test_format_pipeline_footer_spent_by_executor","name":"format_pipeline_footer 'Spent by executor' covers every executor + notes","status":"passed","testResultsByEnv":{"default":"3e611464185bbf2aee84f2677aea6766"}}
+{"id":"f3756ae46aa3055a77c09d4afc8256a7","fullName":"tests.test_pipeline#test_format_pipeline_footer_spent_by_executor","name":"format_pipeline_footer 'Spent by executor' covers every executor + notes","status":"passed","testResultsByEnv":{"default":"2d28ad7518eb8f82ca252e42f2f3d41e"}}
